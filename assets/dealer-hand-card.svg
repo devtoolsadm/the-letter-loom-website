@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="72" height="72" viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <g>
+    <!-- Mano -->
+    <path d="M20 50 Q18 60 30 62 Q42 64 44 54 Q45 50 40 48 Q38 47 36 50 Q34 53 32 52 Q30 51 32 48 Q34 45 38 46 Q42 47 44 44 Q46 41 44 38 Q42 35 38 36 Q34 37 32 40 Q30 43 32 46" fill="#FDECA6" stroke="#A58A73" stroke-width="2.5"/>
+    <!-- Muñeca -->
+    <rect x="18" y="58" width="16" height="8" rx="4" fill="#D9A443" stroke="#A58A73" stroke-width="1.5"/>
+    <!-- Carta -->
+    <rect x="44" y="28" width="18" height="28" rx="3" fill="#fff" stroke="#428BCA" stroke-width="2.5"/>
+    <!-- Detalle carta -->
+    <rect x="48" y="32" width="10" height="4" rx="1.2" fill="#FDECA6"/>
+    <rect x="48" y="40" width="10" height="4" rx="1.2" fill="#FDECA6"/>
+    <!-- Sombra carta -->
+    <ellipse cx="53" cy="59" rx="8" ry="2.5" fill="#B4E0FD" fill-opacity="0.5"/>
+  </g>
+</svg>
