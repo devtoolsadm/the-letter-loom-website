@@ -1078,7 +1078,7 @@ function initUI(...args) {
 function showAppVersion() {
   const versionDiv = document.getElementById("app-version");
   if (versionDiv) {
-    versionDiv.textContent = `v${APP_VERSION}`;
+    versionDiv.textContent = `${APP_VERSION}`;
   }
 }
 
