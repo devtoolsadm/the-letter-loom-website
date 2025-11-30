@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Letter Loom V2.0</title>
+    <!-- Estilos globales de botones ahora en el bloque <style> -->
+    <link rel="stylesheet" href="src/ui/main.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+    <script type="module">
+        import { initUI } from './src/ui/mainUI.js';
+        initUI();
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Fredoka:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body class="flex items-center justify-center min-h-screen p-2 sm:p-4">
+
+    <div id="app-viewport" class="w-full max-w-[450px] h-[95vh] max-h-[850px] relative shadow-2xl rounded-2xl overflow-hidden flex flex-col">
+        <div id="app-container" class="w-full h-full flex flex-col relative">
+            <div class="absolute inset-0 bg-cover app-bg-gradient"></div>
+            
+
+            <div class="absolute top-0 left-0 w-full flex justify-between items-start px-4 pt-4 z-20">
+                <button id="sound-toggle-btn" class="btn control-btn btn-blue text-xl flex items-center justify-center" aria-label="Toggle sound"></button>
+                <button id="lang-toggle-btn" class="btn btn-blue text-xl px-3 py-2 !text-lg flex items-center gap-2" aria-label="Lang toogle"></button>
+            </div>
+
+            <!-- SETUP SCREEN -->
+            <div id="setup-screen" class="screen flex-grow flex flex-col p-4">
+                <div class="w-full flex flex-col flex-grow h-full">
+                    <h1 id="app-title" class="text-center mb-4 mt-12" data-text-key="appTitle">Letter Loom</h1>
+
+                    <div class="game-panel p-4 space-y-3 overflow-y-auto flex-grow mb-4">
+                        <!-- Player Count -->
+                        <div class="flex justify-between items-center">
+                            <span class="font-bold text-2xl" data-text-key="playerCount">Player Count</span>
+                            <div class="flex items-center justify-between w-48">
+                                <button id="player-minus" class="btn control-btn btn-red" aria-label="Decrease player count"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-8 h-8"><path d="M19 13.5H5v-3h14v3z"/></svg></button>
+                                <span id="player-count" class="text-4xl font-bold text-center">5</span>
+                                <button id="player-plus" class="btn control-btn btn-green" aria-label="Increase player count"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-8 h-8"><path d="M19 13.5h-6.5v6.5h-3v-6.5H3v-3h6.5V3h3v6.5H19v3z"/></svg></button>
+                            </div>
+                        </div>
+
+                            <!-- MODAL EXCLUSIVO PARA SCORETRACKING -->
+                            <div id="score-modal" class="modal-overlay hidden-modal">
+                                <div class="modal-content game-panel w-11/12 p-6 text-center">
+                                    <h2 id="score-modal-title" class="font-bold text-3xl mb-4">Puntuación</h2>
+                                    <div id="score-modal-message" class="text-lg mb-6"></div>
+                                    <div id="score-modal-input-container" class="mb-4"></div>
+                                    <div id="score-modal-buttons" class="flex flex-col sm:flex-row justify-center gap-4"></div>
+                                </div>
+                            </div>
+                        <!-- Phase Times -->
+                        <div class="flex justify-between items-center">
+                            <span class="font-bold text-2xl" data-text-key="phase1Time">Strategy Time</span>
+                            <div class="flex items-center justify-between w-48">
+                                <button id="p1-time-minus" class="btn control-btn btn-red" aria-label="Decrease strategy time"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-8 h-8"><path d="M19 13.5H5v-3h14v3z"/></svg></button>
+                                <span id="p1-time" class="text-4xl font-bold text-center">10s</span>
+                                <button id="p1-time-plus" class="btn control-btn btn-green" aria-label="Increase strategy time"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-8 h-8"><path d="M19 13.5h-6.5v6.5h-3v-6.5H3v-3h6.5V3h3v6.5H19v3z"/></svg></button>
+                            </div>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="font-bold text-2xl" data-text-key="phase2Time">Word Time</span>
+                            <div class="flex items-center justify-between w-48">
+                                <button id="p2-time-minus" class="btn control-btn btn-red" aria-label="Decrease word time"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-8 h-8"><path d="M19 13.5H5v-3h14v3z"/></svg></button>
+                                <span id="p2-time" class="text-4xl font-bold text-center">10s</span>
+                                <button id="p2-time-plus" class="btn control-btn btn-green" aria-label="Increase word time"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-8 h-8"><path d="M19 13.5h-6.5v6.5h-3v-6.5H3v-3h6.5V3h3v6.5H19v3z"/></svg></button>
+                            </div>
+                        </div>
+                        <!-- Modality -->
+                        <div class="flex justify-between items-center">
+                            <span class="font-bold text-2xl" data-text-key="modality">Modality</span>
+                            <div class="flex items-center justify-between w-48">
+                                <button id="modality-minus" class="btn control-btn btn-yellow" aria-label="Previous modality"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3.5" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" /></svg></button>
+                                <span id="modality" class="text-2xl font-bold text-center">Rounds</span>
+                                <button id="modality-plus" class="btn control-btn btn-yellow" aria-label="Next modality"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3.5" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg></button>
+                            </div>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span id="modality-value-label" class="font-bold text-2xl" data-text-key="rounds">Rounds</span>
+                            <div class="flex items-center justify-between w-48">
+                                <button id="modality-value-minus" class="btn control-btn btn-red" aria-label="Decrease modality value"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-8 h-8"><path d="M19 13.5H5v-3h14v3z"/></svg></button>
+                                <span id="modality-value" class="text-4xl font-bold text-center">10</span>
+                                <button id="modality-value-plus" class="btn control-btn btn-green" aria-label="Increase modality value"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-8 h-8"><path d="M19 13.5h-6.5v6.5h-3v-6.5H3v-3h6.5V3h3v6.5H19v3z"/></svg></button>
+                            </div>
+                        </div>
+                        <!-- Score Tracking -->
+                        <div class="flex justify-between items-center">
+                            <span class="font-bold text-2xl" data-text-key="scoreTracking">Score Tracking</span>
+                            <div class="flex items-center justify-between w-48">
+                                <button id="score-tracking-minus" class="btn control-btn btn-yellow" aria-label="Previous score tracking option"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3.5" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" /></svg></button>
+                                <span id="score-tracking-text" class="text-2xl font-bold text-center">By Turn</span>
+                                <button id="score-tracking-plus" class="btn control-btn btn-yellow" aria-label="Next score tracking option"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3.5" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg></button>
+                            </div>
+                        </div>
+                        <!-- Player Customization -->
+                        <!-- Eliminado: Título de nombres de jugadores, ya no es necesario -->
+
+                        <button id="start-game-btn" data-text-key="startGame" class="btn btn-green w-full !text-3xl !py-3 mt-4 !sticky bottom-0">Start Game</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- GAME SCREEN -->
+            <div id="game-screen" class="screen hidden">
+                <div class="w-full h-full flex flex-col justify-around items-center p-4">
+                    <div id="round-info" class="text-center mb-2">
+                                            <div id="current-round-label" class="round-label" data-text-key="roundLabel">Ronda 1</div>
+                                            <div id="current-round-dealer" class="round-dealer" data-text-key="roundDealer">Rep</div>
+                                            <div id="phase-label" class="phase-label text-center mb-4 mt-4">Estrategia</div>
+                                            <div id="player-label" class="player-label mt-1 mx-auto"></div>
+                                            <div id="timer-display" class="timer-display">00:10</div>
+                                            <div class="flex justify-center gap-4 mt-1 mb-2">
+                                                <button id="start-timer-btn" class="btn btn-green !text-2xl px-6 hidden" data-text-key="go">Go</button>
+                                                <button id="pause-timer-btn" class="btn btn-yellow !text-2xl px-6 hidden" data-text-key="pause">Pause</button>
+                                                <button id="to-next-phase-btn" class="btn btn-green !text-2xl px-6 hidden" data-text-key="phaseWordBuilding">Formar palabras</button>
+                                            </div>
+                    </div>
+                    <div id="scoreboard" class="game-panel p-2 w-full">
+                        <!-- Scoreboard content here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- UNIFIED MODAL -->
+            <div id="unified-modal" class="modal-overlay">
+                <div class="modal-content game-panel w-11/12 p-6 text-center">
+                    <h2 id="modal-title" class="font-bold text-3xl mb-4">Modal Title</h2>
+                    <p id="modal-message" class="text-2xl mb-6">This is the modal message.</p>
+                    <div id="modal-input-container" class="mb-4 hidden"></div>
+                    <div id="modal-buttons" class="flex flex-col sm:flex-row justify-center gap-4">
+                        <!-- Buttons are injected here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<!-- Todo el JS de la UI y lógica está en los módulos importados arriba. -->
+    <!-- Contenedor de versión -->
+    <div id="app-version" class="app-version"></div>
+</body>
+</html>
