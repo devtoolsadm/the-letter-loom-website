@@ -1,0 +1,17 @@
+# Archivos de sistema
+.DS_Store
+Thumbs.db
+
+# Archivos temporales de editores
+*~
+*.swp
+*.tmp
+
+# Configuración local de VS Code (opcional)
+.vscode/
+
+# Archivos de CI/CD (si se generan logs temporales)
+*.log
+
+# No ignorar ningún archivo fuente ni assets
+# El archivo src/version.js será sobrescrito por CI/CD, pero debe estar en el repo
