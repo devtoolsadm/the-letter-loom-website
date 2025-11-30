@@ -2,8 +2,10 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Letter Loom V2.0</title>
+    <!-- Improved viewport for mobile uniformity and safe area support -->
+    <!-- htmlhint ignore: "The 'viewport' meta element 'content' attribute value should not contain 'user-scalable'." -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">    
+    <title>Letter Loom</title>
     <!-- Estilos globales de botones ahora en el bloque <style> -->
     <link rel="stylesheet" href="src/ui/main.css">
     <script src="https://cdn.tailwindcss.com"></script>
@@ -17,8 +19,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Fredoka:wght@400;700&display=swap" rel="stylesheet">
 </head>
 <body class="flex items-center justify-center min-h-screen p-2 sm:p-4">
-
-    <div id="app-viewport" class="w-full max-w-[450px] h-[95vh] max-h-[850px] relative shadow-2xl rounded-2xl overflow-hidden flex flex-col">
+    <div id="app-viewport" class="app-viewport">
         <div id="app-container" class="w-full h-full flex flex-col relative">
             <div class="absolute inset-0 bg-cover app-bg-gradient"></div>
             
@@ -36,7 +37,7 @@
                     <div class="game-panel p-4 space-y-3 overflow-y-auto flex-grow mb-4">
                         <!-- Player Count -->
                         <div class="flex justify-between items-center">
-                            <span class="font-bold text-2xl" data-text-key="playerCount">Player Count</span>
+                            <span class="font-bold text-xl" data-text-key="playerCount">Player Count</span>
                             <div class="flex items-center justify-between w-48">
                                 <button id="player-minus" class="btn control-btn btn-red" aria-label="Decrease player count"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-8 h-8"><path d="M19 13.5H5v-3h14v3z"/></svg></button>
                                 <span id="player-count" class="text-4xl font-bold text-center">5</span>
@@ -55,7 +56,7 @@
                             </div>
                         <!-- Phase Times -->
                         <div class="flex justify-between items-center">
-                            <span class="font-bold text-2xl" data-text-key="phase1Time">Strategy Time</span>
+                            <span class="font-bold text-xl" data-text-key="phase1Time">Strategy Time</span>
                             <div class="flex items-center justify-between w-48">
                                 <button id="p1-time-minus" class="btn control-btn btn-red" aria-label="Decrease strategy time"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-8 h-8"><path d="M19 13.5H5v-3h14v3z"/></svg></button>
                                 <span id="p1-time" class="text-4xl font-bold text-center">10s</span>
@@ -63,7 +64,7 @@
                             </div>
                         </div>
                         <div class="flex justify-between items-center">
-                            <span class="font-bold text-2xl" data-text-key="phase2Time">Word Time</span>
+                            <span class="font-bold text-xl" data-text-key="phase2Time">Word Time</span>
                             <div class="flex items-center justify-between w-48">
                                 <button id="p2-time-minus" class="btn control-btn btn-red" aria-label="Decrease word time"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-8 h-8"><path d="M19 13.5H5v-3h14v3z"/></svg></button>
                                 <span id="p2-time" class="text-4xl font-bold text-center">10s</span>
@@ -72,7 +73,7 @@
                         </div>
                         <!-- Modality -->
                         <div class="flex justify-between items-center">
-                            <span class="font-bold text-2xl" data-text-key="modality">Modality</span>
+                            <span class="font-bold text-xl" data-text-key="modality">Modality</span>
                             <div class="flex items-center justify-between w-48">
                                 <button id="modality-minus" class="btn control-btn btn-yellow" aria-label="Previous modality"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3.5" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" /></svg></button>
                                 <span id="modality" class="text-2xl font-bold text-center">Rounds</span>
@@ -80,7 +81,7 @@
                             </div>
                         </div>
                         <div class="flex justify-between items-center">
-                            <span id="modality-value-label" class="font-bold text-2xl" data-text-key="rounds">Rounds</span>
+                            <span id="modality-value-label" class="font-bold text-xl" data-text-key="rounds">Rounds</span>
                             <div class="flex items-center justify-between w-48">
                                 <button id="modality-value-minus" class="btn control-btn btn-red" aria-label="Decrease modality value"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-8 h-8"><path d="M19 13.5H5v-3h14v3z"/></svg></button>
                                 <span id="modality-value" class="text-4xl font-bold text-center">10</span>
@@ -89,7 +90,7 @@
                         </div>
                         <!-- Score Tracking -->
                         <div class="flex justify-between items-center">
-                            <span class="font-bold text-2xl" data-text-key="scoreTracking">Score Tracking</span>
+                            <span class="font-bold text-xl" data-text-key="scoreTracking">Score Tracking</span>
                             <div class="flex items-center justify-between w-48">
                                 <button id="score-tracking-minus" class="btn control-btn btn-yellow" aria-label="Previous score tracking option"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="3.5" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" /></svg></button>
                                 <span id="score-tracking-text" class="text-2xl font-bold text-center">By Turn</span>
