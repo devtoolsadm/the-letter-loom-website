@@ -1078,7 +1078,14 @@ function initUI(...args) {
 function showAppVersion() {
   const versionDiv = document.getElementById("app-version");
   if (versionDiv) {
+    const isPreview = /preview/i.test(window.location.hostname) || /preview/i.test(window.location.href);
     versionDiv.textContent = `${APP_VERSION}`;
+    if (isPreview || true) {
+      versionDiv.textContent += "  [PREVIEW]";
+      versionDiv.classList.add("preview-version-highlight");
+    } else {
+      versionDiv.classList.remove("preview-version-highlight");
+    }
   }
 }
 
