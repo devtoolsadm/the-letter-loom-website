@@ -1,3 +1,65 @@
+/* Unificación de tamaños de fuente en controles */
+.control-label {
+    font-size: 1.4rem;
+    font-weight: bold;
+    white-space: nowrap;
+}
+/* If screen with is small, reduce control label font size */
+@media (max-width: 425px) {
+    .control-label {
+        font-size: 1.1rem;
+    }
+}
+
+.control-btn {
+    font-size: 3rem;
+}
+.control-value-center {
+    font-size: 3rem;
+}
+/* Excepción: texto especial más pequeño si es necesario */
+.control-value-small {
+    font-size: 1.1rem;
+}
+
+
+/* Fila de control: texto a la izq, grupo a la dcha */
+.control-row-flex {
+    display: flex;
+    align-items: center;
+    width: 100%;
+}
+
+/* Grupo de control (botón-valor-botón) alineado a la derecha */
+.control-group {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    width: 128px;
+    min-width: 128px;
+    max-width: 128px;
+    margin-left: auto;
+    justify-content: flex-end;
+}
+
+/* Botones de control: ancho fijo para alineación */
+.control-btn {
+    min-width: 40px;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Valor central: ancho fijo igual al botón, centrado */
+.control-value-center {
+    min-width: 80px;
+    max-width: 80px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    display: inline-block;
+}
 /* App version in bottom right corner */
 .app-version {
     position: fixed;
@@ -209,6 +271,43 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 32px 32px;
+    color: #fff;
+}
+
+/* Control button icons using external SVG assets, always white */
+/* Icon inside control button */
+/* Icon inside control button, now with data-icon on the span */
+.control-btn-icon {
+    display: inline-block;
+    width: 32px;
+    height: 32px;
+    background-color: #fff;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+    -webkit-mask-size: 100% 100%;
+    mask-size: 100% 100%;
+    vertical-align: middle;
+}
+.control-btn .control-btn-icon[data-icon="plus"] {
+    -webkit-mask-image: url("../../assets/icon-plus.svg");
+    mask-image: url("../../assets/icon-plus.svg");
+}
+.control-btn .control-btn-icon[data-icon="minus"] {
+    -webkit-mask-image: url("../../assets/icon-minus.svg");
+    mask-image: url("../../assets/icon-minus.svg");
+}
+.control-btn .control-btn-icon[data-icon="arrow-left"] {
+    -webkit-mask-image: url("../../assets/icon-arrow-left.svg");
+    mask-image: url("../../assets/icon-arrow-left.svg");
+}
+.control-btn .control-btn-icon[data-icon="arrow-right"] {
+    -webkit-mask-image: url("../../assets/icon-arrow-right.svg");
+    mask-image: url("../../assets/icon-arrow-right.svg");
 }
 #lang-toggle-btn span.lng-current {
     font-size: 1.7em;
@@ -475,7 +574,7 @@ body {
     font-family: 'Bangers', cursive;
     font-size: 7rem;
     color: var(--panel-bg);
-    text-shadow: -2px 2px 0 var(--text-color), 2px 2px 0 var(--text-color), 2px -2px 0 var(--text-color), -2px -2px 0 var,--text-color);
+    text-shadow: -2px 2px 0 var(--text-color), 2px 2px 0 var(--text-color), 2px -2px 0 var(--text-color), -2px -2px 0 var(--text-color);
 }
 #timer-display.timer-urgent {
     color: #e74c3c;

@@ -49,6 +49,7 @@
     />
   </head>
   <body class="flex items-center justify-center min-h-screen p-2 sm:p-4">
+
     <script>
       // Force portrait and fullscreen on supported browsers
       if (screen.orientation && screen.orientation.lock) {
@@ -100,43 +101,25 @@
             >
               <!-- Player Count -->
               <div class="flex justify-between items-center">
-                <span class="font-bold text-xl" data-text-key="playerCount"
+                <span class="control-label" data-text-key="playerCount"
                   >Player Count</span
                 >
-                <div class="flex items-center justify-between w-48">
-                  <button
-                    id="player-minus"
-                    class="btn control-btn btn-red"
-                    aria-label="Decrease player count"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                      class="w-8 h-8"
+                <div class="control-row-flex">
+                  <div class="control-group">
+                    <button
+                      id="player-minus"
+                      class="btn control-btn btn-red"
+                      aria-label="Decrease player count"
+                    ><span class="control-btn-icon" data-icon="minus"></span></button>
+                    <span id="player-count" class="text-3xl font-bold control-value-center"
+                      >5</span
                     >
-                      <path d="M19 13.5H5v-3h14v3z" />
-                    </svg>
-                  </button>
-                  <span id="player-count" class="text-4xl font-bold text-center"
-                    >5</span
-                  >
-                  <button
-                    id="player-plus"
-                    class="btn control-btn btn-green"
-                    aria-label="Increase player count"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                      class="w-8 h-8"
-                    >
-                      <path
-                        d="M19 13.5h-6.5v6.5h-3v-6.5H3v-3h6.5V3h3v6.5H19v3z"
-                      />
-                    </svg>
-                  </button>
+                    <button
+                      id="player-plus"
+                      class="btn control-btn btn-green"
+                      aria-label="Increase player count"
+                    ><span class="control-btn-icon" data-icon="plus"></span></button>
+                  </div>
                 </div>
               </div>
 
@@ -156,232 +139,122 @@
               </div>
               <!-- Phase Times -->
               <div class="flex justify-between items-center">
-                <span class="font-bold text-xl" data-text-key="phase1Time"
+                <span class="control-label" data-text-key="phase1Time"
                   >Strategy Time</span
                 >
-                <div class="flex items-center justify-between w-48">
-                  <button
-                    id="p1-time-minus"
-                    class="btn control-btn btn-red"
-                    aria-label="Decrease strategy time"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                      class="w-8 h-8"
+                <div class="control-row-flex">
+                  <div class="control-group">
+                    <button
+                      id="p1-time-minus"
+                      class="btn control-btn btn-red"
+                      aria-label="Decrease strategy time"
+                    ><span class="control-btn-icon" data-icon="minus"></span></button>
+                    <span id="p1-time" class="text-3xl font-bold control-value-center"
+                      >10s</span
                     >
-                      <path d="M19 13.5H5v-3h14v3z" />
-                    </svg>
-                  </button>
-                  <span id="p1-time" class="text-4xl font-bold text-center"
-                    >10s</span
-                  >
-                  <button
-                    id="p1-time-plus"
-                    class="btn control-btn btn-green"
-                    aria-label="Increase strategy time"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                      class="w-8 h-8"
-                    >
-                      <path
-                        d="M19 13.5h-6.5v6.5h-3v-6.5H3v-3h6.5V3h3v6.5H19v3z"
-                      />
-                    </svg>
-                  </button>
+                    <button
+                      id="p1-time-plus"
+                      class="btn control-btn btn-green"
+                      aria-label="Increase strategy time"
+                    ><span class="control-btn-icon" data-icon="plus"></span></button>
+                  </div>
                 </div>
               </div>
               <div class="flex justify-between items-center">
-                <span class="font-bold text-xl" data-text-key="phase2Time"
+                <span class="control-label" data-text-key="phase2Time"
                   >Word Time</span
                 >
-                <div class="flex items-center justify-between w-48">
-                  <button
-                    id="p2-time-minus"
-                    class="btn control-btn btn-red"
-                    aria-label="Decrease word time"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                      class="w-8 h-8"
+                <div class="control-row-flex">
+                  <div class="control-group">
+                    <button
+                      id="p2-time-minus"
+                      class="btn control-btn btn-red"
+                      aria-label="Decrease word time"
+                    ><span class="control-btn-icon" data-icon="minus"></span></button>
+                    <span id="p2-time" class="text-3xl font-bold control-value-center"
+                      >10s</span
                     >
-                      <path d="M19 13.5H5v-3h14v3z" />
-                    </svg>
-                  </button>
-                  <span id="p2-time" class="text-4xl font-bold text-center"
-                    >10s</span
-                  >
-                  <button
-                    id="p2-time-plus"
-                    class="btn control-btn btn-green"
-                    aria-label="Increase word time"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                      class="w-8 h-8"
-                    >
-                      <path
-                        d="M19 13.5h-6.5v6.5h-3v-6.5H3v-3h6.5V3h3v6.5H19v3z"
-                      />
-                    </svg>
-                  </button>
+                    <button
+                      id="p2-time-plus"
+                      class="btn control-btn btn-green"
+                      aria-label="Increase word time"
+                    ><span class="control-btn-icon" data-icon="plus"></span></button>
+                  </div>
                 </div>
               </div>
               <!-- Modality -->
               <div class="flex justify-between items-center">
-                <span class="font-bold text-xl" data-text-key="modality"
+                <span class="control-label" data-text-key="modality"
                   >Modality</span
                 >
-                <div class="flex items-center justify-between w-48">
-                  <button
-                    id="modality-minus"
-                    class="btn control-btn btn-yellow"
-                    aria-label="Previous modality"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke-width="3.5"
-                      stroke="currentColor"
-                      class="w-6 h-6"
+                <div class="control-row-flex">
+                  <div class="control-group">
+                    <button
+                      id="modality-minus"
+                      class="btn control-btn btn-yellow"
+                      aria-label="Previous modality"
+                    ><span class="control-btn-icon" data-icon="arrow-left"></span></button>
+                    <span id="modality" class="text-2xl font-bold control-value-center"
+                      >Rounds</span
                     >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        d="M15.75 19.5L8.25 12l7.5-7.5"
-                      />
-                    </svg>
-                  </button>
-                  <span id="modality" class="text-2xl font-bold text-center"
-                    >Rounds</span
-                  >
-                  <button
-                    id="modality-plus"
-                    class="btn control-btn btn-yellow"
-                    aria-label="Next modality"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke-width="3.5"
-                      stroke="currentColor"
-                      class="w-6 h-6"
-                    >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        d="M8.25 4.5l7.5 7.5-7.5 7.5"
-                      />
-                    </svg>
-                  </button>
+                    <button
+                      id="modality-plus"
+                      class="btn control-btn btn-yellow"
+                      aria-label="Next modality"
+                    ><span class="control-btn-icon" data-icon="arrow-right"></span></button>
+                  </div>
                 </div>
               </div>
               <div class="flex justify-between items-center">
                 <span
                   id="modality-value-label"
-                  class="font-bold text-xl"
+                  class="control-label"
                   data-text-key="rounds"
                   >Rounds</span
                 >
-                <div class="flex items-center justify-between w-48">
-                  <button
-                    id="modality-value-minus"
-                    class="btn control-btn btn-red"
-                    aria-label="Decrease modality value"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                      class="w-8 h-8"
+                <div class="control-row-flex">
+                  <div class="control-group">
+                    <button
+                      id="modality-value-minus"
+                      class="btn control-btn btn-red"
+                      aria-label="Decrease modality value"
+                    ><span class="control-btn-icon" data-icon="minus"></span></button>
+                    <span
+                      id="modality-value"
+                      class="text-3xl font-bold control-value-center"
+                      >10</span
                     >
-                      <path d="M19 13.5H5v-3h14v3z" />
-                    </svg>
-                  </button>
-                  <span
-                    id="modality-value"
-                    class="text-4xl font-bold text-center"
-                    >10</span
-                  >
-                  <button
-                    id="modality-value-plus"
-                    class="btn control-btn btn-green"
-                    aria-label="Increase modality value"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                      class="w-8 h-8"
-                    >
-                      <path
-                        d="M19 13.5h-6.5v6.5h-3v-6.5H3v-3h6.5V3h3v6.5H19v3z"
-                      />
-                    </svg>
-                  </button>
+                    <button
+                      id="modality-value-plus"
+                      class="btn control-btn btn-green"
+                      aria-label="Increase modality value"
+                    ><span class="control-btn-icon" data-icon="plus"></span></button>
+                  </div>
                 </div>
               </div>
               <!-- Score Tracking -->
               <div class="flex justify-between items-center">
-                <span class="font-bold text-xl" data-text-key="scoreTracking"
+                <span class="control-label" data-text-key="scoreTracking"
                   >Score Tracking</span
                 >
-                <div class="flex items-center justify-between w-48">
-                  <button
-                    id="score-tracking-minus"
-                    class="btn control-btn btn-yellow"
-                    aria-label="Previous score tracking option"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke-width="3.5"
-                      stroke="currentColor"
-                      class="w-6 h-6"
+                <div class="control-row-flex">
+                  <div class="control-group">
+                    <button
+                      id="score-tracking-minus"
+                      class="btn control-btn btn-yellow"
+                      aria-label="Previous score tracking option"
+                    ><span class="control-btn-icon" data-icon="arrow-left"></span></button>
+                    <span
+                      id="score-tracking-text"
+                      class="text-3xl font-bold control-value-center"
+                      >Yes</span
                     >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        d="M15.75 19.5L8.25 12l7.5-7.5"
-                      />
-                    </svg>
-                  </button>
-                  <span
-                    id="score-tracking-text"
-                    class="text-2xl font-bold text-center"
-                    >By Turn</span
-                  >
-                  <button
-                    id="score-tracking-plus"
-                    class="btn control-btn btn-yellow"
-                    aria-label="Next score tracking option"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke-width="3.5"
-                      stroke="currentColor"
-                      class="w-6 h-6"
-                    >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        d="M8.25 4.5l7.5 7.5-7.5 7.5"
-                      />
-                    </svg>
-                  </button>
+                    <button
+                      id="score-tracking-plus"
+                      class="btn control-btn btn-yellow"
+                      aria-label="Next score tracking option"
+                    ><span class="control-btn-icon" data-icon="arrow-right"></span></button>
+                  </div>
                 </div>
               </div>
               <!-- Player Customization -->
