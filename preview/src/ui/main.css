@@ -112,7 +112,7 @@
     z-index: 9999;
     pointer-events: none;
     font-family: var(--main-font-family);
-    padding-bottom: env(safe-area-inset-bottom, 0); /* iOS safe area */
+    padding-bottom: 0; /* env(safe-area-inset-bottom, 0); */
 }
 
 /* Responsive fixed aspect ratio viewport for mobile uniformity */
@@ -130,8 +130,8 @@
     display: flex;
     flex-direction: column;
     background: #fff;
-    padding-top: env(safe-area-inset-top, 0);
-    padding-bottom: env(safe-area-inset-bottom, 0);
+    padding-top: 0; /* env(safe-area-inset-top, 0); */
+    padding-bottom: 0; /* env(safe-area-inset-bottom, 0); */
 }
 /* 1. CSS Variables */
 :root {
