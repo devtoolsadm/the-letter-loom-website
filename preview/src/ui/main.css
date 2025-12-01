@@ -90,8 +90,8 @@
     position: relative;
     width: 100vw;
     max-width: 450px;
-    aspect-ratio: 9/16;
-    height: 100dvh;
+    /* aspect-ratio: 9/16; */
+    height: min(95svh, 95dvh, 95vh, 840px); 
     max-height: 95vh;
     min-height: 500px;
     margin: auto;
@@ -635,11 +635,7 @@ body {
         padding-right: 0.5rem;
     }
     .app-viewport {
-        max-width: 100vw;
         min-width: 0;
-        border-radius: 0.7em;
-        height: 100dvh;
-        aspect-ratio: 9/16;
     }
     .round-label, .phase-label, .player-label {
         font-size: clamp(1.1rem, 6vw, 2.2rem);
