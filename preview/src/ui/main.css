@@ -90,7 +90,6 @@
     position: relative;
     width: 100vw;
     max-width: 450px;
-    /* aspect-ratio: 9/16; */
     height: min(95svh, 95dvh, 95vh, 840px); 
     max-height: 95vh;
     min-height: 500px;
