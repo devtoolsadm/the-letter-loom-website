@@ -76,9 +76,6 @@
     display: flex;
     align-items: center;
     gap: 0.25rem;
-    width: 128px;
-    min-width: 128px;
-    max-width: 128px;
     margin-left: auto;
     justify-content: flex-end;
 }
@@ -95,12 +92,19 @@
 
 /* Valor central: ancho fijo igual al botón, centrado */
 .control-value-center {
-    min-width: 80px;
-    max-width: 80px;
+    min-width: 65px;
+    max-width: 65px;
+    height: 40px;
+    line-height: 40px;
     text-align: center;
     font-variant-numeric: tabular-nums;
     display: inline-block;
+    vertical-align: middle;
 }
+.control-value-center.text-xl {
+    line-height: 2.4rem;
+}
+
 /* App version in bottom right corner */
 .app-version {
     position: fixed;
