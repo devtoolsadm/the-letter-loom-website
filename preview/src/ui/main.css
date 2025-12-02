@@ -1,33 +1,14 @@
-/* Colores para el título Letter Loom */
-.app-title-colored {
-    font-family: var(--main-font-family);
-    font-size: clamp(2.2rem, 6vw, 3.5rem);
-    font-weight: bold;
-    text-transform: uppercase;
-    white-space: nowrap;
-    color: white;
-    text-shadow: 
-        -3px -3px 0 var(--text-color),  
-         3px -3px 0 var(--text-color),
-        -3px  3px 0 var(--text-color),
-         3px  3px 0 var(--text-color),
-        -3px  0px 0 var(--text-color),
-         3px  0px 0 var(--text-color),
-         0px -3px 0 var(--text-color),
-         0px  3px 0 var(--text-color);
-    letter-spacing: 0.04em;
+/* Separación superior para que el título no se monte con los botones */
+.app-title-img-container {
+    padding-top: 2.5rem;
 }
-.title-l { color: #e74c3c; }
-.title-e1 { color: #00bfff; }
-.title-t1 { color: #8e44ad; }
-.title-t2 { color: #f9d423; }
-.title-e2 { color: #27ae60; }
-.title-r { color: #ff69b4; }
-.title-space { margin: 0 0.18em; }
-.title-l2 { color: #f39c12; }
-.title-o1 { color: #27ae60; }
-.title-o2 { color: #00bfff; }
-.title-m { color: #e67e22; }
+/* Imagen del título principal */
+.app-title-img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+}
+/* Colores para el título Letter Loom */
 /* Resalta la versión en entorno de preview */
 .preview-version-highlight {
     background: #f9ff00;
