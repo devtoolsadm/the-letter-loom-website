@@ -313,6 +313,7 @@ function renderGameUI(state) {
     const labelRow = document.createElement('div');
     labelRow.className = 'dealer-label-row flex items-center justify-center gap-2 mb-1';
     // SVG icon (bigger, new)
+    /*
     const icon = document.createElement('img');
     icon.src = 'assets/dealer-hand-card.svg';
     icon.alt = TEXTS[currentLanguage]?.dealerLabel || 'Reparte';
@@ -320,6 +321,7 @@ function renderGameUI(state) {
     icon.width = 64;
     icon.height = 64;
     labelRow.appendChild(icon);
+    */
     // Label
     const label = document.createElement('div');
     label.className = 'dealer-label';
