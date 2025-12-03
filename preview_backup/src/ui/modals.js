@@ -358,59 +358,44 @@ export function showPlayerCustomizationModal({
   // Histórico de nombres (modal simple)
   function showNameHistoryModal(historyArr, personalizedSet = new Set(), targetIdx) {
     window._nameHistoryTargetIdx = targetIdx;
-    let overlay = document.createElement("div");
-    overlay.className = "modal-overlay visible";
-    let modal = document.createElement("div");
-    modal.className = "unified-modal";
-    modal.style.background = "var(--panel-bg)";
-    modal.style.border = "4px solid var(--panel-border)";
-    modal.style.boxShadow = "0 8px 0px var(--panel-border), 0 12px 20px rgba(0,0,0,0.2)";
-    let closeBtn = document.createElement("button");
-    closeBtn.textContent = "×";
-    closeBtn.title = TEXTS[currentLanguage].close;
-    closeBtn.className = "modal-close-btn";
-    closeBtn.addEventListener("click", () => {
-      document.body.removeChild(overlay);
-    });
-    modal.appendChild(closeBtn);
-    let title = document.createElement("h2");
-    title.textContent = TEXTS[currentLanguage].nameHistoryTitle;
-    title.className = "modal-title";
-    modal.appendChild(title);
-    let info = document.createElement("div");
+    // Contenido del modal: título, info y lista de nombres
+    const contentDiv = document.createElement('div');
+    // Info
+    const info = document.createElement('div');
     info.textContent = TEXTS[currentLanguage].nameHistoryInfo;
-    info.style.textAlign = "center";
-    info.style.fontSize = "1.05em";
-    info.style.marginBottom = "1.2em";
-    info.style.color = "#5a3b2e";
-    modal.appendChild(info);
-    let content = document.createElement("div");
-    content.className = "modal-content";
-    content.style.flexWrap = "wrap";
-    content.style.flexDirection = "row";
-    content.style.justifyContent = "center";
+    info.style.textAlign = 'center';
+    info.style.fontSize = '1.05em';
+    info.style.marginBottom = '1.2em';
+    info.style.color = '#5a3b2e';
+    contentDiv.appendChild(info);
+    // Lista de nombres
+    const tagsWrap = document.createElement('div');
+    tagsWrap.style.display = 'flex';
+    tagsWrap.style.flexWrap = 'wrap';
+    tagsWrap.style.justifyContent = 'center';
+    tagsWrap.style.marginBottom = '1.5em';
     for (let n of historyArr) {
-      let tag = document.createElement("span");
-      tag.className = "name-history-tag" + (personalizedSet.has(n) ? " personalized" : "");
-      tag.style.display = "inline-flex";
-      tag.style.alignItems = "center";
-      tag.style.overflow = "hidden";
-      tag.style.padding = "0";
-      tag.style.margin = "0.25em 0.4em";
-      tag.style.borderRadius = "1.2em";
-      tag.style.border = personalizedSet.has(n) ? "2px solid #b6d7c9" : "2px solid #e0d9c2";
-      tag.style.background = personalizedSet.has(n) ? "#e6f9ed" : "#f3f1ea";
-      let namePart = document.createElement("span");
+      let tag = document.createElement('span');
+      tag.className = 'name-history-tag' + (personalizedSet.has(n) ? ' personalized' : '');
+      tag.style.display = 'inline-flex';
+      tag.style.alignItems = 'center';
+      tag.style.overflow = 'hidden';
+      tag.style.padding = '0';
+      tag.style.margin = '0.25em 0.4em';
+      tag.style.borderRadius = '1.2em';
+      tag.style.border = personalizedSet.has(n) ? '2px solid #b6d7c9' : '2px solid #e0d9c2';
+      tag.style.background = personalizedSet.has(n) ? '#e6f9ed' : '#f3f1ea';
+      let namePart = document.createElement('span');
       namePart.textContent = n;
-      namePart.style.display = "inline-block";
-      namePart.style.verticalAlign = "middle";
-      namePart.style.cursor = "pointer";
-      namePart.style.padding = "0.25em 1.1em 0.25em 1.1em";
-      namePart.style.fontSize = "1.13em";
-      namePart.style.color = "#5a3b2e";
+      namePart.style.display = 'inline-block';
+      namePart.style.verticalAlign = 'middle';
+      namePart.style.cursor = 'pointer';
+      namePart.style.padding = '0.25em 1.1em 0.25em 1.1em';
+      namePart.style.fontSize = '1.13em';
+      namePart.style.color = '#5a3b2e';
       namePart.onclick = (ev) => {
         if (window._nameHistoryTargetIdx !== undefined) {
-          const inputs = modalDiv.querySelectorAll("input.player-name-input");
+          const inputs = modalDiv.querySelectorAll('input.player-name-input');
           const input = inputs[window._nameHistoryTargetIdx];
           if (input) {
             input.value = n;
@@ -418,40 +403,41 @@ export function showPlayerCustomizationModal({
             modalPlayers[window._nameHistoryTargetIdx].name = n;
           }
         }
-        document.body.removeChild(overlay);
+        // Cerrar el modal
+        if (closeModal) closeModal();
         renderModal();
       };
       tag.appendChild(namePart);
       if (personalizedSet.has(n)) {
-        let sep = document.createElement("span");
-        sep.style.width = "2px";
-        sep.style.background = personalizedSet.has(n) ? "#b6d7c9" : "#e0d9c2";
-        sep.style.margin = "0";
-        sep.style.alignSelf = "stretch";
-        let rightPart = document.createElement("span");
-        rightPart.style.display = "flex";
-        rightPart.style.alignItems = "center";
-        rightPart.style.height = "100%";
-        rightPart.style.background = "#ffd6d6";
-        rightPart.style.borderRadius = "0 1.2em 1.2em 0";
-        let trash = document.createElement("button");
-        trash.textContent = "✖";
+        let sep = document.createElement('span');
+        sep.style.width = '2px';
+        sep.style.background = personalizedSet.has(n) ? '#b6d7c9' : '#e0d9c2';
+        sep.style.margin = '0';
+        sep.style.alignSelf = 'stretch';
+        let rightPart = document.createElement('span');
+        rightPart.style.display = 'flex';
+        rightPart.style.alignItems = 'center';
+        rightPart.style.height = '100%';
+        rightPart.style.background = '#ffd6d6';
+        rightPart.style.borderRadius = '0 1.2em 1.2em 0';
+        let trash = document.createElement('button');
+        trash.textContent = '✖';
         trash.title = TEXTS[currentLanguage].delete;
-        trash.className = "name-history-trash";
-        trash.style.background = "transparent";
-        trash.style.border = "none";
-        trash.style.padding = "0.25em 0.6em 0.25em 0.6em";
-        trash.style.margin = "0";
-        trash.style.fontSize = "1.3em";
-        trash.style.color = "#d00";
-        trash.style.cursor = "pointer";
-        trash.style.display = "flex";
-        trash.style.alignItems = "center";
-        trash.style.justifyContent = "center";
-        trash.style.transition = "background 0.15s";
-        trash.onmouseover = () => { rightPart.style.background = "#ffeaea"; };
-        trash.onmouseout = () => { rightPart.style.background = "#ffd6d6"; };
-        trash.addEventListener("click", (ev) => {
+        trash.className = 'name-history-trash';
+        trash.style.background = 'transparent';
+        trash.style.border = 'none';
+        trash.style.padding = '0.25em 0.6em 0.25em 0.6em';
+        trash.style.margin = '0';
+        trash.style.fontSize = '1.3em';
+        trash.style.color = '#d00';
+        trash.style.cursor = 'pointer';
+        trash.style.display = 'flex';
+        trash.style.alignItems = 'center';
+        trash.style.justifyContent = 'center';
+        trash.style.transition = 'background 0.15s';
+        trash.onmouseover = () => { rightPart.style.background = '#ffeaea'; };
+        trash.onmouseout = () => { rightPart.style.background = '#ffd6d6'; };
+        trash.addEventListener('click', (ev) => {
           ev.stopPropagation();
           showModal({
             title: TEXTS[currentLanguage].delete,
@@ -477,20 +463,26 @@ export function showPlayerCustomizationModal({
         rightPart.appendChild(trash);
         tag.appendChild(rightPart);
       }
-      content.appendChild(tag);
+      tagsWrap.appendChild(tag);
     }
-    modal.appendChild(content);
-    let cancelBtn = document.createElement("button");
-    cancelBtn.textContent = TEXTS[currentLanguage].cancel;
-    cancelBtn.className = "btn btn-red";
-    cancelBtn.style.margin = "2em auto 0 auto";
-    cancelBtn.style.display = "block";
-    cancelBtn.onclick = () => {
-      document.body.removeChild(overlay);
-    };
-    modal.appendChild(cancelBtn);
-    overlay.appendChild(modal);
-    document.body.appendChild(overlay);
+    contentDiv.appendChild(tagsWrap);
+    // Usar showModal para mostrar el modal consistente
+    let closeModal = showModal({
+      title: TEXTS[currentLanguage].nameHistoryTitle,
+      content: contentDiv,
+      buttons: [
+        {
+          id: 'cancel',
+          label: TEXTS[currentLanguage].cancel,
+          className: 'btn-red px-4'
+        }
+      ],
+      onAction: (id) => {
+        // Solo cerrar
+        return true;
+      },
+      buttonsContainerClass: 'force-row-buttons'
+    });
   }
 
   // --- Render inicial ---
@@ -513,6 +505,8 @@ export function showPlayerCustomizationModal({
         className: "btn-green px-4"
       }
     ],
+    // Forzar clase para fila y ancho igual
+    buttonsContainerClass: 'force-row-buttons',
     onAction: (id, event) => {
       if (id === "cancel") {
         if (onCancel) onCancel();
@@ -580,6 +574,7 @@ export function showPlayerCustomizationModal({
           className: "btn-green px-4"
         }
       ],
+      buttonsContainerClass: 'force-row-buttons',
       onAction: (id, event) => {
         if (id === "cancel") {
           // Just close, let user fix manually
@@ -607,6 +602,19 @@ export function showPlayerCustomizationModal({
     .player-row.dragging {
       opacity: 0.5;
       z-index: 3;
+    }
+    /* Forzar botones del modal de personalización en fila y ancho igual */
+    .force-row-buttons {
+      display: flex !important;
+      flex-direction: row !important;
+      gap: 1rem;
+      width: 100%;
+      justify-content: center;
+    }
+    .force-row-buttons > button {
+      flex: 1 1 0;
+      min-width: 0;
+      max-width: 100%;
     }
   `;
   document.head.appendChild(style);
