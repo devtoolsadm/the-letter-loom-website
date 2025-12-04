@@ -1082,7 +1082,7 @@ function showAppVersion() {
   if (versionDiv) {
     const isPreview = /preview/i.test(window.location.hostname) || /preview/i.test(window.location.href);
     versionDiv.textContent = `${APP_VERSION}`;
-    if (isPreview || true) {
+    if (isPreview) {
       versionDiv.textContent += "  [PREVIEW]";
       versionDiv.classList.add("preview-version-highlight");
     } else {
