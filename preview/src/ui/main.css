@@ -1,0 +1,678 @@
+/* Separación superior para que el título no se monte con los botones */
+.app-title-img-container {
+    padding-top: 2.5rem;
+}
+/* Imagen del título principal */
+.app-title-img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+}
+/* Colores para el título Letter Loom */
+/* Resalta la versión en entorno de preview */
+.preview-version-highlight {
+    background: #f9ff00;
+    color: #fff;
+    font-weight: bold;
+    border-radius: 0.5em;
+    padding: 0.2em 0.7em;
+    box-shadow: 0 0 0.5em #979b00;
+    font-size: 1.2em;
+    letter-spacing: 0.05em;
+}
+/* Unificación de tamaños de fuente en controles */
+.control-label {
+    font-size: 1.4rem;
+    font-weight: bold;
+    white-space: nowrap;
+}
+/* If screen with is small, reduce control label font size */
+@media (max-width: 425px) {
+    .control-label {
+        font-size: 1.1rem;
+    }
+}
+
+.control-btn {
+    font-size: 3rem;
+}
+.control-value-center {
+    font-size: 3rem;
+}
+/* Excepción: texto especial más pequeño si es necesario */
+.control-value-small {
+    font-size: 1.1rem;
+}
+
+
+/* Fila de control: texto a la izq, grupo a la dcha */
+.control-row-flex {
+    display: flex;
+    align-items: center;
+    width: 100%;
+}
+
+/* Grupo de control (botón-valor-botón) alineado a la derecha */
+.control-group {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    margin-left: auto;
+    justify-content: flex-end;
+}
+
+/* Botones de control: ancho fijo para alineación */
+.control-btn {
+    min-width: 40px;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Valor central: ancho fijo igual al botón, centrado */
+.control-value-center {
+    min-width: 65px;
+    max-width: 65px;
+    height: 40px;
+    line-height: 40px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    display: inline-block;
+    vertical-align: middle;
+}
+.control-value-center.text-xl {
+    line-height: 2.4rem;
+}
+
+/* App version in bottom right corner */
+.app-version {
+    position: fixed;
+    right: 12px;
+    bottom: 6px;
+    font-size: 0.75rem;
+    color: #272727;
+    opacity: 0.7;
+    z-index: 9999;
+    pointer-events: none;
+    font-family: var(--main-font-family);
+    padding-bottom: 0; /* env(safe-area-inset-bottom, 0); */
+}
+
+/* Responsive fixed aspect ratio viewport for mobile uniformity */
+.app-viewport {
+    position: relative;
+    width: 100vw;
+    max-width: 450px;
+    height: min(95svh, 95dvh, 95vh, 840px); 
+    max-height: 95vh;
+    min-height: 500px;
+    margin: auto;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+    border-radius: 1.25rem;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    padding-top: 0; /* env(safe-area-inset-top, 0); */
+    padding-bottom: 0; /* env(safe-area-inset-bottom, 0); */
+}
+/* 1. CSS Variables */
+:root {
+    --bg-color: #73C2FB;
+    --ground-color: #A58A73;
+    --panel-bg: #FDECA6;
+    --panel-border: #D9A443;
+    --text-color: #5C4033;
+    --green: #77B255;
+    --green-shadow: #4A7B32;
+    --red: #D9534F;
+    --red-shadow: #A1322F;
+    --blue: #428BCA;
+    --blue-shadow: #3071A9;
+    --yellow: #F0AD4E;
+    --yellow-shadow: #C08A3E;
+    --sound-main: #fff;
+    --sound-main-off: #d1d5db;
+    --sound-prohibited: #D9534F;
+    --main-font-family: 'Fredoka';
+    --secondary-font-family: 'Bangers', cursive;
+    --other-font-family: 'Bangers', cursive;
+}
+
+/* 2. Helpers & Utilities */
+.player-name-ellipsis {
+    display: block;
+    max-width: 100%;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: center;
+}
+
+/* 3. Layout & Structure */
+body {
+    font-family: var(--main-font-family);
+    background: linear-gradient(to bottom, var(--bg-color) 0%, #B4E0FD 70%, var(--ground-color) 70%, var(--ground-color) 100%);
+    color: var(--text-color);
+    min-height: 100dvh;
+    min-width: 100vw;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    overscroll-behavior-y: contain;
+}
+.screen {
+    transition: transform 0.5s ease-in-out, opacity 0.5s ease-in-out;
+    position: absolute;
+    width: 100%;
+    max-width: 100vw;
+    min-width: 0;
+}
+.screen.hidden {
+    transform: scale(0.8);
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* 4. Panels & Containers */
+.game-panel {
+    background-color: var(--panel-bg);
+    border: 4px solid var(--panel-border);
+    border-radius: 16px;
+    box-shadow: 0 8px 0px var(--panel-border), 0 12px 20px rgba(0,0,0,0.2);
+}
+#setup-screen .game-panel .items-center .text-center {
+    line-height: 1;
+}
+
+/* 5. Buttons */
+.btn {
+    appearance: button;
+    border: solid transparent;
+    border-radius: 16px;
+    border-width: 0 0 5px;
+    box-sizing: border-box;
+    cursor: pointer;
+    display: inline-block;
+    font-family: var(--main-font-family);
+    font-weight: bold;
+    font-size: 1.75rem;
+    letter-spacing: .8px;
+    line-height: 20px;
+    margin: 0;
+    outline: none;
+    overflow: visible;
+    padding: 13px 6px;
+    text-align: center;
+    text-transform: uppercase;
+    touch-action: manipulation;
+    transform: translateZ(0);
+    -webkit-user-select: none;
+    user-select: none;
+    transition: filter .2s;
+    vertical-align: middle;
+    white-space: nowrap;
+    /* width: 100%; */
+}
+.btn:after {
+    background-clip: padding-box;
+    border: solid transparent;
+    border-radius: 16px;
+    border-width: 0 0 4px;
+    bottom: -4px;
+    content: "";
+    left: 0;
+    position: absolute;
+    right: 0;
+    top: 0;
+    z-index: -1;
+}
+.btn,
+.btn:focus {
+    -webkit-user-select: auto;
+    user-select: auto;
+}
+.btn:hover:not(:disabled) {
+    -webkit-filter: brightness(1.1);
+    filter: brightness(1.1);
+}
+.btn:disabled {
+    cursor: auto;
+}
+.btn:active {
+    border-width: 2px 0 2px;
+    background: none;
+}
+.btn-green { 
+    background-color: var(--green-shadow);
+    color: #FFFFFF;
+}
+.btn-green:after {
+    background-color: var(--green);
+}
+.btn-green:active {
+    border-bottom: 2px solid var(--green-shadow);        
+}
+.btn-red { 
+    background-color: var(--red-shadow);
+    color: #FFFFFF;
+}
+.btn-red:after {
+    background-color: var(--red);
+}
+.btn-red:active {
+    border-bottom: 2px solid var(--red-shadow);        
+}        
+.btn-blue { 
+    background-color: var(--blue-shadow);
+    color: #FFFFFF;
+}
+.btn-blue:after {
+    background-color: var(--blue);
+}
+.btn-blue:active {
+    border-bottom: 2px solid var(--blue-shadow);        
+}        
+.btn-yellow { 
+    background-color: var(--yellow-shadow);
+    color: #FFFFFF;
+}
+.btn-yellow:after {
+    background-color: var(--yellow);
+}
+.btn-yellow:active {
+    border-bottom: 2px solid var(--yellow-shadow);        
+}                
+.control-btn {
+    width: 50px;
+    height: 50px;
+    font-size: 2.5rem;
+    font-weight: bold;
+    text-align: center;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 32px 32px;
+    color: #fff;
+}
+
+/* Control button icons using external SVG assets, always white */
+/* Icon inside control button */
+/* Icon inside control button, now with data-icon on the span */
+.control-btn-icon {
+    display: inline-block;
+    width: 32px;
+    height: 32px;
+    background-color: #fff;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+    -webkit-mask-size: 100% 100%;
+    mask-size: 100% 100%;
+    vertical-align: middle;
+}
+.control-btn .control-btn-icon[data-icon="plus"] {
+    -webkit-mask-image: url("../../assets/icon-plus.svg");
+    mask-image: url("../../assets/icon-plus.svg");
+}
+.control-btn .control-btn-icon[data-icon="minus"] {
+    -webkit-mask-image: url("../../assets/icon-minus.svg");
+    mask-image: url("../../assets/icon-minus.svg");
+}
+.control-btn .control-btn-icon[data-icon="arrow-left"] {
+    -webkit-mask-image: url("../../assets/icon-arrow-left.svg");
+    mask-image: url("../../assets/icon-arrow-left.svg");
+}
+.control-btn .control-btn-icon[data-icon="arrow-right"] {
+    -webkit-mask-image: url("../../assets/icon-arrow-right.svg");
+    mask-image: url("../../assets/icon-arrow-right.svg");
+}
+#lang-toggle-btn span.lng-current {
+    font-size: 1.7em;
+    font-weight: bold;;
+}
+#lang-toggle-btn span.lng-secondary {
+    font-size: 1em;
+    color: rgb(42, 59, 105);
+}
+
+/* 6. Icons */
+.sound-icon-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+}
+.sound-icon-main {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    color: var(--sound-main);
+}
+.sound-icon-wrapper.sound-off .sound-icon-main {
+    color: var(--sound-main-off);
+}
+.sound-prohibited {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    color: var(--sound-prohibited);
+}
+
+/* 7. Overlays & Modals */
+.modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+}
+.modal-overlay.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+.modal-content {
+    width: 100%;
+    max-width: 420px;
+    min-width: 0;
+    box-sizing: border-box;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    transform: scale(0.7);
+    transition: transform 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+}
+.modal-content > #modal-input-container {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    max-height: 50vh;
+}
+.modal-overlay.visible .modal-content {
+    transform: scale(1);
+}
+/* CSS: refuerza z-index del modal */
+.modal-overlay {
+    z-index: 9999 !important;
+}
+
+/* App Background Gradient for overlay */
+.app-bg-gradient {
+    background-image: linear-gradient(to bottom, var(--bg-color) 0%, #B4E0FD 70%, var(--ground-color) 70%, var(--ground-color) 100%);
+}
+
+/* Hide modal by default */
+.hidden-modal {
+    display: none !important;
+}
+
+/* 8. Titles & Labels */
+#app-title {
+    font-family: var(--main-font-family);
+    font-size: clamp(2.2rem, 6vw, 3.5rem);
+    font-weight: bold;
+    text-transform: uppercase;
+    white-space: nowrap;
+    color: white;
+    text-shadow: 
+        -3px -3px 0 var(--text-color),  
+         3px -3px 0 var(--text-color),
+        -3px  3px 0 var(--text-color),
+         3px  3px 0 var(--text-color),
+        -3px  0px 0 var(--text-color),
+         3px  0px 0 var(--text-color),
+         0px -3px 0 var(--text-color),
+         0px  3px 0 var(--text-color);
+    animation: bounceIn 1s ease;
+}
+.round-label,
+.phase-label,
+.player-label {
+    max-width: 95%;
+    margin-left: auto;
+    margin-right: auto;
+    box-sizing: border-box;
+}
+/* Prevent round label from wrapping and scale responsively */
+.round-label {
+    font-size: clamp(2.2rem, 8vw, 4rem);
+    color: white;
+    font-family: 'Bangers', cursive;
+    text-shadow:
+        -3px -3px 0 var(--text-color),  
+         3px -3px 0 var(--text-color),
+        -3px  3px 0 var(--text-color),
+         3px  3px 0 var(--text-color),
+        -3px  0px 0 var(--text-color),
+         3px  0px 0 var(--text-color),
+         0px -3px 0 var(--text-color),
+         0px  3px 0 var(--text-color);
+    line-height: 1;
+    white-space: nowrap;
+}
+/* Prevent phase label from wrapping and scale responsively */
+.phase-label {
+    font-size: clamp(1.5rem, 6vw, 3rem);
+    font-weight: bold;
+    color: white;
+    text-shadow: 1px 1px 2px var(--text-color);
+    line-height: 1;
+    white-space: nowrap;
+    text-transform: uppercase;
+}
+/* Prevent player label from wrapping and scale responsively */
+.player-label {
+    font-size: clamp(1.5rem, 6vw, 3rem);
+    color: white;
+    text-shadow: 1px 1px 2px var(--text-color);
+    line-height: 1;
+    font-weight: bold;
+    padding: 0.2em 0.8em;
+    border-radius: 1em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    max-width: 418px;
+    min-width: 0;
+    margin-left: auto;
+    margin-right: auto;
+    box-sizing: border-box;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+/* Dealer label and icon styles */
+.dealer-label {
+    font-family: var(--secondary-font-family);
+    font-size: 1.25em;
+    font-weight: bold;
+    color: #428BCA;
+    letter-spacing: 0.04em;
+    margin-bottom: 0.2em;
+    text-shadow: 0 1px 2px #fff8, 0 0px 0 #fff;
+}
+.dealer-icon {
+    display: inline-block;
+    vertical-align: middle;
+    width: 32px;
+    height: 32px;
+    margin-right: 0.3em;
+}
+
+/* Dealer label row and large icon */
+.dealer-label-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.7em;
+    margin-bottom: 0.2em;
+}
+.dealer-icon-large {
+    display: inline-block;
+    vertical-align: middle;
+    width: 64px;
+    height: 64px;
+    margin-right: 0.1em;
+}
+
+/* 9. Dealer/Player Row */
+.player-row-main {
+    background: linear-gradient(90deg, #e6f2fa 80%, #b3e0ff 100%);
+    border-radius: 0.7em;
+    box-shadow: 0 1px 2px #0001, 0 0 0 4px #428BCA33, 0 2px 8px #428BCA22;
+    padding: 0.25em 0.5em 0.25em 0.3em;
+    margin: 0 auto;
+    position: relative;
+    min-height: 2.2em;
+    max-width: 340px;
+    border: 2.5px solid #428BCA;
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+    justify-content: center;
+    transition: box-shadow 0.2s, border 0.2s;
+}
+.player-color-preview {
+    display: inline-block;
+    width: 1.5em;
+    height: 1.5em;
+    border-radius: 50%;
+    border: 2px solid #888;
+    box-shadow: 0 1px 2px #0002;
+    margin-right: 0.3em;
+}
+.player-prefix-label {
+    display: inline-block;
+    width: 2.2em;
+    text-align: center;
+    font-weight: bold;
+    color: #888;
+}
+.player-name-main {
+    font-size: 1.13em;
+    font-weight: bold;
+    color: #333;
+    margin-left: 0.5em;
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: inline-block;
+    vertical-align: middle;
+}
+.dealer-badge {
+    background: #428BCA;
+    color: #fff;
+    font-weight: bold;
+    border-radius: 0.7em;
+    padding: 0.1em 0.7em;
+    margin-left: 0.7em;
+    font-size: 0.98em;
+    letter-spacing: 0.04em;
+    display: inline-block;
+}
+
+/* 10. Timer & Animations */
+#timer-display {
+    font-family: 'Bangers', cursive;
+    font-size: 7rem;
+    color: var(--panel-bg);
+    text-shadow: -2px 2px 0 var(--text-color), 2px 2px 0 var(--text-color), 2px -2px 0 var(--text-color), -2px -2px 0 var(--text-color);
+}
+#timer-display.timer-urgent {
+    color: #e74c3c;
+    animation: timerUrgentPulse 0.7s infinite alternate;
+}
+#timer-display.timer-very-urgent {
+    color: #fff;
+    background: #e74c3c;
+    animation: timerVeryUrgentPulse 0.33s infinite alternate;
+}
+@keyframes timerUrgentPulse {
+    0% { filter: brightness(1); }
+    100% { filter: brightness(1.7); }
+}
+@keyframes timerVeryUrgentPulse {
+    0% { filter: brightness(1.1); }
+    100% { filter: brightness(2.2); }
+}
+#timer-display.time-up-flash {
+    background: #fff200;
+    color: #e74c3c;
+    animation: timeUpFlash 0.18s 5 alternate;
+}
+@keyframes timeUpFlash {
+    0% { filter: brightness(1); }
+    100% { filter: brightness(2.5); }
+}
+.time-up-flash {
+    animation: flash 0.5s 3;
+}
+@keyframes flash {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); color: var(--red); }
+}
+@keyframes bounceIn {
+    0% { transform: scale(0.5); opacity: 0; }
+    60% { transform: scale(1.1); }
+    80% { transform: scale(0.9); }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+/* 11. Media Queries */
+@media (max-width: 480px) {
+    .modal-content {
+        max-width: 95vw;
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+    }
+    .app-viewport {
+        min-width: 0;
+    }
+    .round-label, .phase-label, .player-label {
+        font-size: clamp(1.1rem, 6vw, 2.2rem);
+    }
+}
+
+/* Debug Button Styles */
+.debug-btn {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    z-index: 20000;
+    background: #fff;
+    border: 2px solid #888;
+    border-radius: 0.7em;
+    padding: 0.5em 1.2em;
+    box-shadow: 0 2px 8px #0002;
+    font-size: 1.1em;
+    cursor: pointer;
+    opacity: 0.92;
+    transition: opacity 0.2s;
+}
+.debug-btn:hover,
+.debug-btn:focus {
+    opacity: 1;
+}
