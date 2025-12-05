@@ -1,0 +1,116 @@
+/* MODAL OVERLAY */
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  transition: opacity 0.3s ease;
+  pointer-events: auto;
+}
+
+/* MODAL CONTAINER */
+.unified-modal {
+  position: relative;
+  background: #fffbe8;
+  border-radius: 1.2em;
+  box-shadow: 0 8px 32px #0003;
+  padding: 2.2em 2.5em 2em 2.5em;
+  max-width: 32em;
+  width: 90vw;
+  max-height: 80vh;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  font-family: inherit;
+  color: #5a3b2e;
+}
+
+/* MODAL CLOSE BUTTON */
+.modal-close-btn {
+  position: absolute;
+  top: 0.5em;
+  right: 0.8em;
+  font-size: 2em;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #888;
+}
+
+/* MODAL TITLE */
+.modal-title {
+  margin-top: 0.2em;
+  margin-bottom: 1em;
+  text-align: center;
+  font-size: 1.5em;
+  font-weight: bold;
+  font-family: inherit;
+}
+
+/* MODAL CONTENT */
+.modal-content {
+  overflow-y: auto;
+  max-height: 60vh;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5em;
+  justify-content: center;
+}
+
+/* TAGS IN NAME HISTORY */
+.name-history-tag {
+  padding: 0.25em 1.2em 0.25em 1.1em;
+  border-radius: 1.2em;
+  background: #f3f1ea;
+  margin: 0.25em 0.4em;
+  font-size: 1.13em;
+  display: inline-flex;
+  align-items: center;
+  font-family: inherit;
+  color: #5a3b2e;
+  position: relative;
+}
+.name-history-tag.personalized {
+  background: #e6f9ed;
+}
+
+/* TRASH ICON BUTTON */
+.name-history-trash {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  width: 100%;
+  opacity: 0.7;
+  transition: opacity 0.15s, background 0.1s;
+  box-shadow: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.name-history-trash:active {
+  opacity: 1;
+  background: #ffeaea;
+}
+.name-history-trash svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.modal-close-btn:active {
+  color: #d00;
+  background: #ffeaea;
+}
+.modal-close-btn:not(:active) {
+  background: none;
+}
+.modal-buttons {
+  box-sizing: border-box;
+}
