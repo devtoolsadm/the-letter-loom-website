@@ -3,6 +3,21 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json" />
+    <meta name="theme-color" content="#73C2FB" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Letter Loom" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="application-name" content="Letter Loom" />
+    <meta name="screen-orientation" content="portrait" />
+    <meta name="orientation" content="portrait" />
+    <meta name="display" content="standalone" />
+    <link rel="apple-touch-icon" href="assets/icon-192.png" />
+    <link rel="icon" sizes="192x192" href="assets/icon-192.png" />
+    <link rel="icon" sizes="512x512" href="assets/icon-512.png" />
+
   <title>Letter Loom Prototype</title>
   <style>
     :root {
@@ -94,44 +109,99 @@
       align-items: center;
       flex-direction: column;
       padding: 2em;
-      pointer-events: none; /* Permite interacción debajo */
+      pointer-events: none;
     }
     #orientation-overlay.active {
       display: flex;
+      pointer-events: auto;
     }
+    #videoWakeLock {
+            width: 1px; 
+            height: 1px; 
+            opacity: 0; 
+            position: absolute;
+        }    
   </style>
   <meta name="screen-orientation" content="portrait">
 </head>
 <body>
   <div id="orientation-overlay">
     <div>
-      <svg width="64" height="64" viewBox="0 0 64 64" fill="none" style="margin-bottom:1em; transform: rotate(90deg);"><rect x="12" y="8" width="40" height="48" rx="8" fill="#428BCA"/><rect x="20" y="16" width="24" height="32" rx="4" fill="#fff"/><rect x="28" y="24" width="8" height="16" rx="2" fill="#428BCA"/><rect x="36" y="24" width="8" height="16" rx="2" fill="#428BCA"/><rect x="24" y="44" width="16" height="4" rx="2" fill="#428BCA"/></svg>
-      <div>Por favor, gira tu dispositivo a <b>horizontal</b> para jugar.</div>
+      <svg width="64" height="64" viewBox="0 0 64 64" fill="none" style="margin-bottom:1em;"><rect x="12" y="8" width="40" height="48" rx="8" fill="#428BCA"/><rect x="20" y="16" width="24" height="32" rx="4" fill="#fff"/><rect x="28" y="24" width="8" height="16" rx="2" fill="#428BCA"/><rect x="36" y="24" width="8" height="16" rx="2" fill="#428BCA"/><rect x="24" y="44" width="16" height="4" rx="2" fill="#428BCA"/></svg>
+      <div id="orientation-message" style="display:none;">
+        Por favor, gira tu dispositivo a <b>VERTICAL</b> para jugar.<br><br>
+      </div>
     </div>
   </div>
   <div id="game-root">
     <div class="demo-panel">
       <div class="demo-title">Letter Loom</div>
-      <div style="font-size:1.1em; color:#444; margin-bottom:1em;">Prototipo escalado<br>Resolución base: <b>360x640px</b></div>
+      <div style="font-size:1.1em; color:#444; margin-bottom:1em;">Prototipo escalado<br><span id="screen-info" style="font-size:0.8em; color:#555;"></span></div>
       <div style="margin-bottom:2em;">Este área se escala y se centra automáticamente.<br>Prueba en diferentes móviles y orientaciones.</div>
-      <button class="demo-btn" onclick="alert('¡Funciona!')">Botón de prueba</button>
+      <button class="demo-btn" id="wakeLockBtn">Activar bloqueo de pantalla</button>
+      <div id="wakeLockStatus" style="margin-top:1em; font-size:0.95em; color:#428BCA;"></div>
     </div>
   </div>
-  <script>
-    // Overlay de orientación: muestra si está en portrait
+  <video id="videoWakeLock" loop muted playsinline>
+        <source src="assets/empty-video.mp4" type="video/mp4">
+        Tu navegador no soporta el elemento de video.
+  </video>  
+  <script type="module">
+    import { initWakeLockManager, requestLock, releaseLock } from './src/wakeLockManager.js';
+    const videoElement = document.getElementById('videoWakeLock');
+    const statusEl = document.getElementById('wakeLockStatus');
+    let lockActive = false;
+    initWakeLockManager({ videoElement, statusEl });
+    const btn = document.getElementById('wakeLockBtn');
+    btn.addEventListener('click', async () => {
+      if (!lockActive) {
+        await requestLock();
+        btn.textContent = 'Desactivar bloqueo de pantalla';
+        lockActive = true;
+      } else {
+        await releaseLock();
+        btn.textContent = 'Activar bloqueo de pantalla';
+        lockActive = false;
+      }
+    });
+    // Overlay de orientación: muestra si está en landscape
+    function isMobileDevice() {
+      return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    }
+    function getViewportZoom() {
+      if (window.visualViewport && typeof window.visualViewport.scale === 'number') {
+        return window.visualViewport.scale;
+      }
+      // Fallback: calcula zoom como antes
+      const { width: GAME_WIDTH, height: GAME_HEIGHT } = getGameDimensions();
+      const deviceW = window.innerWidth;
+      const deviceH = window.innerHeight;
+      return Math.min(deviceW / GAME_WIDTH, deviceH / GAME_HEIGHT);
+    }
+
+    function updateScreenInfo() {
+      const info = document.getElementById('screen-info');
+      if (!info) return;
+      const { width: GAME_WIDTH, height: GAME_HEIGHT } = getGameDimensions();
+      const deviceW = window.innerWidth;
+      const deviceH = window.innerHeight;
+      const zoom = getViewportZoom();
+      info.innerHTML = `Juego: ${GAME_WIDTH}x${GAME_HEIGHT}px<br>Dispositivo: ${deviceW}x${deviceH}px<br>Zoom: ${zoom.toFixed(2)}x`;
+    }
+
     function checkOrientationOverlay() {
       const overlay = document.getElementById('orientation-overlay');
-      const isPortrait = window.innerHeight > window.innerWidth;
-      if (isPortrait) {
+      const message = document.getElementById('orientation-message');
+      updateScreenInfo();
+      const isLandscape = window.innerWidth > window.innerHeight;
+      if (isMobileDevice() && isLandscape) {
         overlay.classList.add('active');
-        // No bloquea la interacción ni el scroll
+        message.style.display = '';
       } else {
         overlay.classList.remove('active');
+        message.style.display = 'none';
       }
     }
-    window.addEventListener('resize', checkOrientationOverlay);
-    window.addEventListener('orientationchange', checkOrientationOverlay);
-    window.addEventListener('DOMContentLoaded', checkOrientationOverlay);
     function getGameDimensions() {
       const root = getComputedStyle(document.documentElement);
       return {
@@ -148,10 +218,13 @@
       game.style.transform = `scale(${scale})`;
       game.style.left = `${(w - GAME_WIDTH * scale) / 2}px`;
       game.style.top = `${(h - GAME_HEIGHT * scale) / 2}px`;
+      checkOrientationOverlay();      
     }
     window.addEventListener('resize', scaleGame);
     window.addEventListener('orientationchange', scaleGame);
-    window.addEventListener('DOMContentLoaded', scaleGame);
+    window.addEventListener('DOMContentLoaded', () => {
+      scaleGame();
+    });
   </script>
 </body>
 </html>
