@@ -151,7 +151,7 @@
       position: fixed;
       z-index: 9999;
       top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(255,255,255,0.9);
+      background: rgba(255,255,255,1);
       color: #222;
       font-family: 'Fredoka', Arial, sans-serif;
       font-size: 4vw;
@@ -187,12 +187,10 @@
 </head>
 <body>
   <div id="orientation-overlay">
-    <div>
       <img src="assets/rotate-device-icon.png" alt="Gira el dispositivo" class="orientation-icon">
-      <div id="orientation-message" style="display:none;">
-        Por favor, gira tu dispositivo a <b>VERTICAL</b> para jugar.<br><br>
+      <div>
+        Gira tu dispositivo a <b>VERTICAL</b> para jugar<br><br>
       </div>
-    </div>
   </div>
   <div id="game-root">
     <div class="game-content">
@@ -321,15 +319,12 @@
 
     function checkOrientationOverlay() {
       const overlay = document.getElementById('orientation-overlay');
-      const message = document.getElementById('orientation-message');
       updateScreenInfo();
       const isLandscape = window.innerWidth > window.innerHeight;
       if (isMobileDevice() && isLandscape) {
         overlay.classList.add('active');
-        message.style.display = '';
       } else {
         overlay.classList.remove('active');
-        message.style.display = 'none';
       }
     }
     function getGameDimensions() {
