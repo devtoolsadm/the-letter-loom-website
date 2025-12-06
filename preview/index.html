@@ -151,16 +151,26 @@
       position: fixed;
       z-index: 9999;
       top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(240,240,240,0.85);
+      background: rgba(255,255,255,0.9);
       color: #222;
       font-family: 'Fredoka', Arial, sans-serif;
-      font-size: 1.5em;
+      font-size: 4vw;
       text-align: center;
       justify-content: center;
       align-items: center;
       flex-direction: column;
-      padding: 2em;
+      padding: 4vw;
       pointer-events: none;
+    }
+    .orientation-icon {
+      width: 25vw;
+      max-width: 128px;
+      min-width: 128px;
+      height: auto;
+      margin-bottom: 2vw;
+      display: block;
+      margin-left: auto;
+      margin-right: auto;
     }
     #orientation-overlay.active {
       display: flex;
@@ -178,7 +188,7 @@
 <body>
   <div id="orientation-overlay">
     <div>
-      <img src="assets/rotate-device-icon.png" alt="Gira el dispositivo" style="width:256; height:256px; margin-bottom:1em;">
+      <img src="assets/rotate-device-icon.png" alt="Gira el dispositivo" class="orientation-icon">
       <div id="orientation-message" style="display:none;">
         Por favor, gira tu dispositivo a <b>VERTICAL</b> para jugar.<br><br>
       </div>
@@ -331,7 +341,6 @@
     }
     function scaleGame() {
       const game = document.getElementById('game-root');
-      const overlay = document.getElementById('orientation-overlay');
       const { width: GAME_WIDTH, height: GAME_HEIGHT } = getGameDimensions();
       const w = window.innerWidth;
       const h = window.innerHeight;
@@ -339,27 +348,11 @@
       game.style.transform = `scale(${scale})`;
       game.style.left = `${(w - GAME_WIDTH * scale) / 2}px`;
       game.style.top = `${(h - GAME_HEIGHT * scale) / 2}px`;
-
-      // Escalar el overlay en sentido contrario si está activo
-      const isLandscape = w > h;
-      if (overlay.classList.contains('active')) {
-        // El overlay debe cubrir la pantalla real, así que lo escalamos por el inverso
-        const invScale = 1 / scale;
-        overlay.style.transform = `scale(${invScale})`;
-        overlay.style.left = '0';
-        overlay.style.top = '0';
-      } else {
-        overlay.style.transform = '';
-        overlay.style.left = '';
-        overlay.style.top = '';
-      }
       checkOrientationOverlay();      
     }
     window.addEventListener('resize', scaleGame);
     window.addEventListener('orientationchange', scaleGame);
-    window.addEventListener('DOMContentLoaded', () => {
-      scaleGame();
-    });
+    window.addEventListener('DOMContentLoaded', scaleGame);
   </script>
 </body>
 </html>
