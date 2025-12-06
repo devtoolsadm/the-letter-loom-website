@@ -404,14 +404,17 @@
           `Zoom: ${zoom.toFixed(2)}x`
         ].join('<br>');
       }
-
+      function isDesktop() {
+        // Devuelve true solo si NO es móvil NI tableta
+        return !/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Tablet|Mobile/i.test(navigator.userAgent);
+      }
       function checkOrientationOverlay() {
         const overlay = document.getElementById("orientation-overlay");
         const overlayRoot = document.getElementById("orientation-root");
         const gameRoot = document.getElementById("game-root");
         updateScreenInfo();
         const isLandscape = window.innerWidth > window.innerHeight;
-        if (isLandscape) {
+        if (isLandscape && !isDesktop()) {
           overlay.classList.add("active");
           overlayRoot.style.display = "flex";
           gameRoot.style.display = "none";
