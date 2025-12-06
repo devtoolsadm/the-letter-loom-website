@@ -306,11 +306,6 @@
         lockActive = false;
       }
     });
-    // Overlay de orientación: muestra si está en landscape
-    function isMobileDevice() {
-      // Detecta si es PC (desktop) en vez de móvil
-      return !(/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent));
-    }
     function getViewportZoom() {
       if (window.visualViewport && typeof window.visualViewport.scale === 'number') {
         return window.visualViewport.scale;
@@ -338,7 +333,7 @@
       const gameRoot = document.getElementById('game-root');
       updateScreenInfo();
       const isLandscape = window.innerWidth > window.innerHeight;
-      if (isMobileDevice() && isLandscape) {
+      if (isLandscape) {
         overlay.classList.add('active');
         overlayRoot.style.display = 'flex';
         gameRoot.style.display = 'none';
