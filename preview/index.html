@@ -215,6 +215,26 @@
         Tu navegador no soporta el elemento de video.
   </video>  
   <script type="module">
+    // Prevención de zoom por doble tap y pinch
+    (function preventMobileZoom() {
+      let lastTouchEnd = 0;
+      document.addEventListener('touchend', function (event) {
+        const now = Date.now();
+        if (now - lastTouchEnd <= 350) {
+          event.preventDefault();
+        }
+        lastTouchEnd = now;
+      }, { passive: false });
+      document.addEventListener('gesturestart', function (e) {
+        e.preventDefault();
+      });
+      document.addEventListener('gesturechange', function (e) {
+        e.preventDefault();
+      });
+      document.addEventListener('gestureend', function (e) {
+        e.preventDefault();
+      });
+    })();
     // Mostrar/ocultar el texto grande
     document.addEventListener('DOMContentLoaded', function() {
       const toggleBtn = document.getElementById('toggleLoremHugeBtn');
