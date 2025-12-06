@@ -30,7 +30,7 @@
       margin: 0;
       padding: 0;
       overflow: hidden;
-      background: linear-gradient(to bottom, #73C2FB 0%, #B4E0FD 70%, #a88 100%);
+      background: green;
       user-select: none;
       -webkit-user-select: none;
       -ms-user-select: none;
@@ -59,11 +59,62 @@
       -webkit-user-select: none;
       -ms-user-select: none;
       -moz-user-select: none;
-      /* No background blanco, para ver el fondo global */
+      background-color: red;
+    }
+    .game-content {
+      background-color: orange;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    header.game-header {
+      width: 100%;
+      flex: 0 0 auto;
+      background: #428BCA;
+      color: #fff;
+      font-family: 'Fredoka', Arial, sans-serif;
+      font-size: 1.3em;
+      text-align: center;
+      padding: 0.7em 0.5em;
+      border-top-left-radius: 16px;
+      border-top-right-radius: 16px;
+      box-shadow: 0 2px 8px #428bca22;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    main.game-main {
+      flex: 1 1 auto;
+      overflow-y: auto;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 1em 0.5em;
+      background: #fff;
+    }
+    footer.game-footer {
+      width: 100%;
+      flex: 0 0 auto;
+      background: #428BCA;
+      color: #fff;
+      font-family: 'Fredoka', Arial, sans-serif;
+      font-size: 1em;
+      text-align: center;
+      padding: 0.5em 0.5em;
+      border-bottom-left-radius: 16px;
+      border-bottom-right-radius: 16px;
+      box-shadow: 0 -2px 8px #428bca22;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
     .demo-panel {
-      width: 320px;
-      margin: 0;
+      width: 160px;
+      margin: 0 auto;
       background: #fff;
       border-radius: 16px;
       box-shadow: 0 2px 8px #0002;
@@ -127,19 +178,36 @@
 <body>
   <div id="orientation-overlay">
     <div>
-      <svg width="64" height="64" viewBox="0 0 64 64" fill="none" style="margin-bottom:1em;"><rect x="12" y="8" width="40" height="48" rx="8" fill="#428BCA"/><rect x="20" y="16" width="24" height="32" rx="4" fill="#fff"/><rect x="28" y="24" width="8" height="16" rx="2" fill="#428BCA"/><rect x="36" y="24" width="8" height="16" rx="2" fill="#428BCA"/><rect x="24" y="44" width="16" height="4" rx="2" fill="#428BCA"/></svg>
+      <img src="assets/rotate-device-icon.png" alt="Gira el dispositivo" style="width:256; height:256px; margin-bottom:1em;">
       <div id="orientation-message" style="display:none;">
         Por favor, gira tu dispositivo a <b>VERTICAL</b> para jugar.<br><br>
       </div>
     </div>
   </div>
   <div id="game-root">
-    <div class="demo-panel">
-      <div class="demo-title">Letter Loom</div>
-      <div style="font-size:1.1em; color:#444; margin-bottom:1em;">Prototipo escalado<br><span id="screen-info" style="font-size:0.8em; color:#555;"></span></div>
-      <div style="margin-bottom:2em;">Este área se escala y se centra automáticamente.<br>Prueba en diferentes móviles y orientaciones.</div>
-      <button class="demo-btn" id="wakeLockBtn">Activar bloqueo de pantalla</button>
-      <div id="wakeLockStatus" style="margin-top:1em; font-size:0.95em; color:#428BCA;"></div>
+    <div class="game-content">
+      <header class="game-header" id="gameHeader">
+        Letter Loom Prototype
+      </header>
+      <main class="game-main" id="gameMain">
+        <div class="demo-panel">
+          <div class="demo-title">Letter Loom</div>
+          <div style="font-size:1.1em; color:#444; margin-bottom:1em;">Prototipo escalado<br><span id="screen-info" style="font-size:0.8em; color:#555;"></span></div>
+          <div style="display:none">
+            <div style="margin-bottom:2em;">Este área se escala y se centra automáticamente.<br>Prueba en diferentes móviles y orientaciones.</div>        
+            <button class="demo-btn" id="wakeLockBtn">Activar bloqueo de pantalla</button>
+            <div id="wakeLockStatus" style="margin-top:1em; font-size:0.95em; color:#428BCA;"></div>
+          </div>
+          <div id="lorem-normal">loren ipsum loren </div>
+          <button class="demo-btn" id="toggleLoremHugeBtn" style="margin-top:1em;">SW Loren</button>
+          <div id="lorem-huge" style="display:none;">loren ipsum loren ipsum loren ipsum loren ipsum loren ipsum loren ipsum loren ipsum loren ipsum loren ipsum loren ipsum loren ipsum loren ipsum loren ipsum loren ipsum loren ipsum loren ipsum loren ipsum loren ipsum loren ipsum loren ipsum loren ipsum loren ipsum loren ipsum loren ipsum loren ipsum loren ipsum loren ipsum loren ipsum loren ipsum loren ipsum loren ipsum loren ipsum loren ipsum l</div>
+            <button class="demo-btn" id="toggleHeaderBtn" style="margin-top:1em;">Mostrar/ocultar header</button>
+            <button class="demo-btn" id="toggleFooterBtn" style="margin-top:1em;">Mostrar/ocultar footer</button>
+        </div>
+      </main>
+      <footer class="game-footer" id="gameFooter">
+        &copy; 2024 Letter Loom
+      </footer>
     </div>
   </div>
   <video id="videoWakeLockWorkaround" loop muted playsinline>
@@ -147,6 +215,38 @@
         Tu navegador no soporta el elemento de video.
   </video>  
   <script type="module">
+    // Mostrar/ocultar el texto grande
+    document.addEventListener('DOMContentLoaded', function() {
+      const toggleBtn = document.getElementById('toggleLoremHugeBtn');
+      const loremHuge = document.getElementById('lorem-huge');
+      toggleBtn.addEventListener('click', function() {
+        if (loremHuge.style.display === 'none') {
+          loremHuge.style.display = '';
+        } else {
+          loremHuge.style.display = 'none';
+        }
+      });
+        // Mostrar/ocultar header y footer
+        const toggleHeaderBtn = document.getElementById('toggleHeaderBtn');
+        const header = document.getElementById('gameHeader');
+        toggleHeaderBtn.addEventListener('click', function() {
+          if (header.style.display === 'none') {
+            header.style.display = '';
+          } else {
+            header.style.display = 'none';
+          }
+        });
+
+        const toggleFooterBtn = document.getElementById('toggleFooterBtn');
+        const footer = document.getElementById('gameFooter');
+        toggleFooterBtn.addEventListener('click', function() {
+          if (footer.style.display === 'none') {
+            footer.style.display = '';
+          } else {
+            footer.style.display = 'none';
+          }
+        });
+    });
     import { initWakeLockManager, requestLock, releaseLock } from './src/wakeLockManager.js';
     const videoWakeLockWorkaroundEl = document.getElementById('videoWakeLockWorkaround');
     const statusWakeLocEl = document.getElementById('wakeLockStatus');
