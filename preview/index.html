@@ -115,7 +115,7 @@
       display: flex;
       pointer-events: auto;
     }
-    #videoWakeLock {
+    #videoWakeLockWorkaround {
             width: 1px; 
             height: 1px; 
             opacity: 0; 
@@ -142,16 +142,16 @@
       <div id="wakeLockStatus" style="margin-top:1em; font-size:0.95em; color:#428BCA;"></div>
     </div>
   </div>
-  <video id="videoWakeLock" loop muted playsinline>
+  <video id="videoWakeLockWorkaround" loop muted playsinline>
         <source src="assets/empty-video.mp4" type="video/mp4">
         Tu navegador no soporta el elemento de video.
   </video>  
   <script type="module">
     import { initWakeLockManager, requestLock, releaseLock } from './src/wakeLockManager.js';
-    const videoElement = document.getElementById('videoWakeLock');
-    const statusEl = document.getElementById('wakeLockStatus');
+    const videoWakeLockWorkaroundEl = document.getElementById('videoWakeLockWorkaround');
+    const statusWakeLocEl = document.getElementById('wakeLockStatus');
     let lockActive = false;
-    initWakeLockManager({ videoElement, statusEl });
+    initWakeLockManager({ videoEl: videoWakeLockWorkaroundEl, statusEl: statusWakeLocEl });
     const btn = document.getElementById('wakeLockBtn');
     btn.addEventListener('click', async () => {
       if (!lockActive) {
