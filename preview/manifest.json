@@ -2,7 +2,7 @@
   "name": "Letter Loom",
   "short_name": "Letter Loom",
   "description": "A word game for all devices.",
-  "start_url": ".",
+  "start_url": "index.html?fromPWA=1",
   "display": "fullscreen",
   "background_color": "#73C2FB",
   "theme_color": "#73C2FB",
