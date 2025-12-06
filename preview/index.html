@@ -331,6 +331,7 @@
     }
     function scaleGame() {
       const game = document.getElementById('game-root');
+      const overlay = document.getElementById('orientation-overlay');
       const { width: GAME_WIDTH, height: GAME_HEIGHT } = getGameDimensions();
       const w = window.innerWidth;
       const h = window.innerHeight;
@@ -338,6 +339,20 @@
       game.style.transform = `scale(${scale})`;
       game.style.left = `${(w - GAME_WIDTH * scale) / 2}px`;
       game.style.top = `${(h - GAME_HEIGHT * scale) / 2}px`;
+
+      // Escalar el overlay en sentido contrario si está activo
+      const isLandscape = w > h;
+      if (overlay.classList.contains('active')) {
+        // El overlay debe cubrir la pantalla real, así que lo escalamos por el inverso
+        const invScale = 1 / scale;
+        overlay.style.transform = `scale(${invScale})`;
+        overlay.style.left = '0';
+        overlay.style.top = '0';
+      } else {
+        overlay.style.transform = '';
+        overlay.style.left = '';
+        overlay.style.top = '';
+      }
       checkOrientationOverlay();      
     }
     window.addEventListener('resize', scaleGame);
