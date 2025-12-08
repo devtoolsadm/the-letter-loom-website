@@ -9,6 +9,7 @@ import { logger, onLog, getLogs } from "../../core/logger.js";
 
 const urlParams = new URLSearchParams(window.location.search);
 const fromPWA = urlParams.get("fromPWA") === "1";
+const fromInstall = urlParams.get("fromInstall") === "1";
 const shellLanguage = resolveShellLanguage();
 const shellTexts = TEXTS[shellLanguage];
 
@@ -234,6 +235,7 @@ function bootstrapShell() {
   setupWakeLock();
   setupToggles();
   setupDebugPanel();
+  setupPwaInstall();
   scaleGame();
   window.addEventListener("resize", scaleGame);
   window.addEventListener("orientationchange", scaleGame);
@@ -255,10 +257,13 @@ function registerServiceWorker() {
 }
 
 function setupDebugPanel() {
+  const container = document.createElement("div");
+  container.className = "debug-container";
+
   const toggleBtn = document.createElement("button");
   toggleBtn.type = "button";
   toggleBtn.className = "debug-toggle";
-  toggleBtn.textContent = isPreviewEnv() ? `Logs · v${APP_VERSION}` : "Logs";
+  toggleBtn.textContent = isPreviewEnv() ? `Logs · ${APP_VERSION}` : "Logs";
 
   const panel = document.createElement("div");
   panel.className = "debug-panel hidden";
@@ -268,8 +273,9 @@ function setupDebugPanel() {
   panel.appendChild(title);
   panel.appendChild(list);
 
-  document.body.appendChild(toggleBtn);
-  document.body.appendChild(panel);
+  container.appendChild(toggleBtn);
+  container.appendChild(panel);
+  document.body.appendChild(container);
 
   toggleBtn.addEventListener("click", () => {
     panel.classList.toggle("hidden");
@@ -290,6 +296,11 @@ function setupDebugPanel() {
 
   render();
   onLog(() => render());
+  updateDebugScale(container);
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", () => updateDebugScale(container));
+  }
+  window.addEventListener("resize", () => updateDebugScale(container));
 }
 
 function fetchVersionFile() {
@@ -300,4 +311,61 @@ function fetchVersionFile() {
 
 function isPreviewEnv() {
   return window.location.pathname.startsWith("/preview");
+}
+
+function updateDebugScale(container) {
+  const vpScale =
+    (window.visualViewport && window.visualViewport.scale) ||
+    (window.devicePixelRatio ? 1 / window.devicePixelRatio : 1);
+  const effective = vpScale && vpScale !== 1 ? vpScale : 1;
+  container.style.transform = `scale(${1 / effective})`;
+}
+
+function setupPwaInstall() {
+  if (!window.pwaInstall) {
+    logger.warn("pwa-install not available");
+    return;
+  }
+  const i18n = shellTexts;
+  const pwaEl = document.querySelector("pwa-install") || document.createElement("pwa-install");
+  pwaEl.setAttribute("manifest-url", "manifest.json");
+  pwaEl.setAttribute("install-button-text", i18n.installButtonText);
+  pwaEl.setAttribute("cancel-button-text", i18n.installCancelText);
+  pwaEl.setAttribute("ios-instructions-header", i18n.iosInstructionsHeader);
+  pwaEl.setAttribute("ios-instructions-subheader", i18n.iosInstructionsSubheader);
+  pwaEl.setAttribute("lang", shellLanguage);
+  pwaEl.style.display = "none";
+  if (!pwaEl.isConnected) document.body.appendChild(pwaEl);
+
+  const installBtn = document.createElement("button");
+  installBtn.type = "button";
+  installBtn.className = "demo-btn";
+  installBtn.textContent = i18n.installButtonText;
+  installBtn.addEventListener("click", () => triggerInstall(pwaEl));
+  const panel = document.querySelector(".demo-panel");
+  if (panel) {
+    panel.insertBefore(installBtn, panel.firstChild);
+  }
+
+  if (fromInstall) {
+    triggerInstall(pwaEl);
+  }
+}
+
+function triggerInstall(pwaEl) {
+  logger.info("Install prompt triggered");
+  let result = null;
+  if (pwaEl && typeof pwaEl.prompt === "function") {
+    result = pwaEl.prompt();
+  } else if (window.pwaInstall && typeof window.pwaInstall.prompt === "function") {
+    result = window.pwaInstall.prompt();
+  } else {
+    logger.warn("No install prompt available");
+    return;
+  }
+  if (result && typeof result.catch === "function") {
+    result.catch((err) => logger.error("Install prompt failed", err));
+  } else {
+    logger.warn("Install prompt returned no promise; maybe unsupported on this platform.");
+  }
 }

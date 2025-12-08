@@ -1,7 +1,7 @@
 {
   "name": "Letter Loom",
   "short_name": "LetterLoom",
-  "description": "The most fun card game ever! 🃏",
+  "description": "The most fun card game ever!",
   "start_url": "./?fromPWA=1",
   "scope": "./",
   "display": "fullscreen",

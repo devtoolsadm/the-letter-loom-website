@@ -16,6 +16,7 @@ body {
   user-select: none;
   -webkit-user-select: none;
   touch-action: none;
+  -webkit-text-size-adjust: none;
 }
 
 body {
@@ -147,24 +148,22 @@ body {
 }
 
 .debug-toggle {
-  position: fixed;
-  bottom: 16px;
-  right: 16px;
-  z-index: 100000;
+  position: relative;
   border: none;
   border-radius: 999px;
   padding: 10px 16px;
   background: #222;
   color: #fff;
-  font-size: 14px;
+  font-size: 16px;
+  -webkit-text-size-adjust: none;
   cursor: pointer;
   box-shadow: 0 2px 8px #0006;
 }
 
 .debug-panel {
-  position: fixed;
-  bottom: 72px;
-  right: 16px;
+  position: absolute;
+  bottom: 56px;
+  right: 0;
   width: 320px;
   max-height: 50vh;
   background: rgba(12, 16, 35, 0.95);
@@ -175,6 +174,7 @@ body {
   overflow-y: auto;
   z-index: 100000;
   font-size: 12px;
+  -webkit-text-size-adjust: none;
 }
 
 .debug-panel.hidden {
@@ -200,4 +200,10 @@ body {
   font-size: 11px;
   color: #bbb;
 }
-:root {
+.debug-container {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  z-index: 100000;
+  transform-origin: bottom right;
+}
