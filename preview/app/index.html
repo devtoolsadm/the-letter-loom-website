@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <link rel="manifest" href="manifest.json" />
+    <link rel="stylesheet" href="src/styles/shell.css" />
+    <meta name="theme-color" content="#73C2FB" />
+    <title>Letter Loom Prototype</title>
+  </head>
+  <body>
+    <div id="orientation-overlay">
+      <div id="orientation-root" class="rootGameScreen">
+        <div class="orientation-content">
+          <img
+            class="orientation-icon"
+            src="assets/rotate-device-icon.png"
+            alt="Rotate device icon"
+          />
+          <div id="orientation-message"></div>
+        </div>
+      </div>
+    </div>
+    <div id="game-root" class="rootGameScreen">
+      <div class="game-content">
+        <header class="game-header" id="gameHeader"></header>
+        <main class="game-main" id="gameMain">
+          <div class="demo-panel">
+            <div class="demo-title" id="prototype-title"></div>
+            <div id="prototype-subtitle"></div>
+            <div id="prototype-description"></div>
+            <div id="screen-info"></div>
+            <button class="demo-btn" id="wakeLockBtn"></button>
+            <div
+              id="wakeLockStatus"
+              style="font-size: 0.95em; color: #428bca"
+            ></div>
+            <div id="lorem-normal"></div>
+            <button class="demo-btn" id="toggleLoremHugeBtn"></button>
+            <div id="lorem-huge" style="display: none"></div>
+            <button class="demo-btn" id="toggleHeaderBtn"></button>
+            <button class="demo-btn" id="toggleFooterBtn"></button>
+          </div>
+        </main>
+        <footer class="game-footer" id="gameFooter"></footer>
+      </div>
+    </div>
+    <video id="videoWakeLockWorkaround" loop muted playsinline>
+      <source src="assets/empty-video.mp4" type="video/mp4" />
+      <span id="video-fallback-text"></span>
+    </video>
+    <script type="module" src="./src/ui/shell/main.js"></script>
+  </body>
+</html>

@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Install Letter Loom</title>
+    <style>
+      body {
+        font-family: "Fredoka", Arial, sans-serif;
+        margin: 0;
+        background: #0b1220;
+        color: #f8fafc;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+      main {
+        width: min(720px, 100%);
+        margin: 0 auto;
+        padding: 32px 20px 64px;
+      }
+      h1,
+      h2 {
+        margin-top: 0;
+      }
+      .card {
+        background: rgba(255, 255, 255, 0.04);
+        border-radius: 16px;
+        padding: 24px;
+        margin-bottom: 24px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+      }
+      ol {
+        padding-left: 20px;
+      }
+      .cta {
+        display: inline-block;
+        margin-top: 16px;
+        padding: 12px 24px;
+        border-radius: 999px;
+        background: #73c2fb;
+        color: #0b1220;
+        font-weight: 600;
+        text-decoration: none;
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+      }
+      .qr {
+        text-align: center;
+      }
+      .qr img {
+        width: 200px;
+        height: 200px;
+        border-radius: 12px;
+        background: #fff;
+        padding: 8px;
+      }
+      footer {
+        margin-top: auto;
+        text-align: center;
+        padding: 24px;
+        color: rgba(255, 255, 255, 0.7);
+        font-size: 0.9rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>Install Letter Loom</h1>
+        <p>
+          Follow these steps on your phone or scan the QR code to open the app
+          directly in install mode.
+        </p>
+      </header>
+
+      <section class="card qr">
+        <h2>Scan to open</h2>
+        <img
+          src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https%3A%2F%2Fyour-domain%2Fapp%2F%3FfromInstall%3D1"
+          alt="QR code pointing to https://your-domain/app/?fromInstall=1"
+        />
+        <p>
+          Replace <code>your-domain</code> with the production URL when
+          deploying.
+        </p>
+        <a class="cta" href="/app/?fromInstall=1">Open app now</a>
+      </section>
+
+      <section class="card">
+        <h2>Android (Chrome)</h2>
+        <ol>
+          <li>Open the app link above in Chrome.</li>
+          <li>Wait for the “Install app” banner or tap the menu ⋮ button.</li>
+          <li>Select <strong>Add to Home screen</strong> and confirm.</li>
+        </ol>
+      </section>
+
+      <section class="card">
+        <h2>iOS (Safari)</h2>
+        <ol>
+          <li>Open the app link in Safari.</li>
+          <li>Tap the Share icon and choose <strong>Add to Home Screen</strong>.</li>
+          <li>Confirm the name and tap <strong>Add</strong>.</li>
+        </ol>
+      </section>
+    </main>
+    <footer>&copy; <span id="year"></span> Letter Loom</footer>
+    <script>
+      document.getElementById("year").textContent = new Date().getFullYear();
+    </script>
+  </body>
+</html>

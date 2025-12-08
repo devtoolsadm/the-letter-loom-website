@@ -14,10 +14,12 @@ Thank you for contributing to Letter Loom! To keep the codebase clean and mainta
   - Do not include phrases like "as discussed above", "option B", or similar references to chat or prompt instructions.
 
 ## File Organization
-- Place game logic in `src/gameController.js`.
-- Place UI-related code in `src/ui/`.
-- Place styles in `src/ui/`.
-- Place internationalization (i18n) resources in `src/i18n/`.
+- `legacy/`: Frozen snapshot for reference; do not modify when implementing new features.
+- `src/core/`: Framework-agnostic logic (e.g., `gameController`, wake lock helpers, version file).
+- `src/ui/`: Presentation controllers and components (screens, modals, shell).
+- `src/styles/`: Plain CSS modules imported by the UI.
+- `src/i18n/`: Language packs and utilities.
+- `assets/`: Game media (icons, fonts, audio, video).
 
 
 ## General Practices
@@ -26,6 +28,8 @@ Thank you for contributing to Letter Loom! To keep the codebase clean and mainta
 - Use ES6+ features where possible.
 - Keep functions short and focused.
 - Test your changes before submitting.
+- Use `src/core/logger.js` for debug/info/error reporting instead of `console.*` directly. The logger automatically mirrors to the console and the in-app log panel; this ensures logs are visible on mobile builds. If you need a new log level, extend the logger module rather than logging ad hoc.
+- UI typography must use fixed-size units (px) so the design is not affected by OS/browser font-scaling preferences or zoom overrides.
 
 ## Pull Requests
 - Ensure your code follows these guidelines before submitting a PR.
@@ -33,7 +37,7 @@ Thank you for contributing to Letter Loom! To keep the codebase clean and mainta
 - Reference related issues if applicable.
 
 ## Other Notes
-- The version file (`src/version.js`) is automatically updated by CI/CD. Do not edit it manually.
+- The version file (`src/core/version.js`) is automatically updated by CI/CD. Do not edit it manually.
 - For any questions, open an issue or ask in the repository discussion.
 
 ---

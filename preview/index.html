@@ -2,463 +2,138 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover"
-    />
-    <!-- PWA Manifest -->
-    <link rel="manifest" href="manifest.json" />
-    <meta name="theme-color" content="#73C2FB" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="apple-mobile-web-app-title" content="Letter Loom" />
-    <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="application-name" content="Letter Loom" />
-    <meta name="screen-orientation" content="portrait" />
-    <meta name="orientation" content="portrait" />
-    <meta name="display" content="standalone" />
-    <link rel="apple-touch-icon" href="assets/icon-192.png" />
-    <link rel="icon" sizes="192x192" href="assets/icon-192.png" />
-    <link rel="icon" sizes="512x512" href="assets/icon-512.png" />
-
-    <title>Letter Loom Prototype</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Letter Loom · Landing</title>
     <style>
       :root {
-        --game-width: 360px;
-        --game-height: 640px;
+        color-scheme: light dark;
+        --bg: #0f172a;
+        --fg: #f8fafc;
+        --accent: #73c2fb;
       }
-      html,
       body {
-        width: 100vw;
-        height: 100vh;
         margin: 0;
-        padding: 0;
-        overflow: hidden;
-        background: green;
-        user-select: none;
-        -webkit-user-select: none;
-        -ms-user-select: none;
-        -moz-user-select: none;
-        touch-action: none;
-      }
-      body {
-        overscroll-behavior: none;
-      }
-      .rootGameScreen {
-        position: absolute;
-        top: 0;
-        left: 0;
-        transform-origin: top left;
-        box-shadow: 0 0 32px #0004;
-        border-radius: 20px;
-        background: transparent;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        overflow: hidden;
-        user-select: none;
-        -webkit-user-select: none;
-        -ms-user-select: none;
-        -moz-user-select: none;
-      }
-      #game-root {
-        width: var(--game-width);
-        height: var(--game-height);
-        background-color: red;
-      }
-      #orientation-root {
-        display: none;
-        width: var(--game-height);
-        height: var(--game-width);
-        background-color: rgba(255, 255, 255, 0.95);
-        font-size: 24px;
-        z-index: 99999;
-      }
-      #orientation-overlay {
-        width: 100%;
-        height: 100%;
-        background-color: orange;
-        display: none;
-      }
-      #orientation-overlay.active {
-        display: flex;
-      }
-      .orientation-content {
-        display: flex;
-        flex-direction: column;
-        overflow: hidden;
-        z-index: 99999;
-      }
-      .orientation-icon {
-        width: 25vw;
-        max-width: 128px;
-        min-width: 128px;
-        height: auto;
-        margin-bottom: 2vw;
-        display: block;
-        margin-left: auto;
-        margin-right: auto;
-      }
-
-      .game-content {
-        background-color: orange;
-        width: 100%;
-        height: 100%;
-        display: flex;
-        flex-direction: column;
-        overflow: hidden;
-      }
-
-      header.game-header {
-        width: 100%;
-        flex: 0 0 auto;
-        background: #428bca;
-        color: #fff;
         font-family: "Fredoka", Arial, sans-serif;
-        font-size: 1.3em;
-        text-align: center;
-        padding: 0.7em 0.5em;
-        border-top-left-radius: 16px;
-        border-top-right-radius: 16px;
-        box-shadow: 0 2px 8px #428bca22;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-      main.game-main {
-        flex: 1 1 auto;
-        overflow-y: auto;
-        width: 100%;
+        background: var(--bg);
+        color: var(--fg);
+        min-height: 100vh;
         display: flex;
         flex-direction: column;
-        align-items: center;
-        justify-content: flex-start;
-        padding: 1em 0.5em;
-        background: #fff;
       }
-      footer.game-footer {
-        width: 100%;
-        flex: 0 0 auto;
-        background: #428bca;
-        color: #fff;
-        font-family: "Fredoka", Arial, sans-serif;
-        font-size: 1em;
-        text-align: center;
-        padding: 0.5em 0.5em;
-        border-bottom-left-radius: 16px;
-        border-bottom-right-radius: 16px;
-        box-shadow: 0 -2px 8px #428bca22;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-      .demo-panel {
-        width: 160px;
+      header,
+      main,
+      footer {
+        width: min(960px, 100%);
         margin: 0 auto;
-        background: #fff;
-        border-radius: 16px;
-        box-shadow: 0 2px 8px #0002;
         padding: 24px;
+      }
+      header {
         text-align: center;
-        font-family: "Fredoka", Arial, sans-serif;
       }
-      .demo-title {
-        font-size: 2.2em;
-        font-weight: bold;
-        margin-bottom: 1em;
-        color: #428bca;
-        font-family: "Bangers", cursive;
+      h1 {
+        font-size: clamp(2rem, 5vw, 3rem);
+        margin-bottom: 0.5em;
       }
-      .demo-btn {
-        font-size: 1.2em;
-        padding: 0.7em 2em;
-        border-radius: 8px;
+      p.lead {
+        font-size: 1.2rem;
+        margin-bottom: 1.5rem;
+      }
+      .cta-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        justify-content: center;
+      }
+      .cta {
         border: none;
-        background: #73c2fb;
-        color: #fff;
-        font-weight: bold;
-        margin-top: 2em;
+        border-radius: 999px;
+        padding: 14px 28px;
+        font-size: 1rem;
         cursor: pointer;
-        box-shadow: 0 2px 8px #428bca22;
-        transition: background 0.2s;
+        text-decoration: none;
+        color: #0f172a;
+        background: var(--accent);
+        font-weight: 600;
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
       }
-      .demo-btn:hover {
-        background: #428bca;
+      .cta.secondary {
+        background: transparent;
+        color: var(--fg);
+        border: 1px solid rgba(255, 255, 255, 0.4);
       }
-      /* Overlay para orientación incorrecta */
-
-      #videoWakeLockWorkaround {
-        width: 1px;
-        height: 1px;
-        opacity: 0;
-        position: absolute;
+      section {
+        margin-top: 48px;
+      }
+      .features {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 16px;
+      }
+      .feature {
+        padding: 18px;
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+      }
+      footer {
+        text-align: center;
+        margin-top: auto;
+        font-size: 0.9rem;
+        color: rgba(255, 255, 255, 0.7);
       }
     </style>
-    <meta name="screen-orientation" content="portrait" />
   </head>
   <body>
-    <div id="orientation-overlay">
-      <div id="orientation-root" class="rootGameScreen">
-        <div class="orientation-content">
-          <img
-            src="assets/rotate-device-icon.png"
-            alt=""
-            class="orientation-icon"
-          />
-          <div>
-            Gira tu dispositivo a <b>VERTICAL</b> para jugar<br /><br />
-          </div>
+    <header>
+      <h1>Letter Loom</h1>
+      <p class="lead">
+        The most fun card game ever! Install it, play offline, and take it to
+        every game night.
+      </p>
+      <div class="cta-group">
+        <a class="cta" href="/app/">Play prototype</a>
+        <a class="cta secondary" href="/install/">Install on my phone</a>
+      </div>
+    </header>
+    <main>
+      <section>
+        <h2>Why you’ll love it</h2>
+        <div class="features">
+          <article class="feature">
+            <h3>Instant scaling</h3>
+            <p>
+              The interface automatically adapts to any screen size and locks
+              the portrait layout.
+            </p>
+          </article>
+          <article class="feature">
+            <h3>Offline first</h3>
+            <p>
+              Install the PWA and play without an internet connection. The
+              service worker keeps everything cached.
+            </p>
+          </article>
+          <article class="feature">
+            <h3>Always-on mode</h3>
+            <p>
+              Prevents accidental sleep thanks to our wake-lock manager with
+              graceful fallbacks.
+            </p>
+          </article>
         </div>
-      </div>
-    </div>
-    <div id="game-root" class="rootGameScreen">
-      <div class="game-content">
-        <header class="game-header" id="gameHeader">
-          Letter Loom Prototype
-        </header>
-        <main class="game-main" id="gameMain">
-          <div class="demo-panel">
-            <div class="demo-title">Letter Loom</div>
-            <div style="font-size: 1.1em; color: #444; margin-bottom: 1em">
-              Prototipo escalado<br /><span
-                id="screen-info"
-                style="font-size: 0.8em; color: #555"
-              ></span>
-            </div>
-            <div>
-              <div style="margin-bottom: 2em">
-                Este área se escala y se centra automáticamente.<br />Prueba en
-                diferentes móviles y orientaciones.
-              </div>
-              <button class="demo-btn" id="wakeLockBtn">
-                Activar bloqueo de pantalla
-              </button>
-              <div
-                id="wakeLockStatus"
-                style="margin-top: 1em; font-size: 0.95em; color: #428bca"
-              ></div>
-            </div>
-            <div id="lorem-normal">loren ipsum loren</div>
-            <button
-              class="demo-btn"
-              id="toggleLoremHugeBtn"
-              style="margin-top: 1em"
-            >
-              SW Loren
-            </button>
-            <div id="lorem-huge" style="display: none">
-              loren ipsum loren ipsum loren ipsum loren ipsum loren ipsum loren
-              ipsum loren ipsum loren ipsum loren ipsum loren ipsum loren ipsum
-              loren ipsum loren ipsum loren ipsum loren ipsum loren ipsum loren
-              ipsum loren ipsum loren ipsum loren ipsum loren ipsum loren ipsum
-              loren ipsum loren ipsum loren ipsum loren ipsum loren ipsum loren
-              ipsum loren ipsum loren ipsum loren ipsum loren ipsum loren ipsum
-              l
-            </div>
-            <button
-              class="demo-btn"
-              id="toggleHeaderBtn"
-              style="margin-top: 1em"
-            >
-              Mostrar/ocultar header
-            </button>
-            <button
-              class="demo-btn"
-              id="toggleFooterBtn"
-              style="margin-top: 1em"
-            >
-              Mostrar/ocultar footer
-            </button>
-          </div>
-        </main>
-        <footer class="game-footer" id="gameFooter">
-          &copy; 2024 Letter Loom
-        </footer>
-      </div>
-    </div>
-    <video id="videoWakeLockWorkaround" loop muted playsinline>
-      <source src="assets/empty-video.mp4" type="video/mp4" />
-      Tu navegador no soporta el elemento de video.
-    </video>
-    <script type="module">
-      // Detectar si la app fue iniciada desde el instalador (PWA)
-      const urlParams = new URLSearchParams(window.location.search);
-      const fromPWA = urlParams.get("fromPWA") === "1";
-      function isStandaloneApp() {
-        return (
-          window.matchMedia("(display-mode: standalone)").matches ||
-          window.navigator.standalone === true
-        );
-      }
-      // Puedes usar 'fromPWA' en tu lógica:
-      // if (fromPWA) { ... }
-      // Prevención de zoom por doble tap y pinch
-      (function preventMobileZoom() {
-        let lastTouchEnd = 0;
-        document.addEventListener(
-          "touchend",
-          function (event) {
-            const now = Date.now();
-            if (now - lastTouchEnd <= 350) {
-              event.preventDefault();
-            }
-            lastTouchEnd = now;
-          },
-          { passive: false }
-        );
-        document.addEventListener("gesturestart", function (e) {
-          e.preventDefault();
-        });
-        document.addEventListener("gesturechange", function (e) {
-          e.preventDefault();
-        });
-        document.addEventListener("gestureend", function (e) {
-          e.preventDefault();
-        });
-      })();
-      // Mostrar/ocultar el texto grande
-      document.addEventListener("DOMContentLoaded", function () {
-        const toggleBtn = document.getElementById("toggleLoremHugeBtn");
-        const loremHuge = document.getElementById("lorem-huge");
-        toggleBtn.addEventListener("click", function () {
-          if (loremHuge.style.display === "none") {
-            loremHuge.style.display = "";
-          } else {
-            loremHuge.style.display = "none";
-          }
-        });
-        // Mostrar/ocultar header y footer
-        const toggleHeaderBtn = document.getElementById("toggleHeaderBtn");
-        const header = document.getElementById("gameHeader");
-        toggleHeaderBtn.addEventListener("click", function () {
-          if (header.style.display === "none") {
-            header.style.display = "";
-          } else {
-            header.style.display = "none";
-          }
-        });
-
-        const toggleFooterBtn = document.getElementById("toggleFooterBtn");
-        const footer = document.getElementById("gameFooter");
-        toggleFooterBtn.addEventListener("click", function () {
-          if (footer.style.display === "none") {
-            footer.style.display = "";
-          } else {
-            footer.style.display = "none";
-          }
-        });
-      });
-      import {
-        initWakeLockManager,
-        requestLock,
-        releaseLock,
-      } from "./src/wakeLockManager.js";
-      const videoWakeLockWorkaroundEl = document.getElementById(
-        "videoWakeLockWorkaround"
-      );
-      const statusWakeLocEl = document.getElementById("wakeLockStatus");
-      let lockActive = false;
-      initWakeLockManager({
-        videoEl: videoWakeLockWorkaroundEl,
-        statusEl: statusWakeLocEl,
-      });
-      const btn = document.getElementById("wakeLockBtn");
-      btn.addEventListener("click", async () => {
-        if (!lockActive) {
-          await requestLock();
-          btn.textContent = "Desactivar bloqueo de pantalla";
-          lockActive = true;
-        } else {
-          await releaseLock();
-          btn.textContent = "Activar bloqueo de pantalla";
-          lockActive = false;
-        }
-      });
-      function getViewportZoom() {
-        if (
-          window.visualViewport &&
-          typeof window.visualViewport.scale === "number"
-        ) {
-          return window.visualViewport.scale;
-        }
-        // Fallback: calcula zoom como antes
-        const { width: GAME_WIDTH, height: GAME_HEIGHT } = getGameDimensions();
-        const deviceW = window.innerWidth;
-        const deviceH = window.innerHeight;
-        return Math.min(deviceW / GAME_WIDTH, deviceH / GAME_HEIGHT);
-      }
-
-      function updateScreenInfo() {
-        const info = document.getElementById("screen-info");
-        if (!info) return;
-        const { width: GAME_WIDTH, height: GAME_HEIGHT } = getGameDimensions();
-        const deviceW = window.innerWidth;
-        const deviceH = window.innerHeight;
-        const zoom = getViewportZoom();
-        info.innerHTML = [
-          `Instalado: ${isStandaloneApp()}`,
-          `fromPWA: ${fromPWA}`,
-          `Juego: ${GAME_WIDTH}x${GAME_HEIGHT}px`,
-          `Dispositivo: ${deviceW}x${deviceH}px`,
-          `Zoom: ${zoom.toFixed(2)}x`
-        ].join('<br>');
-      }
-      function isDesktop() {
-        // Devuelve true solo si NO es móvil NI tableta
-        return !/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Tablet|Mobile/i.test(navigator.userAgent);
-      }
-      function checkOrientationOverlay() {
-        const overlay = document.getElementById("orientation-overlay");
-        const overlayRoot = document.getElementById("orientation-root");
-        const gameRoot = document.getElementById("game-root");
-        updateScreenInfo();
-        const isLandscape = window.innerWidth > window.innerHeight;
-        if (isLandscape && !isDesktop()) {
-          overlay.classList.add("active");
-          overlayRoot.style.display = "flex";
-          gameRoot.style.display = "none";
-        } else {
-          overlay.classList.remove("active");
-          overlayRoot.style.display = "none";
-          gameRoot.style.display = "flex";
-        }
-      }
-      function getGameDimensions() {
-        const root = getComputedStyle(document.documentElement);
-        return {
-          width: parseFloat(root.getPropertyValue("--game-width")),
-          height: parseFloat(root.getPropertyValue("--game-height")),
-        };
-      }
-      function scaleGame() {
-        const gameRoot = document.getElementById("game-root");
-        const overlayRoot = document.getElementById("orientation-root");
-        const { width: GAME_WIDTH, height: GAME_HEIGHT } = getGameDimensions();
-        const w = window.innerWidth;
-        const h = window.innerHeight;
-        const scale = Math.min(w / GAME_WIDTH, h / GAME_HEIGHT);
-        const left = (w - GAME_WIDTH * scale) / 2;
-        const top = (h - GAME_HEIGHT * scale) / 2;
-        // Escala y centra ambos contenedores igual
-        gameRoot.style.transform = `scale(${scale})`;
-        gameRoot.style.left = `${left}px`;
-        gameRoot.style.top = `${top}px`;
-        // Overlay: usa dimensiones intercambiadas en landscape, sin rotación
-        const isLandscape = w > h;
-        let overlayWidth = GAME_HEIGHT;
-        let overlayHeight = GAME_WIDTH;
-        const scaleOverlay = Math.min(w / overlayWidth, h / overlayHeight);
-        const leftOverlay = (w - overlayWidth * scaleOverlay) / 2;
-        const topOverlay = (h - overlayHeight * scaleOverlay) / 2;
-        overlayRoot.style.transform = `scale(${scaleOverlay})`;
-        overlayRoot.style.left = `${leftOverlay}px`;
-        overlayRoot.style.top = `${topOverlay}px`;
-        checkOrientationOverlay();
-      }
-      window.addEventListener("resize", scaleGame);
-      window.addEventListener("orientationchange", scaleGame);
-      window.addEventListener("DOMContentLoaded", scaleGame);
+      </section>
+      <section>
+        <h2>Ready to install?</h2>
+        <p>
+          Visit the installation guide on your phone to scan the QR code and get
+          step-by-step instructions for iOS and Android.
+        </p>
+        <a class="cta" href="/install/">Open installation guide</a>
+      </section>
+    </main>
+    <footer>&copy; <span id="year"></span> Letter Loom</footer>
+    <script>
+      document.getElementById("year").textContent = new Date().getFullYear();
     </script>
   </body>
 </html>
