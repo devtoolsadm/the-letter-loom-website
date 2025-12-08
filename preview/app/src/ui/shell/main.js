@@ -4,6 +4,7 @@ import {
   requestLock,
   releaseLock,
 } from "../../core/wakeLockManager.js";
+import { APP_VERSION } from "../../core/version.js";
 import { logger, onLog, getLogs } from "../../core/logger.js";
 
 const urlParams = new URLSearchParams(window.location.search);
@@ -226,6 +227,7 @@ function scaleGame() {
 }
 
 function bootstrapShell() {
+  logger.info(`App version ${APP_VERSION}`);
   applyPrototypeTexts();
   preventMobileZoom();
   fetchVersionFile();
@@ -256,7 +258,7 @@ function setupDebugPanel() {
   const toggleBtn = document.createElement("button");
   toggleBtn.type = "button";
   toggleBtn.className = "debug-toggle";
-  toggleBtn.textContent = "Logs";
+  toggleBtn.textContent = isPreviewEnv() ? `Logs · v${APP_VERSION}` : "Logs";
 
   const panel = document.createElement("div");
   panel.className = "debug-panel hidden";
@@ -294,4 +296,8 @@ function fetchVersionFile() {
   fetch("src/core/version.js", { cache: "no-store" }).catch((err) =>
     logger.warn("Version file fetch failed", err)
   );
+}
+
+function isPreviewEnv() {
+  return window.location.pathname.startsWith("/preview");
 }
