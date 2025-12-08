@@ -1,7 +1,7 @@
 export const TEXTS = {
   es: {
     prototypeTitle: "Letter Loom Prototype",
-    prototypeHeroSubtitle: "Prototipo escalado1",
+    prototypeHeroSubtitle: "Prototipo escalado",
     prototypeHeroDescription:
       "Este área se escala y se centra automáticamente.<br />Prueba en diferentes móviles y orientaciones.",
     prototypeOrientationMessage: "Gira tu dispositivo a <b>VERTICAL</b> para jugar",
@@ -21,12 +21,12 @@ export const TEXTS = {
     prototypeGameLabel: "Juego",
     prototypeDeviceLabel: "Dispositivo",
     prototypeZoomLabel: "Zoom",
-    installPromptTitle: "Install Letter Loom",
-    installPromptDescription: "Add the game to your home screen for offline play and full-screen mode.",
-    installButtonText: "Install now",
-    installCancelText: "Not now",
-    iosInstructionsHeader: "Add to Home Screen",
-    iosInstructionsSubheader: "Open the share menu and tap 'Add to Home Screen'",
+    installPromptTitle: "Instalar Letter Loom",
+    installPromptDescription: "Añade el juego a tu pantalla de inicio para jugar sin conexión y en modo pantalla completa.",
+    installButtonText: "Instalar ahora",
+    installCancelText: "Ahora no",
+    iosInstructionsHeader: "Añadir a pantalla de inicio",
+    iosInstructionsSubheader: "Abre el menú de compartir y pulsa 'Añadir a pantalla de inicio'",
     wakeLockStatusActiveStandard: "Pantalla activa (API estándar).",
     wakeLockStatusReleased: "Pantalla puede bloquearse (liberado por el sistema).",
     wakeLockStatusActiveFallback: "Pantalla activa (vídeo de respaldo).",

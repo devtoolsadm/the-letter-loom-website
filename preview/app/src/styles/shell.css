@@ -207,3 +207,40 @@ body {
   z-index: 100000;
   transform-origin: bottom right;
 }
+
+.install-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100001;
+}
+
+.install-modal {
+  background: #111a36;
+  color: #fff;
+  padding: 20px;
+  border-radius: 12px;
+  width: min(90vw, 360px);
+  box-shadow: 0 4px 16px #0008;
+  font-size: 14px;
+}
+
+.install-modal h3 {
+  margin-top: 0;
+  margin-bottom: 10px;
+}
+
+.install-modal button {
+  margin-top: 12px;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  background: #73c2fb;
+  color: #0b1220;
+  font-weight: 600;
+  width: 100%;
+}

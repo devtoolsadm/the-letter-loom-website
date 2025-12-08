@@ -10,7 +10,6 @@ import { logger, onLog, getLogs } from "../../core/logger.js";
 const urlParams = new URLSearchParams(window.location.search);
 const fromPWA = urlParams.get("fromPWA") === "1";
 const fromInstall = urlParams.get("fromInstall") === "1";
-let installReady = false;
 const shellLanguage = resolveShellLanguage();
 const shellTexts = TEXTS[shellLanguage];
 
@@ -189,6 +188,10 @@ function getDisplayMode() {
   return "browser";
 }
 
+function isIOS() {
+  return /iPhone|iPad|iPod/i.test(navigator.userAgent);
+}
+
 function checkOrientationOverlay() {
   updateScreenInfo();
   const overlay = document.getElementById("orientation-overlay");
@@ -236,7 +239,7 @@ function bootstrapShell() {
   setupWakeLock();
   setupToggles();
   setupDebugPanel();
-  setupPwaInstall();
+  setupInstallFlow();
   scaleGame();
   window.addEventListener("resize", scaleGame);
   window.addEventListener("orientationchange", scaleGame);
@@ -322,22 +325,13 @@ function updateDebugScale(container) {
   container.style.transform = `scale(${1 / effective})`;
 }
 
-function setupPwaInstall() {
-  if (isStandaloneApp() || fromPWA) {
-    // Ya instalada, no mostrar botón ni lanzar prompt
-    return;
-  }
-  if (!window.pwaInstall) {
-    logger.warn("pwa-install not available");
-    return;
-  }
-  const i18n = shellTexts;
+function setupInstallFlow() {
+  if (isStandaloneApp() || fromPWA) return;
+  const panel = document.querySelector(".demo-panel");
+  if (!panel) return;
+
   const pwaEl = document.querySelector("pwa-install") || document.createElement("pwa-install");
   pwaEl.setAttribute("manifest-url", "manifest.json");
-  pwaEl.setAttribute("install-button-text", i18n.installButtonText);
-  pwaEl.setAttribute("cancel-button-text", i18n.installCancelText);
-  pwaEl.setAttribute("ios-instructions-header", i18n.iosInstructionsHeader);
-  pwaEl.setAttribute("ios-instructions-subheader", i18n.iosInstructionsSubheader);
   pwaEl.setAttribute("lang", shellLanguage);
   pwaEl.style.display = "none";
   if (!pwaEl.isConnected) document.body.appendChild(pwaEl);
@@ -345,42 +339,33 @@ function setupPwaInstall() {
   const installBtn = document.createElement("button");
   installBtn.type = "button";
   installBtn.className = "demo-btn";
-  installBtn.textContent = i18n.installButtonText;
-  installBtn.addEventListener("click", () => triggerInstall(pwaEl));
-  const panel = document.querySelector(".demo-panel");
-  if (panel) {
-    panel.insertBefore(installBtn, panel.firstChild);
-  }
+  installBtn.textContent = shellTexts.installButtonText;
+  installBtn.addEventListener("click", () => triggerPwaInstall(pwaEl));
+  panel.insertBefore(installBtn, panel.firstChild);
 
-  if (typeof window.pwaInstall.onReady === "function") {
-    window.pwaInstall.onReady(() => {
-      installReady = true;
-      logger.info("Install prompt is ready");
-    });
-  }
   if (fromInstall) {
-    logger.info("fromInstall detected; waiting for user tap to prompt");
+    logger.info("fromInstall detected; waiting for user gesture to open pwa-install");
   }
 }
 
-function triggerInstall(pwaEl) {
-  logger.info("Install prompt triggered");
-  let result = null;
-  if (pwaEl && typeof pwaEl.prompt === "function") {
-    result = pwaEl.prompt();
-  } else if (window.pwaInstall && typeof window.pwaInstall.prompt === "function") {
-    if (!installReady) {
-      logger.warn("Install prompt not ready");
-      return;
-    }
-    result = window.pwaInstall.prompt();
-  } else {
-    logger.warn("No install prompt available");
+function triggerPwaInstall(pwaEl) {
+  if (!pwaEl) {
+    logger.warn("pwa-install element not ready");
     return;
   }
-  if (result && typeof result.catch === "function") {
-    result.catch((err) => logger.warn("Install prompt failed", err));
-  } else {
-    logger.warn("Install prompt returned no promise; maybe unsupported on this platform.");
+  const promptFn = pwaEl.openPrompt || pwaEl.prompt;
+  if (typeof promptFn !== "function") {
+    logger.warn("pwa-install prompt not available");
+    return;
+  }
+  try {
+    const result = promptFn.call(pwaEl);
+    if (result && typeof result.then === "function") {
+      result
+        .then((outcome) => logger.info(`Install choice: ${outcome}`))
+        .catch((err) => logger.warn("Install prompt failed", err));
+    }
+  } catch (err) {
+    logger.warn("Install prompt failed", err);
   }
 }
