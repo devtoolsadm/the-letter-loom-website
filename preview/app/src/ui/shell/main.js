@@ -333,7 +333,6 @@ function setupInstallFlow() {
   const pwaEl = document.querySelector("pwa-install") || document.createElement("pwa-install");
   pwaEl.setAttribute("manifest-url", "manifest.json");
   pwaEl.setAttribute("lang", shellLanguage);
-  pwaEl.style.display = "none";
   if (!pwaEl.isConnected) document.body.appendChild(pwaEl);
 
   const installBtn = document.createElement("button");
@@ -343,39 +342,38 @@ function setupInstallFlow() {
   installBtn.addEventListener("click", () => triggerPwaInstall(pwaEl));
   panel.insertBefore(installBtn, panel.firstChild);
 
-  window.addEventListener("beforeinstallprompt", (e) => {
-    e.preventDefault();
-    deferredInstallPrompt = e;
-    logger.info("beforeinstallprompt captured");
-  });
-
   if (fromInstall) {
-    logger.info("fromInstall detected; waiting for user gesture to open pwa-install");
+    logger.info("fromInstall detected; opening pwa-install dialog");
+    triggerPwaInstall(pwaEl, true);
   }
 }
 
-function triggerPwaInstall(pwaEl) {
+function triggerPwaInstall(pwaEl, force = false) {
   if (!pwaEl) {
     logger.warn("pwa-install element not ready");
     return;
   }
-    // pwa-install exposes openPrompt(); fall back to prompt() or showDialog()
-    const promptFn =
-      typeof pwaEl.openPrompt === "function"
-        ? pwaEl.openPrompt
-        : typeof pwaEl.prompt === "function"
-        ? pwaEl.prompt
-        : typeof pwaEl.showDialog === "function"
-        ? pwaEl.showDialog
-        : null;
-    if (typeof promptFn === "function") {
-      const result = promptFn.call(pwaEl);
-      if (result && typeof result.then === "function") {
-        result
-          .then((outcome) => logger.info(`Install choice: ${outcome}`))
-          .catch((err) => logger.warn("Install prompt failed", err));
-      }
-      return;
-    }
+  const promptFn =
+    typeof pwaEl.openPrompt === "function"
+      ? pwaEl.openPrompt
+      : typeof pwaEl.prompt === "function"
+      ? pwaEl.prompt
+      : typeof pwaEl.showDialog === "function"
+      ? pwaEl.showDialog
+      : null;
+  if (!promptFn) {
     logger.warn("pwa-install prompt not available");
+    return;
   }
+  try {
+    const result =
+      promptFn === pwaEl.showDialog ? promptFn.call(pwaEl, true) : promptFn.call(pwaEl);
+    if (result && typeof result.then === "function") {
+      result
+        .then((outcome) => logger.info(`Install choice: ${outcome}`))
+        .catch((err) => logger.warn("Install prompt failed", err));
+    }
+  } catch (err) {
+    logger.warn("Install prompt failed", err);
+  }
+}
