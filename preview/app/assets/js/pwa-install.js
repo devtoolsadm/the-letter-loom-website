@@ -1,1 +1,0 @@
-const e=(e,t)=>{console.warn(`[pwa-install] ${e}`,...(t?[t]:[]))},t={prompt(){e("This method is not available in this platform")} };export{t as pwaInstall}; if(typeof window !== "undefined"&&!window.pwaInstall){window.pwaInstall=t;}

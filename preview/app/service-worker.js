@@ -1,22 +1,35 @@
-const CACHE_NAME = "letter-loom-cache-v1";
+const CACHE_PREFIX = "letter-loom-cache";
+let cacheVersion = "v0";
+let CACHE_NAME = `${CACHE_PREFIX}-${cacheVersion}`;
 const BASE_PATH = self.location.pathname.replace(/\/[^/]*$/, "/");
 const VERSION_JS = `${BASE_PATH}src/core/version.js`;
 const LOG_CHANNEL_NAME = "app-logs";
 const logChannel = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel(LOG_CHANNEL_NAME) : null;
+const cacheReady = resolveCacheVersion();
 
 self.addEventListener("install", (event) => {
-  self.skipWaiting();
-  logSw("info", "Service worker installed");
+  event.waitUntil(
+    cacheReady
+      .catch(() => {})
+      .finally(() => {
+        self.skipWaiting();
+        logSw("info", `Service worker installed (cache ${CACHE_NAME})`);
+      })
+  );
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
-    )
+    cacheReady
+      .catch(() => {})
+      .then(() =>
+        caches.keys().then((keys) =>
+          Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+        )
+      )
   );
   self.clients.claim();
-  logSw("info", "Service worker activated");
+  logSw("info", `Service worker activated (cache ${CACHE_NAME})`);
 });
 
 self.addEventListener("fetch", (event) => {
@@ -43,17 +56,23 @@ async function handleVersionRequest(request) {
     const response = await fetch(request);
     const text = await response.clone().text();
     const cache = await caches.open(CACHE_NAME);
-    const cached = await cache.match(request);
+    const cacheKey = new Request(VERSION_JS);
+    const cached = await cache.match(cacheKey);
     const cachedText = cached ? await cached.text() : null;
-    if (text !== cachedText) {
-      await cache.put(request, response.clone());
+    if (cachedText === null) {
+      await cache.put(cacheKey, response.clone());
+      logSw("debug", "version.js cached for the first time");
+    } else if (text !== cachedText) {
+      await cache.put(cacheKey, response.clone());
       notifyClients({ type: "refresh" });
       logSw("info", "version.js changed, notified clients");
+    } else {
+      logSw("debug", "version.js unchanged");
     }
     return response;
   } catch (err) {
     const cache = await caches.open(CACHE_NAME);
-    const fallback = await cache.match(request);
+    const fallback = await cache.match(new Request(VERSION_JS));
     if (fallback) return fallback;
     logSw("error", "version.js fetch failed and no cache", err);
     throw err;
@@ -68,8 +87,15 @@ async function cacheFirst(request) {
     return cached;
   }
   const response = await fetch(request);
-  cache.put(request, response.clone());
-  logSw("debug", "Cached new response", { url: request.url });
+  if (response.ok && response.status === 200) {
+    cache.put(request, response.clone());
+    logSw("debug", "Cached new response", { url: request.url });
+  } else {
+    logSw("warn", "Skipping cache put (non-200 response)", {
+      url: request.url,
+      status: response.status,
+    });
+  }
   return response;
 }
 
@@ -94,4 +120,19 @@ function logSw(level, message, context) {
   }
   const consoleMethod = level === "error" ? "error" : level === "warn" ? "warn" : "log";
   console[consoleMethod](`[SW][${level.toUpperCase()}] ${message}`, context || "");
+}
+
+async function resolveCacheVersion() {
+  try {
+    const res = await fetch(VERSION_JS, { cache: "no-store" });
+    const text = await res.text();
+    const match = text.match(/APP_VERSION\s*=\s*"([^"]+)"/);
+    if (match && match[1]) {
+      cacheVersion = match[1];
+      CACHE_NAME = `${CACHE_PREFIX}-${cacheVersion}`;
+      logSw("debug", `Cache version resolved: ${CACHE_NAME}`);
+    }
+  } catch (err) {
+    logSw("warn", "Could not resolve cache version from version.js; using default", err);
+  }
 }

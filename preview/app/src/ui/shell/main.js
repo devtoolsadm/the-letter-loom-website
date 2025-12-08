@@ -10,6 +10,7 @@ import { logger, onLog, getLogs } from "../../core/logger.js";
 const urlParams = new URLSearchParams(window.location.search);
 const fromPWA = urlParams.get("fromPWA") === "1";
 const fromInstall = urlParams.get("fromInstall") === "1";
+let installReady = false;
 const shellLanguage = resolveShellLanguage();
 const shellTexts = TEXTS[shellLanguage];
 
@@ -322,6 +323,10 @@ function updateDebugScale(container) {
 }
 
 function setupPwaInstall() {
+  if (isStandaloneApp() || fromPWA) {
+    // Ya instalada, no mostrar botón ni lanzar prompt
+    return;
+  }
   if (!window.pwaInstall) {
     logger.warn("pwa-install not available");
     return;
@@ -347,8 +352,14 @@ function setupPwaInstall() {
     panel.insertBefore(installBtn, panel.firstChild);
   }
 
+  if (typeof window.pwaInstall.onReady === "function") {
+    window.pwaInstall.onReady(() => {
+      installReady = true;
+      logger.info("Install prompt is ready");
+    });
+  }
   if (fromInstall) {
-    triggerInstall(pwaEl);
+    logger.info("fromInstall detected; waiting for user tap to prompt");
   }
 }
 
@@ -358,13 +369,17 @@ function triggerInstall(pwaEl) {
   if (pwaEl && typeof pwaEl.prompt === "function") {
     result = pwaEl.prompt();
   } else if (window.pwaInstall && typeof window.pwaInstall.prompt === "function") {
+    if (!installReady) {
+      logger.warn("Install prompt not ready");
+      return;
+    }
     result = window.pwaInstall.prompt();
   } else {
     logger.warn("No install prompt available");
     return;
   }
   if (result && typeof result.catch === "function") {
-    result.catch((err) => logger.error("Install prompt failed", err));
+    result.catch((err) => logger.warn("Install prompt failed", err));
   } else {
     logger.warn("Install prompt returned no promise; maybe unsupported on this platform.");
   }

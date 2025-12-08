@@ -1,12 +1,12 @@
 export const TEXTS = {
   es: {
     prototypeTitle: "Letter Loom Prototype",
-    prototypeHeroSubtitle: "Prototipo escalado",
+    prototypeHeroSubtitle: "Prototipo escalado1",
     prototypeHeroDescription:
       "Este área se escala y se centra automáticamente.<br />Prueba en diferentes móviles y orientaciones.",
     prototypeOrientationMessage: "Gira tu dispositivo a <b>VERTICAL</b> para jugar",
-    prototypeEnableWakeLock: "Activar bloqueo de pantalla",
-    prototypeDisableWakeLock: "Desactivar bloqueo de pantalla",
+    prototypeEnableWakeLock: "Mantener pantalla activa",
+    prototypeDisableWakeLock: "Permitir bloqueo automático",
     prototypeToggleLorem: "Alternar Lorem",
     prototypeToggleHeader: "Mostrar/ocultar header",
     prototypeToggleFooter: "Mostrar/ocultar footer",
@@ -27,11 +27,11 @@ export const TEXTS = {
     installCancelText: "Not now",
     iosInstructionsHeader: "Add to Home Screen",
     iosInstructionsSubheader: "Open the share menu and tap 'Add to Home Screen'",
-    wakeLockStatusActiveStandard: "Bloqueo activo (API estándar).",
-    wakeLockStatusReleased: "Bloqueo liberado por el sistema.",
-    wakeLockStatusActiveFallback: "Bloqueo activo (video de respaldo).",
-    wakeLockStatusFallbackFailed: "Error al activar el bloqueo mediante video.",
-    wakeLockStatusInactive: "Bloqueo inactivo."
+    wakeLockStatusActiveStandard: "Pantalla activa (API estándar).",
+    wakeLockStatusReleased: "Pantalla puede bloquearse (liberado por el sistema).",
+    wakeLockStatusActiveFallback: "Pantalla activa (vídeo de respaldo).",
+    wakeLockStatusFallbackFailed: "No se pudo mantener la pantalla activa (vídeo).",
+    wakeLockStatusInactive: "Pantalla puede bloquearse."
   },
   en: {
     prototypeTitle: "Letter Loom Prototype",
@@ -39,8 +39,8 @@ export const TEXTS = {
     prototypeHeroDescription:
       "This area scales and centers itself automatically.<br />Try it on different phones and orientations.",
     prototypeOrientationMessage: "Rotate your device to <b>PORTRAIT</b> to play",
-    prototypeEnableWakeLock: "Enable screen lock",
-    prototypeDisableWakeLock: "Disable screen lock",
+    prototypeEnableWakeLock: "Keep screen on",
+    prototypeDisableWakeLock: "Allow screen to sleep",
     prototypeToggleLorem: "Toggle Lorem",
     prototypeToggleHeader: "Show/Hide header",
     prototypeToggleFooter: "Show/Hide footer",
@@ -61,11 +61,11 @@ export const TEXTS = {
     installCancelText: "Not now",
     iosInstructionsHeader: "Add to Home Screen",
     iosInstructionsSubheader: "Open the share menu and tap 'Add to Home Screen'",
-    wakeLockStatusActiveStandard: "Wake lock active (standard API).",
-    wakeLockStatusReleased: "Wake lock released by the system.",
-    wakeLockStatusActiveFallback: "Wake lock active (fallback video).",
-    wakeLockStatusFallbackFailed: "Wake lock fallback failed (video error).",
-    wakeLockStatusInactive: "Wake lock inactive."
+    wakeLockStatusActiveStandard: "Screen on (standard API).",
+    wakeLockStatusReleased: "Screen may sleep (released by system).",
+    wakeLockStatusActiveFallback: "Screen on (video fallback).",
+    wakeLockStatusFallbackFailed: "Could not keep screen on (video error).",
+    wakeLockStatusInactive: "Screen may sleep."
   }
 };
 
