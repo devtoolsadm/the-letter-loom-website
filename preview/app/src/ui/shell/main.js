@@ -10,6 +10,7 @@ import { logger, onLog, getLogs } from "../../core/logger.js";
 const urlParams = new URLSearchParams(window.location.search);
 const fromPWA = urlParams.get("fromPWA") === "1";
 const fromInstall = urlParams.get("fromInstall") === "1";
+let deferredInstallPrompt = null;
 const shellLanguage = resolveShellLanguage();
 const shellTexts = TEXTS[shellLanguage];
 
@@ -336,6 +337,12 @@ function setupInstallFlow() {
   pwaEl.style.display = "none";
   if (!pwaEl.isConnected) document.body.appendChild(pwaEl);
 
+   window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    logger.info("beforeinstallprompt captured");
+  });
+
   const installBtn = document.createElement("button");
   installBtn.type = "button";
   installBtn.className = "demo-btn";
@@ -353,19 +360,24 @@ function triggerPwaInstall(pwaEl) {
     logger.warn("pwa-install element not ready");
     return;
   }
-  const promptFn = pwaEl.openPrompt || pwaEl.prompt;
-  if (typeof promptFn !== "function") {
-    logger.warn("pwa-install prompt not available");
-    return;
-  }
-  try {
+  // pwa-install exposes openPrompt(); fall back to prompt()
+  const promptFn = typeof pwaEl.openPrompt === "function" ? pwaEl.openPrompt : pwaEl.prompt;
+  if (typeof promptFn === "function") {
     const result = promptFn.call(pwaEl);
     if (result && typeof result.then === "function") {
       result
         .then((outcome) => logger.info(`Install choice: ${outcome}`))
         .catch((err) => logger.warn("Install prompt failed", err));
     }
-  } catch (err) {
-    logger.warn("Install prompt failed", err);
+    return;
   }
+  if (deferredInstallPrompt) {
+    deferredInstallPrompt.prompt();
+    deferredInstallPrompt.userChoice
+      .then((choice) => logger.info(`Install choice: ${choice.outcome}`))
+      .catch((err) => logger.warn("Install prompt failed", err));
+    deferredInstallPrompt = null;
+    return;
+  }
+  logger.warn("pwa-install prompt not available");
 }
