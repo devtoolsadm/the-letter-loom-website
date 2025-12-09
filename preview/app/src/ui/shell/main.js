@@ -12,6 +12,7 @@ const fromPWA = urlParams.get("fromPWA") === "1";
 const fromInstall = urlParams.get("fromInstall") === "1";
 const shellLanguage = resolveShellLanguage();
 const shellTexts = TEXTS[shellLanguage];
+let installButtonEl = null;
 
 document.title = shellTexts.prototypeTitle;
 
@@ -341,6 +342,12 @@ function setupInstallFlow() {
   installBtn.textContent = shellTexts.installButtonText;
   installBtn.addEventListener("click", () => triggerPwaInstall(pwaEl));
   panel.insertBefore(installBtn, panel.firstChild);
+  installButtonEl = installBtn;
+  updateInstallButtonVisibility();
+
+  window.addEventListener("appinstalled", () => updateInstallButtonVisibility());
+  window.matchMedia &&
+    window.matchMedia("(display-mode: standalone)").addEventListener("change", updateInstallButtonVisibility);
 
   if (fromInstall) {
     logger.info("fromInstall detected; opening pwa-install dialog");
@@ -376,4 +383,10 @@ function triggerPwaInstall(pwaEl, force = false) {
   } catch (err) {
     logger.warn("Install prompt failed", err);
   }
+}
+
+function updateInstallButtonVisibility() {
+  if (!installButtonEl) return;
+  const hidden = isStandaloneApp() || fromPWA;
+  installButtonEl.style.display = hidden ? "none" : "";
 }
