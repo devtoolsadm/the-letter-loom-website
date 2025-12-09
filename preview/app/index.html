@@ -13,7 +13,13 @@
     <script src="https://cdn.jsdelivr.net/npm/@khmyznikov/pwa-install/dist/pwa-install.bundle.js"></script>
   </head>
   <body>
-    <pwa-install id="pwa-install" manifest-url="manifest.json"></pwa-install>
+    <pwa-install
+      id="pwa-install"
+      manifest-url="manifest.json"
+      manual-apple="true"
+      manual-chrome="true"
+      disable-android-fallback="false"
+    ></pwa-install>
     <div id="orientation-overlay">
       <div id="orientation-root" class="rootGameScreen">
         <div class="orientation-content">
