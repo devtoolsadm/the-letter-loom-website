@@ -1,7 +1,7 @@
 export const TEXTS = {
   es: {
     prototypeTitle: "Letter Loom Prototype",
-    prototypeHeroSubtitle: "Prototipo escalado",
+    prototypeHeroSubtitle: "Prototipo",
     prototypeHeroDescription:
       "Esta área se escala y se centra automáticamente.<br />Prueba en diferentes móviles y orientaciones.",
     prototypeOrientationMessage: "Gira tu dispositivo a <b>VERTICAL</b> para jugar",
@@ -36,7 +36,7 @@ export const TEXTS = {
   },
   en: {
     prototypeTitle: "Letter Loom Prototype",
-    prototypeHeroSubtitle: "Scaled prototype",
+    prototypeHeroSubtitle: "Prototype",
     prototypeHeroDescription:
       "This area scales and centers itself automatically.<br />Try it on different phones and orientations.",
     prototypeOrientationMessage: "Rotate your device to <b>PORTRAIT</b> to play",
