@@ -20,6 +20,7 @@ Thank you for contributing to Letter Loom! To keep the codebase clean and mainta
 - `src/styles/`: Plain CSS modules imported by the UI.
 - `src/i18n/`: Language packs and utilities.
 - `assets/`: Game media (icons, fonts, audio, video).
+- Landing assets live with the landing (do not import from `/app/`), and vice versa. Even if co-deployed, treat landing and app as separate surfaces with their own i18n and assets.
 
 
 ## General Practices
@@ -30,6 +31,7 @@ Thank you for contributing to Letter Loom! To keep the codebase clean and mainta
 - Test your changes before submitting.
 - Use `src/core/logger.js` for debug/info/error reporting instead of `console.*` directly. The logger automatically mirrors to the console and the in-app log panel; this ensures logs are visible on mobile builds. If you need a new log level, extend the logger module rather than logging ad hoc.
 - UI typography must use fixed-size units (px) so the design is not affected by OS/browser font-scaling preferences or zoom overrides.
+- Do not share code/assets between landing and app; clone brand tokens (colors, fonts, logo) per surface if needed. The landing may refresh on language change; the app should switch without reload.
 
 ## Pull Requests
 - Ensure your code follows these guidelines before submitting a PR.

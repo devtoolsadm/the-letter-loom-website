@@ -40,8 +40,14 @@ This file tracks the step-by-step process for merging the working minimal PWA te
 5. **Bridge core logic gradually**: Embed `src/gameController.js` into the new shell behind a thin adapter so we can render minimal UI states while continuing to refactor the rest of the legacy UI.
 6. **Port UI modules feature-by-feature**: Bring in `mainUI.js`, `modals.js`, CSS, and HTML fragments one capability at a time (player setup, score modal, timers, etc.), internationalizing and splitting styles as each feature arrives.
 7. **Refine persistence + sound hooks**: Once basic UI works in the new shell, reintroduce localStorage flows, Tone.js integration, and wake-lock toggles, making sure their user-facing strings live in `TEXTS`.
-8. **Device test after every slice**: Each time we finish integrating a feature (a “slice”), install the PWA on at least one phone/tablet and verify the three critical behaviours—installation flow, portrait lock overlay/orientation handling, and wake-lock toggle—before we continue with the next feature.
+8. **Device test after every slice**: Each time we finish integrating a feature (a "slice"), install the PWA on at least one phone/tablet and verify the three critical behaviours-installation flow, portrait lock overlay/orientation handling, and wake-lock toggle-before we continue with the next feature.
 9. **Documentation + deployment readiness**: Update README/CONTRIBUTING with the new architecture decisions, revisit build/deploy scripts, and validate the PWA on the intended hosting platform.
+
+## Landing vs App Separation
+
+- Landing (`/index.html`) and App (`/app/`) may be deployed on different hosts. Treat them as separate surfaces with their own assets, styles, and i18n. Do not import code/assets across surfaces; clone brand tokens (colors, fonts, logo) as needed to maintain visual consistency.
+- Landing can refresh on language change if that simplifies implementation; the app should switch language without reload.
+- Landing content must remain simple, responsive, and cover: game title, support CTA (Kickstarter/analog), social links (Instagram, TikTok) and contact, help (quick guide, full manual, explanatory video), and the support app section (play online, install on this device, install via QR on another device).
 
 ## Dependency + Text Audit (Iteration 1)
 
