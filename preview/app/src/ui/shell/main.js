@@ -1,4 +1,10 @@
-import { TEXTS, resolveShellLanguage } from "../../i18n/texts.js";
+import {
+  TEXTS,
+  getShellLanguage,
+  setShellLanguage,
+  onShellLanguageChange,
+  getAvailableLanguages,
+} from "../../i18n/texts.js";
 import {
   initWakeLockManager,
   requestLock,
@@ -10,9 +16,16 @@ import { logger, onLog, getLogs } from "../../core/logger.js";
 const urlParams = new URLSearchParams(window.location.search);
 const fromPWA = urlParams.get("fromPWA") === "1";
 const fromInstall = urlParams.get("fromInstall") === "1";
-const shellLanguage = resolveShellLanguage();
-const shellTexts = TEXTS[shellLanguage];
+let shellLanguage = getShellLanguage();
+let shellTexts = TEXTS[shellLanguage];
 let installButtonEl = null;
+let pwaInstallEl = null;
+let wakeLockActive = false;
+let unsubscribeLanguage = null;
+const LANGUAGE_NAMES = {
+  es: "Español",
+  en: "English",
+};
 
 document.title = shellTexts.prototypeTitle;
 
@@ -37,9 +50,7 @@ function applyPrototypeTexts() {
     orientationMessage.innerHTML = shellTexts.prototypeOrientationMessage;
   }
   const wakeBtn = document.getElementById("wakeLockBtn");
-  if (wakeBtn) {
-    wakeBtn.textContent = shellTexts.prototypeEnableWakeLock;
-  }
+  if (wakeBtn) updateWakeLockButtonLabel();
   const footer = document.getElementById("gameFooter");
   if (footer) {
     footer.textContent = shellTexts.prototypeFooter.replace("{year}", year);
@@ -85,7 +96,6 @@ function setupWakeLock() {
   const statusEl = document.getElementById("wakeLockStatus");
   const wakeBtn = document.getElementById("wakeLockBtn");
   if (!wakeBtn) return;
-  let active = false;
   initWakeLockManager({
     videoEl,
     statusEl,
@@ -98,18 +108,26 @@ function setupWakeLock() {
     },
   });
   wakeBtn.addEventListener("click", async () => {
-    if (!active) {
+    if (!wakeLockActive) {
       await requestLock();
-      wakeBtn.textContent = shellTexts.prototypeDisableWakeLock;
-      active = true;
+      wakeLockActive = true;
+      updateWakeLockButtonLabel();
       logger.info("Wake lock requested");
     } else {
       await releaseLock();
-      wakeBtn.textContent = shellTexts.prototypeEnableWakeLock;
-      active = false;
+      wakeLockActive = false;
+      updateWakeLockButtonLabel();
       logger.info("Wake lock released");
     }
   });
+}
+
+function updateWakeLockButtonLabel() {
+  const wakeBtn = document.getElementById("wakeLockBtn");
+  if (!wakeBtn) return;
+  wakeBtn.textContent = wakeLockActive
+    ? shellTexts.prototypeDisableWakeLock
+    : shellTexts.prototypeEnableWakeLock;
 }
 
 function setupToggles() {
@@ -193,6 +211,34 @@ function isIOS() {
   return /iPhone|iPad|iPod/i.test(navigator.userAgent);
 }
 
+function switchLanguage(nextLang) {
+  if (!TEXTS[nextLang] || nextLang === shellLanguage) return;
+  shellLanguage = setShellLanguage(nextLang);
+}
+
+function renderLanguageSelector() {
+  const select = document.getElementById("languageSelect");
+  if (!select) return;
+  select.innerHTML = "";
+  getAvailableLanguages().forEach((code) => {
+    const option = document.createElement("option");
+    option.value = code;
+    option.textContent = LANGUAGE_NAMES[code] || code;
+    select.appendChild(option);
+  });
+  select.value = shellLanguage;
+}
+
+function setupLanguageSelector() {
+  const select = document.getElementById("languageSelect");
+  if (!select) return;
+  renderLanguageSelector();
+  select.addEventListener("change", (evt) => {
+    const targetLang = evt.target.value;
+    switchLanguage(targetLang);
+  });
+}
+
 function checkOrientationOverlay() {
   updateScreenInfo();
   const overlay = document.getElementById("orientation-overlay");
@@ -235,12 +281,21 @@ function scaleGame() {
 function bootstrapShell() {
   logger.info(`App version ${APP_VERSION}`);
   applyPrototypeTexts();
+  setupLanguageSelector();
+  if (!unsubscribeLanguage) {
+    unsubscribeLanguage = onShellLanguageChange(handleLanguageChange);
+    window.addEventListener("beforeunload", () => {
+      if (unsubscribeLanguage) unsubscribeLanguage();
+      unsubscribeLanguage = null;
+    });
+  }
   preventMobileZoom();
   fetchVersionFile();
   setupWakeLock();
   setupToggles();
   setupDebugPanel();
   setupInstallFlow();
+  setupServiceWorkerMessaging();
   scaleGame();
   window.addEventListener("resize", scaleGame);
   window.addEventListener("orientationchange", scaleGame);
@@ -257,8 +312,43 @@ function registerServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
   navigator.serviceWorker
     .register("service-worker.js")
-    .then(() => logger.info("Service worker registered"))
+    .then((registration) => {
+      logger.info("Service worker registered");
+    })
     .catch((err) => logger.error("Service worker registration failed", err));
+}
+
+function setupServiceWorkerMessaging() {
+  if (!("serviceWorker" in navigator)) return;
+  let reloaded = false;
+  const triggerReload = () => {
+    if (reloaded) return;
+    reloaded = true;
+    logger.info("Service worker requested refresh; reloading");
+    window.location.reload();
+  };
+
+  navigator.serviceWorker.addEventListener("message", (event) => {
+    if (event.data && event.data.type === "refresh") {
+      triggerReload();
+    }
+  });
+
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    // When a new SW takes control, ensure we reload to pick fresh assets.
+    triggerReload();
+  });
+}
+
+function handleLanguageChange(lang) {
+  if (!TEXTS[lang]) return;
+  shellLanguage = lang;
+  shellTexts = TEXTS[shellLanguage];
+  applyPrototypeTexts();
+  updateScreenInfo();
+  updateInstallCopy();
+  updateWakeLockButtonLabel();
+  renderLanguageSelector();
 }
 
 function setupDebugPanel() {
@@ -328,34 +418,46 @@ function updateDebugScale(container) {
 
 function setupInstallFlow() {
   if (isStandaloneApp() || fromPWA) return;
-  const panel = document.querySelector(".demo-panel");
-  if (!panel) return;
+  pwaInstallReady
+    .then(() => {
+      const panel = document.querySelector(".demo-panel");
+      if (!panel) return;
 
-  const pwaEl = document.querySelector("pwa-install") || document.createElement("pwa-install");
-  pwaEl.setAttribute("manifest-url", "manifest.json");
-  pwaEl.setAttribute("lang", shellLanguage);
-  pwaEl.setAttribute("install-title", shellTexts.installPromptTitle);
-  pwaEl.setAttribute("install-description", shellTexts.installPromptDescription);
+      const pwaEl = document.querySelector("pwa-install") || document.createElement("pwa-install");
+      pwaEl.setAttribute("manifest-url", "manifest.json");
+      pwaEl.setAttribute("lang", shellLanguage);
+      const isIOSChrome = isIOS() && /CriOS/i.test(navigator.userAgent);
+      if (isIOSChrome) {
+        pwaEl.disableChrome = true; // Chrome iOS never fires beforeinstallprompt
+        pwaEl.manualChrome = true; // force manual guidance UI
+        pwaEl.disableFallback = false;
+      }
 
-  if (!pwaEl.isConnected) document.body.appendChild(pwaEl);
+      if (!pwaEl.isConnected) document.body.appendChild(pwaEl);
 
-  const installBtn = document.createElement("button");
-  installBtn.type = "button";
-  installBtn.className = "demo-btn";
-  installBtn.textContent = shellTexts.installButtonText;
-  installBtn.addEventListener("click", () => triggerPwaInstall(pwaEl));
-  panel.insertBefore(installBtn, panel.firstChild);
-  installButtonEl = installBtn;
-  updateInstallButtonVisibility();
+      const installBtn = document.createElement("button");
+      installBtn.type = "button";
+      installBtn.className = "demo-btn";
+      installBtn.textContent = shellTexts.installButtonText;
+      installBtn.addEventListener("click", () => triggerPwaInstall(pwaEl, true));
+      panel.insertBefore(installBtn, panel.firstChild);
+      installButtonEl = installBtn;
+      pwaInstallEl = pwaEl;
+      updateInstallCopy();
+      updateInstallButtonVisibility();
 
-  window.addEventListener("appinstalled", () => updateInstallButtonVisibility());
-  window.matchMedia &&
-    window.matchMedia("(display-mode: standalone)").addEventListener("change", updateInstallButtonVisibility);
+      window.addEventListener("appinstalled", () => updateInstallButtonVisibility());
+      window.matchMedia &&
+        window
+          .matchMedia("(display-mode: standalone)")
+          .addEventListener("change", updateInstallButtonVisibility);
 
-  if (fromInstall) {
-    logger.info("fromInstall detected; opening pwa-install dialog");
-    triggerPwaInstall(pwaEl, true);
-  }
+      if (fromInstall) {
+        logger.info("fromInstall detected; opening pwa-install dialog");
+        triggerPwaInstall(pwaEl, true);
+      }
+    })
+    .catch((err) => logger.warn("pwa-install script not ready", err));
 }
 
 function triggerPwaInstall(pwaEl, force = false) {
@@ -377,7 +479,7 @@ function triggerPwaInstall(pwaEl, force = false) {
   }
   try {
     const result =
-      promptFn === pwaEl.showDialog ? promptFn.call(pwaEl, true) : promptFn.call(pwaEl);
+      force && promptFn === pwaEl.showDialog ? promptFn.call(pwaEl, true) : promptFn.call(pwaEl);
     if (result && typeof result.then === "function") {
       result
         .then((outcome) => logger.info(`Install choice: ${outcome}`))
@@ -392,4 +494,20 @@ function updateInstallButtonVisibility() {
   if (!installButtonEl) return;
   const hidden = isStandaloneApp() || fromPWA;
   installButtonEl.style.display = hidden ? "none" : "";
+}
+
+function updateInstallCopy() {
+  if (installButtonEl) {
+    installButtonEl.textContent = shellTexts.installButtonText;
+  }
+  const pwaEl = pwaInstallEl || document.querySelector("pwa-install");
+  if (pwaEl) {
+    pwaEl.setAttribute("lang", shellLanguage);
+    if (shellTexts.installPromptTitle) {
+      pwaEl.setAttribute("install-title", shellTexts.installPromptTitle);
+    }
+    if (shellTexts.installPromptDescription) {
+      pwaEl.setAttribute("install-description", shellTexts.installPromptDescription);
+    }
+  }
 }

@@ -27,6 +27,7 @@ self.addEventListener("activate", (event) => {
           Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
         )
       )
+      .then(() => notifyClients({ type: "refresh" }))
   );
   self.clients.claim();
   logSw("info", `Service worker activated (cache ${CACHE_NAME})`);
@@ -53,7 +54,7 @@ self.addEventListener("fetch", (event) => {
 
 async function handleVersionRequest(request) {
   try {
-    const response = await fetch(request);
+    const response = await fetch(request, { cache: "no-store" });
     const text = await response.clone().text();
     const cache = await caches.open(CACHE_NAME);
     const cacheKey = new Request(VERSION_JS);
@@ -86,7 +87,7 @@ async function cacheFirst(request) {
     logSw("debug", "Serving from cache", { url: request.url });
     return cached;
   }
-  const response = await fetch(request);
+  const response = await fetch(request, { cache: "no-store" });
   if (response.ok && response.status === 200) {
     cache.put(request, response.clone());
     logSw("debug", "Cached new response", { url: request.url });

@@ -10,7 +10,36 @@
     <link rel="stylesheet" href="src/styles/shell.css" />
     <meta name="theme-color" content="#73C2FB" />
     <title>Letter Loom Prototype</title>
-    <script src="https://cdn.jsdelivr.net/npm/@khmyznikov/pwa-install/dist/pwa-install.bundle.js"></script>
+    <script>
+      (() => {
+        const cdnSrc =
+          "https://cdn.jsdelivr.net/npm/@khmyznikov/pwa-install/dist/pwa-install.bundle.js";
+        const localSrc = "assets/js/pwa-install.bundle.js";
+        let resolveReady;
+        window.pwaInstallReady = new Promise((res) => {
+          resolveReady = res;
+        });
+        const load = (src) =>
+          new Promise((resolve, reject) => {
+            const s = document.createElement("script");
+            s.src = src;
+            s.defer = true;
+            s.onload = () => resolve(src);
+            s.onerror = () => reject(new Error(`Failed to load ${src}`));
+            document.head.appendChild(s);
+          });
+        load(cdnSrc)
+          .then((src) => resolveReady(src))
+          .catch(() =>
+            load(localSrc)
+              .then((src) => resolveReady(src))
+              .catch((err) => {
+                console.warn("pwa-install script failed to load", err);
+                resolveReady(null);
+              })
+          );
+      })();
+    </script>
   </head>
   <body>
     <pwa-install
@@ -36,6 +65,7 @@
           <div class="demo-panel">
             <div class="demo-title" id="prototype-title"></div>
             <div id="prototype-subtitle"></div>
+            <select id="languageSelect" class="demo-select"></select>
             <div id="prototype-description"></div>
             <div id="screen-info"></div>
             <button class="demo-btn" id="wakeLockBtn"></button>

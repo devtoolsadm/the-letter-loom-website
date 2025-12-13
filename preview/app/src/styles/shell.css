@@ -140,6 +140,17 @@ body {
   background: #428bca;
 }
 
+.demo-select {
+  font-size: 16px;
+  padding: 10px 16px;
+  border-radius: 12px;
+  border: 1px solid #cfd8e3;
+  background: #fff;
+  color: #1b1f3b;
+  box-shadow: 0 2px 8px #428bca33;
+  width: 180px;
+}
+
 #videoWakeLockWorkaround {
   width: 1px;
   height: 1px;
