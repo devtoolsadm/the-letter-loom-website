@@ -334,6 +334,9 @@ function setupInstallFlow() {
   const pwaEl = document.querySelector("pwa-install") || document.createElement("pwa-install");
   pwaEl.setAttribute("manifest-url", "manifest.json");
   pwaEl.setAttribute("lang", shellLanguage);
+  pwaEl.setAttribute("install-title", shellTexts.installPromptTitle);
+  pwaEl.setAttribute("install-description", shellTexts.installPromptDescription);
+
   if (!pwaEl.isConnected) document.body.appendChild(pwaEl);
 
   const installBtn = document.createElement("button");
