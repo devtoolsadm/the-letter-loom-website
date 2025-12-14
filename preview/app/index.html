@@ -60,24 +60,94 @@
     </div>
     <div id="game-root" class="rootGameScreen">
       <div class="game-content">
-        <header class="game-header" id="gameHeader"></header>
-        <main class="game-main" id="gameMain">
-          <div class="demo-panel">
-            <div class="demo-title" id="prototype-title"></div>
-            <div id="prototype-subtitle"></div>
+        <header class="game-header" id="gameHeader">
+          <div class="brand-mark">LL</div>
+          <div class="brand-name" id="appTitle">Letter Loom</div>
+          <div class="header-actions">
             <select id="languageSelect" class="demo-select"></select>
-            <div id="prototype-description"></div>
-            <div id="screen-info"></div>
-            <button class="demo-btn" id="wakeLockBtn"></button>
-            <div
-              id="wakeLockStatus"
-              style="font-size: 0.95em; color: #428bca"
-            ></div>
-            <div id="lorem-normal"></div>
-            <button class="demo-btn" id="toggleLoremHugeBtn"></button>
-            <div id="lorem-huge" style="display: none"></div>
-            <button class="demo-btn" id="toggleHeaderBtn"></button>
-            <button class="demo-btn" id="toggleFooterBtn"></button>
+            <button class="ghost-btn" id="wakeLockBtn"></button>
+            <button class="ghost-btn" id="soundToggleBtn"></button>
+          </div>
+        </header>
+        <main class="game-main" id="gameMain">
+          <div class="screen" id="screen-splash">
+            <h2 id="splashTitle"></h2>
+            <p id="splashSubtitle" class="lede"></p>
+            <div class="cta-stack">
+              <button class="demo-btn primary" id="splashContinueBtn"></button>
+              <button class="demo-btn ghost" id="resumeMatchBtn"></button>
+              <button class="demo-btn ghost" id="installAppBtn"></button>
+            </div>
+            <button class="link-btn" id="splashHelpBtn"></button>
+          </div>
+
+          <div class="screen" id="screen-setup">
+            <h2 id="setupTitle"></h2>
+            <p id="setupSubtitle" class="lede"></p>
+            <div class="card">
+              <div class="card-header">
+                <div class="card-icon">👥</div>
+                <h3 id="playersTitle"></h3>
+              </div>
+              <ul id="playerList" class="list"></ul>
+              <button class="demo-btn ghost" id="addPlayerBtn"></button>
+            </div>
+            <div class="card">
+              <div class="card-header">
+                <div class="card-icon">⏱️</div>
+                <h3 id="timersTitle"></h3>
+              </div>
+              <div class="field-row">
+                <label for="strategyTimerInput" id="strategyTimerLabel"></label>
+                <input type="number" id="strategyTimerInput" min="5" max="300" />
+              </div>
+              <div class="field-row">
+                <label for="creationTimerInput" id="creationTimerLabel"></label>
+                <input type="number" id="creationTimerInput" min="10" max="300" />
+              </div>
+            </div>
+            <button class="demo-btn primary" id="startGameBtn"></button>
+          </div>
+
+          <div class="screen" id="screen-live">
+            <h2 id="liveTitle"></h2>
+            <div class="card">
+              <div class="card-header">
+                <div class="card-icon">🕐</div>
+                <h3 id="phaseTitle"></h3>
+              </div>
+              <div class="phase-block">
+                <div class="phase-row" id="strategyPhaseRow">
+                  <span id="strategyPhaseLabel"></span>
+                  <span id="strategyTimerDisplay">00:30</span>
+                </div>
+                <div class="phase-row" id="creationPhaseRow">
+                  <span id="creationPhaseLabel"></span>
+                  <span id="creationTimerDisplay">01:00</span>
+                </div>
+                <div class="phase-actions">
+                  <button class="demo-btn ghost" id="startStrategyBtn"></button>
+                  <button class="demo-btn ghost" id="startCreationBtn"></button>
+                </div>
+              </div>
+            </div>
+            <button class="demo-btn primary" id="goToScoringBtn"></button>
+          </div>
+
+          <div class="screen" id="screen-scoring">
+            <h2 id="scoringTitle"></h2>
+            <div id="scoringList" class="list"></div>
+            <div class="card summary-card">
+              <div id="scoringNote"></div>
+              <button class="demo-btn primary" id="saveBazaBtn"></button>
+              <button class="demo-btn ghost" id="editHistoryBtn"></button>
+            </div>
+          </div>
+
+          <div class="screen" id="screen-history">
+            <h2 id="historyTitle"></h2>
+            <div id="historyList" class="list"></div>
+            <button class="demo-btn ghost" id="backToLiveBtn"></button>
           </div>
         </main>
         <footer class="game-footer" id="gameFooter"></footer>

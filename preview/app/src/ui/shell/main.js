@@ -16,61 +16,71 @@ import { logger, onLog, getLogs } from "../../core/logger.js";
 const urlParams = new URLSearchParams(window.location.search);
 const fromPWA = urlParams.get("fromPWA") === "1";
 const fromInstall = urlParams.get("fromInstall") === "1";
+
 let shellLanguage = getShellLanguage();
 let shellTexts = TEXTS[shellLanguage];
 let installButtonEl = null;
 let pwaInstallEl = null;
 let wakeLockActive = false;
 let unsubscribeLanguage = null;
+let currentScreen = "splash";
+let soundOn = true;
+
 const LANGUAGE_NAMES = {
-  es: "Español",
+  es: "Spanish",
   en: "English",
 };
 
-document.title = shellTexts.prototypeTitle;
+document.title = "Letter Loom";
 
-function applyPrototypeTexts() {
+function renderShellTexts() {
   const year = new Date().getFullYear();
-  const mappings = [
-    ["gameHeader", "prototypeTitle"],
-    ["prototype-title", "prototypeTitle"],
-    ["prototype-subtitle", "prototypeHeroSubtitle"],
-  ];
-  mappings.forEach(([id, key]) => {
-    const el = document.getElementById(id);
-    if (el) el.textContent = shellTexts[key];
-  });
+  setText("appTitle", shellTexts.appTitle);
+  setText("gameFooter", shellTexts.footer?.replace("{year}", year) || `© ${year} Letter Loom`);
 
-  const description = document.getElementById("prototype-description");
-  if (description) {
-    description.innerHTML = shellTexts.prototypeHeroDescription;
+  setText("splashTitle", shellTexts.splashTitle);
+  setText("splashSubtitle", shellTexts.splashSubtitle);
+  setText("splashContinueBtn", shellTexts.splashContinue);
+  setText("resumeMatchBtn", shellTexts.splashResume);
+  setText("installAppBtn", shellTexts.installButtonText);
+  setText("splashHelpBtn", shellTexts.splashHelp);
+
+  setText("setupTitle", shellTexts.setupTitle);
+  setText("setupSubtitle", shellTexts.setupSubtitle);
+  setText("playersTitle", shellTexts.playersTitle);
+  setText("addPlayerBtn", shellTexts.addPlayer);
+  setText("timersTitle", shellTexts.timersTitle);
+  setText("strategyTimerLabel", shellTexts.strategyTimerLabel);
+  setText("creationTimerLabel", shellTexts.creationTimerLabel);
+  setText("startGameBtn", shellTexts.startGame);
+
+  setText("liveTitle", shellTexts.liveTitle);
+  setText("phaseTitle", shellTexts.phaseTitle);
+  setText("strategyPhaseLabel", shellTexts.strategyPhaseLabel);
+  setText("creationPhaseLabel", shellTexts.creationPhaseLabel);
+  setText("startStrategyBtn", shellTexts.startStrategy);
+  setText("startCreationBtn", shellTexts.startCreation);
+  setText("goToScoringBtn", shellTexts.goToScoring);
+
+  setText("scoringTitle", shellTexts.scoringTitle);
+  setText("scoringNote", shellTexts.scoringNote);
+  setText("saveBazaBtn", shellTexts.saveBaza);
+  setText("editHistoryBtn", shellTexts.editHistory);
+
+  setText("historyTitle", shellTexts.historyTitle);
+  setText("backToLiveBtn", shellTexts.backToLive);
+
+  updateInstallCopy();
+  updateWakeLockButtonLabel();
+  renderLanguageSelector();
+  updateSoundToggle();
+}
+
+function setText(id, value) {
+  const el = document.getElementById(id);
+  if (el && typeof value === "string") {
+    el.textContent = value;
   }
-  const orientationMessage = document.getElementById("orientation-message");
-  if (orientationMessage) {
-    orientationMessage.innerHTML = shellTexts.prototypeOrientationMessage;
-  }
-  const wakeBtn = document.getElementById("wakeLockBtn");
-  if (wakeBtn) updateWakeLockButtonLabel();
-  const footer = document.getElementById("gameFooter");
-  if (footer) {
-    footer.textContent = shellTexts.prototypeFooter.replace("{year}", year);
-  }
-  const videoFallback = document.getElementById("video-fallback-text");
-  if (videoFallback) {
-    videoFallback.textContent = shellTexts.prototypeVideoFallback;
-  }
-  const loremShort = document.getElementById("lorem-normal");
-  if (loremShort) loremShort.textContent = shellTexts.prototypeLoremShort;
-  const loremLong = document.getElementById("lorem-huge");
-  if (loremLong) loremLong.textContent = shellTexts.prototypeLoremLong;
-  const toggleLorem = document.getElementById("toggleLoremHugeBtn");
-  if (toggleLorem) toggleLorem.textContent = shellTexts.prototypeToggleLorem;
-  const toggleHeaderBtn = document.getElementById("toggleHeaderBtn");
-  if (toggleHeaderBtn)
-    toggleHeaderBtn.textContent = shellTexts.prototypeToggleHeader;
-  const toggleFooterBtn = document.getElementById("toggleFooterBtn");
-  if (toggleFooterBtn)
-    toggleFooterBtn.textContent = shellTexts.prototypeToggleFooter;
 }
 
 function preventMobileZoom() {
@@ -126,32 +136,8 @@ function updateWakeLockButtonLabel() {
   const wakeBtn = document.getElementById("wakeLockBtn");
   if (!wakeBtn) return;
   wakeBtn.textContent = wakeLockActive
-    ? shellTexts.prototypeDisableWakeLock
-    : shellTexts.prototypeEnableWakeLock;
-}
-
-function setupToggles() {
-  const loremBtn = document.getElementById("toggleLoremHugeBtn");
-  const loremBlock = document.getElementById("lorem-huge");
-  if (loremBtn && loremBlock) {
-    loremBtn.addEventListener("click", () => {
-      loremBlock.style.display = loremBlock.style.display === "none" ? "" : "none";
-    });
-  }
-  const headerBtn = document.getElementById("toggleHeaderBtn");
-  const header = document.getElementById("gameHeader");
-  if (headerBtn && header) {
-    headerBtn.addEventListener("click", () => {
-      header.style.display = header.style.display === "none" ? "" : "none";
-    });
-  }
-  const footerBtn = document.getElementById("toggleFooterBtn");
-  const footer = document.getElementById("gameFooter");
-  if (footerBtn && footer) {
-    footerBtn.addEventListener("click", () => {
-      footer.style.display = footer.style.display === "none" ? "" : "none";
-    });
-  }
+    ? shellTexts.prototypeDisableWakeLock || "Allow sleep"
+    : shellTexts.prototypeEnableWakeLock || "Keep awake";
 }
 
 function isDesktop() {
@@ -169,29 +155,11 @@ function getGameDimensions() {
 }
 
 function getViewportZoom() {
-  if (
-    window.visualViewport &&
-    typeof window.visualViewport.scale === "number"
-  ) {
+  if (window.visualViewport && typeof window.visualViewport.scale === "number") {
     return window.visualViewport.scale;
   }
   const { width, height } = getGameDimensions();
   return Math.min(window.innerWidth / width, window.innerHeight / height);
-}
-
-function updateScreenInfo() {
-  const info = document.getElementById("screen-info");
-  if (!info) return;
-  const { width, height } = getGameDimensions();
-  const zoom = getViewportZoom();
-  info.innerHTML = [
-    `${shellTexts.prototypeInstalledLabel}: ${isStandaloneApp()}`,
-    `${shellTexts.prototypeDisplayModeLabel}: ${getDisplayMode()}`,
-    `${shellTexts.prototypeFromPWALabel}: ${fromPWA}`,
-    `${shellTexts.prototypeGameLabel}: ${width}x${height}px`,
-    `${shellTexts.prototypeDeviceLabel}: ${window.innerWidth}x${window.innerHeight}px`,
-    `${shellTexts.prototypeZoomLabel}: ${zoom.toFixed(2)}x`,
-  ].join("<br>");
 }
 
 function isStandaloneApp() {
@@ -240,7 +208,6 @@ function setupLanguageSelector() {
 }
 
 function checkOrientationOverlay() {
-  updateScreenInfo();
   const overlay = document.getElementById("orientation-overlay");
   const overlayRoot = document.getElementById("orientation-root");
   const gameRoot = document.getElementById("game-root");
@@ -278,10 +245,61 @@ function scaleGame() {
   checkOrientationOverlay();
 }
 
+function setupNavigation() {
+  const map = [
+    ["splashContinueBtn", () => showScreen("setup")],
+    ["resumeMatchBtn", () => showScreen("setup")],
+    ["splashHelpBtn", () => showScreen("history")],
+    ["startGameBtn", () => showScreen("live")],
+    ["goToScoringBtn", () => showScreen("scoring")],
+    ["saveBazaBtn", () => showScreen("live")],
+    ["editHistoryBtn", () => showScreen("history")],
+    ["backToLiveBtn", () => showScreen("live")],
+  ];
+  map.forEach(([id, handler]) => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener("click", handler);
+  });
+
+  const addPlayerBtn = document.getElementById("addPlayerBtn");
+  if (addPlayerBtn) {
+    addPlayerBtn.addEventListener("click", () => {
+      const list = document.getElementById("playerList");
+      if (!list) return;
+      const item = document.createElement("li");
+      const count = list.children.length + 1;
+      item.textContent = `${shellTexts.playerLabel || "Player"} ${count}`;
+      list.appendChild(item);
+    });
+  }
+
+  const soundBtn = document.getElementById("soundToggleBtn");
+  if (soundBtn) {
+    soundBtn.addEventListener("click", () => {
+      soundOn = !soundOn;
+      updateSoundToggle();
+    });
+  }
+}
+
+function showScreen(name) {
+  currentScreen = name;
+  document.querySelectorAll(".screen").forEach((el) => {
+    el.classList.toggle("active", el.id === `screen-${name}`);
+  });
+}
+
+function updateSoundToggle() {
+  const btn = document.getElementById("soundToggleBtn");
+  if (!btn) return;
+  btn.textContent = soundOn ? shellTexts.soundOn : shellTexts.soundOff;
+}
+
 function bootstrapShell() {
   logger.info(`App version ${APP_VERSION}`);
-  applyPrototypeTexts();
+  renderShellTexts();
   setupLanguageSelector();
+  setupNavigation();
   if (!unsubscribeLanguage) {
     unsubscribeLanguage = onShellLanguageChange(handleLanguageChange);
     window.addEventListener("beforeunload", () => {
@@ -292,10 +310,10 @@ function bootstrapShell() {
   preventMobileZoom();
   fetchVersionFile();
   setupWakeLock();
-  setupToggles();
   setupDebugPanel();
   setupInstallFlow();
   setupServiceWorkerMessaging();
+  showScreen("splash");
   scaleGame();
   window.addEventListener("resize", scaleGame);
   window.addEventListener("orientationchange", scaleGame);
@@ -312,7 +330,7 @@ function registerServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
   navigator.serviceWorker
     .register("service-worker.js")
-    .then((registration) => {
+    .then(() => {
       logger.info("Service worker registered");
     })
     .catch((err) => logger.error("Service worker registration failed", err));
@@ -335,7 +353,6 @@ function setupServiceWorkerMessaging() {
   });
 
   navigator.serviceWorker.addEventListener("controllerchange", () => {
-    // When a new SW takes control, ensure we reload to pick fresh assets.
     triggerReload();
   });
 }
@@ -344,11 +361,7 @@ function handleLanguageChange(lang) {
   if (!TEXTS[lang]) return;
   shellLanguage = lang;
   shellTexts = TEXTS[shellLanguage];
-  applyPrototypeTexts();
-  updateScreenInfo();
-  updateInstallCopy();
-  updateWakeLockButtonLabel();
-  renderLanguageSelector();
+  renderShellTexts();
 }
 
 function setupDebugPanel() {
@@ -420,7 +433,7 @@ function setupInstallFlow() {
   if (isStandaloneApp() || fromPWA) return;
   pwaInstallReady
     .then(() => {
-      const panel = document.querySelector(".demo-panel");
+      const panel = document.getElementById("screen-splash");
       if (!panel) return;
 
       const pwaEl = document.querySelector("pwa-install") || document.createElement("pwa-install");
@@ -428,20 +441,18 @@ function setupInstallFlow() {
       pwaEl.setAttribute("lang", shellLanguage);
       const isIOSChrome = isIOS() && /CriOS/i.test(navigator.userAgent);
       if (isIOSChrome) {
-        pwaEl.disableChrome = true; // Chrome iOS never fires beforeinstallprompt
-        pwaEl.manualChrome = true; // force manual guidance UI
+        pwaEl.disableChrome = true;
+        pwaEl.manualChrome = true;
         pwaEl.disableFallback = false;
       }
 
       if (!pwaEl.isConnected) document.body.appendChild(pwaEl);
 
-      const installBtn = document.createElement("button");
-      installBtn.type = "button";
-      installBtn.className = "demo-btn";
-      installBtn.textContent = shellTexts.installButtonText;
-      installBtn.addEventListener("click", () => triggerPwaInstall(pwaEl, true));
-      panel.insertBefore(installBtn, panel.firstChild);
-      installButtonEl = installBtn;
+      const installBtn = document.getElementById("installAppBtn");
+      if (installBtn) {
+        installBtn.addEventListener("click", () => triggerPwaInstall(pwaEl, true));
+        installButtonEl = installBtn;
+      }
       pwaInstallEl = pwaEl;
       updateInstallCopy();
       updateInstallButtonVisibility();

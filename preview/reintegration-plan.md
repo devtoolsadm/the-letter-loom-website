@@ -49,6 +49,96 @@ This file tracks the step-by-step process for merging the working minimal PWA te
 - Landing can refresh on language change if that simplifies implementation; the app should switch language without reload.
 - Landing content must remain simple, responsive, and cover: game title, support CTA (Kickstarter/analog), social links (Instagram, TikTok) and contact, help (quick guide, full manual, explanatory video), and the support app section (play online, install on this device, install via QR on another device).
 
+## App Screen/Feature Checklist (for future slices)
+
+- Shell (scaled 360x640): orientation lock, wake-lock controls with fallback, install flow, logger panel, minimal header/footer for version/logs.
+- Setup: players (add/remove, names/colours), language, modality (rounds/points), per-phase timers, points tracking toggle, sound/mute, wake-lock toggle, CTA to start.
+- Live game: current phase display, timer with play/pause/reset, player list/state, mute toggle, access to quick help and to scoring.
+- Scoring: per-player entries (points/checks), apply/undo, partial summary; can be modal or screen overlay.
+- Modals: confirmations (reset/clear data), quick guide, player customization, install (via pwa-install).
+- Full help (optional in-app): rules, examples, FAQ.
+- Persist last state so a session can resume (with an option to reset).
+- Per-baza log: store points per player, word/notes, penalties (repetition), color multiplier flag, and optional strategy card note; allow later correction and recalc totals.
+- Strategy cards: app provides a lookup list of effects and optional note/selector per baza; penalties auto-assist only for repeated word (-4) and color multiplier x2 after strategy effects.
+
+## Game Rules Reference (for UI/logic decisions)
+
+- Purpose: the app replaces physical timers and tracks phases/scores; players still manage the physical deck.
+- Components context: vowel/consonant cards with numeric values and coloured circles; strategy cards (see list below); two timers (strategy, creation).
+- Setup: choose bazas count or points target, initial dealer, timer durations (strategy/creation), language, word-validation agreement. Table: 5 center letters face up. Deal: 3 letters + 3 strategy cards on first baza; subsequent bazas use 2 strategy cards per player.
+- Per-baza flow:
+  - Strategy phase: start timer 1; at end, each player discards 1 strategy card and executes another, starting with the dealer/hand.
+  - Creation phase: start timer 2; each player forms a word using center + hand.
+  - Scoring: each player reveals word and points; repeated word in same baza = -4; invalid word = 0; apply card effects manually; apply x2 multiplier if all used letters share the same circle colour after strategy effects. Record per-player word/points/notes/strategy.
+  - Rotate dealer to the right; discard used letters; next baza.
+- Endgame: by bazas count or points target. Tie: one extra baza without strategy cards; highest score wins.
+- Word validity (suggested): valid = RAE + Spanish proper names + common loanwords; invalid = abbreviations, misspellings, loanwords with translation, acronyms, brands/companies. Unaccented vowels can stand for accented; accented vowels only for matching accented words.
+- Strategy cards: the app lists effects; effects are applied at the table (manual). App can store notes and numeric adjustments (+/- points, x2 colour).
+
+### Strategy Card Effects (reference text)
+- ¡Intercambio!: swap one of your cards with another player (blind).
+- ¡Escudo Total!: actions against you this baza do not affect you; usable even after your turn.
+- ¡Deshazte de una!: remove a card from another player to the central pile; nobody can use it.
+- ¡En Inglés!: all players must form an English word this baza.
+- ¡Comodín!: use as any letter, and add 6 points; colour is also wild.
+- ¡Cambia una o varias de tus cartas!: swap one or several of your letters from the letter piles.
+- ¡Intercambio total!: swap all your letters with any player you choose.
+- Roba una carta: steal one card (blind) from another player for your exclusive use.
+- ¡Con ésta jugamos todos!: choose a card from another player and place it in center; all may use it.
+- ¡Carta Extra!: draw an extra letter (vowel or consonant).
+- ¡Robo del Siglo!: steal one card from each opponent for your exclusive use.
+- ¡Con la que yo diga!: opponents must use the center letter you indicate.
+- Cambia todo el Tablero Central: replace the entire center board.
+- ¡Subidón Total!: +4 points this baza.
+- Fuera una!: all opponents discard one letter and play with one fewer.
+- ¡Explosión de puntos!: -4 points to a chosen player this baza.
+- ¡Todos al Centro!: all except you place one letter face up in center; all may use them.
+- ¡Sólo mía!: steal one center card; only you can use it.
+
+## Screen Flow Overview
+
+- Splash/Welcome: logo + “Continue”. Language selector and sound toggle visible. If not installed, show install CTA (pwa-install prompt) and link to instructions/help before entering the match flow. Can also show “Resume saved match” if state exists.
+- Resume or New: if a saved match exists, offer “Resume” (summary: players, bazas/points) or “New game” → Setup.
+- Setup: players/names/colours, timers, mode (bazas/points target), initial dealer, language selector, sound toggle, word-validation note, toggles (wake-lock). CTA “Start game”. Quick Help modal accessible.
+- Live Game (per baza): strategy/creation timers, phase indicator, dealer/hand info, player rail, mute toggle/help. Action “Go to scoring” after creation.
+- Scoring per baza: per-player word/points inputs, repeat penalty toggle, invalid toggle, strategy note, colour multiplier, save baza; link to history/corrections.
+- History/Corrections: list of bazas with per-player scores/notes; edit and recalc totals; mark corrections.
+- Quick Help modal: flow steps, strategy card list, word validity, scoring notes.
+- Full Help (optional screen): extended rules; back nav to previous.
+## Game Rules Reference (for UI/logic decisions)
+
+- Purpose: the app replaces physical timers and tracks phases/scores; players still manage the physical deck.
+- Components context: vowel/consonant cards with numeric values and coloured circles; strategy cards (see list below); two timers (strategy, creation).
+- Setup: choose bazas count or points target, initial dealer, timer durations (strategy/creation), language, word-validation agreement. Table: 5 center letters face up. Deal: 3 letters + 3 strategy cards on first baza; subsequent bazas use 2 strategy cards per player.
+- Per-baza flow:
+  - Strategy phase: start timer 1; at end, each player discards 1 strategy card and executes another, starting with the dealer/hand.
+  - Creation phase: start timer 2; each player forms a word using center + hand.
+  - Scoring: each player reveals word and points; repeated word in same baza = -4; invalid word = 0; apply card effects manually; apply x2 multiplier if all used letters share the same circle colour after strategy effects. Record per-player word/points/notes/strategy.
+  - Rotate dealer to the right; discard used letters; next baza.
+- Endgame: by bazas count or points target. Tie: one extra baza without strategy cards; highest score wins.
+- Word validity (suggested): valid = RAE + Spanish proper names + common loanwords; invalid = abbreviations, misspellings, loanwords with translation, acronyms, brands/companies. Unaccented vowels can stand for accented; accented vowels only for matching accented words.
+- Strategy cards: the app lists effects; effects are applied at the table (manual). App can store notes and numeric adjustments (+/- points, x2 colour).
+
+### Strategy Card Effects (reference text)
+- ¡Intercambio!: swap one of your cards with another player (blind).
+- ¡Escudo Total!: actions against you this baza do not affect you; usable even after your turn.
+- ¡Deshazte de una!: remove a card from another player to the central pile; nobody can use it.
+- ¡En Inglés!: all players must form an English word this baza.
+- ¡Comodín!: use as any letter, and add 6 points; colour is also wild.
+- ¡Cambia una o varias de tus cartas!: swap one or several of your letters from the letter piles.
+- ¡Intercambio total!: swap all your letters with any player you choose.
+- Roba una carta: steal one card (blind) from another player for your exclusive use.
+- ¡Con ésta jugamos todos!: choose a card from another player and place it in center; all may use it.
+- ¡Carta Extra!: draw an extra letter (vowel or consonant).
+- ¡Robo del Siglo!: steal one card from each opponent for your exclusive use.
+- ¡Con la que yo diga!: opponents must use the center letter you indicate.
+- Cambia todo el Tablero Central: replace the entire center board.
+- ¡Subidón Total!: +4 points this baza.
+- Fuera una!: all opponents discard one letter and play with one fewer.
+- ¡Explosión de puntos!: -4 points to a chosen player this baza.
+- ¡Todos al Centro!: all except you place one letter face up in center; all may use them.
+- ¡Sólo mía!: steal one center card; only you can use it.
+
 ## Dependency + Text Audit (Iteration 1)
 
 ### Module & Asset Dependencies
