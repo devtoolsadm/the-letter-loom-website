@@ -150,7 +150,58 @@ function render() {
   renderYear();
 }
 
+async function hideInstallIfAlreadyInstalled() {
+  const manifestUrl = new URL("../app/manifest.json", window.location.href).toString();
+  const installBtn = document.querySelector('[data-i18n="appCardInstallCta"]');
+  if (!installBtn) return;
+
+  const setHidden = () => {
+    const card = installBtn.closest(".card");
+    if (card) card.style.display = "none";
+    else installBtn.style.display = "none";
+  };
+
+  const standalone =
+    (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) ||
+    window.navigator.standalone === true;
+  if (standalone) {
+    setHidden();
+    return;
+  }
+
+  if (navigator.getInstalledRelatedApps) {
+    try {
+      const related = await navigator.getInstalledRelatedApps();
+      const match = related.some(
+        (app) =>
+          app.manifestUrl === manifestUrl ||
+          (app.manifestUrl && app.manifestUrl.endsWith("/app/manifest.json"))
+      );
+      if (match) {
+        setHidden();
+      }
+    } catch (err) {
+      console.warn("getInstalledRelatedApps failed", err);
+    }
+  }
+}
+
+function updateInstallQr() {
+  const installBtn = document.querySelector('[data-i18n="appCardInstallCta"]');
+  const qrImg = document.getElementById("installQr");
+  if (!installBtn || !qrImg) return;
+  const target = new URL(
+    installBtn.getAttribute("href") || "../app/?fromInstall=1",
+    window.location.href
+  );
+  qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(
+    target.toString()
+  )}`;
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   populateLangSelect();
   render();
+  hideInstallIfAlreadyInstalled();
+  updateInstallQr();
 });

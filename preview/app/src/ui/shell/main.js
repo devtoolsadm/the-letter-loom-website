@@ -29,11 +29,7 @@ let splashLoaderInterval = null;
 let splashLoaderComplete = false;
 let splashLoaderProgress = 0;
 let hasScaledOnce = false;
-
-const LANGUAGE_NAMES = {
-  es: "Spanish",
-  en: "English",
-};
+let installedAppDetected = false;
 
 document.title = "Letter Loom";
 
@@ -79,6 +75,7 @@ function renderShellTexts() {
   renderLanguageSelector();
   updateSoundToggle();
   updateLanguageButton();
+  updateInstallButtonVisibility();
 }
 
 function setText(id, value) {
@@ -173,27 +170,75 @@ function renderLanguageSelector() {
   getAvailableLanguages().forEach((code) => {
     const option = document.createElement("option");
     option.value = code;
-    option.textContent = LANGUAGE_NAMES[code] || code;
+    option.textContent = getLanguageName(code);
     select.appendChild(option);
   });
   select.value = shellLanguage;
+  buildLanguageDropdown(select);
 }
 
 function setupLanguageSelector() {
   const select = document.getElementById("languageSelect");
   const btn = document.getElementById("languageButton");
-  if (!select) return;
+  const control = document.getElementById("langControl");
+  const dropdown = document.getElementById("languageDropdown");
+  if (!select || !btn || !control || !dropdown) return;
   renderLanguageSelector();
   select.addEventListener("change", (evt) => {
     const targetLang = evt.target.value;
     switchLanguage(targetLang);
-    select.classList.remove("open");
+    closeLanguageDropdown();
   });
-  if (btn) {
+
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    toggleLanguageDropdown();
+  });
+
+  dropdown.addEventListener("click", (e) => e.stopPropagation());
+  document.addEventListener("click", (e) => {
+    if (!control.contains(e.target)) {
+      closeLanguageDropdown();
+    }
+  });
+}
+
+function buildLanguageDropdown(select) {
+  const dropdown = document.getElementById("languageDropdown");
+  if (!dropdown || !select) return;
+  dropdown.innerHTML = "";
+  Array.from(select.options).forEach((opt) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = opt.textContent;
+    btn.dataset.value = opt.value;
+    btn.className = opt.value === shellLanguage ? "active" : "";
     btn.addEventListener("click", () => {
-      select.classList.toggle("open");
+      switchLanguage(opt.value);
+      closeLanguageDropdown();
     });
-  }
+    dropdown.appendChild(btn);
+  });
+}
+
+function toggleLanguageDropdown(force) {
+  const control = document.getElementById("langControl");
+  const dropdown = document.getElementById("languageDropdown");
+  const btn = document.getElementById("languageButton");
+  if (!control || !dropdown || !btn) return;
+  const shouldOpen =
+    typeof force === "boolean" ? force : !control.classList.contains("open");
+  control.classList.toggle("open", shouldOpen);
+  dropdown.hidden = !shouldOpen;
+  btn.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
+}
+
+function closeLanguageDropdown() {
+  toggleLanguageDropdown(false);
+}
+
+function getLanguageName(code) {
+  return (TEXTS[code] && TEXTS[code].languageName) || code.toUpperCase();
 }
 
 function checkOrientationOverlay() {
@@ -219,7 +264,8 @@ function scaleGame() {
   if (!gameRoot || !overlayRoot) return;
   const { width, height } = getGameDimensions();
   const { innerWidth: w, innerHeight: h } = window;
-  const scale = Math.min(w / width, h / height);
+  const maxScale = 1; //0.99;
+  const scale = Math.min(w / width, h / height, maxScale);
   gameRoot.style.transform = `scale(${scale})`;
   gameRoot.style.left = `${(w - width * scale) / 2}px`;
   gameRoot.style.top = `${(h - height * scale) / 2}px`;
@@ -290,7 +336,9 @@ function showScreen(name) {
 function updateSoundToggle() {
   const btn = document.getElementById("soundToggleBtn");
   if (!btn) return;
-  btn.textContent = soundOn ? shellTexts.soundOn : shellTexts.soundOff;
+  btn.dataset.state = soundOn ? "on" : "off";
+  btn.setAttribute("aria-label", soundOn ? shellTexts.soundOn : shellTexts.soundOff);
+  btn.textContent = "";
 }
 
 function updateLanguageButton() {
@@ -309,8 +357,32 @@ async function ensureWakeLock(shouldLock) {
   }
 }
 
+function setupDebugRevealGesture(container) {
+  const targets = [document.querySelector(".brand-mark"), document.getElementById("appTitle")].filter(
+    Boolean
+  );
+  if (!targets.length) return;
+  let taps = [];
+  let revealed = false;
+  const reveal = () => {
+    if (revealed) return;
+    revealed = true;
+    container.style.display = "block";
+  };
+  const handler = () => {
+    const now = Date.now();
+    taps = taps.filter((t) => now - t <= 10000);
+    taps.push(now);
+    if (taps.length >= 5) {
+      reveal();
+      targets.forEach((el) => el.removeEventListener("click", handler));
+    }
+  };
+  targets.forEach((el) => el.addEventListener("click", handler));
+}
+
 function startSplashLoader() {
-  if (splashLoaderInterval || splashLoaderComplete) return;
+  if (splashLoaderComplete) return;
   document.body.classList.add("splash-loading");
   const loadingBlock = document.getElementById("splashLoadingBlock");
   const mainBlock = document.getElementById("splashMainContent");
@@ -320,23 +392,33 @@ function startSplashLoader() {
   if (mainBlock) mainBlock.classList.add("hidden");
 
   const updateProgress = (value) => {
-    splashLoaderProgress = Math.min(100, Math.max(0, value));
+    splashLoaderProgress = Math.min(100, Math.max(splashLoaderProgress, value));
     if (bar) bar.style.width = `${splashLoaderProgress}%`;
     if (percent) percent.textContent = `${Math.round(splashLoaderProgress)}%`;
   };
 
-  updateProgress(8);
-  splashLoaderInterval = window.setInterval(() => {
-    if (splashLoaderComplete) return;
-    const bump = Math.random() * 12 + 4;
-    const next = Math.min(95, splashLoaderProgress + bump);
+  const tasks = loadSplashAssets();
+  const total = tasks.length || 1;
+  const minDuration = 2000;
+  const start = Date.now();
+  let completed = 0;
+
+  const handleComplete = () => {
+    completed += 1;
+    const next = 5 + (completed / total) * 90;
     updateProgress(next);
-  }, 260);
+  };
+
+  updateProgress(5);
+  tasks.forEach((task) =>
+    task
+      .catch((err) => logger.warn("Splash asset load failed", err))
+      .finally(() => handleComplete())
+  );
 
   const finish = () => {
     if (splashLoaderComplete) return;
     splashLoaderComplete = true;
-    if (splashLoaderInterval) window.clearInterval(splashLoaderInterval);
     splashLoaderInterval = null;
     updateProgress(100);
     window.setTimeout(() => {
@@ -344,11 +426,39 @@ function startSplashLoader() {
       document.body.classList.add("splash-ready");
       if (loadingBlock) loadingBlock.classList.add("hidden");
       if (mainBlock) mainBlock.classList.remove("hidden");
-    }, 220);
+    }, 200);
   };
 
-  window.addEventListener("load", () => window.setTimeout(finish, 200));
-  window.setTimeout(finish, 2200);
+  Promise.allSettled(tasks).finally(() => {
+    const elapsed = Date.now() - start;
+    const remaining = Math.max(0, minDuration - elapsed);
+    window.setTimeout(finish, remaining);
+  });
+}
+
+function loadSplashAssets() {
+  const assets = [
+    loadImage("assets/icon-512.png"),
+    loadImage("assets/rotate-device-icon.png"),
+    fetchWithWarn("manifest.json"),
+    fetchWithWarn("src/core/version.js"),
+  ];
+  return assets;
+}
+
+function loadImage(src) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(src);
+    img.onerror = () => resolve(src);
+    img.src = src;
+  });
+}
+
+function fetchWithWarn(url) {
+  return fetch(url, { cache: "no-store" }).catch((err) => {
+    logger.warn(`Splash fetch failed for ${url}`, err);
+  });
 }
 
 function bootstrapShell() {
@@ -371,6 +481,7 @@ function bootstrapShell() {
   setupServiceWorkerMessaging();
   showScreen("splash");
   startSplashLoader();
+  detectInstalledApp().finally(() => updateInstallButtonVisibility());
   scaleGame();
   window.addEventListener("resize", scaleGame);
   window.addEventListener("orientationchange", scaleGame);
@@ -428,7 +539,7 @@ function setupDebugPanel() {
   const toggleBtn = document.createElement("button");
   toggleBtn.type = "button";
   toggleBtn.className = "debug-toggle";
-  toggleBtn.textContent = isPreviewEnv() ? `Logs · ${APP_VERSION}` : "Logs";
+  toggleBtn.textContent = "Logs";
 
   const panel = document.createElement("div");
   panel.className = "debug-panel hidden";
@@ -442,9 +553,13 @@ function setupDebugPanel() {
   container.appendChild(panel);
   document.body.appendChild(container);
 
+  container.style.display = "none";
+
   toggleBtn.addEventListener("click", () => {
     panel.classList.toggle("hidden");
   });
+
+  setupDebugRevealGesture(container);
 
   function render() {
     const entries = getLogs();
@@ -453,7 +568,7 @@ function setupDebugPanel() {
       const item = document.createElement("div");
       item.className = "debug-log-entry";
       item.innerHTML = `<div><strong>[${entry.level.toUpperCase()}]</strong> ${entry.message}</div>
-        <div class="meta">${new Date(entry.time).toLocaleTimeString()} · ${entry.source.toUpperCase()}</div>`;
+        <div class="meta">${new Date(entry.time).toLocaleTimeString()} - ${entry.source.toUpperCase()}</div>`;
       list.appendChild(item);
     });
     list.scrollTop = list.scrollHeight;
@@ -608,9 +723,10 @@ function ensureInstallDialogVisible(pwaEl) {
 }
 
 function updateInstallButtonVisibility() {
-  if (!installButtonEl) return;
-  const hidden = isStandaloneApp() || fromPWA;
-  installButtonEl.style.display = hidden ? "none" : "";
+  const btn = installButtonEl || document.getElementById("installAppBtn");
+  if (!btn) return;
+  const hidden = !fromInstall && (isStandaloneApp() || fromPWA || installedAppDetected);
+  btn.style.display = hidden ? "none" : "";
 }
 
 function updateInstallCopy() {
@@ -627,4 +743,30 @@ function updateInstallCopy() {
       pwaEl.setAttribute("install-description", shellTexts.installPromptDescription);
     }
   }
+}
+
+async function detectInstalledApp() {
+  if (installedAppDetected) return true;
+  if (isStandaloneApp()) {
+    installedAppDetected = true;
+    return true;
+  }
+  if (navigator.getInstalledRelatedApps) {
+    try {
+      const manifestUrl = new URL("manifest.json", window.location.href).toString();
+      const related = await navigator.getInstalledRelatedApps();
+      const match = related.some(
+        (app) =>
+          app.manifestUrl === manifestUrl ||
+          (app.manifestUrl && app.manifestUrl.endsWith("/manifest.json"))
+      );
+      if (match) {
+        installedAppDetected = true;
+        return true;
+      }
+    } catch (err) {
+      logger.warn("getInstalledRelatedApps failed", err);
+    }
+  }
+  return installedAppDetected;
 }

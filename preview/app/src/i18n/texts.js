@@ -1,5 +1,6 @@
 export const TEXTS = {
   es: {
+    languageName: "Español",
     appTitle: "Letter Loom",
     splashTitle: "Empezar partida",
     splashSubtitle: "Controla los cronos y la puntuación del juego de cartas.",
@@ -47,6 +48,7 @@ export const TEXTS = {
     prototypeVideoFallback: "Tu navegador no soporta el elemento de video.",
   },
   en: {
+    languageName: "English",
     appTitle: "Letter Loom",
     splashTitle: "Start a match",
     splashSubtitle: "Run timers and scoring for the card game.",

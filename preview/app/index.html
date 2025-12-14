@@ -63,12 +63,16 @@
         <header class="game-header" id="gameHeader">
           <div class="brand-mark">LL</div>
           <div class="brand-name" id="appTitle">Letter Loom</div>
-          <div class="header-actions">
-            <button class="lang-btn" id="languageButton">
-              🌐 <span id="languageCode">EN</span>
-            </button>
-            <select id="languageSelect" class="lang-select"></select>
-            <button class="ghost-btn" id="soundToggleBtn"></button>
+                    <div class="header-actions">
+            <div class="lang-control" id="langControl">
+              <button class="lang-btn" id="languageButton" aria-haspopup="true" aria-expanded="false">
+                <span class="lang-icon"></span>
+                <span id="languageCode">EN</span>
+              </button>
+              <select id="languageSelect" class="lang-select"></select>
+              <div class="lang-dropdown" id="languageDropdown" hidden></div>
+            </div>
+            <button class="icon-btn" id="soundToggleBtn"></button>
           </div>
         </header>
         <main class="game-main" id="gameMain">
@@ -182,3 +186,5 @@
     <script type="module" src="./src/ui/shell/main.js"></script>
   </body>
 </html>
+
+

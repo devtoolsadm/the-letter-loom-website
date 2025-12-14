@@ -9,6 +9,20 @@
   --cream: #fdec9a;
   --brown: #5c4033;
   --green: #77b255;
+  --candy-orange: #f5a342;
+  --candy-orange-dark: #c77925;
+  --candy-blue: #2d8fe3;
+  --candy-blue-dark: #1e6dad;
+  --panel-cream: #fbe7a2;
+  --panel-border: #d49c3f;
+  --panel-shadow: 0 6px 0 #b07d2f, 0 12px 18px rgba(0, 0, 0, 0.18);
+  --control-shadow: 0 4px 0 var(--candy-blue-dark), 0 8px 14px rgba(0, 0, 0, 0.2);
+  --button-green: #4ea74b;
+  --button-green-border: #3c7f38;
+  --button-blue: #2d8fe3;
+  --button-blue-border: #1e6dad;
+  --button-red: #d94b4b;
+  --button-red-border: #a93232;
 }
 
 html,
@@ -115,17 +129,28 @@ body.shell-ready #game-root {
 .game-header,
 .game-footer {
   flex: 0 0 auto;
-  background: rgba(255, 255, 255, 0.12); /* was #428bca; enable for clearer boundaries */
-  /*
-  backdrop-filter: blur(6px);
-  --webkit-backdrop-filter: blur(6px);
-  */
-  color: white;
-  padding: 10px 14px;
+  background: var(--candy-blue);
+  color: #fff;
+  padding: 12px 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+  border: 3px solid var(--candy-blue-dark);
+  border-radius: 16px;
+  box-shadow: 0 6px 0 var(--candy-blue-dark), 0 10px 16px rgba(0, 0, 0, 0.18);
+}
+
+.game-footer {
+  background: linear-gradient(180deg, #c59a74 0%, #a57c59 100%);
+  border-color: #8a6244;
+  box-shadow: 0 6px 0 #8a6244, 0 10px 16px rgba(0, 0, 0, 0.15);
+  color: #fff;
+}
+
+.game-footer a {
+  color: #fff;
+  text-decoration: none;
 }
 
 .game-main {
@@ -161,20 +186,178 @@ body.shell-ready #game-root {
 }
 
 .lang-btn {
-  background: #fff;
-  color: #428bca;
-  border: 1px solid #d7e3f3;
-  border-radius: 10px;
-  padding: 6px 10px;
-  font-size: 13px;
+  width: 42px;
+  height: 42px;
+  border: none;
+  padding: 0 8px;
+  border-radius: 12px;
   cursor: pointer;
+  box-shadow: var(--control-shadow);
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  gap: 4px;
+  background: var(--candy-blue);
+  border: 3px solid var(--candy-blue-dark);
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
 }
 
 .lang-select {
   display: none;
+}
+
+.lang-control {
+  position: relative;
+}
+
+.lang-icon {
+  width: 16px;
+  height: 16px;
+  display: inline-block;
+  background: url("../../assets/ui-pack/Icons/SVG/Icon_Small_Blank_Menu.svg") center / contain
+    no-repeat;
+}
+
+.lang-dropdown {
+  position: absolute;
+  top: 50px;
+  right: 0;
+  min-width: 120px;
+  background: var(--panel-cream);
+  border: 3px solid var(--panel-border);
+  border-radius: 14px;
+  box-shadow: var(--panel-shadow);
+  padding: 8px;
+  display: none;
+  z-index: 2000;
+}
+
+.lang-control.open .lang-dropdown {
+  display: block;
+}
+
+.lang-dropdown button {
+  width: 100%;
+  display: block;
+  border: 2px solid #d7c083;
+  border-radius: 10px;
+  background: #fff;
+  color: #2f1b12;
+  padding: 8px 10px;
+  margin: 4px 0;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 3px 0 #c4a45d;
+}
+
+.lang-dropdown button.active {
+  background: #fbe7a2;
+}
+
+.icon-btn {
+  width: 42px;
+  height: 42px;
+  border: none;
+  padding: 0;
+  border-radius: 12px;
+  cursor: pointer;
+  box-shadow: var(--control-shadow);
+  position: relative;
+  text-indent: -9999px;
+  overflow: hidden;
+  background: var(--candy-blue);
+  border: 3px solid var(--candy-blue-dark);
+}
+
+#soundToggleBtn {
+  width: 42px;
+  height: 42px;
+  border: none;
+  padding: 0;
+  border-radius: 12px;
+  cursor: pointer;
+  box-shadow: var(--control-shadow);
+  position: relative;
+  text-indent: -9999px;
+  overflow: hidden;
+  background: var(--candy-blue);
+  border: 3px solid var(--candy-blue-dark);
+}
+
+#soundToggleBtn::after {
+  content: "";
+  position: absolute;
+  inset: 9px;
+  background: url("../../assets/ui-pack/Icons/SVG/Icon_Small_Blank_Audio.svg") center / contain
+    no-repeat;
+}
+
+#soundToggleBtn[data-state="off"] {
+  background: #4b4b4b;
+  border-color: #303030;
+}
+
+#soundToggleBtn[data-state="off"]::after {
+  background: url("../../assets/ui-pack/Icons/SVG/Icon_Small_Blank_AudioOff.svg") center / contain
+    no-repeat;
+}
+
+.icon-btn:active,
+.lang-btn:active,
+#soundToggleBtn:active,
+.demo-btn:active {
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.25);
+}
+
+.lang-control {
+  position: relative;
+}
+
+.lang-icon {
+  width: 16px;
+  height: 16px;
+  display: inline-block;
+  background: url("../../assets/ui-pack/Icons/SVG/Icon_Small_Blank_Menu.svg") center / contain
+    no-repeat;
+}
+
+.lang-dropdown {
+  position: absolute;
+  top: 50px;
+  right: 0;
+  min-width: 120px;
+  background: var(--panel-cream);
+  border: 3px solid var(--panel-border);
+  border-radius: 14px;
+  box-shadow: var(--panel-shadow);
+  padding: 8px;
+  display: none;
+  z-index: 2000;
+}
+
+.lang-control.open .lang-dropdown {
+  display: block;
+}
+
+.lang-dropdown button {
+  width: 100%;
+  display: block;
+  border: 2px solid #d7c083;
+  border-radius: 10px;
+  background: #fff;
+  color: #2f1b12;
+  padding: 8px 10px;
+  margin: 4px 0;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 3px 0 #c4a45d;
+}
+
+.lang-dropdown button.active {
+  background: #fbe7a2;
 }
 
 .lang-select.open {
@@ -192,13 +375,15 @@ body.shell-ready #game-root {
 }
 
 .card {
-  background: #fdfdfd;
-  border: 1px solid #d7e3f3;
-  border-radius: 14px;
-  padding: 12px;
+  background: var(--panel-cream);
+  border: 3px solid var(--panel-border);
+  border-radius: 18px;
+  padding: 16px 14px;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  box-shadow: var(--panel-shadow);
+  color: #2f1b12;
 }
 
 .card-header {
@@ -239,25 +424,33 @@ body.shell-ready #game-root {
 
 .demo-btn {
   font-size: 16px;
-  padding: 10px 18px;
-  border-radius: 999px;
-  border: 2px solid transparent;
-  background: #428bca;
+  padding: 12px 18px;
+  border-radius: 14px;
+  border: 3px solid var(--button-blue-border);
+  background: var(--button-blue);
   color: #fff;
   font-weight: 600;
   cursor: pointer;
-  transition: transform 0.12s ease, background 0.2s ease, filter 0.12s ease;
+  transition: transform 0.12s ease, background 0.2s ease, filter 0.12s ease, box-shadow 0.12s ease;
+  box-shadow: 0 4px 0 var(--button-blue-border), 0 8px 14px rgba(0, 0, 0, 0.2);
 }
 
 .demo-btn.primary {
-  background: #d85b4b;
-  border-color: #b94b3f;
+  background: var(--button-green);
+  border-color: var(--button-green-border);
+  box-shadow: 0 4px 0 var(--button-green-border), 0 8px 14px rgba(0, 0, 0, 0.2);
 }
 
 .demo-btn.ghost {
-  background: #f1f5fd;
-  color: #1b1f3b;
+  background: #fff;
   border-color: #d7e3f3;
+  color: #1b1f3b;
+  box-shadow: 0 4px 0 #c9d5e6, 0 8px 14px rgba(0, 0, 0, 0.14);
+}
+
+.demo-btn:active {
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.25);
 }
 
 .demo-btn:hover {
@@ -477,10 +670,10 @@ body.shell-ready #game-root {
 
 .splash-loader {
   width: min(360px, 100%);
-  background: rgba(255, 255, 255, 0.8);
-  border: 2px solid rgba(255, 255, 255, 0.85);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
-  border-radius: 16px;
+  background: var(--panel-cream);
+  border: 3px solid var(--panel-border);
+  box-shadow: var(--panel-shadow);
+  border-radius: 18px;
   padding: 12px 14px;
   color: var(--brown);
   font-weight: 700;
@@ -499,9 +692,10 @@ body.shell-ready #game-root {
 .splash-loader .loader-bar {
   position: relative;
   width: 100%;
-  height: 16px;
-  background: rgba(92, 64, 51, 0.14);
-  border-radius: 999px;
+  height: 20px;
+  background: #ecd7b0;
+  border: 2px solid #d9b874;
+  border-radius: 12px;
   overflow: hidden;
   margin-top: 8px;
 }
@@ -512,8 +706,8 @@ body.shell-ready #game-root {
   left: 0;
   height: 100%;
   width: 0%;
-  background: linear-gradient(90deg, var(--cream), #ffe8b5, #ffffff);
-  border-radius: 999px;
+  background: linear-gradient(90deg, #f9cd60, #fbe7a2);
+  border-radius: 12px;
   transition: width 0.2s ease;
 }
 
@@ -522,10 +716,11 @@ body.shell-ready #game-root {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  background: #ffffff;
+  background: var(--panel-cream);
+  border: 3px solid var(--panel-border);
   border-radius: 18px;
   padding: 20px 18px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  box-shadow: var(--panel-shadow);
   transform: translateY(12px);
   opacity: 0;
   transition: opacity 0.28s ease, transform 0.28s ease;
