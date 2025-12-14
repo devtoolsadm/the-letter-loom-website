@@ -1,9 +1,8 @@
 # Letter Loom (Greenfield)
 
-This repository now exposes three entry points (landed together for now, but they may live on separate hosts in the future):
+This repository now exposes three entry points (co-hosted for now, but they may live on separate hosts in the future):
 
-- `/index.html`: marketing landing with CTAs. Has its own assets/i18n and must be responsive.
-- `/install/`: installation guide + QR code that links to the app.
+- `/landing/index.html`: marketing landing with CTAs. Has its own assets/i18n and must be responsive.
 - `/app/`: the actual PWA (manifest, service worker, and `src/` tree).
 
 The legacy codebase remains under `legacy/` for reference only.
@@ -29,6 +28,6 @@ The legacy codebase remains under `legacy/` for reference only.
 
 Run any static server from repo root (e.g. `npx serve .`) and open:
 
-- `http://localhost:PORT/` for the landing.
-- `http://localhost:PORT/install/` for the installer page.
+- `http://localhost:PORT/landing/` for the landing.
 - `http://localhost:PORT/app/` for the prototype shell.
+- `http://localhost:PORT/` default, redirect to the landing.

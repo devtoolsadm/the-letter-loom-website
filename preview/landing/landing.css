@@ -1,6 +1,6 @@
 :root {
   --panel: #fff1c7;
-  --panel-soft: #e0c785; /*#fde6a8;*/
+  --panel-soft: #fde6a8;
   --text: #2f1c0d;
   --muted: #5a3f23;
   --accent: #55c14f;
@@ -21,7 +21,7 @@
 body {
   margin: 0;
   font-family: "Fredoka", Arial, sans-serif;
-  background: linear-gradient(90deg, #3f8bc8 0%, #539cd8 75%, #75b0e0 100%);
+  background: linear-gradient(90deg, #b0ecff 0%, #7dc7f5 45%, #3f8bc8 100%);
   color: var(--text);
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
@@ -144,7 +144,7 @@ a {
 .eyebrow {
   text-transform: uppercase;
   letter-spacing: 1px;
-  font-size: 20px;
+  font-size: 12px;
   color: #ffffff;
   margin: 0;
 }
@@ -200,12 +200,11 @@ h3 {
   background: var(--cta-red);
   color: #fff;
   border-color: #b94b3f;
-  box-shadow: inset 0 -2px rgba(0, 0, 0, 0.12);
 }
 
 .btn.ghost {
   background: var(--panel-soft);
-  border-color: #ccb17c;
+  border-color: #e7ce9b;
   color: var(--text);
   box-shadow: inset 0 -1px rgba(0, 0, 0, 0.08);
 }
@@ -214,7 +213,6 @@ h3 {
   background: var(--cta-red);
   color: #fff;
   border-color: #b94b3f;
-  box-shadow: inset 0 -2px rgba(0, 0, 0, 0.12);
 }
 
 .btn:hover {
@@ -243,6 +241,12 @@ h3 {
   gap: 6px;
 }
 
+.section-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+}
+
 .cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -261,8 +265,8 @@ h3 {
   flex-direction: column;
   gap: 6px;
   min-height: 180px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
   transition: transform 0.15s ease, box-shadow 0.2s ease;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
 }
 
 .card:hover {

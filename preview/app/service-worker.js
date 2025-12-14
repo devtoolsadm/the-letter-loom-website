@@ -3,6 +3,8 @@ let cacheVersion = "v0";
 let CACHE_NAME = `${CACHE_PREFIX}-${cacheVersion}`;
 const BASE_PATH = self.location.pathname.replace(/\/[^/]*$/, "/");
 const VERSION_JS = `${BASE_PATH}src/core/version.js`;
+const DEV_BYPASS_CACHE = true; // set to false when you want caching during local dev
+const IS_LOCAL = self.location.hostname === "localhost" || self.location.hostname === "127.0.0.1";
 const LOG_CHANNEL_NAME = "app-logs";
 const logChannel = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel(LOG_CHANNEL_NAME) : null;
 const cacheReady = resolveCacheVersion();
@@ -34,6 +36,11 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
+  if (IS_LOCAL && DEV_BYPASS_CACHE) {
+    event.respondWith(fetch(event.request, { cache: "no-store" }));
+    return;
+  }
+
   const url = new URL(event.request.url);
 
   if (url.pathname === VERSION_JS || url.href === self.location.origin + VERSION_JS) {

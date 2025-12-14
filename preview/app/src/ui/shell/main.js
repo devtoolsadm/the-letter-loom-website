@@ -25,6 +25,10 @@ let wakeLockActive = false;
 let unsubscribeLanguage = null;
 let currentScreen = "splash";
 let soundOn = true;
+let splashLoaderInterval = null;
+let splashLoaderComplete = false;
+let splashLoaderProgress = 0;
+let hasScaledOnce = false;
 
 const LANGUAGE_NAMES = {
   es: "Spanish",
@@ -44,6 +48,7 @@ function renderShellTexts() {
   setText("resumeMatchBtn", shellTexts.splashResume);
   setText("installAppBtn", shellTexts.installButtonText);
   setText("splashHelpBtn", shellTexts.splashHelp);
+  setText("splashLoaderLabel", shellTexts.splashLoadingLabel || "Cargando...");
 
   setText("setupTitle", shellTexts.setupTitle);
   setText("setupSubtitle", shellTexts.setupSubtitle);
@@ -71,9 +76,9 @@ function renderShellTexts() {
   setText("backToLiveBtn", shellTexts.backToLive);
 
   updateInstallCopy();
-  updateWakeLockButtonLabel();
   renderLanguageSelector();
   updateSoundToggle();
+  updateLanguageButton();
 }
 
 function setText(id, value) {
@@ -104,8 +109,6 @@ function preventMobileZoom() {
 function setupWakeLock() {
   const videoEl = document.getElementById("videoWakeLockWorkaround");
   const statusEl = document.getElementById("wakeLockStatus");
-  const wakeBtn = document.getElementById("wakeLockBtn");
-  if (!wakeBtn) return;
   initWakeLockManager({
     videoEl,
     statusEl,
@@ -117,27 +120,6 @@ function setupWakeLock() {
       inactive: shellTexts.wakeLockStatusInactive,
     },
   });
-  wakeBtn.addEventListener("click", async () => {
-    if (!wakeLockActive) {
-      await requestLock();
-      wakeLockActive = true;
-      updateWakeLockButtonLabel();
-      logger.info("Wake lock requested");
-    } else {
-      await releaseLock();
-      wakeLockActive = false;
-      updateWakeLockButtonLabel();
-      logger.info("Wake lock released");
-    }
-  });
-}
-
-function updateWakeLockButtonLabel() {
-  const wakeBtn = document.getElementById("wakeLockBtn");
-  if (!wakeBtn) return;
-  wakeBtn.textContent = wakeLockActive
-    ? shellTexts.prototypeDisableWakeLock || "Allow sleep"
-    : shellTexts.prototypeEnableWakeLock || "Keep awake";
 }
 
 function isDesktop() {
@@ -199,12 +181,19 @@ function renderLanguageSelector() {
 
 function setupLanguageSelector() {
   const select = document.getElementById("languageSelect");
+  const btn = document.getElementById("languageButton");
   if (!select) return;
   renderLanguageSelector();
   select.addEventListener("change", (evt) => {
     const targetLang = evt.target.value;
     switchLanguage(targetLang);
+    select.classList.remove("open");
   });
+  if (btn) {
+    btn.addEventListener("click", () => {
+      select.classList.toggle("open");
+    });
+  }
 }
 
 function checkOrientationOverlay() {
@@ -243,6 +232,10 @@ function scaleGame() {
   overlayRoot.style.top = `${(h - overlayHeight * scaleOverlay) / 2}px`;
 
   checkOrientationOverlay();
+  if (!hasScaledOnce) {
+    hasScaledOnce = true;
+    document.body.classList.add("shell-ready");
+  }
 }
 
 function setupNavigation() {
@@ -287,12 +280,75 @@ function showScreen(name) {
   document.querySelectorAll(".screen").forEach((el) => {
     el.classList.toggle("active", el.id === `screen-${name}`);
   });
+  if (name === "live") {
+    ensureWakeLock(true);
+  } else {
+    ensureWakeLock(false);
+  }
 }
 
 function updateSoundToggle() {
   const btn = document.getElementById("soundToggleBtn");
   if (!btn) return;
   btn.textContent = soundOn ? shellTexts.soundOn : shellTexts.soundOff;
+}
+
+function updateLanguageButton() {
+  const code = document.getElementById("languageCode");
+  if (code) code.textContent = (shellLanguage || "en").toUpperCase();
+}
+
+async function ensureWakeLock(shouldLock) {
+  if (shouldLock && !wakeLockActive) {
+    await requestLock();
+    wakeLockActive = true;
+  }
+  if (!shouldLock && wakeLockActive) {
+    await releaseLock();
+    wakeLockActive = false;
+  }
+}
+
+function startSplashLoader() {
+  if (splashLoaderInterval || splashLoaderComplete) return;
+  document.body.classList.add("splash-loading");
+  const loadingBlock = document.getElementById("splashLoadingBlock");
+  const mainBlock = document.getElementById("splashMainContent");
+  const bar = document.getElementById("splashLoaderProgress");
+  const percent = document.getElementById("splashLoaderPercent");
+  if (loadingBlock) loadingBlock.classList.remove("hidden");
+  if (mainBlock) mainBlock.classList.add("hidden");
+
+  const updateProgress = (value) => {
+    splashLoaderProgress = Math.min(100, Math.max(0, value));
+    if (bar) bar.style.width = `${splashLoaderProgress}%`;
+    if (percent) percent.textContent = `${Math.round(splashLoaderProgress)}%`;
+  };
+
+  updateProgress(8);
+  splashLoaderInterval = window.setInterval(() => {
+    if (splashLoaderComplete) return;
+    const bump = Math.random() * 12 + 4;
+    const next = Math.min(95, splashLoaderProgress + bump);
+    updateProgress(next);
+  }, 260);
+
+  const finish = () => {
+    if (splashLoaderComplete) return;
+    splashLoaderComplete = true;
+    if (splashLoaderInterval) window.clearInterval(splashLoaderInterval);
+    splashLoaderInterval = null;
+    updateProgress(100);
+    window.setTimeout(() => {
+      document.body.classList.remove("splash-loading");
+      document.body.classList.add("splash-ready");
+      if (loadingBlock) loadingBlock.classList.add("hidden");
+      if (mainBlock) mainBlock.classList.remove("hidden");
+    }, 220);
+  };
+
+  window.addEventListener("load", () => window.setTimeout(finish, 200));
+  window.setTimeout(finish, 2200);
 }
 
 function bootstrapShell() {
@@ -314,6 +370,7 @@ function bootstrapShell() {
   setupInstallFlow();
   setupServiceWorkerMessaging();
   showScreen("splash");
+  startSplashLoader();
   scaleGame();
   window.addEventListener("resize", scaleGame);
   window.addEventListener("orientationchange", scaleGame);
@@ -439,6 +496,8 @@ function setupInstallFlow() {
       const pwaEl = document.querySelector("pwa-install") || document.createElement("pwa-install");
       pwaEl.setAttribute("manifest-url", "manifest.json");
       pwaEl.setAttribute("lang", shellLanguage);
+      pwaEl.manualChrome = true;
+      pwaEl.manualApple = true;
       const isIOSChrome = isIOS() && /CriOS/i.test(navigator.userAgent);
       if (isIOSChrome) {
         pwaEl.disableChrome = true;
@@ -471,34 +530,81 @@ function setupInstallFlow() {
     .catch((err) => logger.warn("pwa-install script not ready", err));
 }
 
-function triggerPwaInstall(pwaEl, force = false) {
-  if (!pwaEl) {
-    logger.warn("pwa-install element not ready");
-    return;
-  }
-  const promptFn =
-    typeof pwaEl.openPrompt === "function"
-      ? pwaEl.openPrompt
-      : typeof pwaEl.prompt === "function"
-      ? pwaEl.prompt
-      : typeof pwaEl.showDialog === "function"
-      ? pwaEl.showDialog
-      : null;
-  if (!promptFn) {
-    logger.warn("pwa-install prompt not available");
-    return;
-  }
+async function triggerPwaInstall(pwaEl, force = false) {
   try {
+    const element = await waitForPwaInstallElement(pwaEl);
+    if (!element) return;
+
+    const promptFn =
+      typeof element.openPrompt === "function"
+        ? element.openPrompt
+        : typeof element.prompt === "function"
+        ? element.prompt
+        : typeof element.showDialog === "function"
+        ? element.showDialog
+        : null;
+
+    if (!promptFn) {
+      logger.warn("pwa-install prompt not available");
+      return;
+    }
+
     const result =
-      force && promptFn === pwaEl.showDialog ? promptFn.call(pwaEl, true) : promptFn.call(pwaEl);
+      force && promptFn === element.showDialog
+        ? promptFn.call(element, true)
+        : promptFn.call(element);
+
     if (result && typeof result.then === "function") {
       result
         .then((outcome) => logger.info(`Install choice: ${outcome}`))
         .catch((err) => logger.warn("Install prompt failed", err));
+    } else if (force && promptFn === element.showDialog) {
+      ensureInstallDialogVisible(element);
     }
   } catch (err) {
     logger.warn("Install prompt failed", err);
   }
+}
+
+async function waitForPwaInstallElement(pwaEl) {
+  if (!pwaEl) {
+    logger.warn("pwa-install element not ready");
+    return null;
+  }
+  try {
+    if (window.customElements && typeof window.customElements.whenDefined === "function") {
+      await window.customElements.whenDefined("pwa-install");
+    }
+  } catch (err) {
+    logger.warn("pwa-install custom element not defined yet", err);
+  }
+  if (!pwaEl.isConnected) {
+    document.body.appendChild(pwaEl);
+  }
+  const updateReady = pwaEl.updateComplete;
+  if (updateReady && typeof updateReady.then === "function") {
+    try {
+      await updateReady;
+    } catch (err) {
+      logger.warn("pwa-install update did not complete cleanly", err);
+    }
+  }
+  return pwaEl;
+}
+
+function ensureInstallDialogVisible(pwaEl) {
+  requestAnimationFrame(() => {
+    const dialog =
+      pwaEl.shadowRoot && pwaEl.shadowRoot.querySelector("#pwa-install-element");
+    const available = dialog && dialog.classList.contains("available");
+    if (!available && typeof pwaEl.showDialog === "function") {
+      try {
+        pwaEl.showDialog(true);
+      } catch (err) {
+        logger.warn("Secondary attempt to open install dialog failed", err);
+      }
+    }
+  });
 }
 
 function updateInstallButtonVisibility() {

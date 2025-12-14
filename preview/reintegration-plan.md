@@ -45,7 +45,7 @@ This file tracks the step-by-step process for merging the working minimal PWA te
 
 ## Landing vs App Separation
 
-- Landing (`/index.html`) and App (`/app/`) may be deployed on different hosts. Treat them as separate surfaces with their own assets, styles, and i18n. Do not import code/assets across surfaces; clone brand tokens (colors, fonts, logo) as needed to maintain visual consistency.
+- Landing (`/landing/index.html`) and App (`/app/`) may be deployed on different hosts. Treat them as separate surfaces with their own assets, styles, and i18n. Do not import code/assets across surfaces; clone brand tokens (colors, fonts, logo) as needed to maintain visual consistency.
 - Landing can refresh on language change if that simplifies implementation; the app should switch language without reload.
 - Landing content must remain simple, responsive, and cover: game title, support CTA (Kickstarter/analog), social links (Instagram, TikTok) and contact, help (quick guide, full manual, explanatory video), and the support app section (play online, install on this device, install via QR on another device).
 
@@ -231,4 +231,4 @@ Advantages: you gain a clean slate that enforces the new architecture, while sti
 - **2025-12-07**: Reset `/src` to an empty scaffold (`core/`, `ui/`, `styles/`, `i18n/`). Seeded the new tree with freshly-copied building blocks: `src/i18n/texts.js` (with prototype strings), `src/core/wakeLockManager.js`, and `src/core/version.js`. All other functionality must now be ported manually from `legacy/` as we progress through the plan.
 - **2025-12-07**: Cleared the root project surface (removed legacy `assets/`, `index*.html`, `manifest.json`, `service-worker.js`, `score-modal.html`, and `README.md`) so the only working code outside `legacy/` is the new `src/` scaffold plus repository metadata. The live app will be rebuilt from scratch as we reintroduce modules.
 - **2025-12-07**: Emptied `/src` entirely (even the initial helper copies) to guarantee every new file is created explicitly during the porting process. `src/` now starts as an empty directory; all code must be reintroduced slice by slice.
-- **2025-12-08**: Established the tri-surface layout: `/index.html` (landing), `/install/` (QR + instructions), and `/app/` (PWA with manifest/service worker). Future modules live under `app/src/**`.
+- **2025-12-08**: Established the tri-surface layout: `/landing/` and `/app/` (PWA with manifest/service worker). Future modules live under `app/src/**`.

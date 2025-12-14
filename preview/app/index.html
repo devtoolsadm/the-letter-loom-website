@@ -64,21 +64,43 @@
           <div class="brand-mark">LL</div>
           <div class="brand-name" id="appTitle">Letter Loom</div>
           <div class="header-actions">
-            <select id="languageSelect" class="demo-select"></select>
-            <button class="ghost-btn" id="wakeLockBtn"></button>
+            <button class="lang-btn" id="languageButton">
+              🌐 <span id="languageCode">EN</span>
+            </button>
+            <select id="languageSelect" class="lang-select"></select>
             <button class="ghost-btn" id="soundToggleBtn"></button>
           </div>
         </header>
         <main class="game-main" id="gameMain">
-          <div class="screen" id="screen-splash">
-            <h2 id="splashTitle"></h2>
-            <p id="splashSubtitle" class="lede"></p>
-            <div class="cta-stack">
-              <button class="demo-btn primary" id="splashContinueBtn"></button>
-              <button class="demo-btn ghost" id="resumeMatchBtn"></button>
-              <button class="demo-btn ghost" id="installAppBtn"></button>
+          <div class="screen splash-screen" id="screen-splash">
+            <div class="splash-hero" id="splashLoadingBlock">
+              <img
+                class="splash-logo"
+                src="assets/icon-512.png"
+                alt="Letter Loom logo"
+                draggable="false"
+              />
+              <div class="splash-loader">
+                <div class="loader-label">
+                  <span id="splashLoaderLabel">Cargando...</span>
+                  <span id="splashLoaderPercent">0%</span>
+                </div>
+                <div class="loader-bar">
+                  <span id="splashLoaderProgress"></span>
+                </div>
+              </div>
             </div>
-            <button class="link-btn" id="splashHelpBtn"></button>
+
+            <div class="splash-main hidden" id="splashMainContent">
+              <h2 id="splashTitle"></h2>
+              <p id="splashSubtitle" class="lede"></p>
+              <div class="cta-stack">
+                <button class="demo-btn primary" id="splashContinueBtn"></button>
+                <button class="demo-btn ghost" id="resumeMatchBtn"></button>
+                <button class="demo-btn ghost" id="installAppBtn"></button>
+              </div>
+              <button class="link-btn" id="splashHelpBtn"></button>
+            </div>
           </div>
 
           <div class="screen" id="screen-setup">
