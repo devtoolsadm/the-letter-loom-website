@@ -1,7 +1,9 @@
 export const TEXTS = {
   es: {
     languageName: "Español",
-    appTitle: "Letter Loom",
+    appTitle: "The Letter Loom",
+    appShortName: "Letter Loom",
+    appDescription: "El juego de cartas más divertido de todos los tiempos!",    
     splashTitle: "Empezar partida",
     splashSubtitle: "Controla los cronos y la puntuación del juego de cartas.",
     splashContinue: "Continuar",
@@ -49,7 +51,9 @@ export const TEXTS = {
   },
   en: {
     languageName: "English",
-    appTitle: "Letter Loom",
+    appTitle: "The Letter Loom",
+    appShortName: "Letter Loom",
+    appDescription: "The most fun card game of all time!",
     splashTitle: "Start a match",
     splashSubtitle: "Run timers and scoring for the card game.",
     splashContinue: "Continue",

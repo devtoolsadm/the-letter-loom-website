@@ -30,8 +30,11 @@ let splashLoaderComplete = false;
 let splashLoaderProgress = 0;
 let hasScaledOnce = false;
 let installedAppDetected = false;
+// 1x1 transparent GIF to avoid broken-image icons before real sources are assigned
+const PLACEHOLDER_IMG =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4AWJiYGBgAAAAAP//XRcpzQAAAAZJREFUAwAADwADJDd96QAAAABJRU5ErkJggg==";
 
-document.title = "Letter Loom";
+document.title = shellTexts.appTitle;;
 
 function renderShellTexts() {
   const year = new Date().getFullYear();
@@ -73,6 +76,7 @@ function renderShellTexts() {
 
   updateInstallCopy();
   renderLanguageSelector();
+  updateManifestLink();
   updateSoundToggle();
   updateLanguageButton();
   updateInstallButtonVisibility();
@@ -397,24 +401,42 @@ function startSplashLoader() {
     if (percent) percent.textContent = `${Math.round(splashLoaderProgress)}%`;
   };
 
-  const tasks = loadSplashAssets();
-  const total = tasks.length || 1;
-  const minDuration = 2000;
+  const assets = loadSplashAssets();
+  const total = assets.total || 1;
+  const minDuration = 3000;
   const start = Date.now();
   let completed = 0;
 
   const handleComplete = () => {
     completed += 1;
-    const next = 5 + (completed / total) * 90;
+    const next = 5 + (completed / total) * 90; // keep a headroom for the final 100%
     updateProgress(next);
   };
 
+  const bump = () => handleComplete();
+
   updateProgress(5);
-  tasks.forEach((task) =>
-    task
-      .catch((err) => logger.warn("Splash asset load failed", err))
-      .finally(() => handleComplete())
+
+  const logoPhase = assets.logoLoader
+    ? assets.logoLoader().catch((err) => logger.warn("Logo load failed", err)).finally(bump)
+    : Promise.resolve();
+
+  const backgroundPhase = logoPhase.then(() =>
+    assets.backgroundLoader
+      ? assets.backgroundLoader()
+          .catch((err) => logger.warn("Background load failed", err))
+          .finally(bump)
+      : Promise.resolve()
   );
+
+  const allPhases = backgroundPhase.then(() => {
+    const restPromises = (assets.restLoaders || []).map((loader) =>
+      loader()
+        .catch((err) => logger.warn("Splash asset load failed", err))
+        .finally(bump)
+    );
+    return Promise.allSettled(restPromises);
+  });
 
   const finish = () => {
     if (splashLoaderComplete) return;
@@ -429,21 +451,68 @@ function startSplashLoader() {
     }, 200);
   };
 
-  Promise.allSettled(tasks).finally(() => {
+  allPhases.finally(() => {
     const elapsed = Date.now() - start;
     const remaining = Math.max(0, minDuration - elapsed);
     window.setTimeout(finish, remaining);
   });
 }
 
+// Loader strategy:
+// - Only resources that appear on the splash itself (logo, background, header icons, main CTA skin)
+//   are preloaded here so the percentage reflects real downloads.
+// - Avoid wiring assets directly in app/index.html; if needed, put a data-src (or similar) on the tag
+//   and assign it here once loaded to keep everything behind the loader and prevent broken images.
+// - The rest of the app can rely on normal browser caching when those screens are shown later.
 function loadSplashAssets() {
-  const assets = [
-    loadImage("assets/icon-512.png"),
-    loadImage("assets/rotate-device-icon.png"),
-    fetchWithWarn("manifest.json"),
-    fetchWithWarn("src/core/version.js"),
+  const logoEl = document.getElementById("splashLogo");
+  const logoSrc = (logoEl && logoEl.getAttribute("data-src")) || "assets/logo-letters.png";
+  const backgroundSrc =
+    document.documentElement.getAttribute("data-bg-image") ||
+    document.body.getAttribute("data-bg-image");
+  const { entries: dataEntries, bySrc } = buildDataSrcEntries();
+
+  const logoNodes = logoEl ? [logoEl] : bySrc.get(logoSrc) || [];
+  logoNodes.forEach((node) => {
+    if (!node.getAttribute("src")) {
+      node.setAttribute("src", PLACEHOLDER_IMG);
+    }
+  });
+  const restData = dataEntries.filter((entry) => entry.src !== logoSrc);
+
+  const logoLoader = () =>
+    loadImage(logoSrc).then(() => {
+      assignSrcToNodes(logoNodes, logoSrc);
+    });
+
+  const backgroundLoader = backgroundSrc
+    ? () =>
+        loadImage(backgroundSrc).then(() => {
+          applyBodyBackground(backgroundSrc);
+        })
+    : null;
+
+  const explicitRest = [
+    "assets/rotate-device-icon.png",
+    "assets/ui-pack/Icons/SVG/Icon_Small_Blank_Audio.svg",
+    "assets/ui-pack/Icons/SVG/Icon_Small_Blank_AudioOff.svg"
   ];
-  return assets;
+
+  const restLoaders = [...restData.map((entry) => entry.loader)];
+  const seen = new Set(restData.map((entry) => entry.src));
+  explicitRest.forEach((src) => {
+    if (src === logoSrc || src === backgroundSrc) return;
+    if (seen.has(src)) return;
+    seen.add(src);
+    restLoaders.push(() => loadImage(src));
+  });
+
+  return {
+    logoLoader,
+    backgroundLoader,
+    restLoaders,
+    total: 1 + (backgroundLoader ? 1 : 0) + restLoaders.length,
+  };
 }
 
 function loadImage(src) {
@@ -455,9 +524,75 @@ function loadImage(src) {
   });
 }
 
-function fetchWithWarn(url) {
-  return fetch(url, { cache: "no-store" }).catch((err) => {
-    logger.warn(`Splash fetch failed for ${url}`, err);
+function applyBodyBackground(url) {
+  const targets = [document.documentElement, document.body].filter(Boolean);
+  targets.forEach((el) => {
+    el.style.background = `url("${url}") center / cover no-repeat fixed`;
+    el.style.backgroundColor = "transparent";
+  });
+}
+
+function buildDataSrcEntries() {
+  const nodes = Array.from(document.querySelectorAll("[data-src]"));
+  const bySrc = new Map();
+  const entries = nodes
+    .map((node) => {
+      const src = node.getAttribute("data-src");
+      if (!src) return null;
+      if (node.tagName.toLowerCase() === "img" && !node.getAttribute("src")) {
+        node.setAttribute("src", PLACEHOLDER_IMG);
+      }
+      bySrc.set(src, [...(bySrc.get(src) || []), node]);
+      return {
+        src,
+        loader: () =>
+          preloadAsset(src, node)
+            .then(() => assignSrcToNodes([node], src))
+            .catch(() => {}),
+      };
+    })
+    .filter(Boolean);
+  return { entries, bySrc };
+}
+
+function getManifestHref() {
+  const lang = (shellLanguage || "en").toLowerCase();
+  const href = `manifest-${lang}.json`;
+  const manifestLink = document.querySelector('link[rel="manifest"]');
+  if (manifestLink) {
+    manifestLink.setAttribute("href", href);
+  } else {
+    const link = document.createElement("link");
+    link.rel = "manifest";
+    link.href = href;
+    document.head.appendChild(link);
+  }
+  return href;
+}
+
+function updateManifestLink() {
+  const href = getManifestHref();
+  const pwaEl = pwaInstallEl || document.querySelector("pwa-install");
+  if (pwaEl) {
+    pwaEl.setAttribute("manifest-url", href);
+  }
+}
+
+function preloadAsset(src, node) {
+  const tag = (node?.tagName || "").toLowerCase();
+  if (tag === "video" || tag === "audio" || tag === "source") {
+    // Let the browser/service worker reuse cache if available.
+    return fetch(src).catch(() => {});
+  }
+  return loadImage(src);
+}
+
+function assignSrcToNodes(nodes, src) {
+  nodes.forEach((node) => {
+    if ("src" in node) {
+      node.src = src;
+    }
+    node.removeAttribute("data-src");
   });
 }
 
@@ -530,6 +665,7 @@ function handleLanguageChange(lang) {
   shellLanguage = lang;
   shellTexts = TEXTS[shellLanguage];
   renderShellTexts();
+  updateManifestLink();
 }
 
 function setupDebugPanel() {
@@ -609,7 +745,7 @@ function setupInstallFlow() {
       if (!panel) return;
 
       const pwaEl = document.querySelector("pwa-install") || document.createElement("pwa-install");
-      pwaEl.setAttribute("manifest-url", "manifest.json");
+      pwaEl.setAttribute("manifest-url", getManifestHref());
       pwaEl.setAttribute("lang", shellLanguage);
       pwaEl.manualChrome = true;
       pwaEl.manualApple = true;
@@ -753,12 +889,12 @@ async function detectInstalledApp() {
   }
   if (navigator.getInstalledRelatedApps) {
     try {
-      const manifestUrl = new URL("manifest.json", window.location.href).toString();
+      const manifestUrl = new URL(getManifestHref(), window.location.href).toString();
       const related = await navigator.getInstalledRelatedApps();
       const match = related.some(
         (app) =>
           app.manifestUrl === manifestUrl ||
-          (app.manifestUrl && app.manifestUrl.endsWith("/manifest.json"))
+          (app.manifestUrl && app.manifestUrl.endsWith(`/${getManifestHref()}`))
       );
       if (match) {
         installedAppDetected = true;

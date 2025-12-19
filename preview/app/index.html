@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-bg-image="assets/background.png">
   <head>
     <meta charset="UTF-8" />
     <meta
@@ -9,7 +9,7 @@
     <link rel="manifest" href="manifest.json" />
     <link rel="stylesheet" href="src/styles/shell.css" />
     <meta name="theme-color" content="#73C2FB" />
-    <title>Letter Loom Prototype</title>
+    <title>Letter Loom</title>
     <script>
       (() => {
         const cdnSrc =
@@ -42,6 +42,7 @@
     </script>
   </head>
   <body>
+    <!-- Asset loading: keep heavy images/media using data-src. The shell loader preloads them and assigns src to avoid broken placeholders during the splash. -->
     <pwa-install
       id="pwa-install"
       manifest-url="manifest.json"
@@ -51,7 +52,7 @@
         <div class="orientation-content">
           <img
             class="orientation-icon"
-            src="assets/rotate-device-icon.png"
+            data-src="assets/rotate-device-icon.png"
             alt="Rotate device icon"
           />
           <div id="orientation-message"></div>
@@ -77,13 +78,18 @@
         </header>
         <main class="game-main" id="gameMain">
           <div class="screen splash-screen" id="screen-splash">
-            <div class="splash-hero" id="splashLoadingBlock">
+            <div class="splash-hero">
               <img
+                id="splashLogo"
                 class="splash-logo"
-                src="assets/icon-512.png"
+                src="assets/1x1-transparent.png"
+                data-src="assets/logo-letters.png"
                 alt="Letter Loom logo"
                 draggable="false"
               />
+            </div>
+            <div class="splash-hero" id="splashLoadingBlock">
+              
               <div class="splash-loader">
                 <div class="loader-label">
                   <span id="splashLoaderLabel">Cargando...</span>
@@ -96,12 +102,10 @@
             </div>
 
             <div class="splash-main hidden" id="splashMainContent">
-              <h2 id="splashTitle"></h2>
-              <p id="splashSubtitle" class="lede"></p>
               <div class="cta-stack">
-                <button class="demo-btn primary" id="splashContinueBtn"></button>
-                <button class="demo-btn ghost" id="resumeMatchBtn"></button>
-                <button class="demo-btn ghost" id="installAppBtn"></button>
+                <button class="game-btn primary" id="splashContinueBtn"></button>
+                <button class="game-btn ghost" id="resumeMatchBtn"></button>
+                <button class="game-btn ghost" id="installAppBtn"></button>
               </div>
               <button class="link-btn" id="splashHelpBtn"></button>
             </div>
@@ -116,7 +120,7 @@
                 <h3 id="playersTitle"></h3>
               </div>
               <ul id="playerList" class="list"></ul>
-              <button class="demo-btn ghost" id="addPlayerBtn"></button>
+              <button class="game-btn ghost" id="addPlayerBtn"></button>
             </div>
             <div class="card">
               <div class="card-header">
@@ -132,7 +136,7 @@
                 <input type="number" id="creationTimerInput" min="10" max="300" />
               </div>
             </div>
-            <button class="demo-btn primary" id="startGameBtn"></button>
+            <button class="game-btn primary" id="startGameBtn"></button>
           </div>
 
           <div class="screen" id="screen-live">
@@ -152,12 +156,12 @@
                   <span id="creationTimerDisplay">01:00</span>
                 </div>
                 <div class="phase-actions">
-                  <button class="demo-btn ghost" id="startStrategyBtn"></button>
-                  <button class="demo-btn ghost" id="startCreationBtn"></button>
+                  <button class="game-btn ghost" id="startStrategyBtn"></button>
+                  <button class="game-btn ghost" id="startCreationBtn"></button>
                 </div>
               </div>
             </div>
-            <button class="demo-btn primary" id="goToScoringBtn"></button>
+            <button class="game-btn primary" id="goToScoringBtn"></button>
           </div>
 
           <div class="screen" id="screen-scoring">
@@ -165,26 +169,24 @@
             <div id="scoringList" class="list"></div>
             <div class="card summary-card">
               <div id="scoringNote"></div>
-              <button class="demo-btn primary" id="saveBazaBtn"></button>
-              <button class="demo-btn ghost" id="editHistoryBtn"></button>
+              <button class="game-btn primary" id="saveBazaBtn"></button>
+              <button class="game-btn ghost" id="editHistoryBtn"></button>
             </div>
           </div>
 
           <div class="screen" id="screen-history">
             <h2 id="historyTitle"></h2>
             <div id="historyList" class="list"></div>
-            <button class="demo-btn ghost" id="backToLiveBtn"></button>
+            <button class="game-btn ghost" id="backToLiveBtn"></button>
           </div>
         </main>
         <footer class="game-footer" id="gameFooter"></footer>
       </div>
     </div>
     <video id="videoWakeLockWorkaround" loop muted playsinline>
-      <source src="assets/empty-video.mp4" type="video/mp4" />
+      <source data-src="assets/empty-video.mp4" type="video/mp4" />
       <span id="video-fallback-text"></span>
     </video>
     <script type="module" src="./src/ui/shell/main.js"></script>
   </body>
 </html>
-
-

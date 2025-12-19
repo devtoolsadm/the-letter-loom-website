@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Bangers&family=Fredoka:wght@400;600&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Bangers&family=Fredoka:wght@400;600&family=Montserrat:wght@900&display=swap");
 
 :root {
   --game-width: 360px;
@@ -35,9 +35,7 @@ body {
   background: linear-gradient(
     to bottom,
     var(--sky) 0%,
-    var(--sky-light) 68%,
-    var(--ground) 68%,
-    var(--ground) 100%
+    var(--sky-light) 100%
   );
   user-select: none;
   -webkit-user-select: none;
@@ -307,7 +305,7 @@ body.shell-ready #game-root {
 .icon-btn:active,
 .lang-btn:active,
 #soundToggleBtn:active,
-.demo-btn:active {
+.game-btn:active {
   transform: translateY(2px);
   box-shadow: 0 2px 0 rgba(0, 0, 0, 0.25);
 }
@@ -422,44 +420,103 @@ body.shell-ready #game-root {
   flex-wrap: wrap;
 }
 
-.demo-btn {
-  font-size: 16px;
-  padding: 12px 18px;
-  border-radius: 14px;
-  border: 3px solid var(--button-blue-border);
-  background: var(--button-blue);
-  color: #fff;
-  font-weight: 600;
+.game-btn {
+  --btn-main: #2cb34a;
+  --btn-dark: #1e7f34;
+  --btn-text: #fff;
+  font-size: 24px;
+  font-weight: 900;  
+  font-family: "Montserrat","Fredoka", Arial, sans-serif;
+  text-transform: uppercase;
+  text-shadow: 0 4px 0 var(--btn-dark);
+  padding: 14px 20px;
+  height: auto;
+  min-height: 56px;
+  border-radius: 20px;
+  border: 3px solid var(--btn-dark);
+  background-color: var(--btn-main);
+  background-image: url("../../assets/buttons/button.svg");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 100% 100%;
+  color: var(--btn-text);
   cursor: pointer;
-  transition: transform 0.12s ease, background 0.2s ease, filter 0.12s ease, box-shadow 0.12s ease;
-  box-shadow: 0 4px 0 var(--button-blue-border), 0 8px 14px rgba(0, 0, 0, 0.2);
+  transition: transform 0.12s ease, filter 0.12s ease, box-shadow 0.12s ease;
+  display: flex;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  line-height: 1.05;
+  box-shadow:
+    0 10px 0 var(--btn-dark),
+    0 14px 22px rgba(0, 0, 0, 0.22);
+  
 }
 
-.demo-btn.primary {
-  background: var(--button-green);
-  border-color: var(--button-green-border);
-  box-shadow: 0 4px 0 var(--button-green-border), 0 8px 14px rgba(0, 0, 0, 0.2);
+.game-btn.ghost {
+  --btn-main: #ffffff;
+  --btn-dark: #cdd7e4;
+  --btn-text: #1b1f3b;
+  box-shadow:
+    0 6px 0 #b7c3d4,
+    0 10px 18px rgba(0, 0, 0, 0.16);
 }
 
-.demo-btn.ghost {
-  background: #fff;
-  border-color: #d7e3f3;
-  color: #1b1f3b;
-  box-shadow: 0 4px 0 #c9d5e6, 0 8px 14px rgba(0, 0, 0, 0.14);
-}
-
-.demo-btn:active {
+.game-btn:active {
   transform: translateY(2px);
   box-shadow: 0 2px 0 rgba(0, 0, 0, 0.25);
 }
 
-.demo-btn:hover {
+.game-btn:hover {
   transform: translateY(-2px);
 }
 
-.demo-btn:active {
+.game-btn:active {
   transform: translateY(0);
   filter: brightness(0.92);
+}
+
+/* Glossy variants */
+.btn-green,
+.game-btn.primary {
+  --btn-main: #2cb34a;
+  --btn-dark: #1e7f34;
+  --btn-text: #fff;
+}
+
+.btn-red {
+  --btn-main: #e74c3c;
+  --btn-dark: #992d22;
+  --btn-text: #fff;
+}
+
+.btn-blue {
+  --btn-main: #3b82f6;
+  --btn-dark: #1e3a8a;
+  --btn-text: #fff;
+}
+
+.btn-yellow {
+  --btn-main: #f7b500;
+  --btn-dark: #a36500;
+  --btn-text: #3e2723;
+}
+
+.btn-cyan {
+  --btn-main: #06b6d4;
+  --btn-dark: #0e7490;
+  --btn-text: #0b2d3a;
+}
+
+.btn-white,
+.game-btn.ghost {
+  --btn-main: #ffffff;
+  --btn-dark: #cdd7e4;
+  --btn-text: #1b1f3b;
+  box-shadow:
+    0 6px 0 #b7c3d4,
+    0 10px 18px rgba(0, 0, 0, 0.16);
 }
 
 .demo-select {
@@ -616,7 +673,10 @@ body.shell-ready #game-root {
 .cta-stack {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 24px;
+  width: 100%;
+  max-width: 260px;
+  align-items: stretch;
 }
 
 .field-row {
@@ -662,10 +722,11 @@ body.shell-ready #game-root {
 }
 
 .splash-logo {
-  width: 220px;
-  max-width: 72%;
+  width: 90%;
+  max-width: 90%;
   height: auto;
   filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.25));
+  transition: opacity 0.2s ease;
 }
 
 .splash-loader {
@@ -716,14 +777,14 @@ body.shell-ready #game-root {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  background: var(--panel-cream);
-  border: 3px solid var(--panel-border);
-  border-radius: 18px;
-  padding: 20px 18px;
-  box-shadow: var(--panel-shadow);
-  transform: translateY(12px);
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  box-shadow: none;
+  transform: translateY(0);
   opacity: 0;
-  transition: opacity 0.28s ease, transform 0.28s ease;
+  transition: opacity 0.28s ease;
 }
 
 body.splash-ready #splashMainContent {
