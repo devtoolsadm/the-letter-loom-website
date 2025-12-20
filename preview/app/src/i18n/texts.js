@@ -1,14 +1,17 @@
+import { loadState, updateState } from "../core/stateStore.js";
+
 export const TEXTS = {
   es: {
     languageName: "Español",
-    appTitle: "The Letter Loom",
+    appTitle: "The Letter Loom ES",
     appShortName: "Letter Loom",
-    appDescription: "El juego de cartas más divertido de todos los tiempos!",    
+    appDescription: "El juego de cartas más divertido de todos los tiempos!",
     splashTitle: "Empezar partida",
     splashSubtitle: "Controla los cronos y la puntuación del juego de cartas.",
     splashContinue: "Continuar",
     splashResume: "Reanudar partida guardada",
     splashHelp: "Ver instrucciones",
+    splashLoadingLabel: "Cargando...",
     setupTitle: "Configurar partida",
     setupSubtitle: "Ajusta jugadores, tiempos y modo de juego.",
     playersTitle: "Jugadores",
@@ -33,7 +36,13 @@ export const TEXTS = {
     backToLive: "Volver a partida",
     soundOn: "Sonido activado",
     soundOff: "Sonido silenciado",
-    footer: "© {year} Letter Loom",
+    apply: "Aceptar",
+    cancel: "Cancelar",
+    settingsTitle: "Ajustes",
+    settingsSound: "Sonido",
+    settingsMusic: "Música",
+    settingsLanguage: "Idioma",
+    footer: "© {year} The Letter Loom",
     installPromptTitle: "Instalar Letter Loom",
     installPromptDescription:
       "Instala el juego para acceder más rápido y jugar a pantalla completa incluso sin conexión.",
@@ -46,7 +55,7 @@ export const TEXTS = {
     wakeLockStatusActiveFallback: "Pantalla activa (vídeo de respaldo).",
     wakeLockStatusFallbackFailed: "No se pudo mantener la pantalla activa (vídeo).",
     wakeLockStatusInactive: "Pantalla puede bloquearse.",
-    prototypeOrientationMessage: "Gira tu dispositivo a VERTICAL para jugar",
+    orientationMessage: "Pon tu dispositivo en VERTICAL para jugar",
     prototypeVideoFallback: "Tu navegador no soporta el elemento de video.",
   },
   en: {
@@ -59,6 +68,7 @@ export const TEXTS = {
     splashContinue: "Continue",
     splashResume: "Resume saved match",
     splashHelp: "View instructions",
+    splashLoadingLabel: "Loading...",
     setupTitle: "Set up the game",
     setupSubtitle: "Configure players, timers, and mode.",
     playersTitle: "Players",
@@ -83,7 +93,13 @@ export const TEXTS = {
     backToLive: "Back to game",
     soundOn: "Sound on",
     soundOff: "Sound muted",
-    footer: "© {year} Letter Loom",
+    apply: "Apply",
+    cancel: "Cancel",
+    settingsTitle: "Settings",
+    settingsSound: "Sound",
+    settingsMusic: "Music",
+    settingsLanguage: "Language",
+    footer: "© {year} The Letter Loom",
     installPromptTitle: "Install Letter Loom",
     installPromptDescription:
       "Add the game for quick access and full-screen play, even offline.",
@@ -96,12 +112,11 @@ export const TEXTS = {
     wakeLockStatusActiveFallback: "Screen on (video fallback).",
     wakeLockStatusFallbackFailed: "Could not keep screen on (video error).",
     wakeLockStatusInactive: "Screen may sleep.",
-    prototypeOrientationMessage: "Rotate your device to PORTRAIT to play",
+    orientationMessage: "Put your device in PORTRAIT to play",
     prototypeVideoFallback: "Your browser does not support the video element.",
   },
 };
 
-const LANGUAGE_STORAGE_KEY = "letterloom_lang";
 const LANGUAGE_EVENT = "letterloom:languagechange";
 let currentLanguage = resolveShellLanguage();
 let languageEventTarget = null;
@@ -141,8 +156,8 @@ export function getDefaultLanguage() {
 
 export function resolveShellLanguage() {
   try {
-    const stored = localStorage.getItem(LANGUAGE_STORAGE_KEY);
-    const normalized = normalizeLanguage(stored);
+    const { settings } = loadState();
+    const normalized = normalizeLanguage(settings.language);
     if (normalized) return normalized;
   } catch {
     // ignore storage errors
@@ -159,11 +174,7 @@ export function setShellLanguage(lang, { silent = false } = {}) {
   if (!normalized) return currentLanguage;
   if (normalized === currentLanguage && !silent) return currentLanguage;
   currentLanguage = normalized;
-  try {
-    localStorage.setItem(LANGUAGE_STORAGE_KEY, currentLanguage);
-  } catch {
-    // ignore storage errors
-  }
+  updateState({ settings: { language: currentLanguage } });
   if (!silent) {
     const target = getEventTarget();
     target.dispatchEvent(new CustomEvent(LANGUAGE_EVENT, { detail: { lang: currentLanguage } }));

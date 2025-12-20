@@ -5,17 +5,21 @@ import {
   onShellLanguageChange,
   getAvailableLanguages,
 } from "../../i18n/texts.js";
+import { openModal, closeModal, closeTopModal } from "./modal.js";
 import {
   initWakeLockManager,
   requestLock,
   releaseLock,
 } from "../../core/wakeLockManager.js";
+import { loadState, updateState } from "../../core/stateStore.js";
 import { APP_VERSION } from "../../core/version.js";
 import { logger, onLog, getLogs } from "../../core/logger.js";
 
 const urlParams = new URLSearchParams(window.location.search);
 const fromPWA = urlParams.get("fromPWA") === "1";
 const fromInstall = urlParams.get("fromInstall") === "1";
+
+const appState = loadState();
 
 let shellLanguage = getShellLanguage();
 let shellTexts = TEXTS[shellLanguage];
@@ -24,12 +28,17 @@ let pwaInstallEl = null;
 let wakeLockActive = false;
 let unsubscribeLanguage = null;
 let currentScreen = "splash";
-let soundOn = true;
+let soundOn = appState.settings.sound ?? true;
+let musicOn = appState.settings.music ?? true;
+let tempSettings = { sound: soundOn, music: musicOn, language: shellLanguage };
 let splashLoaderInterval = null;
 let splashLoaderComplete = false;
 let splashLoaderProgress = 0;
 let hasScaledOnce = false;
 let installedAppDetected = false;
+let introAudio = null;
+let clickAudio = null;
+let audioReady = false;
 // 1x1 transparent GIF to avoid broken-image icons before real sources are assigned
 const PLACEHOLDER_IMG =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4AWJiYGBgAAAAAP//XRcpzQAAAAZJREFUAwAADwADJDd96QAAAABJRU5ErkJggg==";
@@ -73,11 +82,19 @@ function renderShellTexts() {
 
   setText("historyTitle", shellTexts.historyTitle);
   setText("backToLiveBtn", shellTexts.backToLive);
+  setText("settingsTitle", shellTexts.settingsTitle);
+  setText("settingsSoundLabel", shellTexts.settingsSound);
+  setText("settingsMusicLabel", shellTexts.settingsMusic);
+  setText("settingsLanguageLabel", shellTexts.settingsLanguage);
+  setText("settingsApplyBtn", shellTexts.apply);
+  setText("settingsCancelBtn", shellTexts.cancel);
 
   updateInstallCopy();
   renderLanguageSelector();
+  renderSettingsLanguageSelector();
   updateManifestLink();
   updateSoundToggle();
+  updateSettingsControls();
   updateLanguageButton();
   updateInstallButtonVisibility();
 }
@@ -207,6 +224,22 @@ function setupLanguageSelector() {
   });
 }
 
+function renderSettingsLanguageSelector() {
+  const select = document.getElementById("settingsLanguageSelect");
+  if (!select) return;
+  select.innerHTML = "";
+  getAvailableLanguages().forEach((code) => {
+    const option = document.createElement("option");
+    option.value = code;
+    option.textContent = getLanguageName(code);
+    select.appendChild(option);
+  });
+  select.value = tempSettings.language || shellLanguage;
+  select.onchange = (evt) => {
+    tempSettings.language = evt.target.value;
+  };
+}
+
 function buildLanguageDropdown(select) {
   const dropdown = document.getElementById("languageDropdown");
   if (!dropdown || !select) return;
@@ -249,12 +282,16 @@ function checkOrientationOverlay() {
   const overlay = document.getElementById("orientation-overlay");
   const overlayRoot = document.getElementById("orientation-root");
   const gameRoot = document.getElementById("game-root");
+  const msg = document.getElementById("orientation-message");
   if (!overlay || !overlayRoot || !gameRoot) return;
   const isLandscape = window.innerWidth > window.innerHeight;
   if (isLandscape && !isDesktop()) {
     overlay.classList.add("active");
     overlayRoot.style.display = "flex";
     gameRoot.style.display = "none";
+    if (msg) {
+      msg.textContent = shellTexts.orientationMessage;
+    }
   } else {
     overlay.classList.remove("active");
     overlayRoot.style.display = "none";
@@ -267,7 +304,9 @@ function scaleGame() {
   const overlayRoot = document.getElementById("orientation-root");
   if (!gameRoot || !overlayRoot) return;
   const { width, height } = getGameDimensions();
-  const { innerWidth: w, innerHeight: h } = window;
+  const zoom = window.visualViewport?.scale || 1;
+  const w = (window.visualViewport?.width || window.innerWidth) * zoom;
+  const h = (window.visualViewport?.height || window.innerHeight) * zoom;
   const maxScale = 1; //0.99;
   const scale = Math.min(w / width, h / height, maxScale);
   gameRoot.style.transform = `scale(${scale})`;
@@ -293,6 +332,7 @@ function setupNavigation() {
     ["splashContinueBtn", () => showScreen("setup")],
     ["resumeMatchBtn", () => showScreen("setup")],
     ["splashHelpBtn", () => showScreen("history")],
+    ["testModalBtn", () => showScreen("test-modal")],
     ["startGameBtn", () => showScreen("live")],
     ["goToScoringBtn", () => showScreen("scoring")],
     ["saveBazaBtn", () => showScreen("live")],
@@ -320,7 +360,64 @@ function setupNavigation() {
   if (soundBtn) {
     soundBtn.addEventListener("click", () => {
       soundOn = !soundOn;
+      updateState({ settings: { sound: soundOn } });
       updateSoundToggle();
+      updateSettingsControls();
+    });
+  }
+
+  document.querySelectorAll("[data-modal-open]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const modalId = btn.dataset.modalOpen;
+      if (!modalId) return;
+      const closable = btn.dataset.modalClosable !== "0";
+      if (modalId === "settings") {
+        openSettingsModal();
+      } else {
+        openModal(modalId, { closable });
+      }
+    });
+  });
+
+  document.querySelectorAll("[data-modal-close]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const modalId = btn.dataset.modalClose;
+      if (modalId) closeModal(modalId, { reason: "close" });
+    });
+  });
+
+  document.querySelectorAll("[data-modal-close-top]").forEach((btn) => {
+    btn.addEventListener("click", () => closeTopModal());
+  });
+
+  const settingsSoundToggle = document.getElementById("settingsSoundToggle");
+  if (settingsSoundToggle) {
+    settingsSoundToggle.addEventListener("click", () => {
+      tempSettings.sound = !tempSettings.sound;
+      updateSettingsControls(tempSettings);
+    });
+  }
+
+  const settingsMusicToggle = document.getElementById("settingsMusicToggle");
+  if (settingsMusicToggle) {
+    settingsMusicToggle.addEventListener("click", () => {
+      tempSettings.music = !tempSettings.music;
+      updateSettingsControls(tempSettings);
+    });
+  }
+
+  const settingsCancel = document.getElementById("settingsCancelBtn");
+  if (settingsCancel) {
+    settingsCancel.addEventListener("click", () => {
+      closeModal("settings");
+    });
+  }
+
+  const settingsApply = document.getElementById("settingsApplyBtn");
+  if (settingsApply) {
+    settingsApply.addEventListener("click", () => {
+      applySettingsFromTemp();
+      closeModal("settings", { reason: "action", action: "apply" });
     });
   }
 }
@@ -343,6 +440,61 @@ function updateSoundToggle() {
   btn.dataset.state = soundOn ? "on" : "off";
   btn.setAttribute("aria-label", soundOn ? shellTexts.soundOn : shellTexts.soundOff);
   btn.textContent = "";
+}
+
+function updateSettingsControls(source = {}) {
+  const soundValue = source.sound ?? soundOn;
+  const musicValue = source.music ?? musicOn;
+  const langValue = source.language ?? shellLanguage;
+
+  const soundBtn = document.getElementById("settingsSoundToggle");
+  if (soundBtn) {
+    soundBtn.textContent = soundValue ? shellTexts.soundOn : shellTexts.soundOff;
+    soundBtn.dataset.state = soundValue ? "on" : "off";
+  }
+
+  const musicBtn = document.getElementById("settingsMusicToggle");
+  if (musicBtn) {
+    musicBtn.textContent = musicValue ? shellTexts.soundOn : shellTexts.soundOff;
+    musicBtn.dataset.state = musicValue ? "on" : "off";
+  }
+
+  const langSelect = document.getElementById("settingsLanguageSelect");
+  if (langSelect) {
+    langSelect.value = langValue;
+  }
+}
+
+function openSettingsModal() {
+  tempSettings = {
+    sound: soundOn,
+    music: musicOn,
+    language: shellLanguage,
+  };
+  renderSettingsLanguageSelector();
+  updateSettingsControls(tempSettings);
+  openModal("settings", { closable: true });
+}
+
+function applySettingsFromTemp() {
+  const nextLang = tempSettings.language || shellLanguage;
+  const langChanged = nextLang !== shellLanguage;
+
+  soundOn = !!tempSettings.sound;
+  musicOn = !!tempSettings.music;
+
+  updateState({ settings: { sound: soundOn, music: musicOn, language: nextLang } });
+  updateSoundToggle();
+  updateSettingsControls();
+  if (!musicOn && introAudio) {
+    introAudio.pause();
+  } else if (musicOn) {
+    attemptPlayIntro();
+  }
+
+  if (langChanged) {
+    setShellLanguage(nextLang);
+  }
 }
 
 function updateLanguageButton() {
@@ -458,6 +610,49 @@ function startSplashLoader() {
   });
 }
 
+function setupAudio() {
+  if (audioReady) return;
+  audioReady = true;
+
+  introAudio = new Audio("assets/sounds/intro.wav");
+  introAudio.loop = true;
+  introAudio.volume = 0.35;
+
+  clickAudio = new Audio("assets/sounds/click.mp3");
+  clickAudio.volume = 0.6;
+
+  const unlock = () => {
+    attemptPlayIntro();
+    if (clickAudio) {
+      clickAudio.play().catch(() => {});
+      clickAudio.pause();
+      clickAudio.currentTime = 0;
+    }
+    document.removeEventListener("pointerdown", unlock, true);
+  };
+  document.addEventListener("pointerdown", unlock, true);
+
+  document.addEventListener(
+    "click",
+    (evt) => {
+      if (!soundOn || !clickAudio) return;
+      const btn = evt.target.closest("button");
+      if (!btn) return;
+      const instance = clickAudio.cloneNode();
+      instance.volume = clickAudio.volume;
+      instance.play().catch(() => {});
+    },
+    true
+  );
+
+  attemptPlayIntro();
+}
+
+function attemptPlayIntro() {
+  if (!introAudio || !musicOn) return;
+  introAudio.play().catch(() => {});
+}
+
 // Loader strategy:
 // - Only resources that appear on the splash itself (logo, background, header icons, main CTA skin)
 //   are preloaded here so the percentage reflects real downloads.
@@ -466,7 +661,7 @@ function startSplashLoader() {
 // - The rest of the app can rely on normal browser caching when those screens are shown later.
 function loadSplashAssets() {
   const logoEl = document.getElementById("splashLogo");
-  const logoSrc = (logoEl && logoEl.getAttribute("data-src")) || "assets/logo-letters.png";
+  const logoSrc = (logoEl && logoEl.getAttribute("data-src")) || "assets/img/logo-letters.png";
   const backgroundSrc =
     document.documentElement.getAttribute("data-bg-image") ||
     document.body.getAttribute("data-bg-image");
@@ -493,9 +688,15 @@ function loadSplashAssets() {
     : null;
 
   const explicitRest = [
-    "assets/rotate-device-icon.png",
-    "assets/ui-pack/Icons/SVG/Icon_Small_Blank_Audio.svg",
-    "assets/ui-pack/Icons/SVG/Icon_Small_Blank_AudioOff.svg"
+    "assets/img/rotate-device-icon.png",
+    "assets/img/audioOn.svg",
+    "assets/img/audioOff.svg",
+    "assets/img/musicOn.svg",
+    "assets/img/musicOff.svg",
+    "assets/img/button.svg",
+    "assets/img/settings.svg",
+    "assets/img/exit.svg",
+    "assets/img/help.svg",
   ];
 
   const restLoaders = [...restData.map((entry) => entry.loader)];
@@ -526,8 +727,15 @@ function loadImage(src) {
 
 function applyBodyBackground(url) {
   const targets = [document.documentElement, document.body].filter(Boolean);
+  const desktop = isDesktop();
   targets.forEach((el) => {
-    el.style.background = `url("${url}") center / cover no-repeat fixed`;
+    if (desktop) {
+      el.style.background = `url("${url}") center top repeat fixed`;
+      el.style.backgroundSize = "520px auto";
+    } else {
+      el.style.background = `url("${url}") center / cover no-repeat fixed`;
+      el.style.backgroundSize = "cover";
+    }
     el.style.backgroundColor = "transparent";
   });
 }
@@ -598,6 +806,7 @@ function assignSrcToNodes(nodes, src) {
 
 function bootstrapShell() {
   logger.info(`App version ${APP_VERSION}`);
+  setupAudio();
   renderShellTexts();
   setupLanguageSelector();
   setupNavigation();
@@ -620,6 +829,10 @@ function bootstrapShell() {
   scaleGame();
   window.addEventListener("resize", scaleGame);
   window.addEventListener("orientationchange", scaleGame);
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", scaleGame);
+    window.visualViewport.addEventListener("scroll", scaleGame);
+  }
   registerServiceWorker();
 }
 
@@ -666,6 +879,7 @@ function handleLanguageChange(lang) {
   shellTexts = TEXTS[shellLanguage];
   renderShellTexts();
   updateManifestLink();
+  updateSettingsControls();
 }
 
 function setupDebugPanel() {
@@ -877,6 +1091,12 @@ function updateInstallCopy() {
     }
     if (shellTexts.installPromptDescription) {
       pwaEl.setAttribute("install-description", shellTexts.installPromptDescription);
+    }
+    if (shellTexts.appDescription) {
+      pwaEl.setAttribute("description", shellTexts.appDescription);
+    }
+    if (shellTexts.appTitle) {
+      pwaEl.setAttribute("name", shellTexts.appTitle);
     }
   }
 }

@@ -31,3 +31,15 @@ Run any static server from repo root (e.g. `npx serve .`) and open:
 - `http://localhost:PORT/landing/` for the landing.
 - `http://localhost:PORT/app/` for the prototype shell.
 - `http://localhost:PORT/` default, redirect to the landing.
+
+## Modals (app shell)
+
+- HTML: define overlays with `data-modal="<id>"` and content in a `.frame-panel`. Openers use `data-modal-open="<id>"` (optional `data-modal-closable="0"`). Closers use `data-modal-close="<id>"`, and `data-modal-close-top` closes the top of the stack. Actions can close with `data-modal-action="<name>"` plus `data-modal-close="<id>"`.
+- JS: import `{ openModal, closeModal, closeTopModal }` from `src/ui/shell/modal.js`. Each close emits `modal:closed` with `{ id, reason, action, payload }`; you can also pass `onClose` and `payload` when calling `openModal`.
+- Visuals: the wooden frame/ribbon styles live in `src/styles/modal.css` (class `frame-panel`, `modal-ribbon`, `modal-canvas`, etc.).
+
+## State storage
+
+- Single key: `localStorage["letterloom_state"]` managed by `src/core/stateStore.js` with versioning.
+- Shape: `{ version, settings: { language, sound, music }, gamePreferences: {}, lastSession, meta: { lastUpdated } }`.
+- API: `loadState()`/`getState()` read, `updateState(partial)` merges and saves, `clearState()` resets. Language persistence and sound toggle already use it; extend `settings`, `gamePreferences` or `lastSession` for new needs.

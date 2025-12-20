@@ -32,6 +32,8 @@ Thank you for contributing to Letter Loom! To keep the codebase clean and mainta
 - Use `src/core/logger.js` for debug/info/error reporting instead of `console.*` directly. The logger automatically mirrors to the console and the in-app log panel; this ensures logs are visible on mobile builds. If you need a new log level, extend the logger module rather than logging ad hoc.
 - UI typography must use fixed-size units (px) so the design is not affected by OS/browser font-scaling preferences or zoom overrides.
 - Do not share code/assets between landing and app; clone brand tokens (colors, fonts, logo) per surface if needed. The landing may refresh on language change; the app should switch without reload.
+- Modals: use the shared shell modal system (`frame-panel`, `modal-ribbon`, `modal-canvas` styles; open/close with `data-modal-*` or `openModal/closeModal/closeTopModal`). Emit actions via `data-modal-action` when you need payloads and listen to `modal:closed` if the caller must react.
+- Persistence: use the unified `src/core/stateStore.js` (`letterloom_state` key) for settings/game prefs/last session. Avoid scattering multiple localStorage keys.
 
 ## Pull Requests
 - Ensure your code follows these guidelines before submitting a PR.

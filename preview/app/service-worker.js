@@ -9,6 +9,10 @@ const LOG_CHANNEL_NAME = "app-logs";
 const logChannel = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel(LOG_CHANNEL_NAME) : null;
 const cacheReady = resolveCacheVersion();
 
+if (IS_LOCAL && DEV_BYPASS_CACHE) {
+  logSw("info", "Development mode: cache bypass enabled");
+}
+
 self.addEventListener("install", (event) => {
   event.waitUntil(
     cacheReady

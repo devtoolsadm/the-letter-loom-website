@@ -7,6 +7,8 @@ This file tracks the step-by-step process for merging the working minimal PWA te
 - **PWA shell + install context**: `index.html` already wires the manifest, theme color, Apple tags, and icons while exposing a `fromPWA` query flag plus an `isStandaloneApp()` helper to detect if the app was opened from an installed shortcut.
 - **Auto-scaling stage**: The CSS `--game-width/height` variables and the `scaleGame()` routine center and scale the `#game-root` container on every `resize`, `orientationchange`, and `DOMContentLoaded` event so the 360x640 layout stretches crisply on any viewport.
 - **Portrait lock overlay**: `checkOrientationOverlay()` swaps between `#game-root` and `#orientation-root`, showing the rotate-device overlay for handheld devices while letting desktops continue uninterrupted.
+- **Modal framework (new shell)**: Reusable frame (`frame-panel`, ribbon, canvas, stitches) plus JS helpers (`openModal/closeModal/closeTopModal`, `modal:closed` events with reason/action/payload) driven by `data-modal-*` attributes.
+- **Unified state store**: `src/core/stateStore.js` persists settings (language, sound/music), game preferences, and last session in a single localStorage key (`letterloom_state`) with versioning.
 - **Wake Lock manager with fallback**: `#wakeLockBtn` controls `src/wakeLockManager.js`, which prefers the standard `navigator.wakeLock` API but falls back to playing the hidden `#videoWakeLockWorkaround` element when needed so the screen never sleeps mid-session.
 - **Touch zoom suppression**: The self-executing `preventMobileZoom()` listener plus `touch-action: none` styling block double-tap and pinch zooms to keep gesture handling predictable for the canvas-style UI.
 - **Viewport telemetry**: `updateScreenInfo()` reports install mode, logical game size, device resolution, and current zoom factor into `#screen-info`, simplifying debugging on phones and tablets.
@@ -39,7 +41,7 @@ This file tracks the step-by-step process for merging the working minimal PWA te
 4. **Extract shell styles**: Relocate inline CSS from `index.html` into a dedicated base stylesheet, keeping only critical layout variables in the HTML; ensure the build loads styles via `<link>` tags to simplify future overrides.
 5. **Bridge core logic gradually**: Embed `src/gameController.js` into the new shell behind a thin adapter so we can render minimal UI states while continuing to refactor the rest of the legacy UI.
 6. **Port UI modules feature-by-feature**: Bring in `mainUI.js`, `modals.js`, CSS, and HTML fragments one capability at a time (player setup, score modal, timers, etc.), internationalizing and splitting styles as each feature arrives.
-7. **Refine persistence + sound hooks**: Once basic UI works in the new shell, reintroduce localStorage flows, Tone.js integration, and wake-lock toggles, making sure their user-facing strings live in `TEXTS`.
+7. **Refine persistence + sound hooks**: Reuse `stateStore` for settings/game prefs/last session; reintroduce Tone.js integration and wake-lock toggles, keeping strings in `TEXTS`.
 8. **Device test after every slice**: Each time we finish integrating a feature (a "slice"), install the PWA on at least one phone/tablet and verify the three critical behaviours-installation flow, portrait lock overlay/orientation handling, and wake-lock toggle-before we continue with the next feature.
 9. **Documentation + deployment readiness**: Update README/CONTRIBUTING with the new architecture decisions, revisit build/deploy scripts, and validate the PWA on the intended hosting platform.
 
@@ -56,6 +58,7 @@ This file tracks the step-by-step process for merging the working minimal PWA te
 - Live game: current phase display, timer with play/pause/reset, player list/state, mute toggle, access to quick help and to scoring.
 - Scoring: per-player entries (points/checks), apply/undo, partial summary; can be modal or screen overlay.
 - Modals: confirmations (reset/clear data), quick guide, player customization, install (via pwa-install).
+- Persistence: single-key local state for settings (language/sound/music), game prefs, and resumable session; migrate legacy localStorage uses into `stateStore`.
 - Full help (optional in-app): rules, examples, FAQ.
 - Persist last state so a session can resume (with an option to reset).
 - Per-baza log: store points per player, word/notes, penalties (repetition), color multiplier flag, and optional strategy card note; allow later correction and recalc totals.
@@ -143,7 +146,7 @@ This file tracks the step-by-step process for merging the working minimal PWA te
 
 ### Module & Asset Dependencies
 
-- `index.html`: Owns the PWA shell (manifest link, icons, Apple meta tags) and hardcodes the DOM structure that later UI modules must hook into (`#game-root`, `#orientation-overlay`, `#wakeLockBtn`, `#screen-info`, header/footer toggles, lorem stress blocks). Imports `./src/wakeLockManager.js`, consumes `assets/rotate-device-icon.png` and `assets/empty-video.mp4`, and relies on the `fromPWA=1` flag that `manifest.json` injects via `start_url`. The inline script drives wake-lock toggles, zoom prevention, screen info telemetry, and orientation overlay state.
+- `index.html`: Owns the PWA shell (manifest link, icons, Apple meta tags) and hardcodes the DOM structure that later UI modules must hook into (`#game-root`, `#orientation-overlay`, `#wakeLockBtn`, `#screen-info`, header/footer toggles, lorem stress blocks). Imports `./src/wakeLockManager.js`, consumes `assets/img/rotate-device-icon.png` and `assets/img/empty-video.mp4`, and relies on the `fromPWA=1` flag that `manifest.json` injects via `start_url`. The inline script drives wake-lock toggles, zoom prevention, screen info telemetry, and orientation overlay state.
 - `manifest.json`: Supplies install metadata (name, description, icons, `start_url`) and enforces portrait orientation. The `start_url` query parameter is read by `index.html` to detect launcher context; any change must stay in sync.
 - `service-worker.js`: Manages a single `letter-loom-cache-v3`, forces network-first fetches for `src/version.js`, and notifies `clients` with `{type: 'refresh'}` when the cached version changes. Falls back to cache-first for other same-origin assets under the repo root; expects `src/version.js` to exist for cache-busting.
 - `src/version.js`: Exposes `APP_VERSION`, consumed by both the service worker (for cache refreshing) and `src/ui/mainUI.js` (UI footer).
