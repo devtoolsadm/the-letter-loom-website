@@ -104,10 +104,10 @@
 
             <div class="splash-main hidden" id="splashMainContent">
               <div class="splash-actions">
-                <button class="icon-btn btn-yellow" type="button" id="settingsBtn" aria-label="Settings" data-modal-open="settings">
+                <button class="icon-btn glossy btn-yellow" type="button" id="settingsBtn" aria-label="Settings" data-modal-open="settings">
                   <span class="icon-btn-img icon-settings" aria-hidden="true"></span>
                 </button>
-                <button class="icon-btn btn-yellow" type="button" id="exitBtn" aria-label="Exit">
+                <button class="icon-btn glossy btn-yellow" type="button" id="exitBtn" aria-label="Exit">
                   <span class="icon-btn-img icon-exit" aria-hidden="true"></span>
                 </button>
               </div>
@@ -251,7 +251,12 @@
                 <span class="settings-icon language" id="settingsLanguageIcon" aria-hidden="true"></span>
                 <label for="settingsLanguageSelect" id="settingsLanguageLabel"></label>
               </div>
-              <select id="settingsLanguageSelect" class="settings-select"></select>
+              <div class="lang-control settings-lang-control" id="settingsLangControl">
+                <button class="lang-btn" type="button" id="settingsLanguageButton" aria-haspopup="true" aria-expanded="false">
+                  <span id="settingsLanguageCode">EN</span>
+                </button>
+                <div class="lang-dropdown settings-lang-dropdown" id="settingsLanguageDropdown"></div>
+              </div>
             </div>
             <div class="settings-actions">
               <button class="game-btn primary" type="button" id="settingsSaveBtn"></button>

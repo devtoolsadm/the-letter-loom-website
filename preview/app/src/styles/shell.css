@@ -271,9 +271,11 @@ body.shell-ready #game-root {
 }
 
 .icon-btn {
+  --icon-btn-main: var(--candy-blue);
+  --icon-btn-dark: var(--candy-blue-dark);
   width: 42px;
   height: 42px;
-  border: none;
+  border: 3px solid var(--icon-btn-dark);
   padding: 0;
   border-radius: 12px;
   cursor: pointer;
@@ -281,8 +283,7 @@ body.shell-ready #game-root {
   position: relative;
   text-indent: -9999px;
   overflow: hidden;
-  background: var(--candy-blue);
-  border: 3px solid var(--candy-blue-dark);
+  background: var(--icon-btn-main);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -303,10 +304,45 @@ body.shell-ready #game-root {
   border: 3px solid var(--candy-blue-dark);
 }
 
-.icon-btn,
 .icon-btn-img {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 70%;
+  height: 70%;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 80%;
+  pointer-events: none;
   -webkit-touch-callout: none;
   user-select: none;
+}
+.icon-btn-img.icon-settings {
+  background-image: url("../../assets/img/settings.svg");
+}
+.icon-btn-img.icon-exit {
+  background-image: url("../../assets/img/exit.svg");
+}
+
+/* Icon button glossy variant (uses primary button skin) */
+.icon-btn.glossy {
+  background-image: url("../../assets/img/button.svg");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 100% 100%;
+  border: 3px solid var(--icon-btn-dark);
+  box-shadow: 0 8px 0 var(--icon-btn-dark), 0 12px 18px rgba(0, 0, 0, 0.18);
+}
+
+/* Color variants for icon buttons */
+.icon-btn.btn-yellow {
+  --icon-btn-main: #f7b500;
+  --icon-btn-dark: #a36500;
+}
+
+.icon-btn.gray {
+  --icon-btn-main: #6d6d6d;
+  --icon-btn-dark: #444;
 }
 
 #soundToggleBtn::after {
@@ -327,10 +363,10 @@ body.shell-ready #game-root {
     no-repeat;
 }
 
-.icon-btn:active,
-.lang-btn:active,
-#soundToggleBtn:active,
-.game-btn:active {
+ .icon-btn:active,
+ .lang-btn:active,
+ #soundToggleBtn:active,
+ .game-btn:active {
   transform: translateY(2px);
   box-shadow: 0 2px 0 rgba(0, 0, 0, 0.25);
 }
@@ -385,6 +421,34 @@ body.shell-ready #game-root {
 
 .lang-select.open {
   display: inline-block;
+}
+
+/* Settings language control: dropdown-style trigger */
+.settings-lang-control {
+  position: relative;
+}
+
+.settings-lang-control .lang-btn {
+  min-width: 86px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 3px solid var(--panel-border);
+  background: var(--panel-cream);
+  color: #1b1f3b;
+  font-weight: 800;
+  box-shadow: var(--panel-shadow);
+}
+
+.settings-lang-control .lang-btn:hover {
+  transform: translateY(-1px);
+}
+
+.settings-lang-control .lang-dropdown {
+  display: none;
+}
+
+.settings-lang-control.open .lang-dropdown {
+  display: block;
 }
 
 .screen {
@@ -502,6 +566,10 @@ body.shell-ready #game-root {
   color: #2f1b12;
   box-shadow: var(--panel-shadow);
   min-width: 150px;
+}
+
+.settings-lang-control .lang-dropdown {
+  display: none;
 }
 
 .settings-actions {
@@ -818,58 +886,6 @@ body.shell-ready #game-root {
   justify-content: center;
   gap: 10px;
   margin-bottom: 6px;
-}
-
-.icon-btn {
-  --btn-main: #f7b500;
-  --btn-dark: #a36500;
-  width: 56px;
-  height: 52px;
-  border: 3px solid var(--btn-dark);
-  border-radius: 14px;
-  background-color: var(--btn-main);
-  background-image: url("../../assets/img/button.svg");
-  background-repeat: no-repeat;
-  background-position: center;
-  background-size: 100% 100%;
-  box-shadow: 0 8px 0 var(--btn-dark), 0 12px 18px rgba(0, 0, 0, 0.18);
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-  padding: 6px;
-  transition: transform 0.1s ease, box-shadow 0.1s ease;
-}
-
-.icon-btn:active {
-  transform: translateY(2px);
-  box-shadow: 0 3px 0 var(--btn-dark);
-}
-
-.icon-btn-img {
-  position: absolute;
-  inset: 0;
-  margin: auto;
-  width: 70%;
-  height: 70%;
-  display: block;
-  background-repeat: no-repeat;
-  background-position: center;
-  background-size: contain;
-  padding: 0;
-  pointer-events: none;
-}
-
-.icon-btn-img.icon-settings {
-  background-image: url("../../assets/img/settings.svg");
-}
-
-.icon-btn-img.icon-exit {
-  background-image: url("../../assets/ui-pack/Icons/SVG/Icon_Small_Blank_Return.svg");
-}
-
-.icon-btn-img.icon-settings,
-.icon-btn-img.icon-exit {
-  -webkit-mask-image: none;
 }
 
 .field-row {

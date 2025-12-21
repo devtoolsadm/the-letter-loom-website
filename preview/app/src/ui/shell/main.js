@@ -48,6 +48,12 @@ let installedAppDetected = false;
 let introAudio = null;
 let clickAudio = null;
 let audioReady = false;
+function playClickSfx() {
+  if (!soundOn || !clickAudio) return;
+  const instance = clickAudio.cloneNode();
+  instance.volume = (soundVolume / 100) * clickAudio.volume;
+  instance.play().catch(() => {});
+}
 // 1x1 transparent GIF to avoid broken-image icons before real sources are assigned
 const PLACEHOLDER_IMG =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4AWJiYGBgAAAAAP//XRcpzQAAAAZJREFUAwAADwADJDd96QAAAABJRU5ErkJggg==";
@@ -237,20 +243,25 @@ function setupLanguageSelector() {
 }
 
 function renderSettingsLanguageSelector() {
-  const select = document.getElementById("settingsLanguageSelect");
-  if (!select) return;
-  select.innerHTML = "";
+  const dropdown = document.getElementById("settingsLanguageDropdown");
+  const codeEl = document.getElementById("settingsLanguageCode");
+  if (!dropdown || !codeEl) return;
+  dropdown.innerHTML = "";
+  const current = tempSettings.language || shellLanguage;
   getAvailableLanguages().forEach((code) => {
-    const option = document.createElement("option");
-    option.value = code;
-    option.textContent = getLanguageName(code);
-    select.appendChild(option);
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = getLanguageName(code);
+    btn.dataset.value = code;
+    if (code === current) btn.classList.add("active");
+    btn.addEventListener("click", () => {
+      tempSettings.language = code;
+      applyLiveSettings(tempSettings, { persist: false });
+      closeSettingsLanguageDropdown();
+    });
+    dropdown.appendChild(btn);
   });
-  select.value = tempSettings.language || shellLanguage;
-  select.onchange = (evt) => {
-    tempSettings.language = evt.target.value;
-    applyLiveSettings(tempSettings, { persist: false });
-  };
+  codeEl.textContent = getLanguageName(current);
 }
 
 function buildLanguageDropdown(select) {
@@ -285,6 +296,22 @@ function toggleLanguageDropdown(force) {
 
 function closeLanguageDropdown() {
   toggleLanguageDropdown(false);
+}
+
+function toggleSettingsLanguageDropdown(force) {
+  const control = document.getElementById("settingsLangControl");
+  const dropdown = document.getElementById("settingsLanguageDropdown");
+  const btn = document.getElementById("settingsLanguageButton");
+  if (!control || !dropdown || !btn) return;
+  const shouldOpen =
+    typeof force === "boolean" ? force : !control.classList.contains("open");
+  control.classList.toggle("open", shouldOpen);
+  dropdown.hidden = !shouldOpen;
+  btn.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
+}
+
+function closeSettingsLanguageDropdown() {
+  toggleSettingsLanguageDropdown(false);
 }
 
 function getLanguageName(code) {
@@ -414,6 +441,7 @@ function setupNavigation() {
   }
   if (settingsSoundIcon) {
     settingsSoundIcon.addEventListener("click", () => {
+      playClickSfx();
       toggleVolumeIcon("sound");
     });
   }
@@ -429,13 +457,31 @@ function setupNavigation() {
   }
   if (settingsMusicIcon) {
     settingsMusicIcon.addEventListener("click", () => {
+      playClickSfx();
       toggleVolumeIcon("music");
     });
   }
 
   const settingsLanguageIcon = document.getElementById("settingsLanguageIcon");
   if (settingsLanguageIcon) {
-    settingsLanguageIcon.addEventListener("click", () => cycleLanguage());
+    settingsLanguageIcon.addEventListener("click", () => {
+      playClickSfx();
+      cycleLanguage();
+    });
+  }
+  const settingsLangBtn = document.getElementById("settingsLanguageButton");
+  const settingsLangControl = document.getElementById("settingsLangControl");
+  if (settingsLangBtn && settingsLangControl) {
+    settingsLangBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      playClickSfx();
+      toggleSettingsLanguageDropdown();
+    });
+    document.addEventListener("click", (e) => {
+      if (!settingsLangControl.contains(e.target)) {
+        closeSettingsLanguageDropdown();
+      }
+    });
   }
 
   const settingsSave = document.getElementById("settingsSaveBtn");
@@ -496,9 +542,9 @@ function updateSettingsControls(source = {}) {
     musicIcon.classList.toggle("off", !musicValue || musicVol === 0);
   }
 
-  const langSelect = document.getElementById("settingsLanguageSelect");
-  if (langSelect) {
-    langSelect.value = langValue;
+  const langCode = document.getElementById("settingsLanguageCode");
+  if (langCode) {
+    langCode.textContent = getLanguageName(langValue);
   }
 }
 
@@ -764,12 +810,9 @@ function setupAudio() {
   document.addEventListener(
     "click",
     (evt) => {
-      if (!soundOn || !clickAudio) return;
-      const btn = evt.target.closest("button");
+      const btn = evt.target.closest("button,input[type='range']");
       if (!btn) return;
-      const instance = clickAudio.cloneNode();
-      instance.volume = (soundVolume / 100) * clickAudio.volume;
-      instance.play().catch(() => {});
+      playClickSfx();
     },
     true
   );
@@ -958,6 +1001,9 @@ function assignSrcToNodes(nodes, src) {
   nodes.forEach((node) => {
     if ("src" in node) {
       node.src = src;
+    } else if (node.tagName.toLowerCase() === "use") {
+      node.setAttribute("xlink:href", src);
+      node.setAttribute("href", src);
     }
     node.removeAttribute("data-src");
   });
