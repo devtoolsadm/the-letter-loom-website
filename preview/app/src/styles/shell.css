@@ -283,6 +283,9 @@ body.shell-ready #game-root {
   overflow: hidden;
   background: var(--candy-blue);
   border: 3px solid var(--candy-blue-dark);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 #soundToggleBtn {
@@ -298,6 +301,12 @@ body.shell-ready #game-root {
   overflow: hidden;
   background: var(--candy-blue);
   border: 3px solid var(--candy-blue-dark);
+}
+
+.icon-btn,
+.icon-btn-img {
+  -webkit-touch-callout: none;
+  user-select: none;
 }
 
 #soundToggleBtn::after {
@@ -422,25 +431,77 @@ body.shell-ready #game-root {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 12px;
 }
 
-.settings-row .game-btn {
-  max-width: 180px;
-  padding: 10px 12px;
-  min-height: 46px;
-  font-size: 18px;
+.settings-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  color: #2f1b12;
+}
+
+.settings-icon {
+  width: 28px;
+  height: 28px;
+  display: inline-block;
+  background: center / contain no-repeat;
+}
+
+.settings-icon.sound {
+  background-image: url("../../assets/ui-pack/Icons/SVG/Icon_Small_Blank_Audio.svg");
+}
+
+.settings-icon.music {
+  background-image: url("../../assets/ui-pack/Icons/SVG/Icon_Small_Blank_Music.svg");
+}
+
+.settings-icon.language {
+  background-image: url("../../assets/img/languages.png");
+  background-size: cover;
+}
+
+.settings-icon.sound.off {
+  background-image: url("../../assets/ui-pack/Icons/SVG/Icon_Small_Blank_AudioOff.svg");
+}
+
+.settings-icon.music.off {
+  background-image: url("../../assets/ui-pack/Icons/SVG/Icon_Small_Blank_MusicOff.svg");
+}
+
+.settings-slider {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.settings-slider input[type="range"] {
+  width: 100%;
+  accent-color: var(--candy-blue);
+  cursor: pointer;
+}
+
+.settings-value {
+  min-width: 42px;
+  text-align: right;
+  font-weight: 700;
+  color: #2f1b12;
 }
 
 .settings-select {
   padding: 8px 10px;
   border-radius: 10px;
-  border: 2px solid var(--panel-border);
+  border: 3px solid var(--panel-border);
   font-family: "Fredoka", Arial, sans-serif;
   font-weight: 700;
   font-size: 16px;
-  background: #fff;
+  background: var(--panel-cream);
   color: #2f1b12;
+  box-shadow: var(--panel-shadow);
+  min-width: 150px;
 }
 
 .settings-actions {
@@ -785,9 +846,30 @@ body.shell-ready #game-root {
 }
 
 .icon-btn-img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 70%;
+  height: 70%;
+  display: block;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  padding: 0;
+  pointer-events: none;
+}
+
+.icon-btn-img.icon-settings {
+  background-image: url("../../assets/img/settings.svg");
+}
+
+.icon-btn-img.icon-exit {
+  background-image: url("../../assets/ui-pack/Icons/SVG/Icon_Small_Blank_Return.svg");
+}
+
+.icon-btn-img.icon-settings,
+.icon-btn-img.icon-exit {
+  -webkit-mask-image: none;
 }
 
 .field-row {

@@ -104,19 +104,11 @@
 
             <div class="splash-main hidden" id="splashMainContent">
               <div class="splash-actions">
-                <button class="icon-btn btn-yellow" id="settingsBtn" aria-label="Settings" data-modal-open="settings">
-                  <img
-                    class="icon-btn-img"
-                    data-src="assets/img/settings.svg"
-                    alt=""
-                  />
+                <button class="icon-btn btn-yellow" type="button" id="settingsBtn" aria-label="Settings" data-modal-open="settings">
+                  <span class="icon-btn-img icon-settings" aria-hidden="true"></span>
                 </button>
-                <button class="icon-btn btn-yellow" id="exitBtn" aria-label="Exit">
-                  <img
-                    class="icon-btn-img"
-                    data-src="assets/img/exit.svg"
-                    alt=""
-                  />
+                <button class="icon-btn btn-yellow" type="button" id="exitBtn" aria-label="Exit">
+                  <span class="icon-btn-img icon-exit" aria-hidden="true"></span>
                 </button>
               </div>
               <div class="cta-stack">
@@ -235,20 +227,34 @@
         <div class="modal-canvas">
           <div class="modal-content settings-list">
             <div class="settings-row">
-              <div id="settingsSoundLabel"></div>
-              <button class="game-btn ghost" id="settingsSoundToggle"></button>
+              <div class="settings-label">
+                <span class="settings-icon sound" id="settingsSoundIcon" aria-hidden="true"></span>
+                <div id="settingsSoundLabel"></div>
+              </div>
+              <div class="settings-slider">
+                <input type="range" id="settingsSoundSlider" min="0" max="100" value="100" />
+                <span class="settings-value" id="settingsSoundValue">100%</span>
+              </div>
             </div>
             <div class="settings-row">
-              <div id="settingsMusicLabel"></div>
-              <button class="game-btn ghost" id="settingsMusicToggle"></button>
+              <div class="settings-label">
+                <span class="settings-icon music" id="settingsMusicIcon" aria-hidden="true"></span>
+                <div id="settingsMusicLabel"></div>
+              </div>
+              <div class="settings-slider">
+                <input type="range" id="settingsMusicSlider" min="0" max="100" value="100" />
+                <span class="settings-value" id="settingsMusicValue">100%</span>
+              </div>
             </div>
             <div class="settings-row">
-              <label for="settingsLanguageSelect" id="settingsLanguageLabel"></label>
+              <div class="settings-label">
+                <span class="settings-icon language" id="settingsLanguageIcon" aria-hidden="true"></span>
+                <label for="settingsLanguageSelect" id="settingsLanguageLabel"></label>
+              </div>
               <select id="settingsLanguageSelect" class="settings-select"></select>
             </div>
             <div class="settings-actions">
-              <button class="game-btn ghost" id="settingsCancelBtn"></button>
-              <button class="game-btn primary" id="settingsApplyBtn"></button>
+              <button class="game-btn primary" type="button" id="settingsSaveBtn"></button>
             </div>
           </div>
         </div>

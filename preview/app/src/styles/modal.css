@@ -232,13 +232,13 @@ body.modal-open {
 .modal-close {
   position: absolute;
   top: -48px;
-  right: -24px;
-  width: 56px;
-  height: 56px;
+  right: 8px;
+  width: 38px;
+  height: 38px;
   border: 4px solid #7f1d1d;
-  border-radius: 18px;
+  border-radius: 10px;
   background: radial-gradient(circle at 30% 30%, #fca5a5, #ef4444 60%, #b91c1c 100%);
-  box-shadow: 0 6px 0 #7f1d1d, 0 12px 20px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 4px 0 #7f1d1d, 0 12px 20px rgba(0, 0, 0, 0.45);
   cursor: pointer;
   z-index: 24;
   overflow: hidden;

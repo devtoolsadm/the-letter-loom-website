@@ -30,7 +30,16 @@ let unsubscribeLanguage = null;
 let currentScreen = "splash";
 let soundOn = appState.settings.sound ?? true;
 let musicOn = appState.settings.music ?? true;
-let tempSettings = { sound: soundOn, music: musicOn, language: shellLanguage };
+let soundVolume = appState.settings.soundVolume ?? 100;
+let musicVolume = appState.settings.musicVolume ?? 100;
+let settingsSnapshot = null;
+let tempSettings = {
+  sound: soundOn,
+  music: musicOn,
+  soundVolume,
+  musicVolume,
+  language: shellLanguage,
+};
 let splashLoaderInterval = null;
 let splashLoaderComplete = false;
 let splashLoaderProgress = 0;
@@ -86,9 +95,8 @@ function renderShellTexts() {
   setText("settingsSoundLabel", shellTexts.settingsSound);
   setText("settingsMusicLabel", shellTexts.settingsMusic);
   setText("settingsLanguageLabel", shellTexts.settingsLanguage);
-  setText("settingsApplyBtn", shellTexts.apply);
-  setText("settingsCancelBtn", shellTexts.cancel);
-
+  setText("settingsSaveBtn", shellTexts.save);
+  
   updateInstallCopy();
   renderLanguageSelector();
   renderSettingsLanguageSelector();
@@ -122,6 +130,10 @@ function preventMobileZoom() {
   ["gesturestart", "gesturechange", "gestureend"].forEach((evt) =>
     document.addEventListener(evt, (e) => e.preventDefault())
   );
+}
+
+function preventRightClick() {
+  document.addEventListener("contextmenu", (e) => e.preventDefault());
 }
 
 function setupWakeLock() {
@@ -237,6 +249,7 @@ function renderSettingsLanguageSelector() {
   select.value = tempSettings.language || shellLanguage;
   select.onchange = (evt) => {
     tempSettings.language = evt.target.value;
+    applyLiveSettings(tempSettings, { persist: false });
   };
 }
 
@@ -390,32 +403,44 @@ function setupNavigation() {
     btn.addEventListener("click", () => closeTopModal());
   });
 
-  const settingsSoundToggle = document.getElementById("settingsSoundToggle");
-  if (settingsSoundToggle) {
-    settingsSoundToggle.addEventListener("click", () => {
-      tempSettings.sound = !tempSettings.sound;
-      updateSettingsControls(tempSettings);
+  const settingsSoundSlider = document.getElementById("settingsSoundSlider");
+  const settingsSoundIcon = document.getElementById("settingsSoundIcon");
+  if (settingsSoundSlider) {
+    settingsSoundSlider.addEventListener("input", (e) => {
+      tempSettings.soundVolume = clampVolume(e.target.value);
+      tempSettings.sound = tempSettings.soundVolume > 0;
+      applyLiveSettings(tempSettings, { persist: false });
+    });
+  }
+  if (settingsSoundIcon) {
+    settingsSoundIcon.addEventListener("click", () => {
+      toggleVolumeIcon("sound");
     });
   }
 
-  const settingsMusicToggle = document.getElementById("settingsMusicToggle");
-  if (settingsMusicToggle) {
-    settingsMusicToggle.addEventListener("click", () => {
-      tempSettings.music = !tempSettings.music;
-      updateSettingsControls(tempSettings);
+  const settingsMusicSlider = document.getElementById("settingsMusicSlider");
+  const settingsMusicIcon = document.getElementById("settingsMusicIcon");
+  if (settingsMusicSlider) {
+    settingsMusicSlider.addEventListener("input", (e) => {
+      tempSettings.musicVolume = clampVolume(e.target.value);
+      tempSettings.music = tempSettings.musicVolume > 0;
+      applyLiveSettings(tempSettings, { persist: false });
+    });
+  }
+  if (settingsMusicIcon) {
+    settingsMusicIcon.addEventListener("click", () => {
+      toggleVolumeIcon("music");
     });
   }
 
-  const settingsCancel = document.getElementById("settingsCancelBtn");
-  if (settingsCancel) {
-    settingsCancel.addEventListener("click", () => {
-      closeModal("settings");
-    });
+  const settingsLanguageIcon = document.getElementById("settingsLanguageIcon");
+  if (settingsLanguageIcon) {
+    settingsLanguageIcon.addEventListener("click", () => cycleLanguage());
   }
 
-  const settingsApply = document.getElementById("settingsApplyBtn");
-  if (settingsApply) {
-    settingsApply.addEventListener("click", () => {
+  const settingsSave = document.getElementById("settingsSaveBtn");
+  if (settingsSave) {
+    settingsSave.addEventListener("click", () => {
       applySettingsFromTemp();
       closeModal("settings", { reason: "action", action: "apply" });
     });
@@ -445,18 +470,30 @@ function updateSoundToggle() {
 function updateSettingsControls(source = {}) {
   const soundValue = source.sound ?? soundOn;
   const musicValue = source.music ?? musicOn;
+  const soundVol = clampVolume(source.soundVolume ?? soundVolume);
+  const musicVol = clampVolume(source.musicVolume ?? musicVolume);
   const langValue = source.language ?? shellLanguage;
 
-  const soundBtn = document.getElementById("settingsSoundToggle");
-  if (soundBtn) {
-    soundBtn.textContent = soundValue ? shellTexts.soundOn : shellTexts.soundOff;
-    soundBtn.dataset.state = soundValue ? "on" : "off";
+  const soundSlider = document.getElementById("settingsSoundSlider");
+  const soundValueLabel = document.getElementById("settingsSoundValue");
+  if (soundSlider) {
+    soundSlider.value = soundVol;
+  }
+  if (soundValueLabel) soundValueLabel.textContent = `${soundVol}%`;
+  const soundIcon = document.getElementById("settingsSoundIcon");
+  if (soundIcon) {
+    soundIcon.classList.toggle("off", !soundValue || soundVol === 0);
   }
 
-  const musicBtn = document.getElementById("settingsMusicToggle");
-  if (musicBtn) {
-    musicBtn.textContent = musicValue ? shellTexts.soundOn : shellTexts.soundOff;
-    musicBtn.dataset.state = musicValue ? "on" : "off";
+  const musicSlider = document.getElementById("settingsMusicSlider");
+  const musicValueLabel = document.getElementById("settingsMusicValue");
+  if (musicSlider) {
+    musicSlider.value = musicVol;
+  }
+  if (musicValueLabel) musicValueLabel.textContent = `${musicVol}%`;
+  const musicIcon = document.getElementById("settingsMusicIcon");
+  if (musicIcon) {
+    musicIcon.classList.toggle("off", !musicValue || musicVol === 0);
   }
 
   const langSelect = document.getElementById("settingsLanguageSelect");
@@ -466,9 +503,12 @@ function updateSettingsControls(source = {}) {
 }
 
 function openSettingsModal() {
+  settingsSnapshot = getCurrentSettingsState();
   tempSettings = {
-    sound: soundOn,
-    music: musicOn,
+    sound: soundOn || soundVolume > 0,
+    music: musicOn || musicVolume > 0,
+    soundVolume,
+    musicVolume,
     language: shellLanguage,
   };
   renderSettingsLanguageSelector();
@@ -480,20 +520,109 @@ function applySettingsFromTemp() {
   const nextLang = tempSettings.language || shellLanguage;
   const langChanged = nextLang !== shellLanguage;
 
-  soundOn = !!tempSettings.sound;
-  musicOn = !!tempSettings.music;
+  soundVolume = clampVolume(tempSettings.soundVolume);
+  musicVolume = clampVolume(tempSettings.musicVolume);
+  soundOn = soundVolume > 0 && tempSettings.sound !== false;
+  musicOn = musicVolume > 0 && tempSettings.music !== false;
 
-  updateState({ settings: { sound: soundOn, music: musicOn, language: nextLang } });
+  applyLiveSettings(
+    {
+      sound: soundOn,
+      music: musicOn,
+      soundVolume,
+      musicVolume,
+      language: nextLang,
+    },
+    { persist: true }
+  );
+  settingsSnapshot = getCurrentSettingsState();
+}
+
+function applyLiveSettings(settings, { persist = false } = {}) {
+  const nextSoundVol = clampVolume(settings.soundVolume ?? soundVolume);
+  const nextMusicVol = clampVolume(settings.musicVolume ?? musicVolume);
+  const nextSound = settings.sound ?? soundOn;
+  const nextMusic = settings.music ?? musicOn;
+  const nextLang = settings.language || shellLanguage;
+
+  soundVolume = nextSoundVol;
+  musicVolume = nextMusicVol;
+  soundOn = nextSoundVol > 0 && nextSound !== false;
+  musicOn = nextMusicVol > 0 && nextMusic !== false;
+
+  if (persist) {
+    updateState({
+      settings: {
+        sound: soundOn,
+        music: musicOn,
+        soundVolume,
+        musicVolume,
+        language: nextLang,
+      },
+    });
+  }
+
   updateSoundToggle();
-  updateSettingsControls();
+  updateAudioVolumes();
   if (!musicOn && introAudio) {
     introAudio.pause();
   } else if (musicOn) {
     attemptPlayIntro();
   }
 
-  if (langChanged) {
+  if (persist) {
     setShellLanguage(nextLang);
+  } else if (TEXTS[nextLang]) {
+    shellLanguage = nextLang;
+    shellTexts = TEXTS[nextLang];
+    renderShellTexts();
+  }
+
+  updateSettingsControls({
+    sound: soundOn,
+    music: musicOn,
+    soundVolume,
+    musicVolume,
+    language: shellLanguage,
+  });
+}
+
+function cycleLanguage() {
+  const langs = getAvailableLanguages();
+  if (!langs.length) return;
+  const current = tempSettings.language || shellLanguage;
+  const idx = langs.indexOf(current);
+  const next = langs[(idx + 1) % langs.length];
+  tempSettings.language = next;
+  applyLiveSettings(tempSettings, { persist: false });
+}
+
+function getCurrentSettingsState() {
+  return {
+    sound: soundOn,
+    music: musicOn,
+    soundVolume,
+    musicVolume,
+    language: shellLanguage,
+  };
+}
+
+function revertSettingsSnapshot() {
+  if (settingsSnapshot) {
+    applyLiveSettings(settingsSnapshot, { persist: false });
+    tempSettings = { ...settingsSnapshot };
+    settingsSnapshot = null;
+  }
+}
+
+function handleModalClosed(evt) {
+  const detail = evt.detail || {};
+  if (detail.id === "settings") {
+    if (detail.action === "apply") {
+      settingsSnapshot = getCurrentSettingsState();
+    } else {
+      revertSettingsSnapshot();
+    }
   }
 }
 
@@ -616,10 +745,10 @@ function setupAudio() {
 
   introAudio = new Audio("assets/sounds/intro.wav");
   introAudio.loop = true;
-  introAudio.volume = 0.35;
+  introAudio.volume = 1;
 
   clickAudio = new Audio("assets/sounds/click.mp3");
-  clickAudio.volume = 0.6;
+  clickAudio.volume = 1;
 
   const unlock = () => {
     attemptPlayIntro();
@@ -639,18 +768,48 @@ function setupAudio() {
       const btn = evt.target.closest("button");
       if (!btn) return;
       const instance = clickAudio.cloneNode();
-      instance.volume = clickAudio.volume;
+      instance.volume = (soundVolume / 100) * clickAudio.volume;
       instance.play().catch(() => {});
     },
     true
   );
 
   attemptPlayIntro();
+  updateAudioVolumes();
 }
 
 function attemptPlayIntro() {
   if (!introAudio || !musicOn) return;
   introAudio.play().catch(() => {});
+}
+
+function updateAudioVolumes() {
+  if (introAudio) {
+    introAudio.volume = (musicVolume / 100) * 0.7;
+  }
+  if (clickAudio) {
+    clickAudio.volume = (soundVolume / 100) * 1;
+  }
+}
+
+function clampVolume(val) {
+  const num = Number(val);
+  if (Number.isNaN(num)) return 0;
+  return Math.min(100, Math.max(0, Math.round(num)));
+}
+
+function toggleVolumeIcon(kind) {
+  if (kind === "sound") {
+    tempSettings.soundVolume = tempSettings.soundVolume === 0 ? 100 : 0;
+    tempSettings.sound = tempSettings.soundVolume > 0;
+    applyLiveSettings(tempSettings, { persist: false });
+    return;
+  }
+  if (kind === "music") {
+    tempSettings.musicVolume = tempSettings.musicVolume === 0 ? 100 : 0;
+    tempSettings.music = tempSettings.musicVolume > 0;
+    applyLiveSettings(tempSettings, { persist: false });
+  }
 }
 
 // Loader strategy:
@@ -810,13 +969,15 @@ function bootstrapShell() {
   renderShellTexts();
   setupLanguageSelector();
   setupNavigation();
-  if (!unsubscribeLanguage) {
+  document.addEventListener("modal:closed", handleModalClosed);
+    if (!unsubscribeLanguage) {
     unsubscribeLanguage = onShellLanguageChange(handleLanguageChange);
     window.addEventListener("beforeunload", () => {
       if (unsubscribeLanguage) unsubscribeLanguage();
       unsubscribeLanguage = null;
     });
   }
+  preventRightClick();
   preventMobileZoom();
   fetchVersionFile();
   setupWakeLock();
