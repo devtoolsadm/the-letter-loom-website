@@ -213,107 +213,107 @@
         </main>
         <footer class="game-footer" id="gameFooter"></footer>
       </div>
+      <!-- In-game modals (scaled with game root) -->
+      <div class="modal-overlay" data-modal="settings" data-closable="1">
+        <div class="frame-panel">
+          <div class="modal-stitch"></div>
+          <div class="modal-ribbon"><span id="settingsTitle"></span></div>
+          <button class="modal-close" data-modal-close="settings" aria-label="Close"></button>
+          <div class="modal-canvas">
+            <div class="modal-content settings-list">
+              <div class="settings-row">
+                <div class="settings-label">
+                  <span class="settings-icon sound" id="settingsSoundIcon" aria-hidden="true"></span>
+                  <div id="settingsSoundLabel"></div>
+                </div>
+                <div class="settings-slider">
+                  <input type="range" id="settingsSoundSlider" min="0" max="100" value="100" />
+                  <span class="settings-value" id="settingsSoundValue">100%</span>
+                </div>
+              </div>
+              <div class="settings-row">
+                <div class="settings-label">
+                  <span class="settings-icon music" id="settingsMusicIcon" aria-hidden="true"></span>
+                  <div id="settingsMusicLabel"></div>
+                </div>
+                <div class="settings-slider">
+                  <input type="range" id="settingsMusicSlider" min="0" max="100" value="100" />
+                  <span class="settings-value" id="settingsMusicValue">100%</span>
+                </div>
+              </div>
+              <div class="settings-row">
+                <div class="settings-label">
+                  <span class="settings-icon language" id="settingsLanguageIcon" aria-hidden="true"></span>
+                  <label for="settingsLanguageSelect" id="settingsLanguageLabel"></label>
+                </div>
+                <div class="lang-control settings-lang-control" id="settingsLangControl">
+                  <button class="lang-btn" type="button" id="settingsLanguageButton" aria-haspopup="true" aria-expanded="false">
+                    <span id="settingsLanguageCode">EN</span>
+                  </button>
+                  <div class="lang-dropdown settings-lang-dropdown" id="settingsLanguageDropdown"></div>
+                </div>
+              </div>
+              <div class="settings-actions">
+                <button class="game-btn primary" type="button" id="settingsSaveBtn"></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Demo modals -->
+      <div class="modal-overlay" data-modal="demo-a" data-closable="1">
+        <div class="frame-panel">
+          <div class="modal-stitch"></div>
+          <div class="modal-ribbon"><span>Modal A</span></div>
+          <button class="modal-close" aria-label="Close"></button>
+          <div class="modal-canvas">
+            <div class="modal-letters">
+              <span style="color:#3b82f6;">A</span>
+            </div>
+            <div class="modal-content">
+              <p>Closable modal. Uses default close button.</p>
+              <button class="game-btn primary" data-modal-action="save" data-modal-close="demo-a">
+                Save & close
+              </button>
+              <button class="game-btn ghost" data-modal-close="demo-a">Close</button>
+              <button class="game-btn ghost" data-modal-open="demo-c">Open nested C</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-overlay" data-modal="demo-b" data-closable="0">
+        <div class="frame-panel">
+          <div class="modal-stitch"></div>
+          <div class="modal-ribbon"><span>Modal B</span></div>
+          <div class="modal-canvas">
+            <div class="modal-content">
+              <p>Non-closable via overlay/ESC. Use button below.</p>
+              <button class="game-btn primary" data-modal-close="demo-b">Close B</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-overlay" data-modal="demo-c" data-closable="1">
+        <div class="frame-panel">
+          <div class="modal-stitch"></div>
+          <div class="modal-ribbon"><span>Modal C</span></div>
+          <button class="modal-close" aria-label="Close"></button>
+          <div class="modal-canvas">
+            <div class="modal-content">
+              <p>Nested modal example.</p>
+              <button class="game-btn primary" data-modal-close="demo-c">Close C</button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
     <video id="videoWakeLockWorkaround" loop muted playsinline>
       <source data-src="assets/img/empty-video.mp4" type="video/mp4" />
       <span id="video-fallback-text"></span>
     </video>
-
-    <div class="modal-overlay" data-modal="settings" data-closable="1">
-      <div class="frame-panel">
-        <div class="modal-stitch"></div>
-        <div class="modal-ribbon"><span id="settingsTitle"></span></div>
-        <button class="modal-close" data-modal-close="settings" aria-label="Close"></button>
-        <div class="modal-canvas">
-          <div class="modal-content settings-list">
-            <div class="settings-row">
-              <div class="settings-label">
-                <span class="settings-icon sound" id="settingsSoundIcon" aria-hidden="true"></span>
-                <div id="settingsSoundLabel"></div>
-              </div>
-              <div class="settings-slider">
-                <input type="range" id="settingsSoundSlider" min="0" max="100" value="100" />
-                <span class="settings-value" id="settingsSoundValue">100%</span>
-              </div>
-            </div>
-            <div class="settings-row">
-              <div class="settings-label">
-                <span class="settings-icon music" id="settingsMusicIcon" aria-hidden="true"></span>
-                <div id="settingsMusicLabel"></div>
-              </div>
-              <div class="settings-slider">
-                <input type="range" id="settingsMusicSlider" min="0" max="100" value="100" />
-                <span class="settings-value" id="settingsMusicValue">100%</span>
-              </div>
-            </div>
-            <div class="settings-row">
-              <div class="settings-label">
-                <span class="settings-icon language" id="settingsLanguageIcon" aria-hidden="true"></span>
-                <label for="settingsLanguageSelect" id="settingsLanguageLabel"></label>
-              </div>
-              <div class="lang-control settings-lang-control" id="settingsLangControl">
-                <button class="lang-btn" type="button" id="settingsLanguageButton" aria-haspopup="true" aria-expanded="false">
-                  <span id="settingsLanguageCode">EN</span>
-                </button>
-                <div class="lang-dropdown settings-lang-dropdown" id="settingsLanguageDropdown"></div>
-              </div>
-            </div>
-            <div class="settings-actions">
-              <button class="game-btn primary" type="button" id="settingsSaveBtn"></button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Demo modals -->
-    <div class="modal-overlay" data-modal="demo-a" data-closable="1">
-      <div class="frame-panel">
-        <div class="modal-stitch"></div>
-        <div class="modal-ribbon"><span>Modal A</span></div>
-        <button class="modal-close" aria-label="Close"></button>
-        <div class="modal-canvas">
-          <div class="modal-letters">
-            <span style="color:#3b82f6;">A</span>
-          </div>
-          <div class="modal-content">
-            <p>Closable modal. Uses default close button.</p>
-            <button class="game-btn primary" data-modal-action="save" data-modal-close="demo-a">
-              Save & close
-            </button>
-            <button class="game-btn ghost" data-modal-close="demo-a">Close</button>
-            <button class="game-btn ghost" data-modal-open="demo-c">Open nested C</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="modal-overlay" data-modal="demo-b" data-closable="0">
-      <div class="frame-panel">
-        <div class="modal-stitch"></div>
-        <div class="modal-ribbon"><span>Modal B</span></div>
-        <div class="modal-canvas">
-          <div class="modal-content">
-            <p>Non-closable via overlay/ESC. Use button below.</p>
-            <button class="game-btn primary" data-modal-close="demo-b">Close B</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="modal-overlay" data-modal="demo-c" data-closable="1">
-      <div class="frame-panel">
-        <div class="modal-stitch"></div>
-        <div class="modal-ribbon"><span>Modal C</span></div>
-        <button class="modal-close" aria-label="Close"></button>
-        <div class="modal-canvas">
-          <div class="modal-content">
-            <p>Nested modal example.</p>
-            <button class="game-btn primary" data-modal-close="demo-c">Close C</button>
-          </div>
-        </div>
-      </div>
-    </div>
 
     <script type="module" src="./src/ui/shell/main.js"></script>
     <script type="module" src="./src/ui/shell/modal.js"></script>

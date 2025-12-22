@@ -12,6 +12,64 @@ function lockScroll(lock) {
   document.body.classList.toggle("modal-open", lock);
 }
 
+function getViewportSize() {
+  const vv = window.visualViewport;
+  return {
+    w: vv?.width || window.innerWidth,
+    h: vv?.height || window.innerHeight,
+  };
+}
+
+function getGameLogicalSize() {
+  const rootStyles = getComputedStyle(document.documentElement);
+  const width = parseFloat(rootStyles.getPropertyValue("--game-width")) || 360;
+  const height = parseFloat(rootStyles.getPropertyValue("--game-height")) || 640;
+  return { width, height };
+}
+
+function applyModalScale(overlay) {
+  const frame = overlay?.querySelector(".frame-panel");
+  const canvas = overlay?.querySelector(".modal-canvas");
+  if (!frame) return;
+  frame.style.transform = "";
+  if (canvas) canvas.style.maxHeight = "";
+
+  const { w, h } = getViewportSize();
+  const { width: gameW, height: gameH } = getGameLogicalSize();
+  const rootStyles = getComputedStyle(document.documentElement);
+  const modalMaxVar = parseFloat(rootStyles.getPropertyValue("--modal-max-width")) || 340;
+
+  const margin = 24;
+  const widthLimit = Math.max(
+    200,
+    Math.min(
+      modalMaxVar,
+      gameW - margin * 2
+    )
+  );
+  const heightLimit = Math.max(
+    220,
+    Math.min(gameH - margin * 2)
+  );
+
+  frame.style.width = "";
+  frame.style.maxWidth = `${widthLimit}px`;
+  frame.style.maxHeight = `${heightLimit}px`;
+
+  if (canvas) {
+    const headerAllowance = 170; // ribbon + close + padding
+    const canvasMax = Math.max(140, heightLimit - headerAllowance);
+    canvas.style.maxHeight = `${canvasMax}px`;
+    canvas.style.overflowY = "auto";
+  }
+}
+
+function rescaleTopModal() {
+  if (!modalStack.length) return;
+  const top = modalStack[modalStack.length - 1];
+  applyModalScale(top.overlay);
+}
+
 function dispatchClose(entry, reason, extra = {}) {
   const detail = {
     id: entry.id,
@@ -34,6 +92,7 @@ export function openModal(id, { closable = true, payload = null, onClose = null 
   lockScroll(true);
   const letters = overlay.querySelector(".modal-letters");
   if (letters) generateLetters(letters);
+  applyModalScale(overlay);
 }
 
 export function closeModal(id, { reason = "close", action = null, payload = null } = {}) {
@@ -120,6 +179,11 @@ export function initModals() {
     overlay.addEventListener("click", handleOverlayClick);
   });
   document.addEventListener("keydown", handleEsc);
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", rescaleTopModal);
+  } else {
+    window.addEventListener("resize", rescaleTopModal);
+  }
   populateModalLetters();
 }
 

@@ -344,11 +344,10 @@ function scaleGame() {
   const overlayRoot = document.getElementById("orientation-root");
   if (!gameRoot || !overlayRoot) return;
   const { width, height } = getGameDimensions();
-  const zoom = window.visualViewport?.scale || 1;
-  const w = (window.visualViewport?.width || window.innerWidth) * zoom;
-  const h = (window.visualViewport?.height || window.innerHeight) * zoom;
-  const maxScale = 1; //0.99;
-  const scale = Math.min(w / width, h / height, maxScale);
+  const viewport = window.visualViewport;
+  const w = viewport?.width || window.innerWidth;
+  const h = viewport?.height || window.innerHeight;
+  const scale = Math.min(w / width, h / height);
   gameRoot.style.transform = `scale(${scale})`;
   gameRoot.style.left = `${(w - width * scale) / 2}px`;
   gameRoot.style.top = `${(h - height * scale) / 2}px`;
