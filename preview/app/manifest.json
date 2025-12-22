@@ -5,7 +5,7 @@
   "start_url": "./?fromPWA=1",
   "scope": "./",
   "display": "fullscreen",
-  "background_color": "#1B1F3B",
+  "background_color": "#73C2FB",
   "theme_color": "#73C2FB",
   "orientation": "portrait",
   "icons": [
