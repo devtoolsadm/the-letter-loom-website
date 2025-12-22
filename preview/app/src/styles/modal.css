@@ -179,6 +179,7 @@ body.modal-open {
   font-family: "Fredoka", sans-serif;
   width: 100%;
   max-width: 320px;
+  margin-top: 16px;
 }
 
 .modal-content p {
