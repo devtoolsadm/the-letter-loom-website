@@ -507,8 +507,8 @@ body.shell-ready #game-root {
 }
 
 .settings-icon {
-  width: 46px;
-  height: 46px;
+  width: 36px;
+  height: 36px;
   display: inline-block;
   background: center / contain no-repeat;
 }

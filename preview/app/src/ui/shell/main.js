@@ -938,7 +938,7 @@ function applyBodyBackground(url) {
       el.style.background = `url("${url}") center / cover no-repeat fixed`;
       el.style.backgroundSize = "cover";
     }
-    el.style.backgroundColor = "transparent";
+    //el.style.backgroundColor = "transparent";
   });
 }
 
