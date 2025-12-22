@@ -12,6 +12,7 @@ const cacheReady = resolveCacheVersion();
 if (IS_LOCAL && DEV_BYPASS_CACHE) {
   logSw("info", "Development mode: cache bypass enabled");
 }
+logSw("info", `Service worker starting (isLocal: ${IS_LOCAL}, hostname: ${self.location.hostname}, base path: ${BASE_PATH})`);
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
