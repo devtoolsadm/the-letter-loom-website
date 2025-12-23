@@ -358,10 +358,8 @@ function scaleGame() {
   const overlayRoot = document.getElementById("orientation-root");
   if (!gameRoot || !overlayRoot) return;
   const { width, height } = getGameDimensions();
-  const viewport = window.visualViewport;
-  const scaleFactor = viewport?.scale || 1;
-  const w = (viewport?.width || window.innerWidth) * scaleFactor;
-  const h = (viewport?.height || window.innerHeight) * scaleFactor;
+  const w = window.innerWidth;
+  const h = window.innerHeight;
   const scale = Math.min(w / width, h / height);
   gameRoot.style.transform = `scale(${scale})`;
   gameRoot.style.left = `${(w - width * scale) / 2}px`;
@@ -983,7 +981,7 @@ function applyBodyBackground(url) {
       el.style.background = `url("${url}") center / cover no-repeat fixed`;
       el.style.backgroundSize = "cover";
     }
-    el.style.backgroundColor = "red";
+    el.style.backgroundColor = root.getPropertyValue("--sky");
   });
 }
 
