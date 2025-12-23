@@ -40,7 +40,7 @@ body {
   user-select: none;
   -webkit-user-select: none;
   touch-action: none;
-  -webkit-text-size-adjust: none;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
@@ -741,7 +741,7 @@ body.shell-ready #game-root {
   background: #222;
   color: #fff;
   font-size: 16px;
-  -webkit-text-size-adjust: none;
+  -webkit-text-size-adjust: 100%;
   cursor: pointer;
   box-shadow: 0 2px 8px #0006;
 }
@@ -760,7 +760,7 @@ body.shell-ready #game-root {
   overflow-y: auto;
   z-index: 100000;
   font-size: 12px;
-  -webkit-text-size-adjust: none;
+  -webkit-text-size-adjust: 100%;
 }
 
 .debug-panel.hidden {

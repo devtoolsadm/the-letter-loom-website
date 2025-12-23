@@ -46,10 +46,6 @@
   </head>
   <body>
     <!-- Asset loading: keep heavy images/media using data-src. The shell loader preloads them and assigns src to avoid broken placeholders during the splash. -->
-    <pwa-install
-      id="pwa-install"
-      manifest-url="manifest.json"
-    ></pwa-install>
     <div id="orientation-overlay">
       <div id="orientation-root" class="rootGameScreen">
         <div class="orientation-content">
@@ -63,6 +59,7 @@
       </div>
     </div>
     <div id="game-root" class="rootGameScreen">
+      <pwa-install id="pwa-install" manifest-url="manifest.json"></pwa-install>
       <div class="game-content">
         <header class="game-header" id="gameHeader">
           <div class="brand-mark">LL</div>

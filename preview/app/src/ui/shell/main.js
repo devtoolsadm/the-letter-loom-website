@@ -48,8 +48,22 @@ let installedAppDetected = false;
 let introAudio = null;
 let clickAudio = null;
 let audioReady = false;
+let audioCtx = null;
+let musicGain = null;
+let soundGain = null;
+let musicSource = null;
+let clickSource = null;
 function playClickSfx() {
   if (!soundOn || !clickAudio) return;
+  // If routed through Web Audio, use the shared element with gain; otherwise clone
+  if (audioCtx && soundGain && clickSource) {
+    soundGain.gain.value = soundVolume / 100;
+    try {
+      clickAudio.currentTime = 0;
+    } catch (e) {}
+    clickAudio.play().catch(() => {});
+    return;
+  }
   const instance = clickAudio.cloneNode();
   instance.volume = (soundVolume / 100) * clickAudio.volume;
   instance.play().catch(() => {});
@@ -345,8 +359,9 @@ function scaleGame() {
   if (!gameRoot || !overlayRoot) return;
   const { width, height } = getGameDimensions();
   const viewport = window.visualViewport;
-  const w = viewport?.width || window.innerWidth;
-  const h = viewport?.height || window.innerHeight;
+  const scaleFactor = viewport?.scale || 1;
+  const w = (viewport?.width || window.innerWidth) * scaleFactor;
+  const h = (viewport?.height || window.innerHeight) * scaleFactor;
   const scale = Math.min(w / width, h / height);
   gameRoot.style.transform = `scale(${scale})`;
   gameRoot.style.left = `${(w - width * scale) / 2}px`;
@@ -788,6 +803,19 @@ function setupAudio() {
   if (audioReady) return;
   audioReady = true;
 
+  const ensureAudioContext = () => {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      musicGain = audioCtx.createGain();
+      soundGain = audioCtx.createGain();
+      musicGain.connect(audioCtx.destination);
+      soundGain.connect(audioCtx.destination);
+    }
+    if (audioCtx.state === "suspended") {
+      audioCtx.resume().catch(() => {});
+    }
+  };
+
   introAudio = new Audio("assets/sounds/intro.wav");
   introAudio.loop = true;
   introAudio.volume = 1;
@@ -796,6 +824,15 @@ function setupAudio() {
   clickAudio.volume = 1;
 
   const unlock = () => {
+    ensureAudioContext();
+    if (!musicSource && audioCtx) {
+      musicSource = audioCtx.createMediaElementSource(introAudio);
+      musicSource.connect(musicGain);
+    }
+    if (!clickSource && audioCtx) {
+      clickSource = audioCtx.createMediaElementSource(clickAudio);
+      clickSource.connect(soundGain);
+    }
     attemptPlayIntro();
     if (clickAudio) {
       clickAudio.play().catch(() => {});
@@ -811,6 +848,7 @@ function setupAudio() {
     (evt) => {
       const btn = evt.target.closest("button,input[type='range']");
       if (!btn) return;
+      ensureAudioContext();
       playClickSfx();
     },
     true
@@ -821,16 +859,24 @@ function setupAudio() {
 }
 
 function attemptPlayIntro() {
+  if (audioCtx && audioCtx.state === "suspended") {
+    audioCtx.resume().catch(() => {});
+  }
   if (!introAudio || !musicOn) return;
   introAudio.play().catch(() => {});
 }
 
 function updateAudioVolumes() {
+  const musicLevel = (musicVolume / 100) * 0.7;
+  const soundLevel = soundVolume / 100;
+  if (musicGain) musicGain.gain.value = musicLevel;
+  if (soundGain) soundGain.gain.value = soundLevel;
+  // fallback for platforms without Web Audio volume control
   if (introAudio) {
-    introAudio.volume = (musicVolume / 100) * 0.7;
+    introAudio.volume = musicLevel;
   }
   if (clickAudio) {
-    clickAudio.volume = (soundVolume / 100) * 1;
+    clickAudio.volume = soundLevel;
   }
 }
 
@@ -937,7 +983,7 @@ function applyBodyBackground(url) {
       el.style.background = `url("${url}") center / cover no-repeat fixed`;
       el.style.backgroundSize = "cover";
     }
-    //el.style.backgroundColor = "transparent";
+    el.style.backgroundColor = "red";
   });
 }
 
