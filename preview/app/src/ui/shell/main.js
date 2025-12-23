@@ -30,8 +30,8 @@ let unsubscribeLanguage = null;
 let currentScreen = "splash";
 let soundOn = appState.settings.sound ?? true;
 let musicOn = appState.settings.music ?? true;
-let soundVolume = appState.settings.soundVolume ?? 100;
-let musicVolume = appState.settings.musicVolume ?? 100;
+let soundVolume = appState.settings.soundVolume ?? 50;
+let musicVolume = appState.settings.musicVolume ?? 50;
 let settingsSnapshot = null;
 let tempSettings = {
   sound: soundOn,
@@ -53,6 +53,8 @@ let musicGain = null;
 let soundGain = null;
 let musicSource = null;
 let clickSource = null;
+let wakeLockTimer = null;
+const WAKE_LOCK_TIMEOUT_MS = 5 * 60 * 1000;
 function playClickSfx() {
   if (!soundOn || !clickAudio) return;
   // If routed through Web Audio, use the shared element with gain; otherwise clone
@@ -693,10 +695,15 @@ async function ensureWakeLock(shouldLock) {
   if (shouldLock && !wakeLockActive) {
     await requestLock();
     wakeLockActive = true;
+    resetWakeLockTimer();
   }
   if (!shouldLock && wakeLockActive) {
     await releaseLock();
     wakeLockActive = false;
+    if (wakeLockTimer) {
+      clearTimeout(wakeLockTimer);
+      wakeLockTimer = null;
+    }
   }
 }
 
@@ -722,6 +729,15 @@ function setupDebugRevealGesture(container) {
     }
   };
   targets.forEach((el) => el.addEventListener("click", handler));
+}
+
+function setupWakeLockActivityTracking() {
+  const activityHandler = () => {
+    ensureWakeLock(true);
+  };
+  ["pointerdown", "keydown", "touchstart"].forEach((evt) => {
+    document.addEventListener(evt, activityHandler, true);
+  });
 }
 
 function startSplashLoader() {
@@ -806,6 +822,10 @@ function setupAudio() {
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       musicGain = audioCtx.createGain();
       soundGain = audioCtx.createGain();
+      const musicLevel = (musicVolume / 100) * 0.7;
+      const soundLevel = soundVolume / 100;
+      musicGain.gain.value = musicLevel;
+      soundGain.gain.value = soundLevel;
       musicGain.connect(audioCtx.destination);
       soundGain.connect(audioCtx.destination);
     }
@@ -831,6 +851,7 @@ function setupAudio() {
       clickSource = audioCtx.createMediaElementSource(clickAudio);
       clickSource.connect(soundGain);
     }
+    updateAudioVolumes();
     attemptPlayIntro();
     if (clickAudio) {
       clickAudio.play().catch(() => {});
@@ -876,6 +897,15 @@ function updateAudioVolumes() {
   if (clickAudio) {
     clickAudio.volume = soundLevel;
   }
+}
+
+function resetWakeLockTimer() {
+  if (wakeLockTimer) {
+    clearTimeout(wakeLockTimer);
+  }
+  wakeLockTimer = setTimeout(() => {
+    ensureWakeLock(false);
+  }, WAKE_LOCK_TIMEOUT_MS);
 }
 
 function clampVolume(val) {
@@ -1059,6 +1089,7 @@ function bootstrapShell() {
   renderShellTexts();
   setupLanguageSelector();
   setupNavigation();
+  setupWakeLockActivityTracking();
   document.addEventListener("modal:closed", handleModalClosed);
     if (!unsubscribeLanguage) {
     unsubscribeLanguage = onShellLanguageChange(handleLanguageChange);

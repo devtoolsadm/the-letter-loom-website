@@ -3,7 +3,7 @@ import { loadState, updateState } from "../core/stateStore.js";
 export const TEXTS = {
   es: {
     languageName: "Español",
-    appTitle: "The Letter Loom ES",
+    appTitle: "The Letter Loom",
     appShortName: "Letter Loom",
     appDescription: "El juego de cartas más divertido de todos los tiempos!",
     splashTitle: "Empezar partida",

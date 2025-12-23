@@ -287,6 +287,7 @@ body.shell-ready #game-root {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  position: relative;
 }
 
 #soundToggleBtn {
@@ -312,10 +313,12 @@ body.shell-ready #game-root {
   height: 90%;
   background-repeat: no-repeat;
   background-position: center;
-  background-size: 80%;
+  background-size: 90%;
+  filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.18));
   pointer-events: none;
   -webkit-touch-callout: none;
   user-select: none;
+  z-index: 2;
 }
 .icon-btn-img.icon-settings {
   background-image: url("../../assets/img/settings.svg");
@@ -326,12 +329,30 @@ body.shell-ready #game-root {
 
 /* Icon button glossy variant (uses primary button skin) */
 .icon-btn.glossy {
-  background-image: url("../../assets/img/button.svg");
-  background-repeat: no-repeat;
-  background-position: center;
-  background-size: 100% 100%;
+  background: var(--icon-btn-main);
   border: 3px solid var(--icon-btn-dark);
   box-shadow: 0 8px 0 var(--icon-btn-dark), 0 12px 18px rgba(0, 0, 0, 0.18);
+}
+.icon-btn.glossy::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: url("../../assets/img/button.svg") center / 100% 100% no-repeat;
+  z-index: 1;
+}
+.icon-btn.glossy::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.35) 0%,
+    rgba(255, 255, 255, 0.16) 45%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  mix-blend-mode: screen;
+  z-index: 4;
+  pointer-events: none;
 }
 
 /* Color variants for icon buttons */

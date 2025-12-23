@@ -3,7 +3,7 @@ let cacheVersion = "v0";
 let CACHE_NAME = `${CACHE_PREFIX}-${cacheVersion}`;
 const BASE_PATH = self.location.pathname.replace(/\/[^/]*$/, "/");
 const VERSION_JS = `${BASE_PATH}src/core/version.js`;
-const DEV_BYPASS_CACHE = false; // set to true only for bypass during local dev
+const DEV_BYPASS_CACHE = true; // set to true only for bypass during local dev
 const IS_LOCAL = self.location.hostname === "localhost" || self.location.hostname === "127.0.0.1";
 const LOG_CHANNEL_NAME = "app-logs";
 const logChannel = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel(LOG_CHANNEL_NAME) : null;
@@ -48,7 +48,11 @@ self.addEventListener("install", (event) => {
       .then(async () => {
         if (IS_LOCAL && DEV_BYPASS_CACHE) return;
         const cache = await caches.open(CACHE_NAME);
-        await cache.addAll(PRECACHE_ASSETS);
+        await Promise.allSettled(
+          PRECACHE_ASSETS.map((url) =>
+            cache.add(url).catch((err) => logSw("warn", "Precache failed", { url, err }))
+          )
+        );
       })
       .finally(() => {
         self.skipWaiting();
@@ -149,17 +153,23 @@ async function cacheFirst(request) {
     logSw("debug", "Serving from cache", { url: request.url });
     return cached;
   }
-  const response = await fetch(request, { cache: "no-store" });
-  if (response.ok && response.status === 200) {
-    cache.put(request, response.clone());
-    logSw("debug", "Cached new response", { url: request.url });
-  } else {
-    logSw("warn", "Skipping cache put (non-200 response)", {
-      url: request.url,
-      status: response.status,
-    });
+  try {
+    const response = await fetch(request, { cache: "no-store" });
+    if (response.ok && response.status === 200) {
+      cache.put(request, response.clone());
+      logSw("debug", "Cached new response", { url: request.url });
+    } else {
+      logSw("warn", "Skipping cache put (non-200 response)", {
+        url: request.url,
+        status: response.status,
+      });
+    }
+    return response;
+  } catch (err) {
+    logSw("warn", "Network fetch failed, no cache available", { url: request.url, err });
+    if (cached) return cached;
+    throw err;
   }
-  return response;
 }
 
 function notifyClients(message) {
