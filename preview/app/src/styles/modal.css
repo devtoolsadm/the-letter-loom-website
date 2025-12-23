@@ -46,8 +46,8 @@ body.modal-open {
 
 .frame-panel {
   position: relative;
-  width: min(100%, var(--modal-max-width));
-  max-width: var(--modal-max-width);
+  width: min(var(--modal-max-width), calc(var(--game-width) - 16px));
+  max-width: min(var(--modal-max-width), calc(var(--game-width) - 16px));
   margin: 0 auto;
   padding: 20px;
   background-color: var(--modal-wood);
@@ -61,7 +61,7 @@ body.modal-open {
 
 .modal-overlay .frame-panel {
   margin-top: 32px;
-  width: min(94%, var(--modal-max-width));
+  width: min(var(--modal-max-width), calc(var(--game-width) - 16px));
 }
 
 .modal-stitch {
