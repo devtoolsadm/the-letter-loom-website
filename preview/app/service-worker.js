@@ -3,11 +3,38 @@ let cacheVersion = "v0";
 let CACHE_NAME = `${CACHE_PREFIX}-${cacheVersion}`;
 const BASE_PATH = self.location.pathname.replace(/\/[^/]*$/, "/");
 const VERSION_JS = `${BASE_PATH}src/core/version.js`;
-const DEV_BYPASS_CACHE = true; // set to false when you want caching during local dev
+const DEV_BYPASS_CACHE = false; // set to true only for bypass during local dev
 const IS_LOCAL = self.location.hostname === "localhost" || self.location.hostname === "127.0.0.1";
 const LOG_CHANNEL_NAME = "app-logs";
 const logChannel = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel(LOG_CHANNEL_NAME) : null;
 const cacheReady = resolveCacheVersion();
+const PRECACHE_ASSETS = [
+  `${BASE_PATH}`,
+  `${BASE_PATH}index.html`,
+  `${BASE_PATH}manifest.json`,
+  `${BASE_PATH}manifest-en.json`,
+  `${BASE_PATH}manifest-es.json`,
+  `${BASE_PATH}src/ui/shell/main.js`,
+  `${BASE_PATH}src/ui/shell/modal.js`,
+  `${BASE_PATH}src/styles/shell.css`,
+  `${BASE_PATH}src/styles/modal.css`,
+  `${BASE_PATH}src/i18n/texts.js`,
+  `${BASE_PATH}src/core/version.js`,
+  `${BASE_PATH}assets/img/background.png`,
+  `${BASE_PATH}assets/img/logo-letters.png`,
+  `${BASE_PATH}assets/img/1x1-transparent.png`,
+  `${BASE_PATH}assets/img/rotate-device-icon.png`,
+  `${BASE_PATH}assets/img/audioOn.svg`,
+  `${BASE_PATH}assets/img/audioOff.svg`,
+  `${BASE_PATH}assets/img/musicOn.svg`,
+  `${BASE_PATH}assets/img/musicOff.svg`,
+  `${BASE_PATH}assets/img/button.svg`,
+  `${BASE_PATH}assets/img/settings.svg`,
+  `${BASE_PATH}assets/img/exit.svg`,
+  `${BASE_PATH}assets/img/help.svg`,
+  `${BASE_PATH}assets/sounds/intro.wav`,
+  `${BASE_PATH}assets/sounds/click.mp3`,
+];
 
 if (IS_LOCAL && DEV_BYPASS_CACHE) {
   logSw("info", "Development mode: cache bypass enabled");
@@ -18,6 +45,11 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     cacheReady
       .catch(() => {})
+      .then(async () => {
+        if (IS_LOCAL && DEV_BYPASS_CACHE) return;
+        const cache = await caches.open(CACHE_NAME);
+        await cache.addAll(PRECACHE_ASSETS);
+      })
       .finally(() => {
         self.skipWaiting();
         logSw("info", `Service worker installed (cache ${CACHE_NAME})`);
@@ -47,6 +79,24 @@ self.addEventListener("fetch", (event) => {
   }
 
   const url = new URL(event.request.url);
+
+  // App shell fallback for navigations
+  if (event.request.mode === "navigate" || event.request.destination === "document") {
+    event.respondWith(
+      (async () => {
+        const cache = await caches.open(CACHE_NAME);
+        const cached = await cache.match(`${BASE_PATH}index.html`);
+        if (cached) return cached;
+        try {
+          const resp = await fetch(event.request);
+          return resp;
+        } catch (err) {
+          return cached || Response.error();
+        }
+      })()
+    );
+    return;
+  }
 
   if (url.pathname === VERSION_JS || url.href === self.location.origin + VERSION_JS) {
     logSw("debug", "Intercepting version.js request");
