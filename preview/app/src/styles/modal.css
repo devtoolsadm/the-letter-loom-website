@@ -46,7 +46,7 @@ body.modal-open {
 
 .frame-panel {
   position: relative;
-  width: 100%;
+  width: min(100%, var(--modal-max-width));
   max-width: var(--modal-max-width);
   margin: 0 auto;
   padding: 20px;
@@ -61,7 +61,7 @@ body.modal-open {
 
 .modal-overlay .frame-panel {
   margin-top: 32px;
-  width: min(94vw, var(--modal-max-width));
+  width: min(94%, var(--modal-max-width));
 }
 
 .modal-stitch {

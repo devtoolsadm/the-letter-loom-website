@@ -981,6 +981,7 @@ function applyBodyBackground(url) {
       el.style.background = `url("${url}") center / cover no-repeat fixed`;
       el.style.backgroundSize = "cover";
     }
+    const root = getComputedStyle(document.documentElement);    
     el.style.backgroundColor = root.getPropertyValue("--sky");
   });
 }
