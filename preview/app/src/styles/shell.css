@@ -140,6 +140,7 @@ body.shell-ready #game-root {
 
 .game-header,
 .game-footer {
+  display: none !important;
   flex: 0 0 auto;
   background: var(--candy-blue);
   color: #fff;
@@ -222,54 +223,6 @@ body.shell-ready #game-root {
   display: none;
 }
 
-.lang-control {
-  position: relative;
-}
-
-.lang-icon {
-  width: 16px;
-  height: 16px;
-  display: inline-block;
-  background: url("../../assets/img/settings.svg") center / contain
-    no-repeat;
-}
-
-.lang-dropdown {
-  position: absolute;
-  top: 50px;
-  right: 0;
-  min-width: 120px;
-  background: var(--panel-cream);
-  border: 3px solid var(--panel-border);
-  border-radius: 14px;
-  box-shadow: var(--panel-shadow);
-  padding: 8px;
-  display: none;
-  z-index: 2000;
-}
-
-.lang-control.open .lang-dropdown {
-  display: block;
-}
-
-.lang-dropdown button {
-  width: 100%;
-  display: block;
-  border: 2px solid #d7c083;
-  border-radius: 10px;
-  background: #fff;
-  color: #2f1b12;
-  padding: 8px 10px;
-  margin: 4px 0;
-  font-weight: 700;
-  cursor: pointer;
-  box-shadow: 0 3px 0 #c4a45d;
-}
-
-.lang-dropdown button.active {
-  background: #fbe7a2;
-}
-
 .icon-btn {
   --icon-btn-main: var(--candy-blue);
   --icon-btn-dark: var(--candy-blue-dark);
@@ -325,6 +278,12 @@ body.shell-ready #game-root {
 }
 .icon-btn-img.icon-exit {
   background-image: url("../../assets/img/exit.svg");
+}
+.icon-btn-img.icon-help {
+  background-image: url("../../assets/img/help.svg");
+}
+.icon-btn-img.icon-shop {
+  background-image: url("../../assets/img/shop.svg");
 }
 
 /* Icon button glossy variant (uses primary button skin) */
@@ -895,6 +854,7 @@ body.shell-ready #game-root {
   width: 100%;
   max-width: 260px;
   align-items: center;
+  margin-top: 40px;
 }
 
 .cta-stack .game-btn {
@@ -904,9 +864,23 @@ body.shell-ready #game-root {
 
 .splash-actions {
   display: flex;
+  flex-direction: row;
+  align-items: center;
   justify-content: center;
-  gap: 10px;
-  margin-bottom: 6px;
+  gap: 32px;
+  margin-top: auto;
+  margin-bottom: 10px;
+  width: 100%;
+}
+
+#buyBtn {
+  width: 112px;
+  height: 112px;
+}
+
+#buyBtn .icon-btn-img {
+  width: 64%;
+  height: 64%;
 }
 
 .field-row {
@@ -936,10 +910,12 @@ body.shell-ready #game-root {
 .splash-screen {
   background: transparent; /* was themed gradient; enable to debug horizon alignment */
   border-radius: 20px;
-  padding: 32px 24px;
-  gap: 22px;
-  justify-content: center;
+  padding: 16px 24px 20px;
+  gap: 18px;
+  justify-content: flex-start;
   align-items: center;
+  min-height: 100%;
+  flex: 1 1 auto;
 }
 
 .splash-hero {
@@ -949,6 +925,7 @@ body.shell-ready #game-root {
   align-items: center;
   gap: 18px;
   text-align: center;
+  margin-bottom: 28px;
 }
 
 .splash-logo {
@@ -956,9 +933,77 @@ body.shell-ready #game-root {
   max-width: 90%;
   height: auto;
   filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.25));
-  transition: opacity 0.2s ease;
+  transition: opacity 0.2s ease, transform 0.4s ease, filter 0.4s ease;
+  display: block;
+  position: relative;
 }
 
+.splash-logo.logo-animated {
+  animation: logoFloat 12s ease-in-out infinite;
+  filter: drop-shadow(0 12px 22px rgba(0, 0, 0, 0.28))
+    drop-shadow(0 0 10px rgba(255, 255, 255, 0.25));
+}
+
+.splash-logo.logo-animated::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    120deg,
+    rgba(255, 255, 255, 0) 20%,
+    rgba(255, 255, 255, 0.5) 50%,
+    rgba(255, 255, 255, 0) 80%
+  );
+  transform: translateX(-140%);
+  animation: logoShine 12s ease-in-out infinite;
+  mix-blend-mode: screen;
+  opacity: 0;
+}
+
+@keyframes logoFloat {
+  0% {
+    transform: translateY(0) scale(1);
+  }
+  10% {
+    transform: translateY(0) scale(1);
+  }
+  30% {
+    transform: translateY(-2px) scale(1.012);
+  }
+  50% {
+    transform: translateY(0) scale(1);
+  }
+  70% {
+    transform: translateY(1px) scale(1.004);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes logoShine {
+  0% {
+    opacity: 0;
+    transform: translateX(-150%);
+  }
+  60% {
+    opacity: 0;
+    transform: translateX(-150%);
+  }
+  70% {
+    opacity: 0.75;
+    transform: translateX(140%);
+  }
+  75% {
+    opacity: 0;
+    transform: translateX(160%);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(160%);
+  }
+}
 .splash-loader {
   width: min(360px, 100%);
   background: var(--panel-cream);
@@ -1016,6 +1061,8 @@ body.shell-ready #game-root {
   transform: translateY(0);
   opacity: 0;
   transition: opacity 0.28s ease;
+  flex: 1 1 auto;
+  width: 100%;
 }
 
 body.splash-ready #splashMainContent {

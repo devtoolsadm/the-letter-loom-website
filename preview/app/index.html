@@ -61,21 +61,7 @@
     <div id="game-root" class="rootGameScreen">
       <pwa-install id="pwa-install" manifest-url="manifest.json"></pwa-install>
       <div class="game-content">
-        <header class="game-header" id="gameHeader">
-          <div class="brand-mark">LL</div>
-          <div class="brand-name" id="appTitle">Letter Loom</div>
-          <div class="header-actions">
-            <div class="lang-control" id="langControl">
-              <button class="lang-btn" id="languageButton" aria-haspopup="true" aria-expanded="false">
-                <span class="lang-icon"></span>
-                <span id="languageCode">EN</span>
-              </button>
-              <select id="languageSelect" class="lang-select"></select>
-              <div class="lang-dropdown" id="languageDropdown" hidden></div>
-            </div>
-            <button class="icon-btn" id="soundToggleBtn"></button>
-          </div>
-        </header>
+        <header class="game-header" id="gameHeader"></header>
         <main class="game-main" id="gameMain">
           <div class="screen splash-screen" id="screen-splash">
             <div class="splash-hero">
@@ -102,21 +88,22 @@
             </div>
 
             <div class="splash-main hidden" id="splashMainContent">
+              <div class="cta-stack">
+                <button class="game-btn primary" id="splashContinueBtn"></button>
+                <button class="game-btn ghost hidden" id="resumeMatchBtn"></button>
+                <button class="game-btn btn-cyan" id="installAppBtn"></button>
+              </div>
               <div class="splash-actions">
                 <button class="icon-btn glossy btn-yellow" type="button" id="settingsBtn" aria-label="Settings" data-modal-open="settings">
                   <span class="icon-btn-img icon-settings" aria-hidden="true"></span>
                 </button>
-                <button class="icon-btn glossy btn-yellow" type="button" id="exitBtn" aria-label="Exit">
-                  <span class="icon-btn-img icon-exit" aria-hidden="true"></span>
+                <button class="icon-btn glossy btn-yellow" type="button" id="buyBtn" aria-label="Buy">
+                  <span class="icon-btn-img icon-shop" aria-hidden="true"></span>
                 </button>
-              </div>
-              <div class="cta-stack">
-                <button class="game-btn primary" id="splashContinueBtn"></button>
-                <button class="game-btn ghost" id="resumeMatchBtn"></button>
-                <button class="game-btn ghost" id="installAppBtn"></button>
-                <button class="game-btn ghost" id="testModalBtn">Test modal UI</button>
-              </div>
-              <button class="link-btn" id="splashHelpBtn"></button>
+                <button class="icon-btn glossy btn-yellow" type="button" id="helpBtn" aria-label="Help">
+                  <span class="icon-btn-img icon-help" aria-hidden="true"></span>
+                </button>
+              </div>              
             </div>
           </div>
 
@@ -189,26 +176,6 @@
             <button class="game-btn ghost" id="backToLiveBtn"></button>
           </div>
 
-          <div class="screen" id="screen-test-modal">
-            <div class="modal-frame-wrap">
-              <div class="frame-panel" style="position: relative; margin-top: 12px;">
-              <div class="modal-ribbon inline"><span>OBRA TERMINADA</span></div>
-                <div class="modal-stitch"></div>
-                <div class="modal-canvas">
-                  <div class="modal-letters">
-                    
-                  </div>
-                  <div class="modal-content">
-                    <p>Use the buttons to open different modal variants.</p>
-                    <button class="game-btn primary" data-modal-open="demo-a">Open modal A (closable)</button>
-                    <button class="game-btn ghost" data-modal-open="demo-b" data-modal-closable="0">Open modal B (locked)</button>
-                    <button class="game-btn ghost" data-modal-open="demo-c">Open modal C (nested)</button>
-                    <button class="game-btn ghost" data-modal-close-top>Close top modal</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
         </main>
         <footer class="game-footer" id="gameFooter"></footer>
       </div>
@@ -255,55 +222,6 @@
               <div class="settings-actions">
                 <button class="game-btn primary" type="button" id="settingsSaveBtn"></button>
               </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Demo modals -->
-      <div class="modal-overlay" data-modal="demo-a" data-closable="1">
-        <div class="frame-panel">
-          <div class="modal-stitch"></div>
-          <div class="modal-ribbon"><span>Modal A</span></div>
-          <button class="modal-close" aria-label="Close"></button>
-          <div class="modal-canvas">
-            <div class="modal-letters">
-              <span style="color:#3b82f6;">A</span>
-            </div>
-            <div class="modal-content">
-              <p>Closable modal. Uses default close button.</p>
-              <button class="game-btn primary" data-modal-action="save" data-modal-close="demo-a">
-                Save & close
-              </button>
-              <button class="game-btn ghost" data-modal-close="demo-a">Close</button>
-              <button class="game-btn ghost" data-modal-open="demo-c">Open nested C</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="modal-overlay" data-modal="demo-b" data-closable="0">
-        <div class="frame-panel">
-          <div class="modal-stitch"></div>
-          <div class="modal-ribbon"><span>Modal B</span></div>
-          <div class="modal-canvas">
-            <div class="modal-content">
-              <p>Non-closable via overlay/ESC. Use button below.</p>
-              <button class="game-btn primary" data-modal-close="demo-b">Close B</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="modal-overlay" data-modal="demo-c" data-closable="1">
-        <div class="frame-panel">
-          <div class="modal-stitch"></div>
-          <div class="modal-ribbon"><span>Modal C</span></div>
-          <button class="modal-close" aria-label="Close"></button>
-          <div class="modal-canvas">
-            <div class="modal-content">
-              <p>Nested modal example.</p>
-              <button class="game-btn primary" data-modal-close="demo-c">Close C</button>
             </div>
           </div>
         </div>

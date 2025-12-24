@@ -234,27 +234,11 @@ function renderLanguageSelector() {
 
 function setupLanguageSelector() {
   const select = document.getElementById("languageSelect");
-  const btn = document.getElementById("languageButton");
-  const control = document.getElementById("langControl");
-  const dropdown = document.getElementById("languageDropdown");
-  if (!select || !btn || !control || !dropdown) return;
+  if (!select) return;
   renderLanguageSelector();
   select.addEventListener("change", (evt) => {
     const targetLang = evt.target.value;
     switchLanguage(targetLang);
-    closeLanguageDropdown();
-  });
-
-  btn.addEventListener("click", (e) => {
-    e.stopPropagation();
-    toggleLanguageDropdown();
-  });
-
-  dropdown.addEventListener("click", (e) => e.stopPropagation());
-  document.addEventListener("click", (e) => {
-    if (!control.contains(e.target)) {
-      closeLanguageDropdown();
-    }
   });
 }
 
@@ -281,33 +265,11 @@ function renderSettingsLanguageSelector() {
 }
 
 function buildLanguageDropdown(select) {
-  const dropdown = document.getElementById("languageDropdown");
-  if (!dropdown || !select) return;
-  dropdown.innerHTML = "";
-  Array.from(select.options).forEach((opt) => {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.textContent = opt.textContent;
-    btn.dataset.value = opt.value;
-    btn.className = opt.value === shellLanguage ? "active" : "";
-    btn.addEventListener("click", () => {
-      switchLanguage(opt.value);
-      closeLanguageDropdown();
-    });
-    dropdown.appendChild(btn);
-  });
+  // Header dropdown removed; settings dropdown is built separately.
 }
 
 function toggleLanguageDropdown(force) {
-  const control = document.getElementById("langControl");
-  const dropdown = document.getElementById("languageDropdown");
-  const btn = document.getElementById("languageButton");
-  if (!control || !dropdown || !btn) return;
-  const shouldOpen =
-    typeof force === "boolean" ? force : !control.classList.contains("open");
-  control.classList.toggle("open", shouldOpen);
-  dropdown.hidden = !shouldOpen;
-  btn.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
+  // Header dropdown removed
 }
 
 function closeLanguageDropdown() {
@@ -386,7 +348,6 @@ function setupNavigation() {
     ["splashContinueBtn", () => showScreen("setup")],
     ["resumeMatchBtn", () => showScreen("setup")],
     ["splashHelpBtn", () => showScreen("history")],
-    ["testModalBtn", () => showScreen("test-modal")],
     ["startGameBtn", () => showScreen("live")],
     ["goToScoringBtn", () => showScreen("scoring")],
     ["saveBazaBtn", () => showScreen("live")],
@@ -687,8 +648,7 @@ function handleModalClosed(evt) {
 }
 
 function updateLanguageButton() {
-  const code = document.getElementById("languageCode");
-  if (code) code.textContent = (shellLanguage || "en").toUpperCase();
+  // Header language button removed; settings button shows language.
 }
 
 async function ensureWakeLock(shouldLock) {
@@ -747,6 +707,7 @@ function startSplashLoader() {
   const mainBlock = document.getElementById("splashMainContent");
   const bar = document.getElementById("splashLoaderProgress");
   const percent = document.getElementById("splashLoaderPercent");
+  const logoEl = document.getElementById("splashLogo");
   if (loadingBlock) loadingBlock.classList.remove("hidden");
   if (mainBlock) mainBlock.classList.add("hidden");
 
@@ -803,6 +764,7 @@ function startSplashLoader() {
       document.body.classList.add("splash-ready");
       if (loadingBlock) loadingBlock.classList.add("hidden");
       if (mainBlock) mainBlock.classList.remove("hidden");
+      if (logoEl) logoEl.classList.add("logo-animated");
     }, 200);
   };
 

@@ -2,13 +2,13 @@ import { loadState, updateState } from "../core/stateStore.js";
 
 export const TEXTS = {
   es: {
-    languageName: "Español",
+    languageName: "Espanol",
     appTitle: "The Letter Loom",
     appShortName: "Letter Loom",
-    appDescription: "El juego de cartas más divertido de todos los tiempos!",
+    appDescription: "El juego de cartas mas divertido de todos los tiempos!",
     splashTitle: "Empezar partida",
-    splashSubtitle: "Controla los cronos y la puntuación del juego de cartas.",
-    splashContinue: "Continuar",
+    splashSubtitle: "Controla los cronos y la puntuacion del juego de cartas.",
+    splashContinue: "Jugar!",
     splashResume: "Reanudar partida guardada",
     splashHelp: "Ver instrucciones",
     splashLoadingLabel: "Cargando...",
@@ -16,23 +16,23 @@ export const TEXTS = {
     setupSubtitle: "Ajusta jugadores, tiempos y modo de juego.",
     playersTitle: "Jugadores",
     playerLabel: "Jugador",
-    addPlayer: "Añadir jugador",
-    timersTitle: "Cronómetros",
+    addPlayer: "Anadir jugador",
+    timersTitle: "Cronometros",
     strategyTimerLabel: "Estrategia (segundos)",
-    creationTimerLabel: "Creación (segundos)",
+    creationTimerLabel: "Creacion (segundos)",
     startGame: "Comenzar partida",
     liveTitle: "Partida en curso",
     phaseTitle: "Fases y cronos",
     strategyPhaseLabel: "Fase de estrategia",
-    creationPhaseLabel: "Fase de creación",
+    creationPhaseLabel: "Fase de creacion",
     startStrategy: "Iniciar estrategia",
-    startCreation: "Iniciar creación",
-    goToScoring: "Ir a puntuación",
-    scoringTitle: "Puntuación de la baza",
+    startCreation: "Iniciar creacion",
+    goToScoring: "Ir a puntuacion",
+    scoringTitle: "Puntuacion de la baza",
     scoringNote: "Introduce la palabra y los puntos de cada jugador.",
     saveBaza: "Guardar baza",
     editHistory: "Editar historial",
-    historyTitle: "Histórico y correcciones",
+    historyTitle: "Historico y correcciones",
     backToLive: "Volver a partida",
     soundOn: "Sonido activado",
     soundOff: "Sonido silenciado",
@@ -42,22 +42,22 @@ export const TEXTS = {
     ok: "OK",
     settingsTitle: "Ajustes",
     settingsSound: "Sonido",
-    settingsMusic: "Música",
+    settingsMusic: "Musica",
     settingsLanguage: "Idioma",
     footer: "© {year} The Letter Loom",
     installPromptTitle: "Instalar Letter Loom",
     installPromptDescription:
-      "Instala el juego para acceder más rápido y jugar a pantalla completa incluso sin conexión.",
-    installButtonText: "Instalar ahora",
+      "Instala el juego para acceder mas rapido y jugar a pantalla completa incluso sin conexion.",
+    installButtonText: "Instalar",
     installCancelText: "Ahora no",
     prototypeEnableWakeLock: "Mantener pantalla activa",
-    prototypeDisableWakeLock: "Permitir bloqueo automático",
-    wakeLockStatusActiveStandard: "Pantalla activa (API estándar).",
+    prototypeDisableWakeLock: "Permitir bloqueo automatico",
+    wakeLockStatusActiveStandard: "Pantalla activa (API estandar).",
     wakeLockStatusReleased: "Pantalla puede bloquearse (liberado por el sistema).",
-    wakeLockStatusActiveFallback: "Pantalla activa (vídeo de respaldo).",
-    wakeLockStatusFallbackFailed: "No se pudo mantener la pantalla activa (vídeo).",
+    wakeLockStatusActiveFallback: "Pantalla activa (video de respaldo).",
+    wakeLockStatusFallbackFailed: "No se pudo mantener la pantalla activa (video).",
     wakeLockStatusInactive: "Pantalla puede bloquearse.",
-    orientationMessage: "Pon tu dispositivo en VERTICAL para jugar",
+    orientationmassage: "Pon tu dispositivo en VERTICAL para jugar",
     prototypeVideoFallback: "Tu navegador no soporta el elemento de video.",
   },
   en: {
@@ -67,7 +67,7 @@ export const TEXTS = {
     appDescription: "The most fun card game of all time!",
     splashTitle: "Start a match",
     splashSubtitle: "Run timers and scoring for the card game.",
-    splashContinue: "Continue",
+    splashContinue: "Play!",
     splashResume: "Resume saved match",
     splashHelp: "View instructions",
     splashLoadingLabel: "Loading...",
@@ -81,7 +81,7 @@ export const TEXTS = {
     creationTimerLabel: "Creation (seconds)",
     startGame: "Start game",
     liveTitle: "Live game",
-    phaseTitle: "Phases & timers",
+    phaseTitle: "Phases and timers",
     strategyPhaseLabel: "Strategy phase",
     creationPhaseLabel: "Creation phase",
     startStrategy: "Start strategy",
@@ -91,7 +91,7 @@ export const TEXTS = {
     scoringNote: "Enter each player's word and points.",
     saveBaza: "Save baza",
     editHistory: "Edit history",
-    historyTitle: "History & corrections",
+    historyTitle: "History and corrections",
     backToLive: "Back to game",
     soundOn: "Sound on",
     soundOff: "Sound muted",
@@ -107,7 +107,7 @@ export const TEXTS = {
     installPromptTitle: "Install Letter Loom",
     installPromptDescription:
       "Add the game for quick access and full-screen play, even offline.",
-    installButtonText: "Install now",
+    installButtonText: "Install",
     installCancelText: "Not now",
     prototypeEnableWakeLock: "Keep screen on",
     prototypeDisableWakeLock: "Allow screen to sleep",
@@ -116,83 +116,40 @@ export const TEXTS = {
     wakeLockStatusActiveFallback: "Screen on (video fallback).",
     wakeLockStatusFallbackFailed: "Could not keep screen on (video error).",
     wakeLockStatusInactive: "Screen may sleep.",
-    orientationMessage: "Put your device in PORTRAIT to play",
+    orientationmassage: "Put your device in PORTRAIT to play",
     prototypeVideoFallback: "Your browser does not support the video element.",
   },
 };
 
-const LANGUAGE_EVENT = "letterloom:languagechange";
-let currentLanguage = resolveShellLanguage();
-let languageEventTarget = null;
-
-function getEventTarget() {
-  if (languageEventTarget) return languageEventTarget;
-  if (typeof window !== "undefined" && window instanceof EventTarget) {
-    languageEventTarget = window;
-  } else {
-    languageEventTarget = new EventTarget();
-  }
-  return languageEventTarget;
-}
-
-function normalizeLanguage(lang) {
-  if (!lang || typeof lang !== "string") return null;
-  const cleaned = lang.trim().toLowerCase();
-  if (TEXTS[cleaned]) return cleaned;
-  const short = cleaned.split("-")[0];
-  if (TEXTS[short]) return short;
-  return null;
-}
-
-export function getDefaultLanguage() {
-  const candidates = [];
-  if (typeof navigator !== "undefined") {
-    if (Array.isArray(navigator.languages)) {
-      candidates.push(...navigator.languages);
-    }
-    if (navigator.language) {
-      candidates.push(navigator.language);
-    }
-  }
-  const normalized = candidates.map((lang) => normalizeLanguage(lang)).find(Boolean);
-  return normalized || "es";
-}
-
-export function resolveShellLanguage() {
-  try {
-    const { settings } = loadState();
-    const normalized = normalizeLanguage(settings.language);
-    if (normalized) return normalized;
-  } catch {
-    // ignore storage errors
-  }
-  return getDefaultLanguage();
-}
-
-export function getShellLanguage() {
-  return currentLanguage;
-}
-
-export function setShellLanguage(lang, { silent = false } = {}) {
-  const normalized = normalizeLanguage(lang);
-  if (!normalized) return currentLanguage;
-  if (normalized === currentLanguage && !silent) return currentLanguage;
-  currentLanguage = normalized;
-  updateState({ settings: { language: currentLanguage } });
-  if (!silent) {
-    const target = getEventTarget();
-    target.dispatchEvent(new CustomEvent(LANGUAGE_EVENT, { detail: { lang: currentLanguage } }));
-  }
-  return currentLanguage;
-}
-
-export function onShellLanguageChange(callback) {
-  const target = getEventTarget();
-  const handler = (event) => callback(event.detail.lang);
-  target.addEventListener(LANGUAGE_EVENT, handler);
-  return () => target.removeEventListener(LANGUAGE_EVENT, handler);
-}
+const languageListeners = new Set();
 
 export function getAvailableLanguages() {
   return Object.keys(TEXTS);
+}
+
+export function getShellLanguage() {
+  const state = loadState();
+  const saved = state.settings?.language;
+  const nav = (navigator.language || "").slice(0, 2).toLowerCase();
+  if (saved && TEXTS[saved]) return saved;
+  if (TEXTS[nav]) return nav;
+  return "en";
+}
+
+export function setShellLanguage(lang) {
+  if (!TEXTS[lang]) return;
+  updateState({ settings: { language: lang } });
+  languageListeners.forEach((fn) => {
+    try {
+      fn(lang);
+    } catch (e) {}
+  });
+}
+
+export function onShellLanguageChange(callback) {
+  if (typeof callback === "function") {
+    languageListeners.add(callback);
+    return () => languageListeners.delete(callback);
+  }
+  return () => {};
 }
