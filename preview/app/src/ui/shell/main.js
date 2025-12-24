@@ -174,6 +174,7 @@ function setupWakeLock() {
       fallbackFailed: shellTexts.wakeLockStatusFallbackFailed,
       inactive: shellTexts.wakeLockStatusInactive,
     },
+    showDebug: true,
   });
 }
 
