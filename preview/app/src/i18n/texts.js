@@ -63,6 +63,17 @@ export const TEXTS = {
     supportBody:
       "Ayudanos a lanzar The Letter Loom. Tu apoyo nos permite producir la baraja y mejorar el juego.",
     supportCta: "Quiero el juego",
+    pilotTitle: "Juego piloto",
+    pilotConfigTitle: "Tiempos por fase",
+    pilotStrategyLabel: "Fase estrategia",
+    pilotCreationLabel: "Fase creacion",
+    pilotStartMatch: "Iniciar partida",
+    pilotRound: "Ronda {round}",
+    pilotStartStrategy: "Iniciar estrategia",
+    pilotStartCreation: "Iniciar fase creacion",
+    pilotTimeUp: "Tiempo!",
+    pilotNextRound: "Siguiente ronda",
+    pilotExit: "Salir",
   },
   en: {
     languageName: "English",
@@ -126,6 +137,17 @@ export const TEXTS = {
     supportBody:
       "Help us launch The Letter Loom. Your support lets us produce the deck and improve the game.",
     supportCta: "I want the game",
+    pilotTitle: "Pilot game",
+    pilotConfigTitle: "Phase timers",
+    pilotStrategyLabel: "Strategy phase",
+    pilotCreationLabel: "Creation phase",
+    pilotStartMatch: "Start match",
+    pilotRound: "Round {round}",
+    pilotStartStrategy: "Start strategy",
+    pilotStartCreation: "Start creation phase",
+    pilotTimeUp: "Time!",
+    pilotNextRound: "Next round",
+    pilotExit: "Exit",
   },
 };
 

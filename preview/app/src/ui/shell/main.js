@@ -18,6 +18,9 @@ import { logger, onLog, getLogs } from "../../core/logger.js";
 const urlParams = new URLSearchParams(window.location.search);
 const fromPWA = urlParams.get("fromPWA") === "1";
 const fromInstall = urlParams.get("fromInstall") === "1";
+const MANUAL_URL = "assets/doc/manual.pdf";
+const DEFAULT_STRATEGY_SECONDS = 45;
+const DEFAULT_CREATION_SECONDS = 70;
 
 const appState = loadState();
 
@@ -55,6 +58,8 @@ let musicSource = null;
 let clickSource = null;
 let wakeLockTimer = null;
 const WAKE_LOCK_TIMEOUT_MS = 5 * 60 * 1000;
+let pilotState = null;
+let pilotTimerInterval = null;
 function playClickSfx() {
   if (!soundOn || !clickAudio) return;
   // If routed through Web Audio, use the shared element with gain; otherwise clone
@@ -121,6 +126,16 @@ function renderShellTexts() {
   setText("supportTitle", shellTexts.supportTitle);
   setText("supportBody", shellTexts.supportBody);
   setText("supportCtaBtn", shellTexts.supportCta);
+  setText("pilotTitle", shellTexts.pilotTitle);
+  setText("pilotConfigTitle", shellTexts.pilotConfigTitle);
+  setText("pilotStrategyLabel", shellTexts.pilotStrategyLabel);
+  setText("pilotCreationLabel", shellTexts.pilotCreationLabel);
+  setText("pilotStartMatchBtn", shellTexts.pilotStartMatch);
+  setText("pilotStrategyTimerTitle", shellTexts.pilotStrategyLabel);
+  setText("pilotCreationTimerTitle", shellTexts.pilotCreationLabel);
+  setText("pilotStartStrategyBtn", shellTexts.pilotStartStrategy);
+  setText("pilotStartCreationBtn", shellTexts.pilotStartCreation);
+  setText("pilotNextRoundBtn", shellTexts.pilotNextRound);
   
   updateInstallCopy();
   renderLanguageSelector();
@@ -349,14 +364,15 @@ function scaleGame() {
 
 function setupNavigation() {
   const map = [
-    ["splashContinueBtn", () => showScreen("setup")],
-    ["resumeMatchBtn", () => showScreen("setup")],
-    ["splashHelpBtn", () => showScreen("history")],
-    ["startGameBtn", () => showScreen("live")],
-    ["goToScoringBtn", () => showScreen("scoring")],
-    ["saveBazaBtn", () => showScreen("live")],
-    ["editHistoryBtn", () => showScreen("history")],
-    ["backToLiveBtn", () => showScreen("live")],
+    ["splashContinueBtn", () => showScreen("pilot")],
+    ["resumeMatchBtn", () => showScreen("pilot")],
+    ["splashHelpBtn", () => openManual()],
+    ["helpBtn", () => openManual()],
+    ["pilotExitBtn", () => showScreen("splash")],
+    ["pilotStartMatchBtn", () => startPilotMatch()],
+    ["pilotStartStrategyBtn", () => startPilotPhase("strategy")],
+    ["pilotStartCreationBtn", () => startPilotPhase("creation")],
+    ["pilotNextRoundBtn", () => advancePilotRound()],
   ];
   map.forEach(([id, handler]) => {
     const el = document.getElementById(id);
@@ -470,6 +486,139 @@ function setupNavigation() {
       closeModal("settings", { reason: "action", action: "apply" });
     });
   }
+
+  const stratMinus = document.getElementById("pilotStrategyMinus");
+  const stratPlus = document.getElementById("pilotStrategyPlus");
+  const creaMinus = document.getElementById("pilotCreationMinus");
+  const creaPlus = document.getElementById("pilotCreationPlus");
+  if (stratMinus) stratMinus.addEventListener("click", () => adjustPilotTimer("strategy", -10));
+  if (stratPlus) stratPlus.addEventListener("click", () => adjustPilotTimer("strategy", 10));
+  if (creaMinus) creaMinus.addEventListener("click", () => adjustPilotTimer("creation", -10));
+  if (creaPlus) creaPlus.addEventListener("click", () => adjustPilotTimer("creation", 10));
+}
+
+function openManual() {
+  playClickSfx();
+  window.open(MANUAL_URL, "_blank", "noopener");
+}
+
+function initPilot() {
+  pilotState = {
+    round: 1,
+    strategy: DEFAULT_STRATEGY_SECONDS,
+    creation: DEFAULT_CREATION_SECONDS,
+    phase: "config", // config, strategy-ready, strategy-run, creation-ready, creation-run, done
+    remaining: 0,
+  };
+  renderPilot();
+}
+
+function formatSeconds(val) {
+  const v = Math.max(0, Math.round(val));
+  const m = Math.floor(v / 60)
+    .toString()
+    .padStart(2, "0");
+  const s = (v % 60).toString().padStart(2, "0");
+  return `${m}:${s}`;
+}
+
+function renderPilot() {
+  if (!pilotState) initPilot();
+  const roundText = (shellTexts.pilotRound || "Ronda {round}").replace(
+    "{round}",
+    pilotState.round
+  );
+  setText("pilotRoundLabel", roundText);
+  const strategyVal = document.getElementById("pilotStrategyValue");
+  const creationVal = document.getElementById("pilotCreationValue");
+  if (strategyVal) strategyVal.textContent = `${pilotState.strategy}s`;
+  if (creationVal) creationVal.textContent = `${pilotState.creation}s`;
+
+  setText("pilotStrategyTimerValue", formatSeconds(pilotState.phase === "strategy-run" ? pilotState.remaining : pilotState.strategy));
+  setText("pilotCreationTimerValue", formatSeconds(pilotState.phase === "creation-run" ? pilotState.remaining : pilotState.creation));
+
+  const startMatchBtn = document.getElementById("pilotStartMatchBtn");
+  const stratBtn = document.getElementById("pilotStartStrategyBtn");
+  const creatBtn = document.getElementById("pilotStartCreationBtn");
+  const nextRoundBtn = document.getElementById("pilotNextRoundBtn");
+
+  if (startMatchBtn) startMatchBtn.disabled = pilotState.phase !== "config";
+
+  if (stratBtn) {
+    stratBtn.disabled = pilotState.phase !== "strategy-ready";
+    setText("pilotStartStrategyBtn", pilotState.phase === "strategy-run" ? shellTexts.pilotTimeUp || "Tiempo!" : shellTexts.pilotStartStrategy);
+  }
+  if (creatBtn) {
+    creatBtn.disabled = pilotState.phase !== "creation-ready";
+    setText("pilotStartCreationBtn", pilotState.phase === "creation-run" ? shellTexts.pilotTimeUp || "Tiempo!" : shellTexts.pilotStartCreation);
+  }
+  if (nextRoundBtn) nextRoundBtn.disabled = pilotState.phase !== "done";
+}
+
+function adjustPilotTimer(kind, delta) {
+  if (!pilotState || pilotState.phase !== "config") return;
+  const key = kind === "strategy" ? "strategy" : "creation";
+  pilotState[key] = Math.max(10, pilotState[key] + delta);
+  renderPilot();
+}
+
+function startPilotMatch() {
+  if (!pilotState) initPilot();
+  stopPilotTimer();
+  pilotState.phase = "strategy-ready";
+  pilotState.remaining = pilotState.strategy;
+  renderPilot();
+}
+
+function startPilotPhase(kind) {
+  if (!pilotState) initPilot();
+  stopPilotTimer();
+  if (kind === "strategy" && pilotState.phase === "strategy-ready") {
+    pilotState.phase = "strategy-run";
+    pilotState.remaining = pilotState.strategy;
+    runPilotCountdown("strategy");
+  } else if (kind === "creation" && pilotState.phase === "creation-ready") {
+    pilotState.phase = "creation-run";
+    pilotState.remaining = pilotState.creation;
+    runPilotCountdown("creation");
+  }
+  renderPilot();
+}
+
+function runPilotCountdown(kind) {
+  stopPilotTimer();
+  pilotTimerInterval = window.setInterval(() => {
+    if (!pilotState) return;
+    pilotState.remaining = Math.max(0, pilotState.remaining - 1);
+    if (pilotState.remaining === 0) {
+      stopPilotTimer();
+      if (kind === "strategy") {
+        pilotState.phase = "creation-ready";
+        pilotState.remaining = pilotState.creation;
+      } else {
+        pilotState.phase = "done";
+      }
+      renderPilot();
+    } else {
+      renderPilot();
+    }
+  }, 1000);
+}
+
+function advancePilotRound() {
+  if (!pilotState) initPilot();
+  stopPilotTimer();
+  pilotState.round += 1;
+  pilotState.phase = "strategy-ready";
+  pilotState.remaining = pilotState.strategy;
+  renderPilot();
+}
+
+function stopPilotTimer() {
+  if (pilotTimerInterval) {
+    clearInterval(pilotTimerInterval);
+    pilotTimerInterval = null;
+  }
 }
 
 function showScreen(name) {
@@ -477,6 +626,12 @@ function showScreen(name) {
   document.querySelectorAll(".screen").forEach((el) => {
     el.classList.toggle("active", el.id === `screen-${name}`);
   });
+  if (name === "pilot") {
+    if (!pilotState) initPilot();
+    renderPilot();
+  } else {
+    stopPilotTimer();
+  }
   if (name === "live") {
     ensureWakeLock(true);
   } else {
@@ -1081,6 +1236,7 @@ function bootstrapShell() {
   logger.info(`App version ${APP_VERSION}`);
   setupAudio();
   renderShellTexts();
+  initPilot();
   setupLanguageSelector();
   setupNavigation();
   setupWakeLockActivityTracking();
