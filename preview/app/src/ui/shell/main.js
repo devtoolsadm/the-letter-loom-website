@@ -118,6 +118,9 @@ function renderShellTexts() {
   setText("settingsMusicLabel", shellTexts.settingsMusic);
   setText("settingsLanguageLabel", shellTexts.settingsLanguage);
   setText("settingsSaveBtn", shellTexts.save);
+  setText("supportTitle", shellTexts.supportTitle);
+  setText("supportBody", shellTexts.supportBody);
+  setText("supportCtaBtn", shellTexts.supportCta);
   
   updateInstallCopy();
   renderLanguageSelector();
@@ -652,12 +655,13 @@ function updateLanguageButton() {
 }
 
 async function ensureWakeLock(shouldLock) {
-  if (shouldLock && !wakeLockActive) {
-    await requestLock();
-    wakeLockActive = true;
-    resetWakeLockTimer();
-  }
-  if (!shouldLock && wakeLockActive) {
+  if (shouldLock) {
+    const locked = await requestLock();
+    wakeLockActive = locked;
+    if (locked) {
+      resetWakeLockTimer();
+    }
+  } else {
     await releaseLock();
     wakeLockActive = false;
     if (wakeLockTimer) {
@@ -691,6 +695,32 @@ function setupDebugRevealGesture(container) {
   targets.forEach((el) => el.addEventListener("click", handler));
 }
 
+function setupLogoLongPressForDebug(logoEl) {
+  if (!logoEl) return;
+  let pressTimer = null;
+  const reveal = () => {
+    if (window.__revealDebugPanel) {
+      window.__revealDebugPanel();
+    }
+  };
+  const start = () => {
+    clear();
+    pressTimer = window.setTimeout(reveal, 3000);
+  };
+  const clear = () => {
+    if (pressTimer) {
+      window.clearTimeout(pressTimer);
+      pressTimer = null;
+    }
+  };
+  ["pointerdown", "touchstart", "mousedown"].forEach((evt) => {
+    logoEl.addEventListener(evt, start, { passive: true });
+  });
+  ["pointerup", "pointerleave", "touchend", "touchcancel", "mouseup"].forEach((evt) => {
+    logoEl.addEventListener(evt, clear, { passive: true });
+  });
+}
+
 function setupWakeLockActivityTracking() {
   const activityHandler = () => {
     ensureWakeLock(true);
@@ -710,6 +740,7 @@ function startSplashLoader() {
   const logoEl = document.getElementById("splashLogo");
   if (loadingBlock) loadingBlock.classList.remove("hidden");
   if (mainBlock) mainBlock.classList.add("hidden");
+  if (logoEl) setupLogoLongPressForDebug(logoEl);
 
   const updateProgress = (value) => {
     splashLoaderProgress = Math.min(100, Math.max(splashLoaderProgress, value));
@@ -1129,6 +1160,7 @@ function handleLanguageChange(lang) {
 function setupDebugPanel() {
   const container = document.createElement("div");
   container.className = "debug-container";
+  container.id = "debug-container";
 
   const toggleBtn = document.createElement("button");
   toggleBtn.type = "button";
@@ -1149,11 +1181,16 @@ function setupDebugPanel() {
 
   container.style.display = "none";
 
+  const reveal = () => {
+    container.style.display = "block";
+  };
+
   toggleBtn.addEventListener("click", () => {
     panel.classList.toggle("hidden");
   });
 
   setupDebugRevealGesture(container);
+  window.__revealDebugPanel = reveal;
 
   function render() {
     const entries = getLogs();

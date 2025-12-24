@@ -3,6 +3,7 @@ let videoElement = null;
 let statusElement = null;
 let userRequestedLock = false;
 let fallbackActive = false;
+let wakeLockSupported = "wakeLock" in navigator;
 
 const defaultStatusMessages = {
   activeStandard: "Status: Wake lock active (standard API).",
@@ -36,23 +37,29 @@ function setStatus(msg) {
 }
 
 export async function requestLock() {
-  if ("wakeLock" in navigator) {
+  userRequestedLock = true;
+
+  if (wakeLockSupported && wakeLock) {
+    return true;
+  }
+
+  if (wakeLockSupported) {
     try {
       wakeLock = await navigator.wakeLock.request("screen");
       wakeLock.addEventListener("release", () => {
         setStatus(statusMessages.released);
-        userRequestedLock = false;
         wakeLock = null;
       });
       setStatus(statusMessages.activeStandard);
-      userRequestedLock = true;
+      return true;
     } catch (err) {
-      console.error(`Standard Wake Lock API failed: ${err.name}. Using fallback.`);
-      userRequestedLock = await activateFallbackLock();
+      console.warn(`Standard Wake Lock API failed: ${err.name}. Using fallback.`);
     }
-  } else {
-    userRequestedLock = await activateFallbackLock();
   }
+
+  const fallbackOk = await activateFallbackLock();
+  userRequestedLock = fallbackOk;
+  return fallbackOk;
 }
 
 async function activateFallbackLock() {
@@ -73,22 +80,18 @@ async function activateFallbackLock() {
 }
 
 export async function releaseLock() {
-  if ("wakeLock" in navigator) {
-    if (wakeLock) {
-      try {
-        await wakeLock.release();
-        wakeLock = null;
-        setStatus(statusMessages.inactive);
-        userRequestedLock = false;
-      } catch (err) {
-        console.error("Error releasing standard wake lock:", err);
-      }
+  if (wakeLockSupported && wakeLock) {
+    try {
+      await wakeLock.release();
+      wakeLock = null;
+      setStatus(statusMessages.inactive);
+    } catch (err) {
+      console.error("Error releasing standard wake lock:", err);
     }
-  } else if (fallbackActive) {
-    if (releaseFallbackLock()) {
-      userRequestedLock = false;
-    }
+  } else if (!wakeLockSupported && fallbackActive) {
+    releaseFallbackLock();
   }
+  userRequestedLock = false;
 }
 
 function releaseFallbackLock() {
@@ -102,7 +105,6 @@ function releaseFallbackLock() {
 }
 
 export function isWakeLockActive() {
-  if (!userRequestedLock) return false;
   if (wakeLock) return true;
   if (fallbackActive && videoElement && !videoElement.paused) return true;
   return false;

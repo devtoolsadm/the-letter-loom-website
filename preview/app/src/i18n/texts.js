@@ -59,6 +59,10 @@ export const TEXTS = {
     wakeLockStatusInactive: "Pantalla puede bloquearse.",
     orientationmassage: "Pon tu dispositivo en VERTICAL para jugar",
     prototypeVideoFallback: "Tu navegador no soporta el elemento de video.",
+    supportTitle: "Apóyanos",
+    supportBody:
+      "Ayudanos a lanzar The Letter Loom. Tu apoyo nos permite producir la baraja y mejorar el juego.",
+    supportCta: "Quiero el juego",
   },
   en: {
     languageName: "English",
@@ -118,6 +122,10 @@ export const TEXTS = {
     wakeLockStatusInactive: "Screen may sleep.",
     orientationmassage: "Put your device in PORTRAIT to play",
     prototypeVideoFallback: "Your browser does not support the video element.",
+    supportTitle: "Support us",
+    supportBody:
+      "Help us launch The Letter Loom. Your support lets us produce the deck and improve the game.",
+    supportCta: "I want the game",
   },
 };
 

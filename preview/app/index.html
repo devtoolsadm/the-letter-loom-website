@@ -97,7 +97,7 @@
                 <button class="icon-btn glossy btn-yellow" type="button" id="settingsBtn" aria-label="Settings" data-modal-open="settings">
                   <span class="icon-btn-img icon-settings" aria-hidden="true"></span>
                 </button>
-                <button class="icon-btn glossy btn-yellow" type="button" id="buyBtn" aria-label="Buy">
+                <button class="icon-btn glossy btn-yellow" type="button" id="buyBtn" aria-label="Buy" data-modal-open="support">
                   <span class="icon-btn-img icon-shop" aria-hidden="true"></span>
                 </button>
                 <button class="icon-btn glossy btn-yellow" type="button" id="helpBtn" aria-label="Help">
@@ -221,6 +221,21 @@
               </div>
               <div class="settings-actions">
                 <button class="game-btn primary" type="button" id="settingsSaveBtn"></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-overlay" data-modal="support" data-closable="1">
+        <div class="frame-panel">
+          <div class="modal-stitch"></div>
+          <div class="modal-ribbon"><span id="supportTitle"></span></div>
+          <button class="modal-close" data-modal-close="support" aria-label="Close"></button>
+          <div class="modal-canvas">
+            <div class="modal-content">
+              <p id="supportBody"></p>
+              <div class="settings-actions">
+                <button class="game-btn btn-yellow" type="button" id="supportCtaBtn"></button>
               </div>
             </div>
           </div>
