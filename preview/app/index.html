@@ -107,26 +107,25 @@
             </div>
           </div>
 
-          <div class="screen" id="screen-pilot">
-            <div class="pilot-exit-row">
-              <button class="icon-btn glossy btn-yellow" type="button" id="pilotExitBtn" aria-label="Exit">
-                <span class="icon-btn-img icon-exit" aria-hidden="true"></span>
+          <div class="screen pilot-screen" id="screen-pilot">
+
+            <div class="pilot-top-row" id="pilotTopRow">
+              <button class="icon-btn glossy btn-yellow pilot-back-btn" type="button" id="pilotBackBtn" aria-label="Back">
+                <span class="icon-btn-img icon-prev" aria-hidden="true"></span>
               </button>
             </div>
 
-            <h2 id="pilotTitle"></h2>
-
-            <div class="pilot-config">
+            <div class="pilot-config" id="pilotConfigBlock">
               <div class="pilot-card">
                 <div class="pilot-card-header" id="pilotConfigTitle"></div>
                 <div class="pilot-row">
                   <div class="pilot-label" id="pilotStrategyLabel"></div>
                   <div class="pilot-controls">
-                    <button class="icon-btn glossy gray pilot-ctrl" type="button" id="pilotStrategyMinus" aria-label="-10s">
+                    <button class="icon-btn glossy gray pilot-ctrl pilot-ctrl-minus" type="button" id="pilotStrategyMinus" aria-label="-10s">
                       <span class="pilot-ctrl-text">-</span>
                     </button>
                     <div class="pilot-value" id="pilotStrategyValue">45s</div>
-                    <button class="icon-btn glossy gray pilot-ctrl" type="button" id="pilotStrategyPlus" aria-label="+10s">
+                    <button class="icon-btn glossy gray pilot-ctrl pilot-ctrl-plus" type="button" id="pilotStrategyPlus" aria-label="+10s">
                       <span class="pilot-ctrl-text">+</span>
                     </button>
                   </div>
@@ -134,11 +133,11 @@
                 <div class="pilot-row">
                   <div class="pilot-label" id="pilotCreationLabel"></div>
                   <div class="pilot-controls">
-                    <button class="icon-btn glossy gray pilot-ctrl" type="button" id="pilotCreationMinus" aria-label="-10s">
+                    <button class="icon-btn glossy gray pilot-ctrl pilot-ctrl-minus" type="button" id="pilotCreationMinus" aria-label="-10s">
                       <span class="pilot-ctrl-text">-</span>
                     </button>
                     <div class="pilot-value" id="pilotCreationValue">70s</div>
-                    <button class="icon-btn glossy gray pilot-ctrl" type="button" id="pilotCreationPlus" aria-label="+10s">
+                    <button class="icon-btn glossy gray pilot-ctrl pilot-ctrl-plus" type="button" id="pilotCreationPlus" aria-label="+10s">
                       <span class="pilot-ctrl-text">+</span>
                     </button>
                   </div>
@@ -149,23 +148,35 @@
               </div>
             </div>
 
-            <div class="pilot-round-card">
+            <div class="pilot-round-card hidden" id="pilotRoundCard">
               <div class="pilot-round-header" id="pilotRoundLabel"></div>
               <div class="pilot-timer-block">
-                <div class="pilot-timer">
+                <div class="pilot-timer" id="pilotStrategyTimerCard">
                   <div class="pilot-timer-title" id="pilotStrategyTimerTitle"></div>
                   <div class="pilot-timer-value" id="pilotStrategyTimerValue">00:45</div>
-                  <button class="game-btn btn-blue" type="button" id="pilotStartStrategyBtn"></button>
+                  <div class="pilot-timer-actions">
+                    <button class="game-btn btn-blue" type="button" id="pilotStartStrategyBtn"></button>
+                    <button class="game-btn btn-red hidden" type="button" id="pilotStrategyFinishBtn"></button>
+                  </div>
                 </div>
-                <div class="pilot-timer">
+                <div class="pilot-timer" id="pilotCreationTimerCard">
                   <div class="pilot-timer-title" id="pilotCreationTimerTitle"></div>
                   <div class="pilot-timer-value" id="pilotCreationTimerValue">01:10</div>
-                  <button class="game-btn btn-blue" type="button" id="pilotStartCreationBtn"></button>
+                  <div class="pilot-timer-actions">
+                    <button class="game-btn btn-blue" type="button" id="pilotStartCreationBtn"></button>
+                    <button class="game-btn btn-red hidden" type="button" id="pilotCreationFinishBtn"></button>
+                  </div>
                 </div>
               </div>
               <div class="pilot-actions">
                 <button class="game-btn btn-green" type="button" id="pilotNextRoundBtn"></button>
               </div>
+            </div>
+
+            <div class="pilot-exit-row">
+              <button class="icon-btn glossy btn-yellow" type="button" id="pilotExitBtn" aria-label="Exit">
+                <span class="icon-btn-img icon-exit" aria-hidden="true"></span>
+              </button>
             </div>
           </div>
 
@@ -298,6 +309,22 @@
               <p id="supportBody"></p>
               <div class="settings-actions">
                 <button class="game-btn btn-yellow" type="button" id="supportCtaBtn"></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-overlay" data-modal="confirm" data-closable="1">
+        <div class="frame-panel">
+          <div class="modal-stitch"></div>
+          <div class="modal-ribbon"><span id="confirmTitle"></span></div>
+          <button class="modal-close" data-modal-close="confirm" aria-label="Close"></button>
+          <div class="modal-canvas">
+            <div class="modal-content">
+              <p id="confirmBody"></p>
+              <div class="settings-actions">
+                <button class="game-btn ghost" type="button" id="confirmCancelBtn" data-modal-close="confirm"></button>
+                <button class="game-btn primary" type="button" id="confirmAcceptBtn"></button>
               </div>
             </div>
           </div>

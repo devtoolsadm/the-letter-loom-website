@@ -19,8 +19,8 @@ const urlParams = new URLSearchParams(window.location.search);
 const fromPWA = urlParams.get("fromPWA") === "1";
 const fromInstall = urlParams.get("fromInstall") === "1";
 const MANUAL_URL = "assets/doc/manual.pdf";
-const DEFAULT_STRATEGY_SECONDS = 45;
-const DEFAULT_CREATION_SECONDS = 70;
+const DEFAULT_STRATEGY_SECONDS = 30;
+const DEFAULT_CREATION_SECONDS = 60;
 
 const appState = loadState();
 
@@ -60,6 +60,8 @@ let wakeLockTimer = null;
 const WAKE_LOCK_TIMEOUT_MS = 5 * 60 * 1000;
 let pilotState = null;
 let pilotTimerInterval = null;
+let confirmCallback = null;
+let pausedBeforeConfirm = null;
 function playClickSfx() {
   if (!soundOn || !clickAudio) return;
   // If routed through Web Audio, use the shared element with gain; otherwise clone
@@ -134,8 +136,15 @@ function renderShellTexts() {
   setText("pilotStrategyTimerTitle", shellTexts.pilotStrategyLabel);
   setText("pilotCreationTimerTitle", shellTexts.pilotCreationLabel);
   setText("pilotStartStrategyBtn", shellTexts.pilotStartStrategy);
+  setText("pilotStrategyFinishBtn", shellTexts.pilotFinish);
   setText("pilotStartCreationBtn", shellTexts.pilotStartCreation);
-  setText("pilotNextRoundBtn", shellTexts.pilotNextRound);
+    setText("pilotNextRoundBtn", shellTexts.pilotNextRound);
+  setText("confirmTitle", shellTexts.confirmTitle || shellTexts.apply || "Confirmar");
+  setText("confirmBody", shellTexts.confirmBodyExit || "");
+  setText("confirmAcceptBtn", shellTexts.confirmAccept || shellTexts.ok || "OK");
+  setText("confirmCancelBtn", shellTexts.confirmCancel || shellTexts.cancel || "Cancelar");
+  setText("pilotPauseLabel", shellTexts.pilotPause || "Pausa");
+  setText("pilotResumeLabel", shellTexts.pilotResume || "Continuar");
   
   updateInstallCopy();
   renderLanguageSelector();
@@ -145,6 +154,42 @@ function renderShellTexts() {
   updateSettingsControls();
   updateLanguageButton();
   updateInstallButtonVisibility();
+}
+
+function openConfirm({ title, body, acceptText, cancelText, onConfirm }) {
+  setText("confirmTitle", title || shellTexts.confirmTitle || "Confirmar");
+  setText("confirmBody", body || "");
+  setText("confirmAcceptBtn", acceptText || shellTexts.confirmAccept || "OK");
+  setText("confirmCancelBtn", cancelText || shellTexts.confirmCancel || "Cancelar");
+  pausedBeforeConfirm = null;
+  if (pilotState) {
+    if (pilotState.phase === "strategy-run") {
+      pausedBeforeConfirm = "strategy";
+      stopPilotTimer();
+      pilotState.phase = "strategy-paused";
+      renderPilot();
+    } else if (pilotState.phase === "creation-run") {
+      pausedBeforeConfirm = "creation";
+      stopPilotTimer();
+      pilotState.phase = "creation-paused";
+      renderPilot();
+    }
+  }
+  confirmCallback = typeof onConfirm === "function" ? onConfirm : null;
+  openModal("confirm", { closable: true });
+}
+
+function handleConfirmAccept() {
+  if (confirmCallback) {
+    try {
+      confirmCallback();
+    } catch (e) {
+      logger.warn("Confirm callback failed", e);
+    }
+  }
+  confirmCallback = null;
+  pausedBeforeConfirm = null;
+  closeModal("confirm", { reason: "action" });
 }
 
 function setText(id, value) {
@@ -368,16 +413,26 @@ function setupNavigation() {
     ["resumeMatchBtn", () => showScreen("pilot")],
     ["splashHelpBtn", () => openManual()],
     ["helpBtn", () => openManual()],
-    ["pilotExitBtn", () => showScreen("splash")],
+    ["pilotExitBtn", () => confirmExitToSplash()],
+    ["pilotBackBtn", () => exitPilotDirect()],
     ["pilotStartMatchBtn", () => startPilotMatch()],
     ["pilotStartStrategyBtn", () => startPilotPhase("strategy")],
     ["pilotStartCreationBtn", () => startPilotPhase("creation")],
+    ["pilotStrategyFinishBtn", () => finishPilotPhase("strategy")],
+    ["pilotCreationFinishBtn", () => finishPilotPhase("creation")],
     ["pilotNextRoundBtn", () => advancePilotRound()],
+    ["confirmAcceptBtn", () => handleConfirmAccept()],
+    ["confirmCancelBtn", () => handleConfirmCancel()],
   ];
   map.forEach(([id, handler]) => {
     const el = document.getElementById(id);
     if (el) el.addEventListener("click", handler);
   });
+
+  const confirmCancel = document.getElementById("confirmCancelBtn");
+  if (confirmCancel) {
+    confirmCancel.addEventListener("click", () => handleConfirmCancel());
+  }
 
   const addPlayerBtn = document.getElementById("addPlayerBtn");
   if (addPlayerBtn) {
@@ -534,25 +589,113 @@ function renderPilot() {
   if (strategyVal) strategyVal.textContent = `${pilotState.strategy}s`;
   if (creationVal) creationVal.textContent = `${pilotState.creation}s`;
 
-  setText("pilotStrategyTimerValue", formatSeconds(pilotState.phase === "strategy-run" ? pilotState.remaining : pilotState.strategy));
-  setText("pilotCreationTimerValue", formatSeconds(pilotState.phase === "creation-run" ? pilotState.remaining : pilotState.creation));
+  const stratRemaining =
+    pilotState.phase === "strategy-run" || pilotState.phase === "strategy-paused"
+      ? pilotState.remaining
+      : pilotState.strategy;
+  const creationRemaining =
+    pilotState.phase === "creation-run" || pilotState.phase === "creation-paused" || pilotState.phase === "done"
+      ? pilotState.remaining
+      : pilotState.creation;
 
+  setText("pilotStrategyTimerValue", formatSeconds(stratRemaining));
+  setText("pilotCreationTimerValue", formatSeconds(creationRemaining));
+
+  const roundCard = document.getElementById("pilotRoundCard");
   const startMatchBtn = document.getElementById("pilotStartMatchBtn");
   const stratBtn = document.getElementById("pilotStartStrategyBtn");
   const creatBtn = document.getElementById("pilotStartCreationBtn");
+  const stratFinishBtn = document.getElementById("pilotStrategyFinishBtn");
+  const creatFinishBtn = document.getElementById("pilotCreationFinishBtn");
   const nextRoundBtn = document.getElementById("pilotNextRoundBtn");
+  const configBlock = document.getElementById("pilotConfigBlock");
+  const topRow = document.getElementById("pilotTopRow");
+  const exitRow = document.querySelector(".pilot-exit-row");
+  const strategyCard = document.getElementById("pilotStrategyTimerCard");
+  const creationCard = document.getElementById("pilotCreationTimerCard");
+  const roundCardContainer = document.getElementById("pilotRoundCard");
+
+  const showConfig = pilotState.phase === "config";
+  const showStrategyTimers = ["strategy-ready", "strategy-run", "strategy-paused"].includes(
+    pilotState.phase
+  );
+  const showCreationTimers = ["creation-ready", "creation-run", "creation-paused"].includes(
+    pilotState.phase
+  );
+  const phaseTheme =
+    showStrategyTimers ? "strategy" : showCreationTimers ? "creation" : "none";
+
+  if (roundCard) {
+    roundCard.classList.toggle("hidden", showConfig);
+  }
+  if (strategyCard) {
+    strategyCard.classList.toggle("hidden", !showStrategyTimers);
+    strategyCard.classList.toggle("theme-strategy", showStrategyTimers);
+  }
+  if (creationCard) {
+    creationCard.classList.toggle("hidden", !showCreationTimers);
+    creationCard.classList.toggle("theme-creation", showCreationTimers);
+  }
+  if (roundCardContainer) {
+    roundCardContainer.classList.toggle("phase-strategy", phaseTheme === "strategy");
+    roundCardContainer.classList.toggle("phase-creation", phaseTheme === "creation");
+  }
 
   if (startMatchBtn) startMatchBtn.disabled = pilotState.phase !== "config";
 
   if (stratBtn) {
-    stratBtn.disabled = pilotState.phase !== "strategy-ready";
-    setText("pilotStartStrategyBtn", pilotState.phase === "strategy-run" ? shellTexts.pilotTimeUp || "Tiempo!" : shellTexts.pilotStartStrategy);
+    const phase = pilotState.phase;
+    if (phase === "strategy-ready") {
+      stratBtn.disabled = false;
+      setText("pilotStartStrategyBtn", shellTexts.pilotStartStrategy);
+    } else if (phase === "strategy-run") {
+      stratBtn.disabled = false;
+      setText("pilotStartStrategyBtn", shellTexts.pilotPause || "Pausa");
+    } else if (phase === "strategy-paused") {
+      stratBtn.disabled = false;
+      setText("pilotStartStrategyBtn", shellTexts.pilotResume || "Continuar");
+    } else {
+      stratBtn.disabled = true;
+    }
   }
+  if (stratFinishBtn) {
+    const showFinish = pilotState.phase === "strategy-run";
+    stratFinishBtn.classList.toggle("hidden", !showFinish);
+    stratFinishBtn.disabled = !showFinish;
+  }
+
   if (creatBtn) {
-    creatBtn.disabled = pilotState.phase !== "creation-ready";
-    setText("pilotStartCreationBtn", pilotState.phase === "creation-run" ? shellTexts.pilotTimeUp || "Tiempo!" : shellTexts.pilotStartCreation);
+    const phase = pilotState.phase;
+    if (phase === "creation-ready") {
+      creatBtn.disabled = false;
+      setText("pilotStartCreationBtn", shellTexts.pilotStartCreation);
+    } else if (phase === "creation-run") {
+      creatBtn.disabled = false;
+      setText("pilotStartCreationBtn", shellTexts.pilotPause || "Pausa");
+    } else if (phase === "creation-paused") {
+      creatBtn.disabled = false;
+      setText("pilotStartCreationBtn", shellTexts.pilotResume || "Continuar");
+    } else if (phase === "done") {
+      creatBtn.disabled = true;
+      setText("pilotStartCreationBtn", shellTexts.pilotStartCreation);
+    } else {
+      creatBtn.disabled = true;
+    }
   }
-  if (nextRoundBtn) nextRoundBtn.disabled = pilotState.phase !== "done";
+  if (creatFinishBtn) {
+    const showFinish = pilotState.phase === "creation-run";
+    creatFinishBtn.classList.toggle("hidden", !showFinish);
+    creatFinishBtn.disabled = !showFinish;
+  }
+  if (nextRoundBtn) {
+    const showNext = pilotState.phase === "done";
+    nextRoundBtn.disabled = !showNext;
+    nextRoundBtn.classList.toggle("hidden", !showNext);
+  }
+
+  if (configBlock) configBlock.classList.toggle("hidden", !showConfig);
+  if (topRow) topRow.classList.toggle("hidden", !showConfig);
+  if (exitRow) exitRow.classList.toggle("hidden", showConfig);
 }
 
 function adjustPilotTimer(kind, delta) {
@@ -565,6 +708,7 @@ function adjustPilotTimer(kind, delta) {
 function startPilotMatch() {
   if (!pilotState) initPilot();
   stopPilotTimer();
+  pilotState.round = 1;
   pilotState.phase = "strategy-ready";
   pilotState.remaining = pilotState.strategy;
   renderPilot();
@@ -572,17 +716,57 @@ function startPilotMatch() {
 
 function startPilotPhase(kind) {
   if (!pilotState) initPilot();
-  stopPilotTimer();
-  if (kind === "strategy" && pilotState.phase === "strategy-ready") {
-    pilotState.phase = "strategy-run";
-    pilotState.remaining = pilotState.strategy;
-    runPilotCountdown("strategy");
-  } else if (kind === "creation" && pilotState.phase === "creation-ready") {
-    pilotState.phase = "creation-run";
-    pilotState.remaining = pilotState.creation;
-    runPilotCountdown("creation");
+  if (kind === "strategy") {
+    if (pilotState.phase === "strategy-ready") {
+      pilotState.phase = "strategy-run";
+      pilotState.remaining = pilotState.strategy;
+      runPilotCountdown("strategy");
+    } else if (pilotState.phase === "strategy-run") {
+      stopPilotTimer();
+      pilotState.phase = "strategy-paused";
+    } else if (pilotState.phase === "strategy-paused") {
+      pilotState.phase = "strategy-run";
+      runPilotCountdown("strategy");
+    } else {
+      return;
+    }
+  } else if (kind === "creation") {
+    if (pilotState.phase === "creation-ready") {
+      pilotState.phase = "creation-run";
+      pilotState.remaining = pilotState.creation;
+      runPilotCountdown("creation");
+    } else if (pilotState.phase === "creation-run") {
+      stopPilotTimer();
+      pilotState.phase = "creation-paused";
+    } else if (pilotState.phase === "creation-paused") {
+      pilotState.phase = "creation-run";
+      runPilotCountdown("creation");
+    } else {
+      return;
+    }
   }
   renderPilot();
+}
+
+function finishPilotPhase(kind) {
+  if (!pilotState) initPilot();
+  if (kind === "strategy") {
+    if (pilotState.phase === "strategy-run" || pilotState.phase === "strategy-paused") {
+      stopPilotTimer();
+      pilotState.phase = "creation-ready";
+      pilotState.remaining = pilotState.creation;
+      renderPilot();
+    }
+    return;
+  }
+  if (kind === "creation") {
+    if (pilotState.phase === "creation-run" || pilotState.phase === "creation-paused") {
+      stopPilotTimer();
+      pilotState.phase = "done";
+      pilotState.remaining = 0;
+      renderPilot();
+    }
+  }
 }
 
 function runPilotCountdown(kind) {
@@ -621,6 +805,41 @@ function stopPilotTimer() {
   }
 }
 
+function resetPilotState() {
+  stopPilotTimer();
+  pilotState = null;
+}
+
+function confirmExitToSplash() {
+  playClickSfx();
+  openConfirm({
+    title: shellTexts.confirmTitle || "Confirmar",
+    body: shellTexts.confirmBodyExit || "",
+    acceptText: shellTexts.confirmAccept || "OK",
+    cancelText: shellTexts.confirmCancel || "Cancelar",
+    onConfirm: () => {
+      resetPilotState();
+      showScreen("splash");
+    },
+  });
+}
+
+function exitPilotDirect() {
+  playClickSfx();
+  resetPilotState();
+  showScreen("splash");
+}
+
+function handleConfirmCancel() {
+  if (pausedBeforeConfirm === "strategy" && pilotState?.phase === "strategy-paused") {
+    startPilotPhase("strategy");
+  } else if (pausedBeforeConfirm === "creation" && pilotState?.phase === "creation-paused") {
+    startPilotPhase("creation");
+  }
+  pausedBeforeConfirm = null;
+  closeModal("confirm", { reason: "cancel" });
+}
+
 function showScreen(name) {
   currentScreen = name;
   document.querySelectorAll(".screen").forEach((el) => {
@@ -630,6 +849,9 @@ function showScreen(name) {
     if (!pilotState) initPilot();
     renderPilot();
   } else {
+    if (name === "splash") {
+      resetPilotState();
+    }
     stopPilotTimer();
   }
   if (name === "live") {
@@ -1121,6 +1343,7 @@ function loadSplashAssets() {
     "assets/img/settings.svg",
     "assets/img/exit.svg",
     "assets/img/help.svg",
+    "assets/img/previous.svg",
   ];
 
   const restLoaders = [...restData.map((entry) => entry.loader)];

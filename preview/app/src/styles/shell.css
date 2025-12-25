@@ -282,6 +282,11 @@ body.shell-ready #game-root {
 .icon-btn-img.icon-help {
   background-image: url("../../assets/img/help.svg");
 }
+.icon-btn-img.icon-prev {
+  background-image: url("../../assets/img/previous.svg");
+  background-size: 74% 74%;
+  filter: none;
+}
 .icon-btn-img.icon-shop {
   background-image: url("../../assets/img/shop.svg");
 }
@@ -1079,10 +1084,36 @@ body.splash-ready #splashLoadingBlock {
 }
 
 /* Pilot screen */
+.pilot-screen {
+  position: relative;
+  padding-bottom: 80px;
+  min-height: 100%;
+  width: 98%;
+  margin: 0 auto;
+}
+
+.pilot-top-row {
+  display: flex;
+  justify-content: flex-start;
+  width: 100%;
+  margin-bottom: 12px;
+}
+
+.pilot-back-btn {
+  width: 56px;
+  height: 56px;
+  padding: 0;
+}
+
 .pilot-exit-row {
+  position: sticky;
+  left: 0;
+  right: 0;
+  bottom: 8px;
   display: flex;
   justify-content: flex-end;
-  width: 100%;
+  padding-left: 4px;
+  padding-right: 4px;
 }
 
 .pilot-config,
@@ -1110,7 +1141,7 @@ body.splash-ready #splashLoadingBlock {
 .pilot-card-header {
   font-weight: 800;
   text-align: center;
-  font-size: 16px;
+  font-size: 48px;
 }
 
 .pilot-row {
@@ -1142,8 +1173,18 @@ body.splash-ready #splashLoadingBlock {
 .pilot-ctrl {
   text-indent: 0;
   font-weight: 900;
-  font-size: 20px;
-  color: #2f1b12;
+  font-size: 40px;
+  color: white
+}
+
+.pilot-ctrl.pilot-ctrl-minus {
+  --icon-btn-main: #e74c3c;
+  --icon-btn-dark: #992d22;
+}
+
+.pilot-ctrl.pilot-ctrl-plus {
+  --icon-btn-main: #2cb34a;
+  --icon-btn-dark: #1e7f34;
 }
 
 .pilot-ctrl .pilot-ctrl-text {
@@ -1166,7 +1207,7 @@ body.splash-ready #splashLoadingBlock {
 .pilot-round-header {
   text-align: center;
   font-weight: 900;
-  font-size: 16px;
+  font-size: 48px;
 }
 
 .pilot-timer-block {
@@ -1189,13 +1230,55 @@ body.splash-ready #splashLoadingBlock {
 .pilot-timer-title {
   font-weight: 800;
   color: #2f1b12;
-  font-size: 14px;
+  font-size: 32px;
 }
 
 .pilot-timer-value {
-  font-family: \
-Montserrat\, \Fredoka\, Arial, sans-serif;
-  font-size: 20px;
+  font-family: "Montserrat", "Fredoka", Arial, sans-serif;
+  font-size: 80px;
   font-weight: 900;
   color: #1b1f3b;
+}
+
+.pilot-timer.theme-strategy {
+  background: #ffe9f1;
+  border-color: #b24561;
+  box-shadow: inset 0 0 12px rgba(114, 30, 56, 0.18);
+}
+
+.pilot-timer.theme-strategy .pilot-timer-title,
+.pilot-timer.theme-strategy .pilot-timer-value {
+  color: #6b1d2f;
+}
+
+.pilot-timer.theme-strategy .game-btn.btn-blue {
+  --btn-main: #b24561;
+  --btn-dark: #73162f;
+}
+
+.pilot-timer.theme-creation {
+  background: #e6fbff;
+  border-color: #2aa1c8;
+  box-shadow: inset 0 0 12px rgba(16, 123, 156, 0.18);
+}
+
+.pilot-timer.theme-creation .pilot-timer-title,
+.pilot-timer.theme-creation .pilot-timer-value {
+  color: #0c5f7c;
+}
+
+.pilot-timer.theme-creation .game-btn.btn-blue {
+  --btn-main: #2aa1c8;
+  --btn-dark: #0f6c8f;
+}
+
+.pilot-timer-actions {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.pilot-timer-actions .game-btn {
+  flex: 1 1 0;
+  min-height: 52px;
 }

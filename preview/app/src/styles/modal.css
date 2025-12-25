@@ -182,6 +182,34 @@ body.modal-open {
   margin-top: 16px;
 }
 
+.modal-overlay[data-modal="confirm"] .frame-panel {
+  width: min(300px, calc(var(--game-width) - 12px));
+  max-width: min(300px, calc(var(--game-width) - 12px));
+  padding: 14px;
+}
+
+.modal-overlay[data-modal="confirm"] .modal-content {
+  max-width: 260px;
+  gap: 10px;
+}
+
+.modal-overlay[data-modal="confirm"] .modal-content p {
+  margin: 0;
+  font-size: 14px;
+}
+
+.modal-overlay[data-modal="confirm"] .settings-actions {
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+
+.modal-overlay[data-modal="confirm"] .settings-actions .game-btn {
+  max-width: none;
+  width: 50%;
+  font-size: 16px;
+  padding: 10px 12px;
+}
+
 .modal-content p {
   margin: 0 0 4px;
 }

@@ -10,6 +10,7 @@ const logChannel = typeof BroadcastChannel !== "undefined" ? new BroadcastChanne
 const cacheReady = resolveCacheVersion();
 const PRECACHE_ASSETS = [
   `${BASE_PATH}`,
+  `${BASE_PATH}assets/img/1x1-transparent.png`,  
   `${BASE_PATH}index.html`,
   `${BASE_PATH}manifest.json`,
   `${BASE_PATH}manifest-en.json`,
@@ -22,7 +23,6 @@ const PRECACHE_ASSETS = [
   `${BASE_PATH}src/core/version.js`,
   `${BASE_PATH}assets/img/background.png`,
   `${BASE_PATH}assets/img/logo-letters.png`,
-  `${BASE_PATH}assets/img/1x1-transparent.png`,
   `${BASE_PATH}assets/img/rotate-device-icon.png`,
   `${BASE_PATH}assets/img/audioOn.svg`,
   `${BASE_PATH}assets/img/audioOff.svg`,
