@@ -776,7 +776,7 @@ function confirmFinishPhase(kind) {
       ? shellTexts.confirmBodyFinish || shellTexts.confirmBodyExit || "Finish this phase?"
       : shellTexts.confirmBodyFinish || shellTexts.confirmBodyExit || "Finish this phase?";
   openConfirm({
-    title: shellTexts.confirmTitle || "Confirmar",
+    title: shellTexts.confirmTitleFinish,
     body,
     acceptText: shellTexts.confirmAccept || "OK",
     cancelText: shellTexts.confirmCancel || "Cancelar",

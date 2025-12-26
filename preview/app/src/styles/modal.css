@@ -252,11 +252,15 @@ body.modal-open {
   z-index: 22;
   font-family: "Fredoka", sans-serif;
   font-weight: 700;
-  font-size: 24px;
+  font-size: clamp(18px, 3vw, 24px);
   letter-spacing: 1px;
   text-transform: uppercase;
   color: #fff;
   text-shadow: 0 4px 0 #92400e;
+  text-align: center;
+  white-space: normal;
+  line-height: 1.2;
+  max-width: 88%;
 }
 
 .modal-ribbon.inline {
