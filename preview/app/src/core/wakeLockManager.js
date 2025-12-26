@@ -6,7 +6,7 @@ let statusElement = null;
 let userRequestedLock = false;
 let fallbackActive = false;
 let wakeLockSupported = "wakeLock" in navigator;
-let debugLogs = true;
+let debugLogs = false;
 
 const defaultStatusMessages = {
   activeStandard: "Status: Wake lock active (standard API).",

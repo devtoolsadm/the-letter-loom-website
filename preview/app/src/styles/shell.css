@@ -290,6 +290,8 @@ body.shell-ready #game-root {
 }
 .icon-btn-img.icon-shop {
   background-image: url("../../assets/img/shop.svg");
+  width: 90% !important;
+  height: 90% !important;
 }
 
 /* Icon button glossy variant (uses primary button skin) */
@@ -329,6 +331,11 @@ body.shell-ready #game-root {
 .icon-btn.gray {
   --icon-btn-main: #6d6d6d;
   --icon-btn-dark: #444;
+}
+
+.icon-btn.btn-pink {
+  --icon-btn-main: rgb(185, 58, 122);
+  --icon-btn-dark: #72354d;
 }
 
 #soundToggleBtn::after {
@@ -1248,6 +1255,30 @@ body.splash-ready #splashLoadingBlock {
   color: #1b1f3b;
 }
 
+.pilot-timer-value.timeup {
+  font-size: 60px;
+}
+
+.pilot-timer.time-pressure {
+  animation: pulseStress 0.8s ease-in-out infinite;
+  box-shadow:
+    0 0 0 2px rgba(220, 38, 38, 0.25),
+    inset 0 0 12px rgba(220, 38, 38, 0.22),
+    0 12px 18px rgba(0, 0, 0, 0.18);
+}
+
+@keyframes pulseStress {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.015);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
 .pilot-timer.theme-strategy {
   background: #ffe9f1;
   border-color: #b24561;
@@ -1294,4 +1325,15 @@ body.splash-ready #splashLoadingBlock {
   box-shadow:
     0 8px 0 var(--btn-dark),
     0 12px 18px rgba(0, 0, 0, 0.16);
+}
+
+.pilot-timeup-cta {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  margin-top: 10px;
+}
+
+.pilot-timeup-cta .game-btn {
+  max-width: 280px;
 }

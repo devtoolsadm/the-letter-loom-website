@@ -50,18 +50,21 @@ let hasScaledOnce = false;
 let installedAppDetected = false;
 let introAudio = null;
 let clickAudio = null;
+let clockAudio = null;
 let audioReady = false;
 let audioCtx = null;
 let musicGain = null;
 let soundGain = null;
 let musicSource = null;
 let clickSource = null;
+let clockSource = null;
 let wakeLockTimer = null;
 const WAKE_LOCK_TIMEOUT_MS = 5 * 60 * 1000;
 let pilotState = null;
 let pilotTimerInterval = null;
 let confirmCallback = null;
 let pausedBeforeConfirm = null;
+let lastLowTimeTick = 0;
 function playClickSfx() {
   if (!soundOn || !clickAudio) return;
   // If routed through Web Audio, use the shared element with gain; otherwise clone
@@ -167,11 +170,13 @@ function openConfirm({ title, body, acceptText, cancelText, onConfirm }) {
     if (pilotState.phase === "strategy-run") {
       pausedBeforeConfirm = "strategy";
       stopPilotTimer();
+      stopClockLoop(false);
       pilotState.phase = "strategy-paused";
       renderPilot();
     } else if (pilotState.phase === "creation-run") {
       pausedBeforeConfirm = "creation";
       stopPilotTimer();
+      stopClockLoop(false);
       pilotState.phase = "creation-paused";
       renderPilot();
     }
@@ -419,6 +424,7 @@ function setupNavigation() {
     ["pilotStartMatchBtn", () => startPilotMatch()],
     ["pilotStartStrategyBtn", () => startPilotPhase("strategy")],
     ["pilotStartCreationBtn", () => startPilotPhase("creation")],
+    ["pilotStartCreationCtaBtn", () => startPilotPhase("creation")],
     ["pilotStrategyFinishBtn", () => confirmFinishPhase("strategy")],
     ["pilotCreationFinishBtn", () => confirmFinishPhase("creation")],
     ["pilotNextRoundBtn", () => advancePilotRound()],
@@ -591,16 +597,42 @@ function renderPilot() {
   if (creationVal) creationVal.textContent = `${pilotState.creation}s`;
 
   const stratRemaining =
-    pilotState.phase === "strategy-run" || pilotState.phase === "strategy-paused"
+    pilotState.phase === "strategy-run" ||
+    pilotState.phase === "strategy-paused" ||
+    pilotState.phase === "strategy-timeup"
       ? pilotState.remaining
       : pilotState.strategy;
   const creationRemaining =
-    pilotState.phase === "creation-run" || pilotState.phase === "creation-paused" || pilotState.phase === "done"
+    pilotState.phase === "creation-run" ||
+    pilotState.phase === "creation-paused" ||
+    pilotState.phase === "creation-timeup" ||
+    pilotState.phase === "done"
       ? pilotState.remaining
       : pilotState.creation;
 
-  setText("pilotStrategyTimerValue", formatSeconds(stratRemaining));
-  setText("pilotCreationTimerValue", formatSeconds(creationRemaining));
+  const strategyValueEl = document.getElementById("pilotStrategyTimerValue");
+  const creationValueEl = document.getElementById("pilotCreationTimerValue");
+  const strategyTimeup = pilotState.phase === "strategy-timeup";
+  const creationTimeup = pilotState.phase === "creation-timeup";
+
+  if (strategyValueEl) {
+    strategyValueEl.textContent = strategyTimeup ? shellTexts.pilotTimeUp : formatSeconds(stratRemaining);
+    strategyValueEl.classList.toggle("timeup", strategyTimeup);
+  } else {
+    setText(
+      "pilotStrategyTimerValue",
+      strategyTimeup ? shellTexts.pilotTimeUp : formatSeconds(stratRemaining)
+    );
+  }
+  if (creationValueEl) {
+    creationValueEl.textContent = creationTimeup ? shellTexts.pilotTimeUp : formatSeconds(creationRemaining);
+    creationValueEl.classList.toggle("timeup", creationTimeup);
+  } else {
+    setText(
+      "pilotCreationTimerValue",
+      creationTimeup ? shellTexts.pilotTimeUp : formatSeconds(creationRemaining)
+    );
+  }
 
   const roundCard = document.getElementById("pilotRoundCard");
   const startMatchBtn = document.getElementById("pilotStartMatchBtn");
@@ -615,12 +647,14 @@ function renderPilot() {
   const strategyCard = document.getElementById("pilotStrategyTimerCard");
   const creationCard = document.getElementById("pilotCreationTimerCard");
   const roundCardContainer = document.getElementById("pilotRoundCard");
+  const creationTimeupCta = document.getElementById("pilotCreationTimeupCta");
+  const creationTimeupCtaBtn = document.getElementById("pilotStartCreationCtaBtn");
 
   const showConfig = pilotState.phase === "config";
-  const showStrategyTimers = ["strategy-ready", "strategy-run", "strategy-paused"].includes(
+  const showStrategyTimers = ["strategy-ready", "strategy-run", "strategy-paused", "strategy-timeup"].includes(
     pilotState.phase
   );
-  const showCreationTimers = ["creation-ready", "creation-run", "creation-paused"].includes(
+  const showCreationTimers = ["creation-ready", "creation-run", "creation-paused", "creation-timeup"].includes(
     pilotState.phase
   );
   const phaseTheme =
@@ -632,10 +666,18 @@ function renderPilot() {
   if (strategyCard) {
     strategyCard.classList.toggle("hidden", !showStrategyTimers);
     strategyCard.classList.toggle("theme-strategy", showStrategyTimers);
+    strategyCard.classList.toggle(
+      "time-pressure",
+      pilotState.phase === "strategy-run" && pilotState.remaining <= 10
+    );
   }
   if (creationCard) {
     creationCard.classList.toggle("hidden", !showCreationTimers);
     creationCard.classList.toggle("theme-creation", showCreationTimers);
+    creationCard.classList.toggle(
+      "time-pressure",
+      pilotState.phase === "creation-run" && pilotState.remaining <= 10
+    );
   }
   if (roundCardContainer) {
     roundCardContainer.classList.toggle("phase-strategy", phaseTheme === "strategy");
@@ -655,9 +697,13 @@ function renderPilot() {
     } else if (phase === "strategy-paused") {
       stratBtn.disabled = false;
       setText("pilotStartStrategyBtn", shellTexts.pilotResume || "Continuar");
+    } else if (phase === "strategy-timeup") {
+      stratBtn.disabled = true;
+      stratBtn.classList.add("hidden");
     } else {
       stratBtn.disabled = true;
     }
+    if (phase !== "strategy-timeup") stratBtn.classList.remove("hidden");
   }
   if (stratFinishBtn) {
     const showFinish = pilotState.phase === "strategy-run";
@@ -676,12 +722,17 @@ function renderPilot() {
     } else if (phase === "creation-paused") {
       creatBtn.disabled = false;
       setText("pilotStartCreationBtn", shellTexts.pilotResume || "Continuar");
-    } else if (phase === "done") {
+    } else if (phase === "strategy-timeup") {
+      creatBtn.disabled = false;
+      creatBtn.classList.remove("hidden");
+      setText("pilotStartCreationBtn", shellTexts.pilotStartCreation);
+    } else if (phase === "creation-timeup" || phase === "done") {
       creatBtn.disabled = true;
       setText("pilotStartCreationBtn", shellTexts.pilotStartCreation);
     } else {
       creatBtn.disabled = true;
     }
+    creatBtn.classList.toggle("hidden", phase === "creation-timeup" || phase === "done");
   }
   if (creatFinishBtn) {
     const showFinish = pilotState.phase === "creation-run";
@@ -689,9 +740,16 @@ function renderPilot() {
     creatFinishBtn.disabled = !showFinish;
   }
   if (nextRoundBtn) {
-    const showNext = pilotState.phase === "done";
+    const showNext = pilotState.phase === "done" || pilotState.phase === "creation-timeup";
     nextRoundBtn.disabled = !showNext;
     nextRoundBtn.classList.toggle("hidden", !showNext);
+  }
+
+  if (creationTimeupCta && creationTimeupCtaBtn) {
+    const showCta = strategyTimeup;
+    creationTimeupCta.classList.toggle("hidden", !showCta);
+    creationTimeupCtaBtn.disabled = !showCta;
+    setText("pilotStartCreationCtaBtn", shellTexts.pilotStartCreationCTA);
   }
 
   if (configBlock) configBlock.classList.toggle("hidden", !showConfig);
@@ -709,6 +767,7 @@ function adjustPilotTimer(kind, delta) {
 function startPilotMatch() {
   if (!pilotState) initPilot();
   stopPilotTimer();
+  stopClockLoop(false);
   pilotState.round = 1;
   pilotState.phase = "strategy-ready";
   pilotState.remaining = pilotState.strategy;
@@ -721,26 +780,37 @@ function startPilotPhase(kind) {
     if (pilotState.phase === "strategy-ready") {
       pilotState.phase = "strategy-run";
       pilotState.remaining = pilotState.strategy;
+      playClockLoop();
       runPilotCountdown("strategy");
     } else if (pilotState.phase === "strategy-run") {
       stopPilotTimer();
+      stopClockLoop(false);
       pilotState.phase = "strategy-paused";
     } else if (pilotState.phase === "strategy-paused") {
       pilotState.phase = "strategy-run";
+      playClockLoop();
       runPilotCountdown("strategy");
     } else {
       return;
     }
   } else if (kind === "creation") {
-    if (pilotState.phase === "creation-ready") {
+    if (pilotState.phase === "strategy-timeup") {
       pilotState.phase = "creation-run";
       pilotState.remaining = pilotState.creation;
+      playClockLoop();
+      runPilotCountdown("creation");
+    } else if (pilotState.phase === "creation-ready") {
+      pilotState.phase = "creation-run";
+      pilotState.remaining = pilotState.creation;
+      playClockLoop();
       runPilotCountdown("creation");
     } else if (pilotState.phase === "creation-run") {
       stopPilotTimer();
+      stopClockLoop(false);
       pilotState.phase = "creation-paused";
     } else if (pilotState.phase === "creation-paused") {
       pilotState.phase = "creation-run";
+      playClockLoop();
       runPilotCountdown("creation");
     } else {
       return;
@@ -754,8 +824,9 @@ function finishPilotPhase(kind) {
   if (kind === "strategy") {
     if (pilotState.phase === "strategy-run" || pilotState.phase === "strategy-paused") {
       stopPilotTimer();
-      pilotState.phase = "creation-ready";
-      pilotState.remaining = pilotState.creation;
+      stopClockLoop(false);
+      pilotState.phase = "strategy-timeup";
+      pilotState.remaining = 0;
       renderPilot();
     }
     return;
@@ -763,7 +834,8 @@ function finishPilotPhase(kind) {
   if (kind === "creation") {
     if (pilotState.phase === "creation-run" || pilotState.phase === "creation-paused") {
       stopPilotTimer();
-      pilotState.phase = "done";
+      stopClockLoop(false);
+      pilotState.phase = "creation-timeup";
       pilotState.remaining = 0;
       renderPilot();
     }
@@ -789,19 +861,39 @@ function runPilotCountdown(kind) {
   pilotTimerInterval = window.setInterval(() => {
     if (!pilotState) return;
     pilotState.remaining = Math.max(0, pilotState.remaining - 1);
+    if (pilotState.remaining <= 10 && pilotState.remaining > 0 && kind === pilotState.phase.replace("-run", "")) {
+      playLowTimeTick();
+    }
     if (pilotState.remaining === 0) {
       stopPilotTimer();
-      if (kind === "strategy") {
-        pilotState.phase = "creation-ready";
-        pilotState.remaining = pilotState.creation;
-      } else {
-        pilotState.phase = "done";
-      }
-      renderPilot();
+      handleTimeUp(kind);
     } else {
       renderPilot();
     }
   }, 1000);
+}
+
+function handleTimeUp(kind) {
+  // Notify user
+  if (soundOn) {
+    playLowTimeTick(true);
+  }
+  if (navigator.vibrate) {
+    try {
+      navigator.vibrate(TIMEUP_VIBRATION_MS);
+    } catch (e) {}
+  }
+
+  if (kind === "strategy") {
+    pilotState.phase = "strategy-timeup";
+    pilotState.remaining = 0;
+    stopClockLoop(false);
+  } else if (kind === "creation") {
+    pilotState.phase = "creation-timeup";
+    pilotState.remaining = 0;
+    stopClockLoop(false);
+  }
+  renderPilot();
 }
 
 function advancePilotRound() {
@@ -822,6 +914,7 @@ function stopPilotTimer() {
 
 function resetPilotState() {
   stopPilotTimer();
+  stopClockLoop(true);
   pilotState = null;
 }
 
@@ -833,6 +926,7 @@ function confirmExitToSplash() {
     acceptText: shellTexts.confirmAccept || "OK",
     cancelText: shellTexts.confirmCancel || "Cancelar",
     onConfirm: () => {
+      stopClockLoop(true);
       resetPilotState();
       showScreen("splash");
     },
@@ -841,6 +935,7 @@ function confirmExitToSplash() {
 
 function exitPilotDirect() {
   playClickSfx();
+  	stopClockLoop(true);
   resetPilotState();
   showScreen("splash");
 }
@@ -868,6 +963,7 @@ function showScreen(name) {
       resetPilotState();
     }
     stopPilotTimer();
+    stopClockLoop(true);
   }
   if (name === "live") {
     ensureWakeLock(true);
@@ -1224,6 +1320,10 @@ function setupAudio() {
   introAudio.loop = true;
   introAudio.volume = 1;
 
+  clockAudio = new Audio("assets/sounds/clock-melody.mp3");
+  clockAudio.loop = true;
+  clockAudio.volume = 1;
+
   clickAudio = new Audio("assets/sounds/click.mp3");
   clickAudio.volume = 1;
 
@@ -1232,6 +1332,10 @@ function setupAudio() {
     if (!musicSource && audioCtx) {
       musicSource = audioCtx.createMediaElementSource(introAudio);
       musicSource.connect(musicGain);
+    }
+    if (!clockSource && audioCtx) {
+      clockSource = audioCtx.createMediaElementSource(clockAudio);
+      clockSource.connect(musicGain);
     }
     if (!clickSource && audioCtx) {
       clickSource = audioCtx.createMediaElementSource(clickAudio);
@@ -1280,9 +1384,44 @@ function updateAudioVolumes() {
   if (introAudio) {
     introAudio.volume = musicLevel;
   }
+  if (clockAudio) {
+    clockAudio.volume = musicLevel;
+  }
   if (clickAudio) {
     clickAudio.volume = soundLevel;
   }
+}
+
+function playClockLoop() {
+  if (!musicOn || !clockAudio) return;
+  if (introAudio) {
+    introAudio.pause();
+  }
+  if (audioCtx && audioCtx.state === "suspended") {
+    audioCtx.resume().catch(() => {});
+  }
+  clockAudio.play().catch(() => {});
+}
+
+function stopClockLoop(allowIntro = true) {
+  if (clockAudio) {
+    clockAudio.pause();
+    clockAudio.currentTime = 0;
+  }
+  if (musicOn && allowIntro && currentScreen !== "pilot") {
+    attemptPlayIntro();
+  }
+}
+
+function playLowTimeTick(force = false) {
+  if (!soundOn) return;
+  const now = Date.now();
+  if (!force && now - lastLowTimeTick < 900) return;
+  lastLowTimeTick = now;
+  if (!clickAudio) return;
+  const inst = clickAudio.cloneNode();
+  inst.volume = (soundVolume / 100) * 0.8;
+  inst.play().catch(() => {});
 }
 
 function resetWakeLockTimer() {
