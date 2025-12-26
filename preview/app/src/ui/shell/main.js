@@ -565,7 +565,18 @@ function setupNavigation() {
 
 function openManual() {
   playClickSfx();
-  window.open(MANUAL_URL, "_blank", "noopener");
+  // In PWA standalone there is no back button; prefer download to avoid trapping the user.
+  if (isStandaloneApp()) {
+    const link = document.createElement("a");
+    link.href = MANUAL_URL;
+    link.download = "manual.pdf";
+    link.rel = "noopener";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } else {
+    window.open(MANUAL_URL, "_blank", "noopener");
+  }
 }
 
 function initPilot() {
