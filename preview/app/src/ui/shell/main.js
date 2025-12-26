@@ -53,6 +53,7 @@ let clickAudio = null;
 let clockAudio = null;
 let tickAudio = null;
 let timeAudio = null;
+let modalOpenAudio = null;
 let audioReady = false;
 let audioCtx = null;
 let musicGain = null;
@@ -62,6 +63,7 @@ let clickSource = null;
 let clockSource = null;
 let tickSource = null;
 let timeSource = null;
+let modalOpenSource = null;
 let wakeLockTimer = null;
 const WAKE_LOCK_TIMEOUT_MS = 5 * 60 * 1000;
 let pilotState = null;
@@ -169,6 +171,7 @@ function openConfirm({ title, body, acceptText, cancelText, onConfirm }) {
   setText("confirmBody", body || "");
   setText("confirmAcceptBtn", acceptText || shellTexts.confirmAccept || "OK");
   setText("confirmCancelBtn", cancelText || shellTexts.confirmCancel || "Cancelar");
+  playModalOpenSound();
   pausedBeforeConfirm = null;
   if (pilotState) {
     if (pilotState.phase === "strategy-run") {
@@ -186,6 +189,7 @@ function openConfirm({ title, body, acceptText, cancelText, onConfirm }) {
     }
   }
   confirmCallback = typeof onConfirm === "function" ? onConfirm : null;
+  playModalOpenSound();
   openModal("confirm", { closable: true });
 }
 
@@ -565,6 +569,7 @@ function setupNavigation() {
 
 function openManual() {
   playClickSfx();
+  playModalOpenSound();
   // In PWA standalone there is no back button; prefer download to avoid trapping the user.
   if (isStandaloneApp()) {
     const link = document.createElement("a");
@@ -1059,6 +1064,7 @@ function openSettingsModal() {
   };
   renderSettingsLanguageSelector();
   updateSettingsControls(tempSettings);
+  playModalOpenSound();
   openModal("settings", { closable: true });
 }
 
@@ -1363,6 +1369,9 @@ function setupAudio() {
   timeAudio = new Audio("assets/sounds/time.mp3");
   timeAudio.volume = 1;
 
+  modalOpenAudio = new Audio("assets/sounds/open.mp3");
+  modalOpenAudio.volume = 1;
+
   clickAudio = new Audio("assets/sounds/click.mp3");
   clickAudio.volume = 1;
 
@@ -1383,6 +1392,10 @@ function setupAudio() {
     if (!timeSource && audioCtx) {
       timeSource = audioCtx.createMediaElementSource(timeAudio);
       timeSource.connect(soundGain);
+    }
+    if (!modalOpenSource && audioCtx) {
+      modalOpenSource = audioCtx.createMediaElementSource(modalOpenAudio);
+      modalOpenSource.connect(soundGain);
     }
     if (!clickSource && audioCtx) {
       clickSource = audioCtx.createMediaElementSource(clickAudio);
@@ -1440,6 +1453,9 @@ function updateAudioVolumes() {
   if (timeAudio) {
     timeAudio.volume = soundLevel;
   }
+  if (modalOpenAudio) {
+    modalOpenAudio.volume = soundLevel;
+  }
   if (clickAudio) {
     clickAudio.volume = soundLevel;
   }
@@ -1473,6 +1489,13 @@ function playLowTimeTick(force = false) {
   lastLowTimeTick = now;
   if (!tickAudio) return;
   const inst = tickAudio.cloneNode();
+  inst.volume = (soundVolume / 100) * 1.0;
+  inst.play().catch(() => {});
+}
+
+function playModalOpenSound() {
+  if (!soundOn || !modalOpenAudio) return;
+  const inst = modalOpenAudio.cloneNode();
   inst.volume = (soundVolume / 100) * 1.0;
   inst.play().catch(() => {});
 }

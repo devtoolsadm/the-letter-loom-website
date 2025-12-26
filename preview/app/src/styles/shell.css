@@ -448,6 +448,36 @@ body.shell-ready #game-root {
   display: none;
   flex-direction: column;
   gap: 10px;
+  opacity: 0;
+  transform: translateY(10px) scale(0.98);
+  transition:
+    opacity 220ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+
+.screen.screen-enter {
+  display: flex;
+  opacity: 0;
+  transform: translateY(10px) scale(0.98);
+}
+
+.screen.screen-enter-active,
+.screen.active {
+  display: flex;
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.screen.screen-leave {
+  display: flex;
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.screen.screen-leave-active {
+  opacity: 0;
+  transform: translateY(-8px) scale(0.98);
 }
 
 #screen-test-modal {
