@@ -51,6 +51,8 @@ let installedAppDetected = false;
 let introAudio = null;
 let clickAudio = null;
 let clockAudio = null;
+let tickAudio = null;
+let timeAudio = null;
 let audioReady = false;
 let audioCtx = null;
 let musicGain = null;
@@ -58,6 +60,8 @@ let soundGain = null;
 let musicSource = null;
 let clickSource = null;
 let clockSource = null;
+let tickSource = null;
+let timeSource = null;
 let wakeLockTimer = null;
 const WAKE_LOCK_TIMEOUT_MS = 5 * 60 * 1000;
 let pilotState = null;
@@ -670,6 +674,10 @@ function renderPilot() {
       "time-pressure",
       pilotState.phase === "strategy-run" && pilotState.remaining <= 10
     );
+    strategyCard.classList.toggle(
+      "time-pressure-urgent",
+      pilotState.phase === "strategy-run" && pilotState.remaining <= 5
+    );
   }
   if (creationCard) {
     creationCard.classList.toggle("hidden", !showCreationTimers);
@@ -677,6 +685,10 @@ function renderPilot() {
     creationCard.classList.toggle(
       "time-pressure",
       pilotState.phase === "creation-run" && pilotState.remaining <= 10
+    );
+    creationCard.classList.toggle(
+      "time-pressure-urgent",
+      pilotState.phase === "creation-run" && pilotState.remaining <= 5
     );
   }
   if (roundCardContainer) {
@@ -768,6 +780,10 @@ function startPilotMatch() {
   if (!pilotState) initPilot();
   stopPilotTimer();
   stopClockLoop(false);
+  if (introAudio) {
+    introAudio.pause();
+    introAudio.currentTime = 0;
+  }
   pilotState.round = 1;
   pilotState.phase = "strategy-ready";
   pilotState.remaining = pilotState.strategy;
@@ -875,8 +891,14 @@ function runPilotCountdown(kind) {
 
 function handleTimeUp(kind) {
   // Notify user
-  if (soundOn) {
-    playLowTimeTick(true);
+  if (soundOn && timeAudio) {
+    try {
+      const inst = timeAudio.cloneNode();
+      inst.volume = (soundVolume / 100) * 1.0;
+      inst.play().catch(() => {});
+    } catch (e) {
+      playLowTimeTick(true);
+    }
   }
   if (navigator.vibrate) {
     try {
@@ -1324,6 +1346,12 @@ function setupAudio() {
   clockAudio.loop = true;
   clockAudio.volume = 1;
 
+  tickAudio = new Audio("assets/sounds/tick.mp3");
+  tickAudio.volume = 1;
+
+  timeAudio = new Audio("assets/sounds/time.mp3");
+  timeAudio.volume = 1;
+
   clickAudio = new Audio("assets/sounds/click.mp3");
   clickAudio.volume = 1;
 
@@ -1336,6 +1364,14 @@ function setupAudio() {
     if (!clockSource && audioCtx) {
       clockSource = audioCtx.createMediaElementSource(clockAudio);
       clockSource.connect(musicGain);
+    }
+    if (!tickSource && audioCtx) {
+      tickSource = audioCtx.createMediaElementSource(tickAudio);
+      tickSource.connect(soundGain);
+    }
+    if (!timeSource && audioCtx) {
+      timeSource = audioCtx.createMediaElementSource(timeAudio);
+      timeSource.connect(soundGain);
     }
     if (!clickSource && audioCtx) {
       clickSource = audioCtx.createMediaElementSource(clickAudio);
@@ -1387,6 +1423,12 @@ function updateAudioVolumes() {
   if (clockAudio) {
     clockAudio.volume = musicLevel;
   }
+  if (tickAudio) {
+    tickAudio.volume = soundLevel;
+  }
+  if (timeAudio) {
+    timeAudio.volume = soundLevel;
+  }
   if (clickAudio) {
     clickAudio.volume = soundLevel;
   }
@@ -1418,9 +1460,9 @@ function playLowTimeTick(force = false) {
   const now = Date.now();
   if (!force && now - lastLowTimeTick < 900) return;
   lastLowTimeTick = now;
-  if (!clickAudio) return;
-  const inst = clickAudio.cloneNode();
-  inst.volume = (soundVolume / 100) * 0.8;
+  if (!tickAudio) return;
+  const inst = tickAudio.cloneNode();
+  inst.volume = (soundVolume / 100) * 1.0;
   inst.play().catch(() => {});
 }
 

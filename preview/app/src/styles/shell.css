@@ -1267,6 +1267,14 @@ body.splash-ready #splashLoadingBlock {
     0 12px 18px rgba(0, 0, 0, 0.18);
 }
 
+.pilot-timer.time-pressure-urgent {
+  animation: flashStress 0.6s ease-in-out infinite;
+  box-shadow:
+    0 0 0 3px rgba(239, 68, 68, 0.35),
+    inset 0 0 14px rgba(239, 68, 68, 0.3),
+    0 14px 20px rgba(0, 0, 0, 0.24);
+}
+
 @keyframes pulseStress {
   0% {
     transform: scale(1);
@@ -1276,6 +1284,21 @@ body.splash-ready #splashLoadingBlock {
   }
   100% {
     transform: scale(1);
+  }
+}
+
+@keyframes flashStress {
+  0% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  50% {
+    transform: scale(1.02);
+    filter: brightness(1.08);
+  }
+  100% {
+    transform: scale(1);
+    filter: brightness(1);
   }
 }
 
