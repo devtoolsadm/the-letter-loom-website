@@ -138,7 +138,8 @@ function renderShellTexts() {
   setText("pilotStartStrategyBtn", shellTexts.pilotStartStrategy);
   setText("pilotStrategyFinishBtn", shellTexts.pilotFinish);
   setText("pilotStartCreationBtn", shellTexts.pilotStartCreation);
-    setText("pilotNextRoundBtn", shellTexts.pilotNextRound);
+  setText("pilotCreationFinishBtn", shellTexts.pilotFinish);
+  setText("pilotNextRoundBtn", shellTexts.pilotNextRound);
   setText("confirmTitle", shellTexts.confirmTitle || shellTexts.apply || "Confirmar");
   setText("confirmBody", shellTexts.confirmBodyExit || "");
   setText("confirmAcceptBtn", shellTexts.confirmAccept || shellTexts.ok || "OK");
@@ -418,8 +419,8 @@ function setupNavigation() {
     ["pilotStartMatchBtn", () => startPilotMatch()],
     ["pilotStartStrategyBtn", () => startPilotPhase("strategy")],
     ["pilotStartCreationBtn", () => startPilotPhase("creation")],
-    ["pilotStrategyFinishBtn", () => finishPilotPhase("strategy")],
-    ["pilotCreationFinishBtn", () => finishPilotPhase("creation")],
+    ["pilotStrategyFinishBtn", () => confirmFinishPhase("strategy")],
+    ["pilotCreationFinishBtn", () => confirmFinishPhase("creation")],
     ["pilotNextRoundBtn", () => advancePilotRound()],
     ["confirmAcceptBtn", () => handleConfirmAccept()],
     ["confirmCancelBtn", () => handleConfirmCancel()],
@@ -767,6 +768,20 @@ function finishPilotPhase(kind) {
       renderPilot();
     }
   }
+}
+
+function confirmFinishPhase(kind) {
+  const body =
+    kind === "strategy"
+      ? shellTexts.confirmBodyFinish || shellTexts.confirmBodyExit || "Finish this phase?"
+      : shellTexts.confirmBodyFinish || shellTexts.confirmBodyExit || "Finish this phase?";
+  openConfirm({
+    title: shellTexts.confirmTitle || "Confirmar",
+    body,
+    acceptText: shellTexts.confirmAccept || "OK",
+    cancelText: shellTexts.confirmCancel || "Cancelar",
+    onConfirm: () => finishPilotPhase(kind),
+  });
 }
 
 function runPilotCountdown(kind) {
