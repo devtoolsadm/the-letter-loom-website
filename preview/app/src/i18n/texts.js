@@ -57,12 +57,14 @@ export const TEXTS = {
     wakeLockStatusActiveFallback: "Pantalla activa (vídeo de respaldo).",
     wakeLockStatusFallbackFailed: "No se pudo mantener la pantalla activa (vídeo).",
     wakeLockStatusInactive: "Pantalla puede bloquearse.",
-    orientationmassage: "Pon tu dispositivo en VERTICAL para jugar",
+    orientationMessage: "Pon tu dispositivo en VERTICAL para jugar",
     prototypeVideoFallback: "Tu navegador no soporta el elemento de vídeo.",
     supportTitle: "Apóyanos",
     supportBody:
       "Ayúdanos a lanzar The Letter Loom. Tu apoyo nos permite producir la baraja y mejorar el juego.",
     supportCta: "Quiero el juego",
+    manualTitle: "Manual de instrucciones",
+    manualDownload: "Abrir en pestana",
     confirmTitle: "Confirmar",
     confirmBodyExit: "¿Seguro que quieres salir a la pantalla inicial?",
     confirmTitleFinish: "Finalizar cronómetro",
@@ -84,6 +86,7 @@ export const TEXTS = {
     pilotPause: "⏸",
     pilotResume: "▶ Continuar",
     pilotFinish: "⏹",
+    pilotEndMatch: "Finalizar partida",
   },
   en: {
     languageName: "English",
@@ -141,12 +144,14 @@ export const TEXTS = {
     wakeLockStatusActiveFallback: "Screen on (video fallback).",
     wakeLockStatusFallbackFailed: "Could not keep screen on (video error).",
     wakeLockStatusInactive: "Screen may sleep.",
-    orientationmassage: "Put your device in PORTRAIT to play",
+    orientationMessage: "Put your device in PORTRAIT to play",
     prototypeVideoFallback: "Your browser does not support the video element.",
     supportTitle: "Support us",
     supportBody:
       "Help us launch The Letter Loom. Your support lets us produce the deck and improve the game.",
     supportCta: "I want the game",
+    manualTitle: "Game manual",
+    manualDownload: "Open in new tab",
     confirmTitle: "Confirm",
     confirmBodyExit: "Are you sure you want to go back to the home screen?",
     confirmTitleFinish: "Finish timer",
@@ -168,6 +173,7 @@ export const TEXTS = {
     pilotPause: "⏸",
     pilotResume: "▶ Resume",
     pilotFinish: "⏹",
+    pilotEndMatch: "End match",
   },
 };
 

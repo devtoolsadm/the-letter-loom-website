@@ -137,6 +137,8 @@ function renderShellTexts() {
   setText("supportTitle", shellTexts.supportTitle);
   setText("supportBody", shellTexts.supportBody);
   setText("supportCtaBtn", shellTexts.supportCta);
+  setText("manualTitle", shellTexts.manualTitle || shellTexts.splashHelp || "Manual");
+  setText("manualDownloadBtn", shellTexts.manualDownload || shellTexts.splashHelp || "Open");
   setText("pilotTitle", shellTexts.pilotTitle);
   setText("pilotConfigTitle", shellTexts.pilotConfigTitle);
   setText("pilotStrategyLabel", shellTexts.pilotStrategyLabel);
@@ -570,18 +572,28 @@ function setupNavigation() {
 function openManual() {
   playClickSfx();
   playModalOpenSound();
-  // In PWA standalone there is no back button; prefer download to avoid trapping the user.
-  if (isStandaloneApp()) {
-    const link = document.createElement("a");
-    link.href = MANUAL_URL;
-    link.download = "manual.pdf";
-    link.rel = "noopener";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  } else {
-    window.open(MANUAL_URL, "_blank", "noopener");
+  const frame = document.getElementById("manualFrame");
+  if (frame && !frame.dataset.loaded) {
+    const src = frame.getAttribute("data-manual-src") || MANUAL_URL;
+    frame.src = src;
+    frame.dataset.loaded = "1";
   }
+  const downloadBtn = document.getElementById("manualDownloadBtn");
+  if (downloadBtn && !downloadBtn.dataset.bound) {
+    downloadBtn.dataset.bound = "1";
+    downloadBtn.addEventListener("click", () => {
+      playClickSfx();
+      const link = document.createElement("a");
+      link.href = MANUAL_URL;
+      link.download = "manual.pdf";
+      link.target = "_blank";
+      link.rel = "noopener";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    });
+  }
+  openModal("manual", { closable: true });
 }
 
 function initPilot() {
@@ -959,7 +971,7 @@ function resetPilotState() {
 function confirmExitToSplash() {
   playClickSfx();
   openConfirm({
-    title: shellTexts.confirmTitle || "Confirmar",
+    title: shellTexts.pilotEndMatch || "Confirmar",
     body: shellTexts.confirmBodyExit || "",
     acceptText: shellTexts.confirmAccept || "OK",
     cancelText: shellTexts.confirmCancel || "Cancelar",
@@ -1174,6 +1186,10 @@ function handleModalClosed(evt) {
       settingsSnapshot = getCurrentSettingsState();
     } else {
       revertSettingsSnapshot();
+    }
+  } else if (detail.id === "confirm") {
+    if (detail.reason !== "action") {
+      handleConfirmCancel();
     }
   }
 }
@@ -1576,6 +1592,15 @@ function loadSplashAssets() {
     "assets/img/previous.svg",
   ];
 
+  const soundAssets = [
+    "assets/sounds/intro.wav",
+    "assets/sounds/click.mp3",
+    "assets/sounds/clock-melody.mp3",
+    "assets/sounds/tick.mp3",
+    "assets/sounds/time.mp3",
+    "assets/sounds/open.mp3",
+  ];
+
   const restLoaders = [...restData.map((entry) => entry.loader)];
   const seen = new Set(restData.map((entry) => entry.src));
   explicitRest.forEach((src) => {
@@ -1583,6 +1608,11 @@ function loadSplashAssets() {
     if (seen.has(src)) return;
     seen.add(src);
     restLoaders.push(() => loadImage(src));
+  });
+  soundAssets.forEach((src) => {
+    if (seen.has(src)) return;
+    seen.add(src);
+    restLoaders.push(() => preloadAsset(src).catch(() => {}));
   });
 
   return {

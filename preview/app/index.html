@@ -333,6 +333,27 @@
           </div>
         </div>
       </div>
+      <div class="modal-overlay" data-modal="manual" data-closable="1">
+        <div class="frame-panel">
+          <div class="modal-stitch"></div>
+          <div class="modal-ribbon"><span id="manualTitle"></span></div>
+          <button class="modal-close" data-modal-close="manual" aria-label="Close"></button>
+          <div class="modal-canvas manual-canvas">
+            <div class="modal-content manual-content">
+              <iframe
+                id="manualFrame"
+                class="manual-frame"
+                title="Game manual"
+                data-manual-src="assets/doc/manual.pdf"
+                loading="lazy"
+              ></iframe>
+              <div class="manual-actions">
+                <button class="game-btn btn-blue" type="button" id="manualDownloadBtn"></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
     <video id="videoWakeLockWorkaround" loop muted playsinline>
       <source data-src="assets/img/empty-video.mp4" type="video/mp4" />
