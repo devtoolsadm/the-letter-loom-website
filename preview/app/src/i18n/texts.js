@@ -64,7 +64,7 @@ export const TEXTS = {
       "Ayúdanos a lanzar The Letter Loom. Tu apoyo nos permite producir la baraja y mejorar el juego.",
     supportCta: "Quiero el juego",
     manualTitle: "Manual de instrucciones",
-    manualDownload: "Abrir en pestana",
+    manualDownload: "Abrir en pestaña",
     confirmTitle: "Confirmar",
     confirmBodyExit: "¿Seguro que quieres salir a la pantalla inicial?",
     confirmTitleFinish: "Finalizar cronómetro",

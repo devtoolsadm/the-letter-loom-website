@@ -290,7 +290,63 @@ function getDisplayMode() {
 }
 
 function isIOS() {
-  return /iPhone|iPad|iPod/i.test(navigator.userAgent);
+  return /iPhone|iPad|iPod/i.test(navigator.userAgent) || 
+        (navigator.userAgent.includes('Mac') && 'ontouchend' in document);
+}
+
+function createDownload() {
+  if (isIOS() || isStandaloneApp() || !('download' in document.createElement('a'))) {
+    return (link, filename) => downloadWithBlob(link, filename);
+  } else {
+    return (link, filename) => downloadWithAnchor(link, filename);
+  }
+}
+
+function getFilenameFromLink(link) {
+  try { 
+    const url = new URL(link, window.location.href);
+    const path = url.pathname;
+    const lastSegment = path.substring(path.lastIndexOf('/') + 1);
+    return lastSegment || '';
+  } catch {
+    return '';
+  }
+}
+
+
+function downloadWithAnchor(link, filename) {
+  const a = document.createElement('a');
+  a.href = link;
+  // If filename is provided, use it; otherwise, extract from link
+  if (typeof filename === 'string' && filename.length > 0) {
+    a.download = filename;
+  } else {
+    a.download = getFilenameFromLink(link);
+  }
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+function downloadWithBlob(link, filename) {
+  fetch(link)
+    .then(response => response.blob())
+    .then(blob => {
+      const fileURL = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = fileURL;
+      // If filename is provided, use it; otherwise, extract from link
+      if (typeof filename === 'string' && filename.length > 0) {
+        a.download = filename;
+      } else {
+        a.download = getFilenameFromLink(link);
+      }
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(fileURL);
+    })
+    .catch(error => console.error('Download error (with blob):', error));
 }
 
 function switchLanguage(nextLang) {
@@ -583,14 +639,7 @@ function openManual() {
     downloadBtn.dataset.bound = "1";
     downloadBtn.addEventListener("click", () => {
       playClickSfx();
-      const link = document.createElement("a");
-      link.href = MANUAL_URL;
-      link.download = "manual.pdf";
-      link.target = "_blank";
-      link.rel = "noopener";
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
+      createDownload()(MANUAL_URL, "LetterLoom_Manual.pdf");
     });
   }
   openModal("manual", { closable: true });
