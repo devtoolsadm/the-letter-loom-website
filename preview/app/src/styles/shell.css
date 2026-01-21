@@ -2226,8 +2226,8 @@ body.splash-ready #splashLoadingBlock {
 .match-summary-config-btn {
   align-self: flex-end;
   margin-left: auto;
-  font-size: 8px;
-  padding: 2px 4px;
+  font-size: 12px;
+  padding: 8px 4px;
   min-width: 0;
   min-height: 0;
   line-height: 1;
@@ -3576,7 +3576,7 @@ body.splash-ready #splashLoadingBlock {
     align-items: center;
     justify-content: space-between;
     gap: 6px;
-    margin-bottom: 0;
+    margin-bottom: 2px;
   }
 
   .match-validation-title {
@@ -3592,22 +3592,42 @@ body.splash-ready #splashLoadingBlock {
   }
 
   .validation-rules-btn {
-    width: 24px;
-    height: 24px;
+    width: var(--validation-control-height);
+    height: var(--validation-control-height);
     flex: 0 0 auto;
     padding: 0;
-    border: 0;
-    background: transparent;
-    border-radius: 6px;
+    border: 2px solid #a36500;
+    background: #f7b500;
+    border-radius: 10px;
     cursor: pointer;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    box-shadow: none;
+    box-shadow: 0 2px 0 #a36500, 0 4px 8px rgba(0, 0, 0, 0.18);
+    position: relative;
+    overflow: hidden;
   }
 
 .validation-rules-btn:hover {
   filter: brightness(1.05);
+}
+
+.validation-rules-btn:active {
+  transform: translateY(1px);
+  box-shadow: 0 1px 0 #a36500;
+}
+
+.validation-rules-btn::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: url("../../assets/img/button.svg") center / 100% 100% no-repeat;
+  z-index: 1;
+}
+
+.validation-rules-btn .icon-mini {
+  position: relative;
+  z-index: 2;
 }
 
 .validation-rules-btn:disabled {
@@ -3617,8 +3637,8 @@ body.splash-ready #splashLoadingBlock {
 
 .icon-mini {
   display: inline-block;
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
   background-size: contain;
   background-repeat: no-repeat;
   background-position: center;
@@ -3630,6 +3650,7 @@ body.splash-ready #splashLoadingBlock {
 
 .icon-mini.icon-rules {
   background-image: url("../../assets/img/rules.svg");
+  filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.2));
 }
 
   .match-validation-row {
