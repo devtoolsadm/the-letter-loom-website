@@ -1,5 +1,14 @@
+import {
+  DEFAULT_PLAYER_COUNT,
+  DEFAULT_STRATEGY_SECONDS,
+  DEFAULT_CREATION_SECONDS,
+  DEFAULT_ROUNDS_TARGET,
+  DEFAULT_POINTS_TARGET,
+  MATCH_MODE_ROUNDS,
+} from "./constants.js";
+
 const STATE_KEY = "letterloom_state";
-const STATE_VERSION = 1;
+const STATE_VERSION = 2;
 
 const defaultState = () => ({
   version: STATE_VERSION,
@@ -7,9 +16,22 @@ const defaultState = () => ({
     language: null,
     sound: true,
     music: true,
+    soundVolume: 50,
+    musicVolume: 50,
+    validationRules: null, // can be string or map per language
+    knownPlayerNames: [],
   },
-  gamePreferences: {},
-  lastSession: null,
+  gamePreferences: {
+    playersCount: DEFAULT_PLAYER_COUNT,
+    strategySeconds: DEFAULT_STRATEGY_SECONDS,
+    creationSeconds: DEFAULT_CREATION_SECONDS,
+    mode: MATCH_MODE_ROUNDS,
+    roundsTarget: DEFAULT_ROUNDS_TARGET,
+    pointsTarget: DEFAULT_POINTS_TARGET,
+    scoringEnabled: true,
+    players: [],
+  },
+  matchState: null,
   meta: {
     lastUpdated: Date.now(),
   },
@@ -64,8 +86,8 @@ export function updateState(partial = {}) {
     ...current,
     settings: mergeShallow(current.settings, partial.settings || {}),
     gamePreferences: mergeShallow(current.gamePreferences, partial.gamePreferences || {}),
-    lastSession:
-      partial.lastSession !== undefined ? partial.lastSession : current.lastSession,
+    matchState:
+      partial.matchState !== undefined ? partial.matchState : current.matchState,
     meta: { ...current.meta, lastUpdated: Date.now() },
   };
   saveState(next);

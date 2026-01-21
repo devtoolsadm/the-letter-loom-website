@@ -31,34 +31,44 @@ function pushLog(entry, emit = true) {
   }
 }
 
-function makeEntry(level, message, context) {
+function makeEntry(level, message, contexts) {
   return {
     type: "log-entry",
     id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
     time: Date.now(),
     level,
     message,
-    context: context || null,
+    context: contexts && contexts.length ? contexts : null,
     source: "ui",
   };
 }
 
-export function log(level, message, context) {
-  const entry = makeEntry(level, message, context);
+function formatForConsole(level, message, contexts) {
+  const parts = [`[${level.toUpperCase()}] ${message}`];
+  if (contexts && contexts.length) {
+    contexts.forEach((ctx) => parts.push(ctx));
+  } else {
+    parts.push("");
+  }
+  return parts;
+}
+
+export function log(level, message, ...contexts) {
+  const entry = makeEntry(level, message, contexts);
   pushLog(entry);
   if (channel) {
     channel.postMessage(entry);
   }
   const consoleMethod = level === "error" ? "error" : level === "warn" ? "warn" : "log";
-  console[consoleMethod](`[${level.toUpperCase()}] ${message}`, context || "");
+  console[consoleMethod](...formatForConsole(level, message, contexts));
 }
 
 export const logger = {
-  log: (message, context) => log("info", message, context),
-  info: (message, context) => log("info", message, context),
-  warn: (message, context) => log("warn", message, context),
-  error: (message, context) => log("error", message, context),
-  debug: (message, context) => log("debug", message, context),
+  log: (message, ...ctx) => log("info", message, ...ctx),
+  info: (message, ...ctx) => log("info", message, ...ctx),
+  warn: (message, ...ctx) => log("warn", message, ...ctx),
+  error: (message, ...ctx) => log("error", message, ...ctx),
+  debug: (message, ...ctx) => log("debug", message, ...ctx),
 };
 
 export function onLog(callback) {
@@ -67,5 +77,5 @@ export function onLog(callback) {
 }
 
 export function getLogs() {
-  return logs.slice();
+  return logs.slice().reverse();
 }

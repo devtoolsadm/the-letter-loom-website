@@ -1,366 +1,716 @@
 <!DOCTYPE html>
 <html lang="en" data-bg-image="assets/img/background.png">
-  <head>
-    <meta charset="UTF-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
-    />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <link rel="manifest" href="manifest.json" />
-    <link rel="stylesheet" href="src/styles/shell.css" />
-    <link rel="stylesheet" href="src/styles/modal.css" />
-    <meta name="theme-color" content="#73C2FB" />
-    <title>Letter Loom</title>
-    <script>
-      (() => {
-        const cdnSrc =
-          "https://cdn.jsdelivr.net/npm/@khmyznikov/pwa-install/dist/pwa-install.bundle.js";
-        const localSrc = "assets/js/pwa-install.bundle.js";
-        let resolveReady;
-        window.pwaInstallReady = new Promise((res) => {
-          resolveReady = res;
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="stylesheet" href="src/styles/shell.css" />
+  <link rel="stylesheet" href="src/styles/modal.css" />
+  <meta name="theme-color" content="#73C2FB" />
+  <title>Letter Loom</title>
+  <script>
+    (() => {
+      const cdnSrc =
+        "https://cdn.jsdelivr.net/npm/@khmyznikov/pwa-install/dist/pwa-install.bundle.js";
+      const localSrc = "assets/js/pwa-install.bundle.js";
+      let resolveReady;
+      window.pwaInstallReady = new Promise((res) => {
+        resolveReady = res;
+      });
+      const load = (src) =>
+        new Promise((resolve, reject) => {
+          const s = document.createElement("script");
+          s.src = src;
+          s.defer = true;
+          s.onload = () => resolve(src);
+          s.onerror = () => reject(new Error(`Failed to load ${src}`));
+          document.head.appendChild(s);
         });
-        const load = (src) =>
-          new Promise((resolve, reject) => {
-            const s = document.createElement("script");
-            s.src = src;
-            s.defer = true;
-            s.onload = () => resolve(src);
-            s.onerror = () => reject(new Error(`Failed to load ${src}`));
-            document.head.appendChild(s);
-          });
-        load(cdnSrc)
-          .then((src) => resolveReady(src))
-          .catch(() =>
-            load(localSrc)
-              .then((src) => resolveReady(src))
-              .catch((err) => {
-                console.warn("pwa-install script failed to load", err);
-                resolveReady(null);
-              })
-          );
-      })();
-    </script>
-  </head>
-  <body>
-    <!-- Asset loading: keep heavy images/media using data-src. The shell loader preloads them and assigns src to avoid broken placeholders during the splash. -->
-    <div id="orientation-overlay">
-      <div id="orientation-root" class="rootGameScreen">
-        <div class="orientation-content">
-          <img
-            class="orientation-icon"
-            data-src="assets/img/rotate-device-icon.png"
-            alt="Rotate device icon"
-          />
-          <div id="orientation-message"></div>
-        </div>
+      load(cdnSrc)
+        .then((src) => resolveReady(src))
+        .catch(() =>
+          load(localSrc)
+            .then((src) => resolveReady(src))
+            .catch((err) => {
+              console.warn("pwa-install script failed to load", err);
+              resolveReady(null);
+            })
+        );
+    })();
+  </script>
+</head>
+
+<body>
+  <!-- Asset loading: keep heavy images/media using data-src. The shell loader preloads them and assigns src to avoid broken placeholders during the splash. -->
+  <div id="orientation-overlay">
+    <div id="orientation-root" class="rootGameScreen">
+      <div class="orientation-content">
+        <img class="orientation-icon" data-src="assets/img/rotate-device-icon.png" alt="Rotate device icon" />
+        <div id="orientation-message"></div>
       </div>
     </div>
-    <div id="game-root" class="rootGameScreen">
-      <pwa-install id="pwa-install" manifest-url="manifest.json"></pwa-install>
-      <div class="game-content">
-        <header class="game-header" id="gameHeader"></header>
-        <main class="game-main" id="gameMain">
-          <div class="screen splash-screen" id="screen-splash">
-            <div class="splash-hero">
-              <img
-                id="splashLogo"
-                class="splash-logo"
-                src="assets/img/1x1-transparent.png"
-                data-src="assets/img/logo-letters.png"
-                alt="Letter Loom logo"
-                draggable="false"
-              />
-            </div>
-            <div class="splash-hero" id="splashLoadingBlock">
-              
-              <div class="splash-loader">
-                <div class="loader-label">
-                  <span id="splashLoaderLabel">Cargando...</span>
-                  <span id="splashLoaderPercent">0%</span>
-                </div>
-                <div class="loader-bar">
-                  <span id="splashLoaderProgress"></span>
-                </div>
-              </div>
-            </div>
+  </div>
+  <div id="game-root" class="rootGameScreen">
+    <pwa-install id="pwa-install" manifest-url="manifest.json"></pwa-install>
+    <div class="game-content">
+      <header class="game-header" id="gameHeader"></header>
+      <main class="game-main" id="gameMain">
+        <div class="screen splash-screen" id="screen-splash">
+          <div class="splash-hero">
+            <img id="splashLogo" class="splash-logo" src="assets/img/1x1-transparent.png"
+              data-src="assets/img/logo-letters.png" alt="Letter Loom logo" draggable="false" />
+          </div>
+          <div class="splash-hero" id="splashLoadingBlock">
 
-            <div class="splash-main hidden" id="splashMainContent">
-              <div class="cta-stack">
-                <button class="game-btn primary" id="splashContinueBtn"></button>
-                <button class="game-btn ghost hidden" id="resumeMatchBtn"></button>
-                <button class="game-btn btn-blue" id="installAppBtn"></button>
+            <div class="splash-loader">
+              <div class="loader-label">
+                <span id="splashLoaderLabel">Loading...</span>
+                <span id="splashLoaderPercent">0%</span>
               </div>
-              <div class="splash-actions">
-                <button class="icon-btn glossy btn-yellow" type="button" id="settingsBtn" aria-label="Settings" data-modal-open="settings">
-                  <span class="icon-btn-img icon-settings" aria-hidden="true"></span>
-                </button>
-                <button class="icon-btn glossy btn-yellow" type="button" id="buyBtn" aria-label="Buy" data-modal-open="support">
-                  <span class="icon-btn-img icon-shop" aria-hidden="true"></span>
-                </button>
-                <button class="icon-btn glossy btn-yellow" type="button" id="helpBtn" aria-label="Help">
-                  <span class="icon-btn-img icon-help" aria-hidden="true"></span>
-                </button>
-              </div>              
+              <div class="loader-bar">
+                <span id="splashLoaderProgress"></span>
+              </div>
             </div>
           </div>
 
-          <div class="screen pilot-screen" id="screen-pilot">
-
-            <div class="pilot-top-row" id="pilotTopRow">
-              <button class="icon-btn glossy btn-yellow pilot-back-btn" type="button" id="pilotBackBtn" aria-label="Back">
-                <span class="icon-btn-img icon-prev" aria-hidden="true"></span>
+          <div class="splash-main hidden" id="splashMainContent">
+            <div class="cta-stack">
+              <button class="game-btn primary" id="splashContinueBtn"></button>
+              <button class="game-btn ghost hidden" id="resumeMatchBtn"></button>
+              <button class="game-btn btn-blue" id="installAppBtn"></button>
+            </div>
+            <div class="splash-actions">
+              <button class="icon-btn glossy btn-yellow" type="button" id="settingsBtn" aria-label="Settings"
+                data-modal-open="settings">
+                <span class="icon-btn-img icon-settings" aria-hidden="true"></span>
+              </button>
+              <button class="icon-btn glossy btn-yellow" type="button" id="buyBtn" aria-label="Buy"
+                data-modal-open="support">
+                <span class="icon-btn-img icon-shop" aria-hidden="true"></span>
+              </button>
+              <button class="icon-btn glossy btn-yellow" type="button" id="helpBtn" aria-label="Help">
+                <span class="icon-btn-img icon-help" aria-hidden="true"></span>
               </button>
             </div>
-
-            <div class="pilot-config" id="pilotConfigBlock">
-              <div class="pilot-card">
-                <div class="pilot-card-header" id="pilotConfigTitle"></div>
-                <div class="pilot-row">
-                  <div class="pilot-label" id="pilotStrategyLabel"></div>
-                  <div class="pilot-controls">
-                    <button class="icon-btn glossy gray pilot-ctrl pilot-ctrl-minus" type="button" id="pilotStrategyMinus" aria-label="-10s">
-                      <span class="pilot-ctrl-text">-</span>
-                    </button>
-                    <div class="pilot-value" id="pilotStrategyValue">45s</div>
-                    <button class="icon-btn glossy gray pilot-ctrl pilot-ctrl-plus" type="button" id="pilotStrategyPlus" aria-label="+10s">
-                      <span class="pilot-ctrl-text">+</span>
-                    </button>
-                  </div>
-                </div>
-                <div class="pilot-row">
-                  <div class="pilot-label" id="pilotCreationLabel"></div>
-                  <div class="pilot-controls">
-                    <button class="icon-btn glossy gray pilot-ctrl pilot-ctrl-minus" type="button" id="pilotCreationMinus" aria-label="-10s">
-                      <span class="pilot-ctrl-text">-</span>
-                    </button>
-                    <div class="pilot-value" id="pilotCreationValue">70s</div>
-                    <button class="icon-btn glossy gray pilot-ctrl pilot-ctrl-plus" type="button" id="pilotCreationPlus" aria-label="+10s">
-                      <span class="pilot-ctrl-text">+</span>
-                    </button>
-                  </div>
-                </div>
-                <div class="pilot-actions">
-                  <button class="game-btn primary" type="button" id="pilotStartMatchBtn"></button>
-                </div>
-              </div>
             </div>
+          </div>
 
-            <div class="pilot-round-card hidden" id="pilotRoundCard">
-              <div class="pilot-round-header" id="pilotRoundLabel"></div>
-              <div class="pilot-timer-block">
-                <div class="pilot-timer" id="pilotStrategyTimerCard">
-                  <div class="pilot-timer-title" id="pilotStrategyTimerTitle"></div>
-                  <div class="pilot-timer-value" id="pilotStrategyTimerValue">00:45</div>
-                  <div class="pilot-timer-actions">
-                    <button class="game-btn btn-blue" type="button" id="pilotStartStrategyBtn"></button>
-                    <button class="game-btn btn-red hidden" type="button" id="pilotStrategyFinishBtn"></button>
-                  </div>
-                </div>
-                <div class="pilot-timer" id="pilotCreationTimerCard">
-                  <div class="pilot-timer-title" id="pilotCreationTimerTitle"></div>
-                  <div class="pilot-timer-value" id="pilotCreationTimerValue">01:10</div>
-                  <div class="pilot-timer-actions">
-                    <button class="game-btn btn-blue" type="button" id="pilotStartCreationBtn"></button>
-                    <button class="game-btn btn-red hidden" type="button" id="pilotCreationFinishBtn"></button>
-                  </div>
-                </div>
-              </div>
-              <div class="pilot-timeup-cta hidden" id="pilotCreationTimeupCta">
-                <button class="game-btn btn-blue" type="button" id="pilotStartCreationCtaBtn"></button>
-              </div>
-              <div class="pilot-actions">
-                <button class="game-btn btn-green" type="button" id="pilotNextRoundBtn"></button>
-              </div>
+        <div class="screen help-screen" id="screen-help">
+          <div class="screen-topbar help-top-row">
+            <button class="icon-btn glossy btn-yellow help-back-btn" type="button" id="helpBackBtn" aria-label="Back">
+              <span class="icon-btn-img icon-prev" aria-hidden="true"></span>
+            </button>
+            <div class="modal-ribbon topbar-title text-border text-white text-uppercase">
+              <span id="helpTitle"></span>
             </div>
-
-            <div class="pilot-exit-row">
-              <button class="icon-btn glossy btn-yellow" type="button" id="pilotExitBtn" aria-label="Exit">
-                <span class="icon-btn-img icon-exit" aria-hidden="true"></span>
+            <button class="icon-btn glossy btn-yellow" type="button" id="helpSettingsBtn" aria-label="Settings">
+              <span class="icon-btn-img icon-settings" aria-hidden="true"></span>
+            </button>
+          </div>
+          <div class="help-wrapper">
+            <div class="help-actions">
+              <button class="game-btn btn-red fullwidth-btn" id="helpQuickBtn"></button>
+              <button class="game-btn btn-red fullwidth-btn" id="helpVideoBtn"></button>
+              <button class="game-btn btn-red fullwidth-btn" id="helpManualBtn"></button>
+            </div>
+            <div class="match-section match-validation-section">
+              <div id="helpValidationMount"></div>
+            </div>
+            <div class="help-socials">
+              <button class="icon-btn glossy btn-pink" type="button" id="helpInstagramBtn" aria-label="Instagram">
+                <span class="icon-btn-label" id="helpInstagramShort"></span>
+              </button>
+              <button class="icon-btn glossy btn-pink" type="button" id="helpTiktokBtn" aria-label="TikTok">
+                <span class="icon-btn-label" id="helpTiktokShort"></span>
+              </button>
+              <button class="icon-btn glossy btn-pink" type="button" id="helpWebBtn" aria-label="Website">
+                <span class="icon-btn-label" id="helpWebShort"></span>
+              </button>
+              <button class="icon-btn glossy btn-pink" type="button" id="helpEmailBtn" aria-label="Email">
+                <span class="icon-btn-label" id="helpEmailShort"></span>
               </button>
             </div>
           </div>
+        </div>
 
-          <div class="screen" id="screen-setup">
-            <h2 id="setupTitle"></h2>
-            <p id="setupSubtitle" class="lede"></p>
-            <div class="card">
-              <div class="card-header">
-                <div class="card-icon">👥</div>
-                <h3 id="playersTitle"></h3>
-              </div>
-              <ul id="playerList" class="list"></ul>
-              <button class="game-btn ghost" id="addPlayerBtn"></button>
-            </div>
-            <div class="card">
-              <div class="card-header">
-                <div class="card-icon">⏱️</div>
-                <h3 id="timersTitle"></h3>
-              </div>
-              <div class="field-row">
-                <label for="strategyTimerInput" id="strategyTimerLabel"></label>
-                <input type="number" id="strategyTimerInput" min="5" max="300" />
-              </div>
-              <div class="field-row">
-                <label for="creationTimerInput" id="creationTimerLabel"></label>
-                <input type="number" id="creationTimerInput" min="10" max="300" />
-              </div>
-            </div>
-            <button class="game-btn primary" id="startGameBtn"></button>
+        <div class="screen match-screen" id="screen-match">
+
+          <div class="screen-topbar match-top-row">
+            <button class="icon-btn glossy btn-yellow match-back-btn" type="button" id="matchBackBtn" aria-label="Back">
+              <span class="icon-btn-img icon-prev" aria-hidden="true"></span>
+            </button>
+            <div class="modal-ribbon topbar-title text-border text-white text-uppercase" id="matchConfigTitle"></div>
+            <button class="icon-btn glossy btn-yellow" type="button" id="matchExitBtn" aria-label="Exit">
+              <span class="icon-btn-img icon-exit" aria-hidden="true"></span>
+            </button>
+            <button class="icon-btn glossy btn-yellow" type="button" id="matchSettingsBtn" aria-label="Settings">
+              <span class="icon-btn-img icon-settings" aria-hidden="true"></span>
+            </button>
           </div>
-
-          <div class="screen" id="screen-live">
-            <h2 id="liveTitle"></h2>
-            <div class="card">
-              <div class="card-header">
-                <div class="card-icon">🕐</div>
-                <h3 id="phaseTitle"></h3>
-              </div>
-              <div class="phase-block">
-                <div class="phase-row" id="strategyPhaseRow">
-                  <span id="strategyPhaseLabel"></span>
-                  <span id="strategyTimerDisplay">00:30</span>
-                </div>
-                <div class="phase-row" id="creationPhaseRow">
-                  <span id="creationPhaseLabel"></span>
-                  <span id="creationTimerDisplay">01:00</span>
-                </div>
-                <div class="phase-actions">
-                  <button class="game-btn ghost" id="startStrategyBtn"></button>
-                  <button class="game-btn ghost" id="startCreationBtn"></button>
-                </div>
-              </div>
-            </div>
-            <button class="game-btn primary" id="goToScoringBtn"></button>
-          </div>
-
-          <div class="screen" id="screen-scoring">
-            <h2 id="scoringTitle"></h2>
-            <div id="scoringList" class="list"></div>
-            <div class="card summary-card">
-              <div id="scoringNote"></div>
-              <button class="game-btn primary" id="saveBazaBtn"></button>
-              <button class="game-btn ghost" id="editHistoryBtn"></button>
+          <div class="match-phase-indicator hidden" id="matchPhaseIndicator">
+            <div class="match-phase-switch" id="matchPhaseSwitch">
+              <button class="game-btn ghost match-phase-btn" type="button" id="matchPhaseStrategyBtn"></button>
+              <button class="icon-btn glossy btn-yellow match-phase-help" type="button" id="matchPhaseHelpBtn"
+                aria-label="">
+                <span class="icon-btn-img icon-help" aria-hidden="true"></span>
+              </button>
+              <button class="game-btn ghost match-phase-btn" type="button" id="matchPhaseCreationBtn"></button>
             </div>
           </div>
+          <div class="match-config" id="matchConfigBlock">
+            <div class="match-config-scroll">
+              <div class="match-section match-config-summary" id="matchConfigSummary">
+                <div class="match-summary-caption" id="matchSummaryCaption"></div>
+                <div class="match-summary-details" id="matchSummaryDetails"></div>
+                <button class="game-btn ghost match-summary-config-btn" type="button"
+                  id="matchSummaryConfigBtn"></button>
+              </div>
 
-          <div class="screen" id="screen-history">
-            <h2 id="historyTitle"></h2>
-            <div id="historyList" class="list"></div>
-            <button class="game-btn ghost" id="backToLiveBtn"></button>
+              <div class="match-section match-mode-card match-mode-block hidden" id="matchModeBlock">
+                <div class="match-label match-label-hidden" id="matchModeLabel"></div>
+                <div class="match-controls match-mode-switch">
+                  <button class="game-btn ghost" type="button" id="matchModeRoundsBtn"></button>
+                  <button class="game-btn ghost" type="button" id="matchModePointsBtn"></button>
+                </div>
+                <div class="match-row" id="matchRoundsRow">
+                  <div class="match-label match-label-hidden" id="matchRoundsLabel"></div>
+                  <div class="match-controls">
+                    <button class="icon-btn glossy gray match-ctrl match-ctrl-minus" type="button"
+                      id="matchRoundsMinus" aria-label="-1">
+                      <span class="match-ctrl-text">-</span>
+                    </button>
+                    <div class="match-value" id="matchRoundsValue">8</div>
+                    <button class="icon-btn glossy gray match-ctrl match-ctrl-plus" type="button"
+                      id="matchRoundsPlus" aria-label="+1">
+                      <span class="match-ctrl-text">+</span>
+                    </button>
+                  </div>
+                </div>
+                <div class="match-row hidden" id="matchPointsRow">
+                  <div class="match-label match-label-hidden" id="matchPointsLabel"></div>
+                  <div class="match-controls">
+                    <button class="icon-btn glossy gray match-ctrl match-ctrl-minus" type="button"
+                      id="matchPointsMinus" aria-label="-5">
+                      <span class="match-ctrl-text">-</span>
+                    </button>
+                    <div class="match-value" id="matchPointsValue">100</div>
+                    <button class="icon-btn glossy gray match-ctrl match-ctrl-plus" type="button"
+                      id="matchPointsPlus" aria-label="+5">
+                      <span class="match-ctrl-text">+</span>
+                    </button>
+                  </div>
+                </div>
+
+                <p class="match-mode-caption" id="matchModeCaption"></p>
+              </div>
+
+              <div class="match-section match-players-card">
+                <div class="match-players-header">
+                  <div class="match-label" id="matchPlayersLabel"></div>
+                  <div class="match-controls match-players-count">
+                    <button class="icon-btn glossy gray match-ctrl match-ctrl-minus" type="button"
+                      id="matchPlayersMinus" aria-label="-1">
+                      <span class="match-ctrl-text">-</span>
+                    </button>
+                    <div class="match-value" id="matchPlayersValue">4</div>
+                    <button class="icon-btn glossy gray match-ctrl match-ctrl-plus" type="button" id="matchPlayersPlus"
+                      aria-label="+1">
+                      <span class="match-ctrl-text">+</span>
+                    </button>
+                  </div>
+                </div>
+                <div class="match-players-list" id="matchPlayersList"></div>
+              </div>
+
+              <div class="match-config-advanced hidden" id="matchConfigAdvanced">
+                <div class="match-timers">
+                  <div class="match-row match-row-compact">
+                    <div class="match-label" id="matchStrategyLabel"></div>
+                    <div class="match-controls">
+                      <button class="icon-btn glossy gray match-ctrl match-ctrl-minus" type="button"
+                        id="matchStrategyMinus" aria-label="-10s">
+                        <span class="match-ctrl-text">-</span>
+                      </button>
+                      <div class="match-value" id="matchStrategyValue">45s</div>
+                      <button class="icon-btn glossy gray match-ctrl match-ctrl-plus" type="button"
+                        id="matchStrategyPlus" aria-label="+10s">
+                        <span class="match-ctrl-text">+</span>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="match-row match-row-compact">
+                    <div class="match-label" id="matchCreationLabel"></div>
+                    <div class="match-controls">
+                      <button class="icon-btn glossy gray match-ctrl match-ctrl-minus" type="button"
+                        id="matchCreationMinus" aria-label="-10s">
+                        <span class="match-ctrl-text">-</span>
+                      </button>
+                      <div class="match-value" id="matchCreationValue">70s</div>
+                      <button class="icon-btn glossy gray match-ctrl match-ctrl-plus" type="button"
+                        id="matchCreationPlus" aria-label="+10s">
+                        <span class="match-ctrl-text">+</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="match-section match-scoring-block">
+                  <div class="match-row">
+                    <div class="match-label" id="matchScoringLabel"></div>
+                    <div class="match-controls match-toggle">
+                      <button class="toggle-switch" type="button" id="matchScoringToggle"
+                        aria-pressed="false"></button>
+                    </div>
+                  </div>
+                  <div class="match-scoring-caption" id="matchScoringCaption"></div>
+                  <div class="match-row match-rules-row">
+                    <div class="match-label" id="matchRulesLabel"></div>
+                    <div class="match-controls">
+                      <button class="icon-btn glossy btn-yellow match-rules-btn" type="button"
+                        id="matchRulesBtn">
+                        <span class="icon-btn-img icon-rules" aria-hidden="true"></span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="match-actions">
+                <button class="game-btn primary" type="button" id="matchStartMatchBtn"></button>
+                <div class="match-start-hint hidden" id="matchStartHint"></div>
+              </div>
+            </div>
           </div>
 
-        </main>
-        <footer class="game-footer" id="gameFooter"></footer>
-      </div>
-      <!-- In-game modals (scaled with game root) -->
-      <div class="modal-overlay" data-modal="settings" data-closable="1">
-        <div class="frame-panel">
-          <div class="modal-stitch"></div>
-          <div class="modal-ribbon"><span id="settingsTitle"></span></div>
-          <button class="modal-close" data-modal-close="settings" aria-label="Close"></button>
-          <div class="modal-canvas">
-            <div class="modal-content settings-list">
-              <div class="settings-row">
-                <div class="settings-label">
-                  <span class="settings-icon sound" id="settingsSoundIcon" aria-hidden="true"></span>
-                  <div id="settingsSoundLabel"></div>
+          <div class="match-round-card hidden" id="matchRoundCard">
+            <div class="match-round-header" id="matchRoundLabel"></div>
+            <div class="match-dealer-pill" id="matchDealerPill">
+              <span class="match-dealer-label" id="matchDealerLabel"></span>
+              <span class="match-dealer-name" id="matchDealerName"></span>
+            </div>
+            <div class="match-timer-block">
+              <div class="match-timer-section" id="matchStrategyTimerSection">
+                <div class="match-timer" id="matchStrategyTimerCard">
+                  <div class="match-timer-value" id="matchStrategyTimerValue">00:45</div>
                 </div>
-                <div class="settings-slider">
-                  <input type="range" id="settingsSoundSlider" min="0" max="100" value="100" />
-                  <span class="settings-value" id="settingsSoundValue">100%</span>
-                </div>
-              </div>
-              <div class="settings-row">
-                <div class="settings-label">
-                  <span class="settings-icon music" id="settingsMusicIcon" aria-hidden="true"></span>
-                  <div id="settingsMusicLabel"></div>
-                </div>
-                <div class="settings-slider">
-                  <input type="range" id="settingsMusicSlider" min="0" max="100" value="100" />
-                  <span class="settings-value" id="settingsMusicValue">100%</span>
-                </div>
-              </div>
-              <div class="settings-row">
-                <div class="settings-label">
-                  <span class="settings-icon language" id="settingsLanguageIcon" aria-hidden="true"></span>
-                  <label for="settingsLanguageSelect" id="settingsLanguageLabel"></label>
-                </div>
-                <div class="lang-control settings-lang-control" id="settingsLangControl">
-                  <button class="lang-btn" type="button" id="settingsLanguageButton" aria-haspopup="true" aria-expanded="false">
-                    <span id="settingsLanguageCode">EN</span>
+                <div class="match-timer-actions" id="matchStrategyTimerActions">
+                  <button class="icon-btn glossy gray match-timer-btn match-timer-left hidden" type="button"
+                    id="matchStrategyResetBtn" aria-label="">
+                    <span class="icon-btn-img icon-reset" aria-hidden="true"></span>
                   </button>
-                  <div class="lang-dropdown settings-lang-dropdown" id="settingsLanguageDropdown"></div>
+                  <button class="icon-btn glossy match-timer-btn match-timer-main" type="button"
+                    id="matchStartStrategyBtn" aria-label="">
+                    <span class="icon-btn-img icon-play" aria-hidden="true"></span>
+                  </button>
+                  <button class="icon-btn glossy btn-red match-timer-btn match-timer-right" type="button"
+                    id="matchStrategyFinishBtn" aria-label="">
+                    <span class="icon-btn-img icon-finish" aria-hidden="true"></span>
+                  </button>
                 </div>
               </div>
-              <div class="settings-actions">
-                <button class="game-btn primary" type="button" id="settingsSaveBtn"></button>
+              <div class="match-timer-section" id="matchCreationTimerSection">
+                <div class="match-timer" id="matchCreationTimerCard">
+                  <div class="match-timer-value" id="matchCreationTimerValue">01:10</div>
+                </div>
+                <div class="match-timer-actions" id="matchCreationTimerActions">
+                  <button class="icon-btn glossy gray match-timer-btn match-timer-left hidden" type="button"
+                    id="matchCreationResetBtn" aria-label="">
+                    <span class="icon-btn-img icon-reset" aria-hidden="true"></span>
+                  </button>
+                  <button class="icon-btn glossy match-timer-btn match-timer-main" type="button"
+                    id="matchStartCreationBtn" aria-label="">
+                    <span class="icon-btn-img icon-play" aria-hidden="true"></span>
+                  </button>
+                  <button class="icon-btn glossy btn-red match-timer-btn match-timer-right" type="button"
+                    id="matchCreationFinishBtn" aria-label="">
+                    <span class="icon-btn-img icon-finish" aria-hidden="true"></span>
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="match-timeup-cta hidden" id="matchCreationTimeupCta">
+              <button class="game-btn btn-blue" type="button" id="matchStartCreationCtaBtn"></button>
+            </div>
+            <div class="match-actions">
+              <button class="game-btn btn-green" type="button" id="matchNextRoundBtn"></button>
+            </div>
+          </div>
+
+            <div class="match-scoreboard hidden" id="matchScoreboard">
+              <div class="match-scoreboard-title" id="matchScoreboardTitle"></div>
+              <button class="icon-btn glossy btn-yellow match-scoreboard-open" type="button"
+                id="matchScoreboardOpenBtn" aria-label="">
+                <span class="icon-btn-img icon-scoreboard" aria-hidden="true"></span>
+              </button>
+              <div class="match-score-grid" id="matchScoreGrid"></div>
+            </div>
+
+      </div>
+
+        <div class="screen round-end-screen" id="screen-round-end">
+          <div class="screen-topbar round-end-top-row">
+            <button class="icon-btn glossy btn-yellow" type="button" id="roundEndBackBtn" aria-label="Back">
+              <span class="icon-btn-img icon-prev" aria-hidden="true"></span>
+            </button>
+            <div class="modal-ribbon topbar-title text-border text-white text-uppercase" id="roundEndTitle"></div>
+            <button class="icon-btn glossy btn-yellow" type="button" id="roundEndSettingsBtn" aria-label="Settings">
+              <span class="icon-btn-img icon-settings" aria-hidden="true"></span>
+            </button>
+          </div>
+          <div class="match-config round-end-config">
+            <div class="match-config-scroll round-end-content">
+                <div class="round-end-section match-section match-validation-section">
+                  <div id="roundEndValidationMount"></div>
+                </div>
+              <div class="round-end-section match-section hidden" id="roundEndScoringSection">
+                <div class="round-end-subtitle" id="roundEndScoringTitle"></div>
+                <div class="round-end-scoring-list" id="roundEndScoringList"></div>
+              </div>
+              <div class="round-end-section match-section hidden" id="roundEndWinnersSection">
+                <div class="round-end-subtitle" id="roundEndWinnersTitle"></div>
+                <div class="round-end-winner-list" id="roundEndWinnersList"></div>
+              </div>
+            </div>
+            <div class="match-actions round-end-actions">
+              <div class="round-end-warning hidden" id="roundEndWarning"></div>
+              <div class="round-end-choice hidden" id="roundEndTieActions">
+                <button class="game-btn btn-green" type="button" id="roundEndAllWinBtn"></button>
+                <button class="game-btn btn-orange" type="button" id="roundEndTieBreakBtn"></button>
+              </div>
+              <button class="game-btn btn-green" type="button" id="roundEndContinueBtn"></button>
+            </div>
+          </div>
+          <div class="round-end-keypad hidden" id="roundEndKeypad" aria-hidden="true">
+            <div class="round-end-keypad-panel">
+              <div class="round-end-keypad-player" id="roundEndKeypadPlayer">
+                <span class="round-end-keypad-order" id="roundEndKeypadOrder"></span>
+                <span class="round-end-keypad-name" id="roundEndKeypadName"></span>
+              </div>
+              <div class="round-end-keypad-value" id="roundEndKeypadValue"></div>
+              <div class="round-end-keypad-grid" id="roundEndKeypadGrid">
+                <button class="round-end-keypad-btn" type="button" data-keypad="1">1</button>
+                <button class="round-end-keypad-btn" type="button" data-keypad="2">2</button>
+                <button class="round-end-keypad-btn" type="button" data-keypad="3">3</button>
+                <button class="round-end-keypad-btn" type="button" data-keypad="4">4</button>
+                <button class="round-end-keypad-btn" type="button" data-keypad="5">5</button>
+                <button class="round-end-keypad-btn" type="button" data-keypad="6">6</button>
+                <button class="round-end-keypad-btn" type="button" data-keypad="7">7</button>
+                <button class="round-end-keypad-btn" type="button" data-keypad="8">8</button>
+                <button class="round-end-keypad-btn" type="button" data-keypad="9">9</button>
+                <button class="round-end-keypad-btn" type="button" data-keypad="minus">-</button>
+                <button class="round-end-keypad-btn" type="button" data-keypad="0">0</button>
+                <button class="round-end-keypad-btn" type="button" data-keypad="back">X</button>
+              </div>
+              <div class="round-end-keypad-actions">
+                <button class="game-btn btn-blue" type="button" id="roundEndKeypadPrevBtn"></button>
+                <button class="game-btn btn-green" type="button" id="roundEndKeypadNextBtn"></button>
               </div>
             </div>
           </div>
         </div>
-      </div>
-      <div class="modal-overlay" data-modal="support" data-closable="1">
-        <div class="frame-panel">
-          <div class="modal-stitch"></div>
-          <div class="modal-ribbon"><span id="supportTitle"></span></div>
-          <button class="modal-close" data-modal-close="support" aria-label="Close"></button>
-          <div class="modal-canvas">
-            <div class="modal-content">
-              <p id="supportBody"></p>
-              <div class="settings-actions">
-                <button class="game-btn btn-yellow" type="button" id="supportCtaBtn"></button>
+
+        <div class="screen" id="screen-setup">
+          <h2 id="setupTitle"></h2>
+          <p id="setupSubtitle" class="lede"></p>
+          <div class="card">
+            <div class="card-header">
+              <div class="card-icon">👥</div>
+              <h3 id="playersTitle"></h3>
+            </div>
+            <ul id="playerList" class="list"></ul>
+            <button class="game-btn ghost" id="addPlayerBtn"></button>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <div class="card-icon">⏱️</div>
+              <h3 id="timersTitle"></h3>
+            </div>
+            <div class="field-row">
+              <label for="strategyTimerInput" id="strategyTimerLabel"></label>
+              <input type="number" id="strategyTimerInput" min="5" max="300" />
+            </div>
+            <div class="field-row">
+              <label for="creationTimerInput" id="creationTimerLabel"></label>
+              <input type="number" id="creationTimerInput" min="10" max="300" />
+            </div>
+          </div>
+          <button class="game-btn primary" id="startGameBtn"></button>
+        </div>
+
+        <div class="screen" id="screen-live">
+          <h2 id="liveTitle"></h2>
+          <div class="card">
+            <div class="card-header">
+              <div class="card-icon">🕐</div>
+              <h3 id="phaseTitle"></h3>
+            </div>
+            <div class="phase-block">
+              <div class="phase-row" id="strategyPhaseRow">
+                <span id="strategyPhaseLabel"></span>
+                <span id="strategyTimerDisplay">00:30</span>
+              </div>
+              <div class="phase-row" id="creationPhaseRow">
+                <span id="creationPhaseLabel"></span>
+                <span id="creationTimerDisplay">01:00</span>
+              </div>
+              <div class="phase-actions">
+                <button class="game-btn ghost" id="startStrategyBtn"></button>
+                <button class="game-btn ghost" id="startCreationBtn"></button>
+              </div>
+            </div>
+          </div>
+          <button class="game-btn primary" id="goToScoringBtn"></button>
+        </div>
+
+        <div class="screen scoreboard-screen" id="screen-scoreboard">
+          <div class="screen-topbar scoreboard-top-row">
+            <button class="icon-btn glossy btn-yellow" type="button" id="scoreboardBackBtn" aria-label="Back">
+              <span class="icon-btn-img icon-prev" aria-hidden="true"></span>
+            </button>
+            <div class="modal-ribbon topbar-title text-border text-white text-uppercase" id="scoreboardTitle"></div>
+            <button class="icon-btn glossy btn-yellow" type="button" id="scoreboardSettingsBtn"
+              aria-label="Settings">
+              <span class="icon-btn-img icon-settings" aria-hidden="true"></span>
+            </button>
+          </div>
+          <div class="match-config scoreboard-config">
+            <div class="match-config-scroll scoreboard-scroll">
+              <div class="match-section scoreboard-section">
+                <div class="scoreboard-table-wrap" id="scoreboardTableWrap">
+                  <div class="scoreboard-table" id="scoreboardTable"></div>
+                </div>
+                <div class="scoreboard-note hidden" id="scoreboardNote"></div>
+              </div>
+            </div>
+            <div class="match-actions scoreboard-actions hidden" id="scoreboardActions">
+              <button class="game-btn ghost" type="button" id="scoreboardCancelBtn"></button>
+              <button class="game-btn primary" type="button" id="scoreboardSaveBtn"></button>
+            </div>
+          </div>
+          <div class="round-end-keypad hidden scoreboard-keypad" id="scoreboardKeypad" aria-hidden="true">
+            <div class="round-end-keypad-panel">
+              <div class="round-end-keypad-player" id="scoreboardKeypadPlayer">
+                <span class="round-end-keypad-order" id="scoreboardKeypadOrder"></span>
+                <span class="round-end-keypad-name" id="scoreboardKeypadName"></span>
+              </div>
+              <div class="round-end-keypad-value" id="scoreboardKeypadValue"></div>
+              <div class="round-end-keypad-grid" id="scoreboardKeypadGrid">
+                <button class="round-end-keypad-btn" type="button" data-keypad="1">1</button>
+                <button class="round-end-keypad-btn" type="button" data-keypad="2">2</button>
+                <button class="round-end-keypad-btn" type="button" data-keypad="3">3</button>
+                <button class="round-end-keypad-btn" type="button" data-keypad="4">4</button>
+                <button class="round-end-keypad-btn" type="button" data-keypad="5">5</button>
+                <button class="round-end-keypad-btn" type="button" data-keypad="6">6</button>
+                <button class="round-end-keypad-btn" type="button" data-keypad="7">7</button>
+                <button class="round-end-keypad-btn" type="button" data-keypad="8">8</button>
+                <button class="round-end-keypad-btn" type="button" data-keypad="9">9</button>
+                <button class="round-end-keypad-btn" type="button" data-keypad="minus">-</button>
+                <button class="round-end-keypad-btn" type="button" data-keypad="0">0</button>
+                <button class="round-end-keypad-btn" type="button" data-keypad="back">X</button>
+              </div>
+              <div class="round-end-keypad-actions">
+                <button class="game-btn btn-blue" type="button" id="scoreboardKeypadCancelBtn"></button>
+                <button class="game-btn btn-green" type="button" id="scoreboardKeypadAcceptBtn"></button>
               </div>
             </div>
           </div>
         </div>
-      </div>
-      <div class="modal-overlay" data-modal="confirm" data-closable="1">
-        <div class="frame-panel">
-          <div class="modal-stitch"></div>
-          <div class="modal-ribbon"><span id="confirmTitle"></span></div>
-          <button class="modal-close" data-modal-close="confirm" aria-label="Close"></button>
-          <div class="modal-canvas">
-            <div class="modal-content">
-              <p id="confirmBody"></p>
-              <div class="settings-actions">
-                <button class="game-btn ghost" type="button" id="confirmCancelBtn" data-modal-close="confirm"></button>
-                <button class="game-btn primary" type="button" id="confirmAcceptBtn"></button>
+
+        <div class="screen" id="screen-history">
+          <h2 id="historyTitle"></h2>
+          <div id="historyList" class="list"></div>
+          <button class="game-btn ghost" id="backToLiveBtn"></button>
+        </div>
+
+      </main>
+      <footer class="game-footer" id="gameFooter"></footer>
+    </div>
+    <!-- In-game modals (scaled with game root) -->
+    <div class="modal-overlay" data-modal="settings" data-closable="1">
+      <div class="frame-panel">
+        <div class="modal-stitch"></div>
+        <div class="modal-ribbon"><span id="settingsTitle"></span></div>
+        <button class="modal-close" data-modal-close="settings" aria-label="Close"></button>
+        <div class="modal-canvas">
+          <div class="modal-content settings-list">
+            <div class="settings-row">
+              <div class="settings-label">
+                <span class="settings-icon sound" id="settingsSoundIcon" aria-hidden="true"></span>
+                <div id="settingsSoundLabel"></div>
+              </div>
+              <div class="settings-slider">
+                <input type="range" id="settingsSoundSlider" min="0" max="100" value="100" />
+                <span class="settings-value" id="settingsSoundValue">100%</span>
               </div>
             </div>
-          </div>
-        </div>
-      </div>
-      <div class="modal-overlay" data-modal="manual" data-closable="1">
-        <div class="frame-panel">
-          <div class="modal-stitch"></div>
-          <div class="modal-ribbon"><span id="manualTitle"></span></div>
-          <button class="modal-close" data-modal-close="manual" aria-label="Close"></button>
-          <div class="modal-canvas manual-canvas">
-            <div class="modal-content manual-content">
-              <iframe
-                id="manualFrame"
-                class="manual-frame"
-                title="Game manual"
-                data-manual-src="assets/doc/manual.pdf"
-                loading="lazy"
-              ></iframe>
-              <div class="manual-actions">
-                <button class="game-btn btn-blue" type="button" id="manualDownloadBtn"></button>
+            <div class="settings-row">
+              <div class="settings-label">
+                <span class="settings-icon music" id="settingsMusicIcon" aria-hidden="true"></span>
+                <div id="settingsMusicLabel"></div>
               </div>
+              <div class="settings-slider">
+                <input type="range" id="settingsMusicSlider" min="0" max="100" value="100" />
+                <span class="settings-value" id="settingsMusicValue">100%</span>
+              </div>
+            </div>
+            <div class="settings-row">
+              <div class="settings-label">
+                <span class="settings-icon language" id="settingsLanguageIcon" aria-hidden="true"></span>
+                <label for="settingsLanguageSelect" id="settingsLanguageLabel"></label>
+              </div>
+              <div class="lang-control settings-lang-control" id="settingsLangControl">
+                <button class="lang-btn" type="button" id="settingsLanguageButton" aria-haspopup="true"
+                  aria-expanded="false">
+                  <span id="settingsLanguageCode">EN</span>
+                </button>
+                <div class="lang-dropdown settings-lang-dropdown" id="settingsLanguageDropdown"></div>
+              </div>
+            </div>
+            <div class="settings-actions">
+              <button class="game-btn primary" type="button" id="settingsSaveBtn"></button>
             </div>
           </div>
         </div>
       </div>
     </div>
-    <video id="videoWakeLockWorkaround" loop muted playsinline>
-      <source data-src="assets/img/empty-video.mp4" type="video/mp4" />
-      <span id="video-fallback-text"></span>
-    </video>
+    <div class="modal-overlay" data-modal="support" data-closable="1">
+      <div class="frame-panel">
+        <div class="modal-stitch"></div>
+        <div class="modal-ribbon"><span id="supportTitle"></span></div>
+        <button class="modal-close" data-modal-close="support" aria-label="Close"></button>
+        <div class="modal-canvas">
+          <div class="modal-content">
+            <p id="supportBody"></p>
+            <div class="settings-actions">
+              <button class="game-btn btn-yellow" type="button" id="supportCtaBtn"></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-overlay" data-modal="confirm" data-closable="1">
+      <div class="frame-panel">
+        <div class="modal-stitch"></div>
+        <div class="modal-ribbon"><span id="confirmTitle"></span></div>
+        <button class="modal-close" data-modal-close="confirm" aria-label="Close"></button>
+        <div class="modal-canvas">
+          <div class="modal-content">
+            <p id="confirmBody"></p>
+            <div class="settings-actions">
+              <button class="game-btn ghost" type="button" id="confirmCancelBtn" data-modal-close="confirm"></button>
+              <button class="game-btn primary" type="button" id="confirmAcceptBtn"></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-overlay" data-modal="validation-result" data-closable="1">
+      <div class="frame-panel result-panel">
+        <div class="modal-stitch"></div>
+        <div class="modal-ribbon result-ribbon"><span id="validationResultTitle"></span></div>
+        <button class="modal-close" data-modal-close="validation-result" aria-label="Close"></button>
+        <div class="modal-canvas">
+          <div class="modal-content result-content">
+            <div class="result-icon" id="validationResultIcon" aria-hidden="true">✔</div>
+            <div class="result-message" id="validationResultMessage"></div>
+            <div class="settings-actions">
+              <button class="game-btn primary" type="button" id="validationResultCloseBtn"></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-overlay" data-modal="match-winners" data-closable="1">
+      <div class="frame-panel">
+        <div class="modal-stitch"></div>
+        <div class="modal-ribbon"><span id="matchWinnersTitle"></span></div>
+          <button class="modal-close" data-modal-close="match-winners" aria-label="Close"></button>
+          <div class="modal-canvas">
+            <div class="pyro" aria-hidden="true">
+              <div class="before"></div>
+              <div class="after"></div>
+            </div>
+            <div class="modal-content match-winners-content">
+              <div class="match-winners-trophy" aria-hidden="true"></div>
+              <div class="match-winners-subtitle" id="matchWinnersSubtitle"></div>
+              <div class="match-winners-list" id="matchWinnersList"></div>
+            <div class="settings-actions">
+              <button class="game-btn ghost" type="button" id="matchWinnersScoreBtn"></button>
+              <button class="game-btn primary" type="button" id="matchWinnersOkBtn"></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-overlay" data-modal="validation-rules" data-closable="1">
+      <div class="frame-panel">
+        <div class="modal-stitch"></div>
+        <div class="modal-ribbon"><span id="rulesTitle"></span></div>
+        <button class="modal-close" data-modal-close="validation-rules" aria-label="Close"></button>
+        <div class="modal-canvas">
+          <div class="modal-content">
+            <div class="rules-editor">
+              <textarea id="rulesTextarea" class="rules-textarea" rows="16" spellcheck="false" autocomplete="off"
+                autocorrect="off" autocapitalize="off"></textarea>
+              <button class="rules-restore-pill game-btn ghost hidden" type="button" id="rulesRestoreBtn"></button>
+            </div>
+            <div class="rules-actions inline">
+              <button class="game-btn ghost" type="button" id="rulesCancelBtn"
+                data-modal-close="validation-rules"></button>
+              <button class="game-btn primary" type="button" id="rulesSaveBtn"></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-overlay" data-modal="player-names" data-closable="1">
+      <div class="frame-panel">
+        <div class="modal-stitch"></div>
+        <div class="modal-ribbon"><span id="playerNamesTitle"></span></div>
+        <button class="modal-close" data-modal-close="player-names" aria-label="Close"></button>
+        <div class="modal-canvas">
+          <div class="modal-content">
+            <div class="player-name-modal">
+              <div class="player-name-list" id="playerNamesList"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <template id="validation-template">
+      <div class="match-validation validation-block">
+        <div class="match-validation-header">
+          <div class="match-validation-title validation-title"></div>
+          <button class="validation-rules-btn" type="button" aria-label="">
+            <span class="icon-mini icon-rules" aria-hidden="true"></span>
+          </button>
+        </div>
+        <div class="match-validation-row">
+          <div class="match-input-wrap">
+            <input type="text" class="match-validation-input validation-input" maxlength="32"
+              aria-label="Word to validate" autocomplete="off" autocapitalize="off" autocorrect="off"
+              spellcheck="false" />
+            <button class="match-clear-btn validation-clear" type="button" aria-label="Clear word">×</button>
+          </div>
+          <button class="icon-btn glossy btn-green validation-validate" type="button" aria-label="">
+            <span class="icon-btn-img icon-finish" aria-hidden="true"></span>
+          </button>
+        </div>
+        <div class="match-validation-status validation-status"></div>
+      </div>
+    </template>
+  </div>
+  <video id="videoWakeLockWorkaround" loop muted playsinline>
+    <source data-src="assets/img/empty-video.mp4" type="video/mp4" />
+    <span id="video-fallback-text"></span>
+  </video>
 
-    <script type="module" src="./src/ui/shell/main.js"></script>
-    <script type="module" src="./src/ui/shell/modal.js"></script>
-  </body>
+  <script type="module" src="./src/ui/shell/main.js"></script>
+  <script type="module" src="./src/ui/shell/modal.js"></script>
+</body>
+
 </html>

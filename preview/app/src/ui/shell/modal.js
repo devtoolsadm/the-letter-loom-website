@@ -12,6 +12,16 @@ function lockScroll(lock) {
   document.body.classList.toggle("modal-open", lock);
 }
 
+function refreshZIndices() {
+  const base = 4000;
+  modalStack.forEach((entry, idx) => {
+    const z = base + idx * 2;
+    entry.overlay.style.zIndex = z;
+    const panel = entry.overlay.querySelector(".frame-panel");
+    if (panel) panel.style.zIndex = z + 1;
+  });
+}
+
 function getViewportSize() {
   const vv = window.visualViewport;
   return {
@@ -52,14 +62,14 @@ function applyModalScale(overlay) {
     Math.min(gameH - margin * 2)
   );
 
-  frame.style.width = "";
-  frame.style.maxWidth = `${widthLimit}px`;
-  frame.style.maxHeight = `${heightLimit}px`;
+  // frame.style.width = "";
+  // frame.style.maxWidth = `${widthLimit}px`;
+  // frame.style.maxHeight = `${heightLimit}px`;
 
   if (canvas) {
     const headerAllowance = 170; // ribbon + close + padding
     const canvasMax = Math.max(140, heightLimit - headerAllowance);
-    canvas.style.maxHeight = `${canvasMax}px`;
+    // canvas.style.maxHeight = `${canvasMax}px`;
     canvas.style.overflowY = "auto";
   }
 }
@@ -89,6 +99,7 @@ export function openModal(id, { closable = true, payload = null, onClose = null 
   overlay.classList.add("open");
   overlay.dataset.closable = closable ? "1" : "0";
   modalStack.push({ id, overlay, closable, payload, onClose });
+  refreshZIndices();
   lockScroll(true);
   const letters = overlay.querySelector(".modal-letters");
   if (letters) generateLetters(letters);
@@ -102,6 +113,7 @@ export function closeModal(id, { reason = "close", action = null, payload = null
   entry.overlay.classList.remove("open");
   modalStack.splice(idx, 1);
   dispatchClose(entry, action ? "action" : reason, { action, payload });
+  refreshZIndices();
   if (!modalStack.length) {
     lockScroll(false);
   }
