@@ -1763,6 +1763,8 @@ body.splash-ready #splashLoadingBlock {
 
 .round-end-keypad-panel {
   width: min(330px, 92%);
+  max-height: 92%;
+  overflow: auto;
   background: linear-gradient(180deg, #fffaf1 0%, #f1dfb9 100%);
   border-radius: 18px;
   border: 3px solid var(--panel-border);
@@ -1869,6 +1871,23 @@ body.splash-ready #splashLoadingBlock {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+}
+
+@media (max-height: 620px) {
+  .round-end-keypad-panel {
+    padding: 10px 10px 12px;
+    gap: 8px;
+  }
+  .round-end-keypad-name {
+    font-size: 20px;
+  }
+  .round-end-keypad-value {
+    font-size: 28px;
+  }
+  .round-end-keypad-btn {
+    height: 40px;
+    font-size: 18px;
+  }
 }
 
 .match-card-header {
@@ -2894,6 +2913,43 @@ body.splash-ready #splashLoadingBlock {
   color: var(--player-name-color);
   text-shadow: var(--player-name-shadow);
   z-index: 3;
+}
+
+.match-dealer-pill.dealer-focus {
+  animation: dealer-pop 2.2s ease-out 1;
+}
+
+@keyframes dealer-pop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) translateY(-46px) scale(1.6) rotate(-6deg);
+    box-shadow:
+      0 10px 0 rgba(0, 0, 0, 0.12),
+      0 16px 24px rgba(0, 0, 0, 0.22),
+      0 0 0 12px rgba(255, 214, 94, 0.7);
+  }
+  40% {
+    opacity: 1;
+    transform: translate(-50%, -50%) translateY(0) scale(1.05) rotate(2deg);
+    box-shadow:
+      0 6px 0 rgba(0, 0, 0, 0.12),
+      0 10px 16px rgba(0, 0, 0, 0.12),
+      0 0 0 10px rgba(255, 225, 140, 0.75),
+      0 0 18px rgba(255, 185, 90, 0.65);
+  }
+  70% {
+    opacity: 1;
+    transform: translate(-50%, -50%) translateY(0) scale(1) rotate(0deg);
+    box-shadow:
+      0 6px 0 rgba(0, 0, 0, 0.12),
+      0 10px 16px rgba(0, 0, 0, 0.12),
+      0 0 0 6px rgba(255, 225, 140, 0.35);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, -50%) translateY(0) scale(1) rotate(0deg);
+    box-shadow: 0 6px 0 rgba(0, 0, 0, 0.12), 0 10px 16px rgba(0, 0, 0, 0.12);
+  }
 }
 
 .match-timer-section {

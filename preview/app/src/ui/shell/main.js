@@ -90,6 +90,7 @@ let modalOpenAudio = null;
 let successAudio = null;
 let failAudio = null;
 let audioReady = false;
+let clockLowTimeMode = false;
 let audioCtx = null;
 let musicGain = null;
 let soundGain = null;
@@ -110,6 +111,8 @@ let lastPlayerSwap = null;
 let playerDragState = null;
 let playerDragGhost = null;
 let playerDragOffset = null;
+let lastMatchPhase = null;
+let dealerFocusTimer = null;
 const WAKE_LOCK_TIMEOUT_MS = 5 * 60 * 1000;
 const TIMEUP_VIBRATION_MS = 400;
 
@@ -173,8 +176,10 @@ function buildMatchPrefs(src = {}) {
     mode === MATCH_MODE_ROUNDS
       ? src.roundsTarget ?? getDefaultRoundsTarget(playersCount)
       : src.roundsTarget ?? DEFAULT_ROUNDS_TARGET;
+  const playersLength =
+    Array.isArray(src.players) && src.players.length ? src.players.length : null;
   return {
-    playersCount: src.players?.length ?? playersCount,
+    playersCount: playersLength ?? playersCount,
     strategySeconds: src.strategySeconds ?? DEFAULT_STRATEGY_SECONDS,
     creationSeconds: src.creationSeconds ?? DEFAULT_CREATION_SECONDS,
     mode,
@@ -3320,6 +3325,25 @@ function renderMatchFromState(matchState) {
   const stratTotal = matchState.strategySeconds ?? DEFAULT_STRATEGY_SECONDS;
   const creationTotal = matchState.creationSeconds ?? DEFAULT_CREATION_SECONDS;
 
+  if (matchState.phase !== lastMatchPhase) {
+    if (matchState.phase === "strategy-ready") {
+      const dealerPillEl = document.getElementById("matchDealerPill");
+      if (dealerPillEl) {
+        dealerPillEl.classList.remove("dealer-focus");
+        void dealerPillEl.offsetWidth;
+        dealerPillEl.classList.add("dealer-focus");
+        if (dealerFocusTimer) {
+          clearTimeout(dealerFocusTimer);
+        }
+        dealerFocusTimer = setTimeout(() => {
+          dealerPillEl.classList.remove("dealer-focus");
+          dealerFocusTimer = null;
+        }, 2200);
+      }
+    }
+    lastMatchPhase = matchState.phase;
+  }
+
   if (matchState.phase !== "config") {
     matchConfigExpanded = false;
   }
@@ -4075,7 +4099,15 @@ function startMatchPhase(kind) {
       stopClockLoop(false);
     } else if (current === "strategy-paused") {
       matchController.resume();
-      playClockLoop();
+      const resumed = matchController.getState();
+      const remaining = resumed?.remaining ?? 0;
+      if (remaining <= 10 && remaining > 0) {
+        clockLowTimeMode = true;
+        stopClockLoop(false);
+      } else {
+        clockLowTimeMode = false;
+        playClockLoop();
+      }
     }
   } else if (kind === "creation") {
     if (phase === "strategy-timeup" || phase === "creation-ready") {
@@ -4086,7 +4118,15 @@ function startMatchPhase(kind) {
       stopClockLoop(false);
     } else if (phase === "creation-paused") {
       matchController.resume();
-      playClockLoop();
+      const resumed = matchController.getState();
+      const remaining = resumed?.remaining ?? 0;
+      if (remaining <= 10 && remaining > 0) {
+        clockLowTimeMode = true;
+        stopClockLoop(false);
+      } else {
+        clockLowTimeMode = false;
+        playClockLoop();
+      }
     }
   }
   renderMatch();
@@ -5161,20 +5201,32 @@ function setupMatchControllerEvents() {
   matchController.on("statechange", () => renderMatch());
   matchController.on("phaseStart", ({ phase }) => {
     if (phase && phase.endsWith("-run")) {
+      clockLowTimeMode = false;
       playClockLoop();
     }
   });
-  matchController.on("paused", () => stopClockLoop(false));
+  matchController.on("paused", () => {
+    clockLowTimeMode = false;
+    stopClockLoop(false);
+  });
   matchController.on("tick", ({ phase, remaining }) => {
     updateMatchTick();
     if (!phase) return;
     const kind = phase.startsWith("strategy") ? "strategy" : phase.startsWith("creation") ? "creation" : null;
     if (!kind) return;
     if (remaining <= 10 && remaining > 0) {
+      if (!clockLowTimeMode) {
+        clockLowTimeMode = true;
+        stopClockLoop(false);
+      }
       playLowTimeTick();
+    } else if (remaining > 10 && clockLowTimeMode) {
+      clockLowTimeMode = false;
+      playClockLoop();
     }
   });
   matchController.on("timeup", ({ phase }) => {
+    clockLowTimeMode = false;
     const kind = phase?.startsWith("strategy") ? "strategy" : "creation";
     triggerTimeUpEffects(kind);
     renderMatch();
