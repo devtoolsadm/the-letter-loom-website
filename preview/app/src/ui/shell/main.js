@@ -44,6 +44,7 @@ import {
   MATCH_MODE_POINTS,
   PLAYER_COLORS,
   CREATION_TIMEUP_AUTO_ACTION_MS,
+  ROUND_KEYPAD_AUTO_ZERO_ON_NAV,
 } from "../../core/constants.js";
 import { matchController, validateWordRemote } from "../../core/matchController.js";
 import { openModal, closeModal, closeTopModal } from "./modal.js";
@@ -335,12 +336,8 @@ function normalizePlayerName(value) {
     }
     roundEndKeypadOpen = true;
     roundEndKeypadPlayerId = id;
-    clearMatchWordFor("round-keypad");
+    clearMatchWordFor("round-keypad", false);
     clearStatusValidationFor("round-keypad");
-    if (isRoundScoreEmpty(roundEndScores[id])) {
-      roundEndScores[id] = "0";
-      roundEndUnlocked.add(id);
-    }
     updateRoundEndLockState(st);
     updateRoundEndContinueState(st);
     updateRoundEndKeypad(st);
@@ -417,7 +414,9 @@ function normalizePlayerName(value) {
     if (!st?.scoringEnabled) return;
     const currentId = roundEndKeypadPlayerId;
     if (currentId && isRoundScoreEmpty(roundEndScores[String(currentId)])) {
-      applyRoundEndKeypadValue(st, currentId, "0");
+      if (ROUND_KEYPAD_AUTO_ZERO_ON_NAV) {
+        applyRoundEndKeypadValue(st, currentId, "0");
+      }
     }
     const nextId = getRoundEndKeypadNeighbor(st, direction);
     if (nextId) {
@@ -1715,11 +1714,11 @@ function clearStatusValidationFor(key = "match") {
   if (key === "match") updateRestoreButtonVisibility();
 }
 
-function clearMatchWordFor(key = "match") {
+function clearMatchWordFor(key = "match", focusInput = true) {
   const section = validationSections.get(key);
   if (section?.input) {
     section.input.value = "";
-    section.input.focus();
+    if (focusInput) section.input.focus();
     section.input.setAttribute("autocomplete", "off");
     updateValidationControls(section);
   }

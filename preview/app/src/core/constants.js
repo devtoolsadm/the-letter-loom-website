@@ -60,6 +60,7 @@ export const PLAYER_COLORS = USE_VIVID_PLAYER_COLORS
   : PLAYER_COLORS_PASTEL;
 
 export const DEFAULT_PLAYER_COUNT = 4;
+export const ROUND_KEYPAD_AUTO_ZERO_ON_NAV = false;
 
 // Apply fixed player name styling when using vivid colors.
 if (USE_VIVID_PLAYER_COLORS && typeof document !== "undefined") {
