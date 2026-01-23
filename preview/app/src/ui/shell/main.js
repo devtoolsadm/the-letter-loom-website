@@ -1882,6 +1882,7 @@ function renderShellTexts() {
   setI18nById("matchTopbarTitle", "matchConfigTitle");
   setI18nById("matchSummaryConfigBtn", "matchConfigConfigure");
   setI18nById("matchPlayersLabel", "matchPlayersLabel");
+  setI18nById("matchPlayersCaption", "matchPlayersCaption");
   setI18nById("matchModeLabel", "matchModeLabel");
   setI18nById("matchModeRoundsBtn", "matchModeRounds");
   setI18nById("matchModePointsBtn", "matchModePoints");

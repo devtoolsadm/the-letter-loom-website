@@ -1505,6 +1505,12 @@ body.splash-ready #splashLoadingBlock {
   min-height: 0;
 }
 
+.match-config-advanced {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .match-config-scroll {
   flex: 1 1 auto;
   min-height: 0;
@@ -2497,6 +2503,11 @@ body.splash-ready #splashLoadingBlock {
 .match-timers .match-row.match-row-compact .match-value {
   font-size: 25px;
   min-width: 64px;
+}
+
+.match-row.match-rules-row {
+  padding-top: 12px;
+  padding-bottom: 6px;
 }
 
 .match-actions {
