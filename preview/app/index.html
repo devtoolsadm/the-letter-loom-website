@@ -1,7 +1,8 @@
 <!DOCTYPE html>
-<html lang="en" data-bg-image="assets/img/background.png">
+<html lang="en" data-bg-image="assets/img/background.png" translate="no">
 
 <head>
+  <meta name="google" content="notranslate" />
   <meta charset="UTF-8" />
   <meta name="viewport"
     content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
@@ -45,7 +46,7 @@
   </script>
 </head>
 
-<body>
+<body translate="no">
   <!-- Asset loading: keep heavy images/media using data-src. The shell loader preloads them and assigns src to avoid broken placeholders during the splash. -->
   <div id="orientation-overlay">
     <div id="orientation-root" class="rootGameScreen">
@@ -151,6 +152,12 @@
             <button class="icon-btn glossy btn-yellow" type="button" id="matchSettingsBtn" aria-label="Settings">
               <span class="icon-btn-img icon-settings" aria-hidden="true"></span>
             </button>
+          </div>
+          <div class="round-intro hidden" id="roundIntro" aria-hidden="true">
+            <div class="round-intro-inner">
+              <div class="round-intro-title" id="roundIntroTitle"></div>
+              <div class="round-intro-dealer" id="roundIntroDealer"></div>
+            </div>
           </div>
           <div class="match-phase-indicator hidden" id="matchPhaseIndicator">
             <div class="match-phase-switch" id="matchPhaseSwitch">
@@ -386,6 +393,7 @@
           </div>
           <div class="round-end-keypad hidden" id="roundEndKeypad" aria-hidden="true">
             <div class="round-end-keypad-panel">
+              <button class="modal-close round-end-keypad-close" id="roundEndKeypadCloseBtn" aria-label="Close"></button>
               <div class="round-end-keypad-player" id="roundEndKeypadPlayer">
                 <span class="round-end-keypad-order" id="roundEndKeypadOrder"></span>
                 <span class="round-end-keypad-name" id="roundEndKeypadName"></span>
@@ -401,7 +409,7 @@
                 <button class="round-end-keypad-btn" type="button" data-keypad="7">7</button>
                 <button class="round-end-keypad-btn" type="button" data-keypad="8">8</button>
                 <button class="round-end-keypad-btn" type="button" data-keypad="9">9</button>
-                <button class="round-end-keypad-btn" type="button" data-keypad="minus">-</button>
+                <button class="round-end-keypad-btn" type="button" data-keypad="minus">+/-</button>
                 <button class="round-end-keypad-btn" type="button" data-keypad="0">0</button>
                 <button class="round-end-keypad-btn" type="button" data-keypad="back">X</button>
               </div>
@@ -409,6 +417,7 @@
                 <button class="game-btn btn-blue" type="button" id="roundEndKeypadPrevBtn"></button>
                 <button class="game-btn btn-green" type="button" id="roundEndKeypadNextBtn"></button>
               </div>
+              <div id="roundEndKeypadValidationMount"></div>
             </div>
           </div>
         </div>
@@ -493,6 +502,7 @@
           </div>
           <div class="round-end-keypad hidden scoreboard-keypad" id="scoreboardKeypad" aria-hidden="true">
             <div class="round-end-keypad-panel">
+              <button class="modal-close round-end-keypad-close" id="scoreboardKeypadCloseBtn" aria-label="Close"></button>
               <div class="round-end-keypad-player" id="scoreboardKeypadPlayer">
                 <span class="round-end-keypad-order" id="scoreboardKeypadOrder"></span>
                 <span class="round-end-keypad-name" id="scoreboardKeypadName"></span>

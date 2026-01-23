@@ -1,3 +1,23 @@
+// Unified score validation for round end and scoreboard
+function validateScores(players, scores) {
+  let missing = false;
+  let oddPlayer = null;
+  let outOfRangePlayer = null;
+  for (const player of players) {
+    const value = scores[String(player.id)];
+    if (isRoundScoreEmpty(value)) {
+      missing = true;
+      continue;
+    }
+    const num = Number(value);
+    if (!Number.isFinite(num) || num < MIN_ROUND_SCORE || num > MAX_ROUND_SCORE) {
+      if (!outOfRangePlayer) outOfRangePlayer = player;
+    } else if (Math.abs(num % 2) === 1 && !oddPlayer) {
+      oddPlayer = player;
+    }
+  }
+  return { missing, oddPlayer, outOfRangePlayer };
+}
 import {
   TEXTS,
   BULLET_CHAR,
@@ -240,11 +260,8 @@ function normalizePlayerName(value) {
   function canContinueRoundEnd(matchState) {
     if (!matchState?.scoringEnabled) return false;
     const players = getActivePlayers(matchState);
-    const oddPlayer = getFirstOddRoundScore(matchState);
-    const missing = players.some((player) =>
-      isRoundScoreEmpty(roundEndScores[String(player.id)])
-    );
-    return !missing && !oddPlayer;
+    const { missing, oddPlayer, outOfRangePlayer } = validateScores(players, roundEndScores);
+    return !missing && !oddPlayer && !outOfRangePlayer;
   }
 
   function getRoundEndOrderIndex(matchState, playerId) {
@@ -283,8 +300,9 @@ function normalizePlayerName(value) {
     const valueEl = document.getElementById("roundEndKeypadValue");
     if (valueEl) {
       const value = roundEndScores[String(playerId)];
-      valueEl.textContent = formatRoundEndScoreDisplay(value);
+      valueEl.textContent = isRoundScoreEmpty(value) ? "" : formatRoundEndScoreDisplay(value);
       valueEl.classList.toggle("is-negative", Number(value) < 0);
+      valueEl.classList.toggle("is-editing", true);
     }
 
     const prevBtn = document.getElementById("roundEndKeypadPrevBtn");
@@ -317,6 +335,8 @@ function normalizePlayerName(value) {
     }
     roundEndKeypadOpen = true;
     roundEndKeypadPlayerId = id;
+    clearMatchWordFor("round-keypad");
+    clearStatusValidationFor("round-keypad");
     if (isRoundScoreEmpty(roundEndScores[id])) {
       roundEndScores[id] = "0";
       roundEndUnlocked.add(id);
@@ -368,13 +388,13 @@ function normalizePlayerName(value) {
       }
       const nextDigits = digits.slice(0, -1);
       const nextNum = Number(nextDigits) * (negative ? -1 : 1);
-      applyRoundEndKeypadValue(st, id, String(clampRoundScore(nextNum)));
+      applyRoundEndKeypadValue(st, id, String(nextNum));
       return;
     }
 
     if (key === "minus") {
       const num = Number(current) || 0;
-      const next = clampRoundScore(num * -1);
+      const next = num * -1;
       applyRoundEndKeypadValue(st, id, String(next));
       return;
     }
@@ -388,7 +408,7 @@ function normalizePlayerName(value) {
         digits = `${digits}${key}`;
       }
       const nextNum = Number(digits) * (negative ? -1 : 1);
-      applyRoundEndKeypadValue(st, id, String(clampRoundScore(nextNum)));
+      applyRoundEndKeypadValue(st, id, String(nextNum));
     }
   }
 
@@ -479,16 +499,42 @@ function updateScoreboardWarnings() {
     if (saveBtn) saveBtn.disabled = true;
     return;
   }
-  const odd = getScoreboardOddScore();
-  if (odd) {
+  const players = scoreboardPlayers || [];
+  const rounds = scoreboardRounds || [];
+  // Construir un objeto plano de puntuaciones draft: {playerId: value}
+  const scores = {};
+  for (const player of players) {
+    let total = 0;
+    let hasScore = false;
+    for (const round of rounds) {
+      const value = scoreboardDraft?.[String(player.id)]?.[round];
+      if (value !== undefined) {
+        total += Number(value);
+        hasScore = true;
+      }
+    }
+    // Para la validación, solo se toma el valor de cada ronda, pero aquí sumamos para mostrar el error en el jugador
+    // Si quieres validar por ronda, adapta el bucle
+    if (hasScore) scores[String(player.id)] = total;
+  }
+  const { missing, oddPlayer, outOfRangePlayer } = validateScores(players, scores);
+  if (oddPlayer) {
     setI18n(note, "matchScoreboardOdd", {
-      vars: { player: getScoreboardPlayerLabel(odd.playerId) },
+      vars: { player: getScoreboardPlayerLabel(oddPlayer.id) },
     });
+    note.classList.remove("hidden");
+  } else if (outOfRangePlayer) {
+    setI18n(note, "matchRoundScoresOutOfRange", {
+      vars: { player: getScoreboardPlayerLabel(outOfRangePlayer.id), min: MIN_ROUND_SCORE, max: MAX_ROUND_SCORE },
+    });
+    note.classList.remove("hidden");
+  } else if (missing) {
+    setI18n(note, "matchRoundScoresMissing");
     note.classList.remove("hidden");
   } else {
     note.classList.add("hidden");
   }
-  if (saveBtn) saveBtn.disabled = !!odd;
+  if (saveBtn) saveBtn.disabled = !!oddPlayer || !!outOfRangePlayer || !!missing;
 }
 
 function updateScoreboardKeypad(matchState) {
@@ -522,8 +568,9 @@ function updateScoreboardKeypad(matchState) {
   const valueEl = document.getElementById("scoreboardKeypadValue");
   if (valueEl) {
     const value = scoreboardDraft?.[String(playerId)]?.[Number(round)];
-    valueEl.textContent = formatScoreboardScoreDisplay(value);
+    valueEl.textContent = isScoreFilled(value) ? String(value) : "";
     valueEl.classList.toggle("is-negative", Number(value) < 0);
+    valueEl.classList.toggle("is-editing", true);
   }
 }
 
@@ -583,13 +630,13 @@ function handleScoreboardKeypadKey(key) {
     }
     const nextDigits = digits.slice(0, -1);
     const nextNum = Number(nextDigits) * (negative ? -1 : 1);
-    applyScoreboardKeypadValue(st, id, round, String(clampRoundScore(nextNum)));
+    applyScoreboardKeypadValue(st, id, round, String(nextNum));
     return;
   }
 
   if (key === "minus") {
     const num = Number(current) || 0;
-    const next = clampRoundScore(num * -1);
+    const next = num * -1;
     applyScoreboardKeypadValue(st, id, round, String(next));
     return;
   }
@@ -603,7 +650,7 @@ function handleScoreboardKeypadKey(key) {
       digits = `${digits}${key}`;
     }
     const nextNum = Number(digits) * (negative ? -1 : 1);
-    applyScoreboardKeypadValue(st, id, round, String(clampRoundScore(nextNum)));
+    applyScoreboardKeypadValue(st, id, round, String(nextNum));
   }
 }
 
@@ -697,15 +744,17 @@ function updateRoundEndContinueState(matchState) {
   }
 
   const players = getActivePlayers(matchState);
-  const oddPlayer = getFirstOddRoundScore(matchState);
-  const missing = players.some((player) =>
-    isRoundScoreEmpty(roundEndScores[String(player.id)])
-  );
-  if (continueBtn) continueBtn.disabled = missing || !!oddPlayer;
+  const { missing, oddPlayer, outOfRangePlayer } = validateScores(players, roundEndScores);
+  if (continueBtn) continueBtn.disabled = missing || !!oddPlayer || !!outOfRangePlayer;
   if (warning) {
     if (oddPlayer) {
       setI18n(warning, "matchRoundScoresOdd", {
         vars: { player: getRoundEndPlayerLabel(matchState, oddPlayer.id) },
+      });
+      warning.classList.toggle("hidden", false);
+    } else if (outOfRangePlayer) {
+      setI18n(warning, "matchRoundScoresOutOfRange", {
+        vars: { player: getRoundEndPlayerLabel(matchState, outOfRangePlayer.id), min: MIN_ROUND_SCORE, max: MAX_ROUND_SCORE },
       });
       warning.classList.toggle("hidden", false);
     } else {
@@ -1574,6 +1623,8 @@ let confirmCallback = null;
 let confirmCancelCallback = null;
 let pausedBeforeConfirm = null;
 let lastLowTimeTick = 0;
+let lastRoundIntroKey = "";
+let roundIntroTimer = null;
 let validationRules = appState.settings.validationRules ?? null; // persisted rules
 let tempValidationRules = null; // temp during settings (init later)
 let rulesEditContext = "live"; // "live" | "temp"
@@ -1631,6 +1682,7 @@ function createValidationSection(mountId, key) {
 
   function initValidationSections() {
     createValidationSection("roundEndValidationMount", "match");
+    createValidationSection("roundEndKeypadValidationMount", "round-keypad");
     createValidationSection("helpValidationMount", "help");
   }
 
@@ -2344,6 +2396,11 @@ function setupNavigation() {
     });
   }
 
+  const roundEndKeypadCloseBtn = document.getElementById("roundEndKeypadCloseBtn");
+  if (roundEndKeypadCloseBtn) {
+    roundEndKeypadCloseBtn.addEventListener("click", () => closeRoundEndKeypad());
+  }
+
   const roundEndKeypadPrevBtn = document.getElementById("roundEndKeypadPrevBtn");
   if (roundEndKeypadPrevBtn) {
     roundEndKeypadPrevBtn.addEventListener("click", () =>
@@ -2386,6 +2443,13 @@ function setupNavigation() {
       if (!btn) return;
       handleScoreboardKeypadKey(btn.dataset.keypad);
     });
+  }
+
+  const scoreboardKeypadCloseBtn = document.getElementById("scoreboardKeypadCloseBtn");
+  if (scoreboardKeypadCloseBtn) {
+    scoreboardKeypadCloseBtn.addEventListener("click", () =>
+      closeScoreboardKeypad({ restore: true })
+    );
   }
 
   const scoreboardKeypadCancelBtn = document.getElementById("scoreboardKeypadCancelBtn");
@@ -2849,7 +2913,10 @@ function updateScoreboardIndicators() {
     if (totalEl) {
       totalEl.textContent = String(totals.get(playerId) ?? 0);
     }
-    cell.classList.toggle("is-leader", maxTotal > 0 && totals.get(playerId) === maxTotal);
+      cell.classList.toggle(
+        "is-leader",
+        maxTotal > 0 && totals.get(playerId) === maxTotal && maxTotal > 0
+      );
   });
 
   table.querySelectorAll(".scoreboard-score-cell").forEach((cell) => {
@@ -2858,16 +2925,17 @@ function updateScoreboardIndicators() {
     if (!playerId || !Number.isFinite(round)) return;
     const value = scoreboardDraft[playerId]?.[round];
     const roundMaxValue = roundMax.get(round);
-    const isRoundMax =
-      roundMaxValue != null &&
-      isScoreFilled(value) &&
-      getScoreNumber(value) === roundMaxValue;
-    const isOverallMax =
-      overallMax != null &&
-      isScoreFilled(value) &&
-      getScoreNumber(value) === overallMax;
-    cell.classList.toggle("is-round-max", isRoundMax);
-    cell.classList.toggle("is-overall-max", isOverallMax);
+      const scoreNum = getScoreNumber(value);
+      const isRoundMax =
+        roundMaxValue != null &&
+        isScoreFilled(value) &&
+        scoreNum === roundMaxValue && scoreNum > 0;
+      const isOverallMax =
+        overallMax != null &&
+        isScoreFilled(value) &&
+        scoreNum === overallMax && scoreNum > 0;
+      cell.classList.toggle("is-round-max", isRoundMax);
+      cell.classList.toggle("is-overall-max", isOverallMax);
 
     const pill = cell.querySelector(".scoreboard-score-pill");
     if (pill) {
@@ -2943,7 +3011,10 @@ function renderScoreboardScreen(matchState) {
     playerCell.style.setProperty("--player-color", player.color || "#d9c79f");
     playerCell.style.setProperty("--player-border", palette.border);
     playerCell.style.setProperty("--player-text", palette.text);
-    playerCell.classList.toggle("is-leader", maxTotal > 0 && totals.get(id) === maxTotal);
+    playerCell.classList.toggle(
+      "is-leader",
+      maxTotal > 0 && totals.get(id) === maxTotal && maxTotal > 0
+    );
 
     const info = document.createElement("div");
     info.className = "scoreboard-player-info";
@@ -2972,14 +3043,15 @@ function renderScoreboardScreen(matchState) {
       cell.dataset.playerId = id;
       cell.dataset.round = String(round);
       const value = scoreboardDraft[id]?.[round] ?? "";
+      const scoreNum = getScoreNumber(value);
       const isRoundMax =
         roundMax.get(round) != null &&
         isScoreFilled(value) &&
-        getScoreNumber(value) === roundMax.get(round);
+        scoreNum === roundMax.get(round) && scoreNum > 0;
       const isOverallMax =
         overallMax != null &&
         isScoreFilled(value) &&
-        getScoreNumber(value) === overallMax;
+        scoreNum === overallMax && scoreNum > 0;
       cell.classList.toggle("is-round-max", isRoundMax);
       cell.classList.toggle("is-overall-max", isOverallMax);
       if (scoreboardReadOnly) {
@@ -3368,6 +3440,8 @@ function renderMatchFromState(matchState) {
       dealerPill.style.setProperty("--dealer-text", palette.text);
     }
   }
+
+  //TO-DO: Improve this showRoundIntro(matchState);
   if (modeRoundsBtn && modePointsBtn) {
     const isPoints = matchState.mode === MATCH_MODE_POINTS;
     modeRoundsBtn.classList.toggle("active", !isPoints);
@@ -3707,6 +3781,46 @@ function renderMatchFromState(matchState) {
   if (currentScreen === "round-end") {
     renderRoundEndScreen();
   }
+}
+
+function showRoundIntro(matchState) {
+  if (!matchState || matchState.phase === "config") return;
+  if (!String(matchState.phase || "").startsWith("strategy")) return;
+  const roundKey = `${matchState.round}-${matchState.phase}`;
+  if (roundKey === lastRoundIntroKey) return;
+  lastRoundIntroKey = roundKey;
+  const intro = document.getElementById("roundIntro");
+  const title = document.getElementById("roundIntroTitle");
+  const dealer = document.getElementById("roundIntroDealer");
+  if (!intro || !title || !dealer) return;
+  if (roundIntroTimer) {
+    clearTimeout(roundIntroTimer);
+    roundIntroTimer = null;
+  }
+  const roundTemplate = shellTexts.matchRound;
+  const roundText =
+    typeof roundTemplate === "string"
+      ? roundTemplate.replace("{round}", matchState.round)
+      : `Round ${matchState.round}`;
+  title.textContent = roundText;
+  const dealerInfo = getDealerInfo(matchState);
+  dealer.textContent = `${shellTexts.matchDealerLabel} ${dealerInfo.name}`;
+  const palette = getDealerPalette(dealerInfo.color);
+  dealer.style.setProperty("--dealer-bg", palette.bg);
+  dealer.style.setProperty("--dealer-border", palette.border);
+  dealer.style.setProperty("--dealer-text", palette.text);
+  dealer.style.setProperty("--player-name-color", palette.text);
+  intro.classList.remove("hidden");
+  intro.classList.remove("show");
+  void intro.offsetWidth;
+  intro.classList.add("show");
+  intro.setAttribute("aria-hidden", "false");
+  roundIntroTimer = setTimeout(() => {
+    intro.classList.remove("show");
+    intro.classList.add("hidden");
+    intro.setAttribute("aria-hidden", "true");
+    roundIntroTimer = null;
+  }, 1700);
 }
 
 function clearStatusValidation() {
@@ -4511,6 +4625,17 @@ function stopMatchTimer() {
 function resetMatchState() {
   stopMatchTimer();
   stopClockLoop(true);
+  lastRoundIntroKey = "";
+  if (roundIntroTimer) {
+    clearTimeout(roundIntroTimer);
+    roundIntroTimer = null;
+  }
+  const intro = document.getElementById("roundIntro");
+  if (intro) {
+    intro.classList.remove("show");
+    intro.classList.add("hidden");
+    intro.setAttribute("aria-hidden", "true");
+  }
   const state = loadState();
   tempMatchPrefs = buildMatchPrefs(state.gamePreferences);
   tempMatchPlayers = buildTempPlayers(
@@ -4755,7 +4880,10 @@ function applyLiveSettings(settings, { persist = false } = {}) {
     renderShellTexts();
     applyI18n(document);
     const st = matchController.getState();
-    if (st) renderMatchFromState(st);
+    if (st) {
+      renderMatchFromState(st);
+      renderScoreboardScreen(st);
+    }
   }
 
   updateSettingsControls({

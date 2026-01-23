@@ -4,6 +4,7 @@ export const BULLET_CHAR = "\u25CF";
 
 export const TEXTS = {
   es: {
+      matchRoundScoresOutOfRange: "Puntuación fuera de rango en {player} (mínimo {min}, máximo {max})",
     languageName: "Español",
     appTitle: "The Letter Loom",
     appShortName: "Letter Loom",
@@ -201,6 +202,7 @@ export const TEXTS = {
     matchEndMatch: "Finalizar partida",
   },
   en: {
+      matchRoundScoresOutOfRange: "Score out of range for {player} (min {min}, max {max})",
     languageName: "English",
     appTitle: "The Letter Loom",
     appShortName: "Letter Loom",
