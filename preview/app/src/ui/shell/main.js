@@ -2364,6 +2364,17 @@ function setupNavigation() {
     if (el) el.addEventListener("click", handler);
   });
 
+  const matchScoreboard = document.getElementById("matchScoreboard");
+  if (matchScoreboard) {
+    matchScoreboard.addEventListener("click", () => {
+      if (currentScreen !== "match") return;
+      const st = matchController.getState();
+      if (!st?.scoringEnabled) return;
+      if (matchScoreboard.classList.contains("hidden")) return;
+      openScoreboard();
+    });
+  }
+
   const roundEndScoringList = document.getElementById("roundEndScoringList");
   if (roundEndScoringList) {
     roundEndScoringList.addEventListener("click", (e) => {
