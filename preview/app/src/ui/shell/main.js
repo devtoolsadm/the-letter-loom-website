@@ -1894,8 +1894,8 @@ function renderShellTexts() {
   setI18nById("matchScoringLabel", "matchScoringLabel");
   setI18nById("matchStrategyLabel", "matchStrategyLabel");
   setI18nById("matchCreationLabel", "matchCreationLabel");
-  setI18nById("matchRulesLabel", "matchRulesTitle");
-  setI18nById("matchRulesBtn", "matchRulesTitle", { attr: "aria-label" });
+  setI18nById("matchRulesLabel", "matchRulesConfigTitle");
+  setI18nById("matchRulesBtn", "matchRulesConfigTitle", { attr: "aria-label" });
   setI18nById("matchScoreboardOpenBtn", "matchScoreboardOpen", { attr: "aria-label" });
   setI18nById("matchStartMatchBtn", "matchStartMatch");
   setI18nById("matchStrategyTimerTitle", "matchStrategyLabel");
@@ -1924,6 +1924,7 @@ function renderShellTexts() {
   setI18nById("scoreboardSaveBtn", "save");
   setI18nById("scoreboardCancelBtn", "cancel");
   setI18nById("rulesTitle", "matchRulesTitle");
+  setI18nById("rulesInfoPill", "matchRulesInfo");
   setI18nById("rulesRestoreBtn", "matchRulesRestore");
   setI18nById("rulesCancelBtn", "cancel");
   setI18nById("rulesSaveBtn", "save");
@@ -3308,6 +3309,7 @@ function renderRoundEndScreen() {
   renderRoundEndWinners(matchState);
   updateRoundEndContinueState(matchState);
   updateRoundEndKeypad(matchState);
+  updateActionOverlayStates();
 }
 
 /* Timer border progress helper (disabled for now).
@@ -3788,8 +3790,57 @@ function renderMatchFromState(matchState) {
   if (matchBackBtn) matchBackBtn.classList.toggle("hidden", !showConfig);
   if (matchExitBtn) matchExitBtn.classList.toggle("hidden", showConfig);
 
+  updateActionOverlayStates();
   if (currentScreen === "round-end") {
     renderRoundEndScreen();
+  }
+}
+
+function updateActionOverlayState(container, scrollEl) {
+  if (!container || !scrollEl) return;
+  const hasScroll = scrollEl.scrollHeight > scrollEl.clientHeight + 1;
+  const atBottom =
+    scrollEl.scrollTop >= scrollEl.scrollHeight - scrollEl.clientHeight - 1;
+  const hasBelow = hasScroll && !atBottom;
+  container.classList.toggle("has-scroll", hasScroll);
+  container.classList.toggle("has-scroll-below", hasBelow);
+}
+
+function updateActionOverlayStates() {
+  const matchConfigBlock = document.getElementById("matchConfigBlock");
+  const matchConfigScroll = matchConfigBlock?.querySelector(".match-config-scroll");
+  updateActionOverlayState(matchConfigBlock, matchConfigScroll);
+
+  const roundEndConfig = document.querySelector(".round-end-config");
+  const roundEndScroll = roundEndConfig?.querySelector(".round-end-content");
+  updateActionOverlayState(roundEndConfig, roundEndScroll);
+}
+
+function setupActionOverlayListeners() {
+  const pairs = [
+    {
+      container: document.getElementById("matchConfigBlock"),
+      scrollEl: document.querySelector("#matchConfigBlock .match-config-scroll"),
+    },
+    {
+      container: document.querySelector(".round-end-config"),
+      scrollEl: document.querySelector(".round-end-config .round-end-content"),
+    },
+  ];
+
+  pairs.forEach(({ container, scrollEl }) => {
+    if (!container || !scrollEl) return;
+    if (scrollEl.dataset.overlayListener === "1") return;
+    const onUpdate = () => updateActionOverlayState(container, scrollEl);
+    scrollEl.addEventListener("scroll", onUpdate);
+    scrollEl.dataset.overlayListener = "1";
+    onUpdate();
+  });
+
+  const onResize = () => updateActionOverlayStates();
+  window.addEventListener("resize", onResize);
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", onResize);
   }
 }
 
@@ -5616,6 +5667,7 @@ function bootstrapShell() {
   initMatch();
   setupLanguageSelector();
   setupNavigation();
+  setupActionOverlayListeners();
   setupWakeLockActivityTracking();
   setupCreationTimeupInteractionTracking();
   document.addEventListener("modal:closed", handleModalClosed);
