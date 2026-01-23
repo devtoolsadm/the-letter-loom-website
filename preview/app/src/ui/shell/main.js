@@ -126,6 +126,8 @@ let failSource = null;
 let wakeLockTimer = null;
 let winnersModalOpen = false;
 let suppressWinnersPrompt = false;
+let lastWinnersIds = [];
+let scoreboardReturnWinners = false;
 let openPlayerColorIndex = null;
 let openPlayerNameIndex = null;
 let lastPlayerSwap = null;
@@ -493,8 +495,7 @@ function updateScoreboardWarnings() {
   const saveBtn = document.getElementById("scoreboardSaveBtn");
   if (!note) return;
   if (scoreboardReadOnly) {
-    note.classList.remove("hidden");
-    setI18n(note, "matchScoreboardReadOnly");
+    note.classList.add("hidden");
     if (saveBtn) saveBtn.disabled = true;
     return;
   }
@@ -1893,10 +1894,12 @@ function renderShellTexts() {
   setI18nById("matchRoundsLabel", "matchRoundsLabel");
   setI18nById("matchPointsLabel", "matchPointsLabel");
   setI18nById("matchScoringLabel", "matchScoringLabel");
+  setI18nById("matchRulesCaption", "matchRulesInfo");
+  setI18nById("matchRulesBtnText", "matchRulesConfigure");
   setI18nById("matchStrategyLabel", "matchStrategyLabel");
   setI18nById("matchCreationLabel", "matchCreationLabel");
-  setI18nById("matchRulesLabel", "matchRulesConfigTitle");
-  setI18nById("matchRulesBtn", "matchRulesConfigTitle", { attr: "aria-label" });
+  setI18nById("matchRulesLabel", "matchRulesTitle");
+  setI18nById("matchRulesBtn", "matchRulesTitle", { attr: "aria-label" });
   setI18nById("matchScoreboardOpenBtn", "matchScoreboardOpen", { attr: "aria-label" });
   setI18nById("matchStartMatchBtn", "matchStartMatch");
   setI18nById("matchStrategyTimerTitle", "matchStrategyLabel");
@@ -4372,6 +4375,7 @@ function openScoreboard({ readOnly = false } = {}) {
   scoreboardDirty = false;
   scoreboardReadOnly = readOnly;
   scoreboardReturnScreen = currentScreen || "match";
+  scoreboardReturnWinners = winnersModalOpen;
   scoreboardKeypadOpen = false;
   scoreboardKeypadPlayerId = null;
   scoreboardKeypadRound = null;
@@ -4402,6 +4406,13 @@ function closeScoreboard() {
   scoreboardKeypadInitialValue = null;
   showScreen(scoreboardReturnScreen || "match");
   scaleGame();
+  if (scoreboardReturnWinners && lastWinnersIds.length) {
+    suppressWinnersPrompt = false;
+    scoreboardReturnWinners = false;
+    showMatchWinners(lastWinnersIds);
+  } else {
+    scoreboardReturnWinners = false;
+  }
   if (resumePhase) {
     const st = matchController.getState();
     if (resumePhase === "strategy" && st?.phase === "strategy-paused") {
@@ -4613,6 +4624,7 @@ function showMatchWinners(winnerIds = []) {
   const st = matchController.getState();
   if (!st) return;
   if (winnersModalOpen) return;
+  lastWinnersIds = Array.isArray(winnerIds) ? [...winnerIds] : [];
   const winners = getPlayersByIds(st, winnerIds);
   const titleEl = document.getElementById("matchWinnersTitle");
   const subtitleEl = document.getElementById("matchWinnersSubtitle");
