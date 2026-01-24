@@ -3808,6 +3808,23 @@ function updateActionOverlayState(container, scrollEl) {
   const hasBelow = hasScroll && !atBottom;
   container.classList.toggle("has-scroll", hasScroll);
   container.classList.toggle("has-scroll-below", hasBelow);
+  updateScrollHintState(scrollEl, hasScroll, hasBelow);
+}
+
+function updateScrollHintState(scrollEl, hasScroll = null, hasBelow = null) {
+  if (!scrollEl) return;
+  const computedHasScroll =
+    hasScroll ?? scrollEl.scrollHeight > scrollEl.clientHeight + 1;
+  const computedHasBelow =
+    hasBelow ??
+    (computedHasScroll &&
+      scrollEl.scrollTop < scrollEl.scrollHeight - scrollEl.clientHeight - 1);
+  const computedHasAbove = computedHasScroll && scrollEl.scrollTop > 1;
+  const container = scrollEl.closest(".match-config");
+  if (!container) return;
+  container.classList.toggle("has-scroll", computedHasScroll);
+  container.classList.toggle("has-scroll-below", computedHasBelow);
+  container.classList.toggle("has-scroll-above", computedHasAbove);
 }
 
 function updateActionOverlayStates() {
@@ -3818,6 +3835,10 @@ function updateActionOverlayStates() {
   const roundEndConfig = document.querySelector(".round-end-config");
   const roundEndScroll = roundEndConfig?.querySelector(".round-end-content");
   updateActionOverlayState(roundEndConfig, roundEndScroll);
+
+  document
+    .querySelectorAll(".match-config-scroll")
+    .forEach((scrollEl) => updateScrollHintState(scrollEl));
 }
 
 function setupActionOverlayListeners() {
@@ -3839,6 +3860,47 @@ function setupActionOverlayListeners() {
     scrollEl.addEventListener("scroll", onUpdate);
     scrollEl.dataset.overlayListener = "1";
     onUpdate();
+  });
+
+  document.querySelectorAll(".match-config-scroll").forEach((scrollEl) => {
+    if (!scrollEl || scrollEl.dataset.scrollHintListener === "1") return;
+    const onUpdate = () => updateScrollHintState(scrollEl);
+    scrollEl.addEventListener("scroll", onUpdate);
+    if (window.ResizeObserver) {
+      const observer = new ResizeObserver(() => updateScrollHintState(scrollEl));
+      observer.observe(scrollEl);
+      scrollEl._scrollHintObserver = observer;
+    }
+    if (window.MutationObserver) {
+      const mutationObserver = new MutationObserver(() =>
+        updateScrollHintState(scrollEl)
+      );
+      mutationObserver.observe(scrollEl, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+      });
+      scrollEl._scrollHintMutationObserver = mutationObserver;
+    }
+    const container = scrollEl.closest(".match-config");
+    const chevronDown = container?.querySelector(".scroll-hint-down");
+    if (chevronDown) {
+      chevronDown.addEventListener("click", () => {
+        const step = Math.max(60, Math.round(scrollEl.clientHeight * 0.6));
+        scrollEl.scrollBy({ top: step, behavior: "smooth" });
+      });
+    }
+    const chevronUp = container?.querySelector(".scroll-hint-up");
+    if (chevronUp) {
+      chevronUp.addEventListener("click", () => {
+        const step = Math.max(60, Math.round(scrollEl.clientHeight * 0.6));
+        scrollEl.scrollBy({ top: -step, behavior: "smooth" });
+      });
+    }
+    scrollEl.dataset.scrollHintListener = "1";
+    onUpdate();
+    requestAnimationFrame(() => updateScrollHintState(scrollEl));
+    setTimeout(() => updateScrollHintState(scrollEl), 250);
   });
 
   const onResize = () => updateActionOverlayStates();

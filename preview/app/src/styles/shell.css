@@ -1503,6 +1503,7 @@ body.splash-ready #splashLoadingBlock {
   overflow: hidden;
   flex: 1 1 auto;
   min-height: 0;
+  position: relative;
 }
 
 .match-config-advanced {
@@ -1518,7 +1519,90 @@ body.splash-ready #splashLoadingBlock {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  position: relative;
 }
+
+.scroll-hint-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.scroll-hint-chevron {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 6px;
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
+  pointer-events: auto;
+  opacity: 0;
+  transform: translateY(0);
+  transition: opacity 0.2s ease;
+  padding-right: 2px;
+  cursor: pointer;
+  animation: none;
+}
+
+.scroll-hint-chevron.scroll-hint-up {
+  top: 6px;
+  bottom: auto;
+}
+
+.scroll-hint-chevron.scroll-hint-up::before {
+  --chevron-rot: 180deg;
+}
+
+.scroll-hint-chevron.scroll-hint-down::before {
+  --chevron-rot: 0deg;
+}
+
+.scroll-hint-chevron::before {
+  content: "v";
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: 1px solid #d7b882;
+  background: #fff4d6;
+  color: #7b3b21;
+  font-size: 22px;
+  font-weight: 900;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 0 #c4893c;
+  animation: none;
+}
+
+.scroll-hint-chevron::after {
+  content: none;
+}
+
+.match-config.has-scroll-below .scroll-hint-down {
+  opacity: 1;
+}
+
+.match-config.has-scroll-above .scroll-hint-up {
+  opacity: 1;
+}
+
+.match-config.has-scroll-below .scroll-hint-down::before,
+.match-config.has-scroll-above .scroll-hint-up::before {
+  animation: scroll-hint-bounce 1.2s ease-in-out infinite;
+}
+
+@keyframes scroll-hint-bounce {
+  0%,
+  100% {
+    transform: translateY(0) rotate(var(--chevron-rot, 0deg));
+  }
+  50% {
+    transform: translateY(3px) rotate(var(--chevron-rot, 0deg));
+  }
+}
+
 
 .match-round-card {
   background: linear-gradient(180deg, #fffaf1 0%, #f1dfb9 100%);
@@ -2144,7 +2228,7 @@ body.splash-ready #splashLoadingBlock {
   border: 2px solid #c5af7d;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
   width: 100%;
-  min-height: 68px;
+  min-height: 48px;
   position: relative;
   overflow: hidden;
 }
@@ -2529,7 +2613,7 @@ body.splash-ready #splashLoadingBlock {
 }
 
 #matchConfigBlock .match-config-scroll {
-  padding-bottom: 86px;
+  padding-bottom: 120px;
 }
 
 #matchConfigBlock .match-actions {
@@ -2537,12 +2621,17 @@ body.splash-ready #splashLoadingBlock {
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 2;
+  z-index: 6;
   padding: 14px 0 8px;
   background: transparent;
   backdrop-filter: blur(3px);
   -webkit-backdrop-filter: blur(3px);
   box-shadow: 0 -8px 16px rgba(0, 0, 0, 0.08);
+}
+
+#matchConfigBlock .match-config-scroll {
+  position: relative;
+  z-index: 1;
 }
 
 #matchConfigBlock.has-scroll-below .match-actions {

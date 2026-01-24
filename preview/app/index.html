@@ -98,8 +98,8 @@
                 <span class="icon-btn-img icon-help" aria-hidden="true"></span>
               </button>
             </div>
-            </div>
           </div>
+        </div>
 
         <div class="screen help-screen" id="screen-help">
           <div class="screen-topbar help-top-row">
@@ -170,6 +170,10 @@
             </div>
           </div>
           <div class="match-config" id="matchConfigBlock">
+            <div class="scroll-hint-overlay" aria-hidden="true">
+              <div class="scroll-hint-chevron scroll-hint-up"></div>
+              <div class="scroll-hint-chevron scroll-hint-down"></div>
+            </div>
             <div class="match-config-scroll">
               <div class="match-section match-config-summary" id="matchConfigSummary">
                 <div class="match-summary-caption" id="matchSummaryCaption"></div>
@@ -187,13 +191,13 @@
                 <div class="match-row" id="matchRoundsRow">
                   <div class="match-label match-label-hidden" id="matchRoundsLabel"></div>
                   <div class="match-controls">
-                    <button class="icon-btn glossy gray match-ctrl match-ctrl-minus" type="button"
-                      id="matchRoundsMinus" aria-label="-1">
+                    <button class="icon-btn glossy gray match-ctrl match-ctrl-minus" type="button" id="matchRoundsMinus"
+                      aria-label="-1">
                       <span class="match-ctrl-text">-</span>
                     </button>
                     <div class="match-value" id="matchRoundsValue">8</div>
-                    <button class="icon-btn glossy gray match-ctrl match-ctrl-plus" type="button"
-                      id="matchRoundsPlus" aria-label="+1">
+                    <button class="icon-btn glossy gray match-ctrl match-ctrl-plus" type="button" id="matchRoundsPlus"
+                      aria-label="+1">
                       <span class="match-ctrl-text">+</span>
                     </button>
                   </div>
@@ -201,13 +205,13 @@
                 <div class="match-row hidden" id="matchPointsRow">
                   <div class="match-label match-label-hidden" id="matchPointsLabel"></div>
                   <div class="match-controls">
-                    <button class="icon-btn glossy gray match-ctrl match-ctrl-minus" type="button"
-                      id="matchPointsMinus" aria-label="-5">
+                    <button class="icon-btn glossy gray match-ctrl match-ctrl-minus" type="button" id="matchPointsMinus"
+                      aria-label="-5">
                       <span class="match-ctrl-text">-</span>
                     </button>
                     <div class="match-value" id="matchPointsValue">100</div>
-                    <button class="icon-btn glossy gray match-ctrl match-ctrl-plus" type="button"
-                      id="matchPointsPlus" aria-label="+5">
+                    <button class="icon-btn glossy gray match-ctrl match-ctrl-plus" type="button" id="matchPointsPlus"
+                      aria-label="+5">
                       <span class="match-ctrl-text">+</span>
                     </button>
                   </div>
@@ -267,28 +271,27 @@
                   </div>
                 </div>
 
+                <div class="match-section match-scoring-block">
+                  <div class="match-row">
+                    <div class="match-label" id="matchScoringLabel"></div>
+                    <div class="match-controls match-toggle">
+                      <button class="toggle-switch" type="button" id="matchScoringToggle" aria-pressed="false"></button>
+                    </div>
+                  </div>
+                  <div class="match-scoring-caption" id="matchScoringCaption"></div>
+                </div>
+
                 <div class="match-section match-rules-block">
                   <div class="match-row match-rules-row">
                     <div class="match-label" id="matchRulesLabel"></div>
                   </div>
-                  <button class="icon-btn glossy btn-yellow match-rules-btn" type="button"
-                    id="matchRulesBtn">
+                  <button class="icon-btn glossy btn-yellow match-rules-btn" type="button" id="matchRulesBtn">
                     <span class="icon-btn-img icon-rules" aria-hidden="true"></span>
                     <span class="match-rules-btn-text" id="matchRulesBtnText"></span>
                   </button>
                   <div class="match-rules-caption" id="matchRulesCaption"></div>
                 </div>
 
-                <div class="match-section match-scoring-block">
-                  <div class="match-row">
-                    <div class="match-label" id="matchScoringLabel"></div>
-                    <div class="match-controls match-toggle">
-                      <button class="toggle-switch" type="button" id="matchScoringToggle"
-                        aria-pressed="false"></button>
-                    </div>
-                  </div>
-                  <div class="match-scoring-caption" id="matchScoringCaption"></div>
-                </div>
               </div>
             </div>
             <div class="match-actions">
@@ -351,16 +354,16 @@
             </div>
           </div>
 
-            <div class="match-scoreboard hidden" id="matchScoreboard">
-              <div class="match-scoreboard-title" id="matchScoreboardTitle"></div>
-              <button class="icon-btn glossy btn-yellow match-scoreboard-open" type="button"
-                id="matchScoreboardOpenBtn" aria-label="">
-                <span class="icon-btn-img icon-scoreboard" aria-hidden="true"></span>
-              </button>
-              <div class="match-score-grid" id="matchScoreGrid"></div>
-            </div>
+          <div class="match-scoreboard hidden" id="matchScoreboard">
+            <div class="match-scoreboard-title" id="matchScoreboardTitle"></div>
+            <button class="icon-btn glossy btn-yellow match-scoreboard-open" type="button" id="matchScoreboardOpenBtn"
+              aria-label="">
+              <span class="icon-btn-img icon-scoreboard" aria-hidden="true"></span>
+            </button>
+            <div class="match-score-grid" id="matchScoreGrid"></div>
+          </div>
 
-      </div>
+        </div>
 
         <div class="screen round-end-screen" id="screen-round-end">
           <div class="screen-topbar round-end-top-row">
@@ -373,10 +376,14 @@
             </button>
           </div>
           <div class="match-config round-end-config">
+            <div class="scroll-hint-overlay" aria-hidden="true">
+              <div class="scroll-hint-chevron scroll-hint-up"></div>
+              <div class="scroll-hint-chevron scroll-hint-down"></div>
+            </div>
             <div class="match-config-scroll round-end-content">
-                <div class="round-end-section match-section match-validation-section">
-                  <div id="roundEndValidationMount"></div>
-                </div>
+              <div class="round-end-section match-section match-validation-section">
+                <div id="roundEndValidationMount"></div>
+              </div>
               <div class="round-end-section match-section hidden" id="roundEndScoringSection">
                 <div class="round-end-subtitle" id="roundEndScoringTitle"></div>
                 <div class="round-end-scoring-list" id="roundEndScoringList"></div>
@@ -397,7 +404,8 @@
           </div>
           <div class="round-end-keypad hidden" id="roundEndKeypad" aria-hidden="true">
             <div class="round-end-keypad-panel">
-              <button class="modal-close round-end-keypad-close" id="roundEndKeypadCloseBtn" aria-label="Close"></button>
+              <button class="modal-close round-end-keypad-close" id="roundEndKeypadCloseBtn"
+                aria-label="Close"></button>
               <div class="round-end-keypad-player" id="roundEndKeypadPlayer">
                 <span class="round-end-keypad-order" id="roundEndKeypadOrder"></span>
                 <span class="round-end-keypad-name" id="roundEndKeypadName"></span>
@@ -485,12 +493,15 @@
               <span class="icon-btn-img icon-prev" aria-hidden="true"></span>
             </button>
             <div class="modal-ribbon topbar-title text-border text-white text-uppercase" id="scoreboardTitle"></div>
-            <button class="icon-btn glossy btn-yellow" type="button" id="scoreboardSettingsBtn"
-              aria-label="Settings">
+            <button class="icon-btn glossy btn-yellow" type="button" id="scoreboardSettingsBtn" aria-label="Settings">
               <span class="icon-btn-img icon-settings" aria-hidden="true"></span>
             </button>
           </div>
           <div class="match-config scoreboard-config">
+            <div class="scroll-hint-overlay" aria-hidden="true">
+              <div class="scroll-hint-chevron scroll-hint-up"></div>
+              <div class="scroll-hint-chevron scroll-hint-down"></div>
+            </div>
             <div class="match-config-scroll scoreboard-scroll">
               <div class="match-section scoreboard-section">
                 <div class="scoreboard-table-wrap" id="scoreboardTableWrap">
@@ -506,7 +517,8 @@
           </div>
           <div class="round-end-keypad hidden scoreboard-keypad" id="scoreboardKeypad" aria-hidden="true">
             <div class="round-end-keypad-panel">
-              <button class="modal-close round-end-keypad-close" id="scoreboardKeypadCloseBtn" aria-label="Close"></button>
+              <button class="modal-close round-end-keypad-close" id="scoreboardKeypadCloseBtn"
+                aria-label="Close"></button>
               <div class="round-end-keypad-player" id="scoreboardKeypadPlayer">
                 <span class="round-end-keypad-order" id="scoreboardKeypadOrder"></span>
                 <span class="round-end-keypad-name" id="scoreboardKeypadName"></span>
@@ -642,16 +654,16 @@
       <div class="frame-panel">
         <div class="modal-stitch"></div>
         <div class="modal-ribbon"><span id="matchWinnersTitle"></span></div>
-          <button class="modal-close" data-modal-close="match-winners" aria-label="Close"></button>
-          <div class="modal-canvas">
-            <div class="pyro" aria-hidden="true">
-              <div class="before"></div>
-              <div class="after"></div>
-            </div>
-            <div class="modal-content match-winners-content">
-              <div class="match-winners-trophy" aria-hidden="true"></div>
-              <div class="match-winners-subtitle" id="matchWinnersSubtitle"></div>
-              <div class="match-winners-list" id="matchWinnersList"></div>
+        <button class="modal-close" data-modal-close="match-winners" aria-label="Close"></button>
+        <div class="modal-canvas">
+          <div class="pyro" aria-hidden="true">
+            <div class="before"></div>
+            <div class="after"></div>
+          </div>
+          <div class="modal-content match-winners-content">
+            <div class="match-winners-trophy" aria-hidden="true"></div>
+            <div class="match-winners-subtitle" id="matchWinnersSubtitle"></div>
+            <div class="match-winners-list" id="matchWinnersList"></div>
             <div class="settings-actions">
               <button class="game-btn ghost" type="button" id="matchWinnersScoreBtn"></button>
               <button class="game-btn primary" type="button" id="matchWinnersOkBtn"></button>
@@ -665,7 +677,7 @@
         <div class="modal-stitch"></div>
         <div class="modal-ribbon"><span id="rulesTitle"></span></div>
         <button class="modal-close" data-modal-close="validation-rules" aria-label="Close"></button>
-          <div class="modal-canvas">
+        <div class="modal-canvas">
           <div class="modal-content">
             <div class="rules-editor">
               <div class="rules-info-pill" id="rulesInfoPill" data-i18n="matchRulesInfo"></div>
