@@ -1526,17 +1526,16 @@ body.splash-ready #splashLoadingBlock {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  z-index: 3;
+  z-index: 7;
 }
 
 .scroll-hint-chevron {
   position: absolute;
-  left: 0;
-  right: 0;
+  right: 2px;
   bottom: 6px;
   display: flex;
   justify-content: flex-end;
-  width: 100%;
+  width: max-content;
   pointer-events: auto;
   opacity: 0;
   transform: translateY(0);
