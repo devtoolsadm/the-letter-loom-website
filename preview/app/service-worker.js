@@ -6,6 +6,7 @@ const VERSION_JS = `${BASE_PATH}src/core/version.js`;
 const DEV_BYPASS_CACHE = true; // set to true only for bypass during local dev
 const IS_LOCAL = self.location.hostname === "localhost" || self.location.hostname === "127.0.0.1";
 const LOG_CHANNEL_NAME = "app-logs";
+const SW_DEBUG = false;
 const logChannel = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel(LOG_CHANNEL_NAME) : null;
 const cacheReady = resolveCacheVersion();
 const PRECACHE_ASSETS = [
@@ -185,6 +186,7 @@ function notifyClients(message) {
 }
 
 function logSw(level, message, context) {
+  if (level === "debug" && !SW_DEBUG) return;
   const entry = {
     type: "log-entry",
     id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
@@ -203,15 +205,17 @@ function logSw(level, message, context) {
 
 async function resolveCacheVersion() {
   try {
-    const res = await fetch(VERSION_JS, { cache: "no-store" });
-    const text = await res.text();
+    const cache = await caches.open(CACHE_NAME);
+    const cached = await cache.match(new Request(VERSION_JS));
+    if (!cached) return;
+    const text = await cached.text();
     const match = text.match(/APP_VERSION\s*=\s*"([^"]+)"/);
     if (match && match[1]) {
       cacheVersion = match[1];
       CACHE_NAME = `${CACHE_PREFIX}-${cacheVersion}`;
-      logSw("debug", `Cache version resolved: ${CACHE_NAME}`);
+      logSw("debug", `Cache version resolved from cache: ${CACHE_NAME}`);
     }
   } catch (err) {
-    logSw("warn", "Could not resolve cache version from version.js; using default", err);
+    logSw("warn", "Could not resolve cache version from cache; using default", err);
   }
 }

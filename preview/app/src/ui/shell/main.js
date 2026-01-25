@@ -2664,7 +2664,7 @@ function openHelpVideo() {
   if (HELP_VIDEO_URL) {
     window.open(HELP_VIDEO_URL, "_blank", "noopener");
   } else {
-    logger.info("Help video not available yet");
+  logger.debug("Help video not available yet");
   }
 }
 
@@ -2686,7 +2686,7 @@ function openSocialLink(kind) {
     window.open(HELP_WEB_URL, "_blank", "noopener");
     return;
   }
-  logger.info("Help link not available");
+  logger.debug("Help link not available");
 }
 
 function initMatch() {
@@ -5725,7 +5725,7 @@ function assignSrcToNodes(nodes, src) {
 }
 
 function bootstrapShell() {
-  logger.info(`App version ${APP_VERSION}`);
+  logger.debug(`App version ${APP_VERSION}`);
   const textErrors = validateTexts(TEXTS);
   if (textErrors.length) {
     const msg = `Translation validation failed:\n${textErrors.join("\n")}`;
@@ -5789,7 +5789,7 @@ function registerServiceWorker() {
   navigator.serviceWorker
     .register("service-worker.js")
     .then(() => {
-      logger.info("Service worker registered");
+      logger.debug("Service worker registered");
     })
     .catch((err) => logger.error("Service worker registration failed", err));
 }
@@ -5862,7 +5862,8 @@ function setupDebugPanel() {
   window.__revealDebugPanel = reveal;
 
   function render() {
-    const entries = getLogs();
+    const showDebug = window.__showDebugLogs === true;
+    const entries = getLogs().filter((entry) => showDebug || entry.level !== "debug");
     list.innerHTML = "";
     entries.forEach((entry) => {
       const item = document.createElement("div");
@@ -5880,9 +5881,9 @@ function setupDebugPanel() {
               })
               .join(" | ")}</div>`
           : "";
-      item.innerHTML = `<div><strong>[${entry.level.toUpperCase()}]</strong> ${entry.message}</div>
+      item.innerHTML = `<div class="debug-log-msg"><strong>[${entry.level.toUpperCase()}]</strong> ${entry.message}</div>
         ${ctx}
-        <div class="meta">${new Date(entry.time).toLocaleTimeString()} - ${entry.source.toUpperCase()}</div>`;
+        <div class="meta"><span>${new Date(entry.time).toLocaleTimeString()}</span><span>${entry.source.toUpperCase()}</span></div>`;
       list.appendChild(item);
     });
     list.scrollTop = list.scrollHeight;
@@ -5953,7 +5954,7 @@ function setupInstallFlow() {
           .addEventListener("change", updateInstallButtonVisibility);
 
       if (fromInstall) {
-        logger.info("fromInstall detected; opening pwa-install dialog");
+        logger.debug("fromInstall detected; opening pwa-install dialog");
         triggerPwaInstall(pwaEl, true);
       }
     })
@@ -5986,7 +5987,7 @@ async function triggerPwaInstall(pwaEl, force = false) {
 
     if (result && typeof result.then === "function") {
       result
-        .then((outcome) => logger.info(`Install choice: ${outcome}`))
+        .then((outcome) => logger.debug(`Install choice: ${outcome}`))
         .catch((err) => logger.warn("Install prompt failed", err));
     } else if (force && promptFn === element.showDialog) {
       ensureInstallDialogVisible(element);
