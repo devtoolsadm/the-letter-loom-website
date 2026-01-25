@@ -2111,6 +2111,10 @@ function isIOS() {
         (navigator.userAgent.includes('Mac') && 'ontouchend' in document);
 }
 
+function isOfflineStandaloneIOS() {
+  return isIOS() && isStandaloneApp() && navigator.onLine === false;
+}
+
 function createDownload() {
   if (isIOS() || isStandaloneApp() || !('download' in document.createElement('a'))) {
     return (link, filename) => downloadWithBlob(link, filename);
@@ -5699,6 +5703,7 @@ function updateManifestLink() {
 }
 
 function preloadAsset(src, node) {
+  if (isOfflineStandaloneIOS()) return Promise.resolve();
   const tag = (node?.tagName || "").toLowerCase();
   if (tag === "video" || tag === "audio" || tag === "source") {
     // Let the browser/service worker reuse cache if available.
@@ -5893,6 +5898,7 @@ function setupDebugPanel() {
 }
 
 function fetchVersionFile() {
+  if (isOfflineStandaloneIOS()) return;
   fetch("src/core/version.js", { cache: "no-store" }).catch((err) =>
     logger.warn("Version file fetch failed", err)
   );

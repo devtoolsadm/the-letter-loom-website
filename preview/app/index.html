@@ -19,6 +19,12 @@
       const cdnSrc =
         "https://cdn.jsdelivr.net/npm/@khmyznikov/pwa-install/dist/pwa-install.bundle.js";
       const localSrc = "assets/js/pwa-install.bundle.js";
+      const isIOS =
+        /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+        (navigator.userAgent.includes("Mac") && "ontouchend" in document);
+      const isStandalone =
+        window.navigator.standalone === true ||
+        (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
       let resolveReady;
       window.pwaInstallReady = new Promise((res) => {
         resolveReady = res;
@@ -32,16 +38,25 @@
           s.onerror = () => reject(new Error(`Failed to load ${src}`));
           document.head.appendChild(s);
         });
-      load(cdnSrc)
-        .then((src) => resolveReady(src))
-        .catch(() =>
-          load(localSrc)
-            .then((src) => resolveReady(src))
-            .catch((err) => {
-              console.warn("pwa-install script failed to load", err);
-              resolveReady(null);
-            })
-        );
+      if (isIOS && isStandalone && navigator.onLine === false) {
+        load(localSrc)
+          .then((src) => resolveReady(src))
+          .catch((err) => {
+            console.warn("pwa-install script failed to load", err);
+            resolveReady(null);
+          });
+      } else {
+        load(cdnSrc)
+          .then((src) => resolveReady(src))
+          .catch(() =>
+            load(localSrc)
+              .then((src) => resolveReady(src))
+              .catch((err) => {
+                console.warn("pwa-install script failed to load", err);
+                resolveReady(null);
+              })
+          );
+      }
     })();
   </script>
 </head>

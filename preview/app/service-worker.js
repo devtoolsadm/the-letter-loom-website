@@ -34,6 +34,12 @@ const PRECACHE_ASSETS = [
   `${BASE_PATH}assets/img/help.svg`,
   `${BASE_PATH}assets/sounds/intro.wav`,
   `${BASE_PATH}assets/sounds/click.mp3`,
+  `${BASE_PATH}assets/js/pwa-install.bundle.js`,
+  `${BASE_PATH}assets/fonts/Bangers-Regular.woff2`,
+  `${BASE_PATH}assets/fonts/Fredoka-Regular.woff2`,
+  `${BASE_PATH}assets/fonts/Fredoka-SemiBold.woff2`,
+  `${BASE_PATH}assets/fonts/Fredoka-Bold.woff2`,
+  `${BASE_PATH}assets/fonts/Montserrat-Black.woff2`,
 ];
 
 if (IS_LOCAL && DEV_BYPASS_CACHE) {
