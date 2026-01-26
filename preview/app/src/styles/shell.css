@@ -4274,6 +4274,9 @@ body.splash-ready #splashLoadingBlock {
 
 .scoreboard-empty {
   grid-column: 1 / -1;
+  grid-row: 1 / -1;
+  place-self: center;
+  width: min(92%, 360px);
   padding: 12px;
   text-align: center;
   font-size: 13px;
@@ -4282,6 +4285,18 @@ body.splash-ready #splashLoadingBlock {
   background: #fff4d6;
   border: 2px dashed #d69a3a;
   border-radius: 12px;
+  z-index: 2;
+}
+
+.scoreboard-table-shell.is-empty .scoreboard-table-corner,
+.scoreboard-table-shell.is-empty .scoreboard-table-header,
+.scoreboard-table-shell.is-empty .scoreboard-table-left,
+.scoreboard-table-shell.is-empty .scoreboard-table-wrap {
+  display: none;
+}
+
+.scoreboard-table-shell.is-empty {
+  min-height: calc(var(--scoreboard-cell-size) * 2);
 }
 
 

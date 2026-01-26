@@ -3101,6 +3101,13 @@ function renderScoreboardScreen(matchState) {
   const note = document.getElementById("scoreboardNote");
   const actionButtons = document.getElementById("scoreboardActionButtons");
   if (!table || !tableHeader || !tableLeft || !tableCorner || !tableShell) return;
+  let emptyEl = document.getElementById("scoreboardEmpty");
+  if (!emptyEl) {
+    emptyEl = document.createElement("div");
+    emptyEl.id = "scoreboardEmpty";
+    emptyEl.className = "scoreboard-empty hidden";
+    tableShell.appendChild(emptyEl);
+  }
 
   if (!scoreboardDraft) {
     const data = buildScoreboardData(matchState);
@@ -3124,12 +3131,13 @@ function renderScoreboardScreen(matchState) {
 
   if (!rounds.length || !players.length) {
     tableCorner.textContent = "";
-    const empty = document.createElement("div");
-    empty.className = "scoreboard-empty";
-    setI18n(empty, "matchScoreboardEmpty");
-    table.appendChild(empty);
+    tableShell.classList.add("is-empty");
+    setI18n(emptyEl, "matchScoreboardEmpty");
+    emptyEl.classList.remove("hidden");
     return;
   }
+  tableShell.classList.remove("is-empty");
+  emptyEl.classList.add("hidden");
 
   tableCorner.className =
     "scoreboard-cell scoreboard-header scoreboard-player-cell scoreboard-corner";
