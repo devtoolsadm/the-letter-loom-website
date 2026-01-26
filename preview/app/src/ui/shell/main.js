@@ -3979,6 +3979,19 @@ function updateScrollHintState(scrollEl, hasScroll = null, hasBelow = null, cont
   container.classList.toggle("has-scroll-above", computedHasAbove);
 }
 
+function scrollByClamped(scrollEl, { top = 0, left = 0 } = {}) {
+  if (!scrollEl) return;
+  const maxTop = Math.max(0, scrollEl.scrollHeight - scrollEl.clientHeight);
+  const maxLeft = Math.max(0, scrollEl.scrollWidth - scrollEl.clientWidth);
+  const nextTop = Math.min(maxTop, Math.max(0, scrollEl.scrollTop + top));
+  const nextLeft = Math.min(maxLeft, Math.max(0, scrollEl.scrollLeft + left));
+  scrollEl.scrollTo({
+    top: nextTop,
+    left: nextLeft,
+    behavior: "smooth",
+  });
+}
+
 function updateScoreboardActionPadding() {
   const shell = document.getElementById("scoreboardTableShell");
   const actions = document.getElementById("scoreboardActions");
@@ -4086,14 +4099,14 @@ function setupActionOverlayListeners() {
     if (chevronDown) {
       chevronDown.addEventListener("click", () => {
         const step = Math.max(60, Math.round(scrollEl.clientHeight * 0.6));
-        scrollEl.scrollBy({ top: step, behavior: "smooth" });
+        scrollByClamped(scrollEl, { top: step });
       });
     }
     const chevronUp = container?.querySelector(".scroll-hint-up");
     if (chevronUp) {
       chevronUp.addEventListener("click", () => {
         const step = Math.max(60, Math.round(scrollEl.clientHeight * 0.6));
-        scrollEl.scrollBy({ top: -step, behavior: "smooth" });
+        scrollByClamped(scrollEl, { top: -step });
       });
     }
     scrollEl.dataset.scrollHintListener = "1";
@@ -4134,28 +4147,28 @@ function setupActionOverlayListeners() {
     if (downChevron) {
       downChevron.addEventListener("click", () => {
         const step = Math.max(60, Math.round(tableWrap.clientHeight * 0.6));
-        tableWrap.scrollBy({ top: step, behavior: "smooth" });
+        scrollByClamped(tableWrap, { top: step });
       });
     }
     const upChevron = hintHost.querySelector(".scroll-hint-up");
     if (upChevron) {
       upChevron.addEventListener("click", () => {
         const step = Math.max(60, Math.round(tableWrap.clientHeight * 0.6));
-        tableWrap.scrollBy({ top: -step, behavior: "smooth" });
+        scrollByClamped(tableWrap, { top: -step });
       });
     }
     const leftChevron = hintHost.querySelector(".scroll-hint-left");
     if (leftChevron) {
       leftChevron.addEventListener("click", () => {
         const step = Math.max(60, Math.round(tableWrap.clientWidth * 0.6));
-        tableWrap.scrollBy({ left: -step, behavior: "smooth" });
+        scrollByClamped(tableWrap, { left: -step });
       });
     }
     const rightChevron = hintHost.querySelector(".scroll-hint-right");
     if (rightChevron) {
       rightChevron.addEventListener("click", () => {
         const step = Math.max(60, Math.round(tableWrap.clientWidth * 0.6));
-        tableWrap.scrollBy({ left: step, behavior: "smooth" });
+        scrollByClamped(tableWrap, { left: step });
       });
     }
   }
