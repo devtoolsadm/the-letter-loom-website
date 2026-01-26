@@ -1609,15 +1609,16 @@ body.splash-ready #splashLoadingBlock {
   width: 32px;
   height: 32px;
   border-radius: 999px;
-  border: 1px solid #d7b882;
-  background: #fff4d6;
-  color: #7b3b21;
+  border: 1px solid #8f5033;
+  background: #8f5033;
+  color: #fff7e6;
   font-size: 22px;
   font-weight: 900;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   box-shadow: 0 2px 0 #c4893c;
+  transform: rotate(var(--chevron-rot, 0deg));
   animation: none;
 }
 
@@ -1633,9 +1634,76 @@ body.splash-ready #splashLoadingBlock {
   opacity: 1;
 }
 
+.scoreboard-hints.has-scroll-below .scroll-hint-down {
+  opacity: 1;
+}
+
+.scoreboard-hints.has-scroll-above .scroll-hint-up {
+  opacity: 1;
+}
+
+.scroll-hint-overlay-x {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9;
+}
+
+.scoreboard-hints {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 20;
+}
+
+.scoreboard-hints .scroll-hint-chevron {
+  pointer-events: auto;
+}
+
+.scroll-hint-chevron.scroll-hint-left,
+.scroll-hint-chevron.scroll-hint-right {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  bottom: auto;
+}
+
+.scroll-hint-chevron.scroll-hint-left {
+  left: -16px;
+  right: auto;
+}
+
+.scroll-hint-chevron.scroll-hint-right {
+  right: -16px;
+  left: auto;
+}
+
+.scroll-hint-chevron.scroll-hint-left::before {
+  --chevron-rot: 90deg;
+}
+
+.scroll-hint-chevron.scroll-hint-right::before {
+  --chevron-rot: -90deg;
+}
+
+.scoreboard-hints.has-scroll-left .scroll-hint-left,
+.scoreboard-hints.has-scroll-right .scroll-hint-right {
+  opacity: 1;
+}
+
 .match-config.has-scroll-below .scroll-hint-down::before,
-.match-config.has-scroll-above .scroll-hint-up::before {
+.match-config.has-scroll-above .scroll-hint-up::before,
+.scoreboard-hints.has-scroll-below .scroll-hint-down::before,
+.scoreboard-hints.has-scroll-above .scroll-hint-up::before {
   animation: scroll-hint-bounce 1.2s ease-in-out infinite;
+}
+
+.scoreboard-hints.has-scroll-left .scroll-hint-left::before,
+.scoreboard-hints.has-scroll-right .scroll-hint-right::before {
+  animation: scroll-hint-bounce-x 1.2s ease-in-out infinite;
 }
 
 @keyframes scroll-hint-bounce {
@@ -1645,6 +1713,16 @@ body.splash-ready #splashLoadingBlock {
   }
   50% {
     transform: translateY(3px) rotate(var(--chevron-rot, 0deg));
+  }
+}
+
+@keyframes scroll-hint-bounce-x {
+  0%,
+  100% {
+    transform: translateX(0) rotate(var(--chevron-rot, 0deg));
+  }
+  50% {
+    transform: translateX(3px) rotate(var(--chevron-rot, 0deg));
   }
 }
 
@@ -3674,6 +3752,9 @@ body.splash-ready #splashLoadingBlock {
   font-weight: 900;
   color: inherit;
 }
+.match-score-points.is-negative {
+  color: #b3342a;
+}
 
 .match-score-leader {
   position: absolute;
@@ -3703,46 +3784,186 @@ body.splash-ready #splashLoadingBlock {
 }
 
 .scoreboard-config .match-config-scroll {
-  overflow-y: auto;
+  overflow: hidden;
   flex: 1 1 auto;
   min-height: 0;
+  position: relative;
 }
 
 .scoreboard-section {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  flex: 0 0 auto;
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: 100%;
+  width: max-content;
+  max-width: 100%;
+  align-self: center;
+  position: relative;
+  --scoreboard-section-pad: 12px;
+}
+
+.scoreboard-config .scoreboard-actions {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 12;
+  padding: 12px 0 8px;
+  background: transparent;
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  box-shadow: 0 -8px 16px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.scoreboard-config .scoreboard-note {
+  margin: 0 10px;
+}
+
+.scoreboard-action-buttons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.scoreboard-config.has-scroll-below .scoreboard-actions {
+  background: linear-gradient(
+    180deg,
+    rgba(248, 235, 214, 0) 0%,
+    rgba(248, 235, 214, 0.65) 60%,
+    rgba(248, 235, 214, 0.92) 100%
+  );
+}
+
+.scoreboard-table-shell {
+  flex: 0 1 auto;
+  min-height: 0;
+  display: grid;
+  width: max-content;
+  max-width: 100%;
+  height: auto;
+  max-height: 100%;
+  overflow: hidden;
+  --scoreboard-bg: #fffaf1;
+  --scoreboard-header-bg: #e6d0a1;
+  --scoreboard-header-color: #6b3c1d;
+  --scoreboard-gap: 6px;
+  --scoreboard-pad-top: 8px;
+  --scoreboard-pad-x: 6px;
+  --scoreboard-pad-bottom: 10px;
+  --scoreboard-player-col: 200px;
+  --scoreboard-round-col: 58px;
+  --scoreboard-cell-height: 42px;
+  --scoreboard-cell-border: 2px;
+  --scoreboard-cell-radius: 10px;
+  --scoreboard-score-pad: 2px;
+  --scoreboard-cell-size: calc(
+    var(--scoreboard-cell-height) + (var(--scoreboard-cell-border) * 2)
+  );
+  grid-template-columns: var(--scoreboard-player-col) minmax(0, max-content);
+  grid-template-rows: var(--scoreboard-cell-size) minmax(0, 1fr);
+  gap: var(--scoreboard-gap);
+  padding: var(--scoreboard-pad-top) var(--scoreboard-pad-x) var(--scoreboard-pad-bottom);
+  border-radius: 16px;
+  border: 2px solid #d7b882;
+  background: var(--scoreboard-bg);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  position: relative;
+  isolation: isolate;
+  align-self: center;
+  margin: 0 auto;
+}
+
+.scoreboard-table-corner {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.scoreboard-table-header {
+  grid-column: 2;
+  grid-row: 1;
+  overflow: hidden;
+  min-width: 0;
+  position: relative;
+  width: max-content;
+  max-width: 100%;
+  justify-self: start;
+}
+
+.scoreboard-table-header-row {
+  display: grid;
+  grid-template-columns: repeat(
+    var(--scoreboard-rounds, 1),
+    minmax(var(--scoreboard-round-col), 0.7fr)
+  );
+  grid-auto-rows: var(--scoreboard-cell-size);
+  gap: var(--scoreboard-gap);
+  width: max-content;
+  min-width: calc(
+    (var(--scoreboard-rounds, 1) * (var(--scoreboard-round-col) + var(--scoreboard-gap))) -
+      var(--scoreboard-gap)
+  );
+}
+
+.scoreboard-table-left {
+  grid-column: 1;
+  grid-row: 2;
+  overflow: hidden;
+  min-height: 0;
+  position: relative;
+}
+
+.scoreboard-table-left-col {
+  display: grid;
+  grid-auto-rows: var(--scoreboard-cell-size);
+  gap: var(--scoreboard-gap);
+  padding-bottom: 0;
 }
 
 .scoreboard-table-wrap {
-  flex: 0 0 auto;
-  overflow-x: auto;
-  overflow-y: visible;
-  padding: 8px 6px 10px;
-  border-radius: 16px;
-  border: 2px solid #d7b882;
-  background: #fffaf1;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  grid-column: 2;
+  grid-row: 2;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  height: auto;
+  max-height: 100%;
+  position: relative;
+  background: transparent;
+  width: max-content;
+  max-width: 100%;
+  justify-self: start;
 }
 
 .scoreboard-table {
   display: grid;
-  grid-template-columns:
-    minmax(var(--scoreboard-player-col, 130px), 1.1fr)
-    repeat(var(--scoreboard-rounds, 1), minmax(var(--scoreboard-round-col, 58px), 0.7fr));
-  grid-auto-rows: minmax(32px, auto);
-  gap: 6px;
+  grid-template-columns: repeat(
+    var(--scoreboard-rounds, 1),
+    minmax(var(--scoreboard-round-col), 0.7fr)
+  );
+  grid-auto-rows: var(--scoreboard-cell-size);
+  gap: var(--scoreboard-gap);
+  position: relative;
+  background: var(--scoreboard-bg);
+  padding-bottom: 0;
   min-width: calc(
-    var(--scoreboard-player-col, 130px) +
-      (var(--scoreboard-rounds, 1) * var(--scoreboard-round-col, 58px))
+    (var(--scoreboard-rounds, 1) * (var(--scoreboard-round-col) + var(--scoreboard-gap))) -
+      var(--scoreboard-gap)
   );
 }
 
 .scoreboard-cell {
   position: relative;
-  border-radius: 10px;
-  border: 2px solid #d7b882;
+  box-sizing: border-box;
+  border-radius: var(--scoreboard-cell-radius);
+  border: var(--scoreboard-cell-border) solid #d7b882;
   background: #ffffff;
   padding: 0 8px;
   font-size: 22px;
@@ -3753,11 +3974,13 @@ body.splash-ready #splashLoadingBlock {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: var(--scoreboard-cell-height, 42px);
+  height: var(--scoreboard-cell-size);
+  z-index: 1;
 }
 
 .scoreboard-cell.scoreboard-header {
-  background: #f6ead0;
+  background: var(--scoreboard-header-bg);
+  color: var(--scoreboard-header-color);
   font-size: 20px;
   font-weight: 900;
   text-transform: uppercase;
@@ -3765,27 +3988,39 @@ body.splash-ready #splashLoadingBlock {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: var(--scoreboard-cell-height, 42px);
+  height: var(--scoreboard-cell-size);
   padding: 0 8px;
   text-align: center;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 2px 0 rgba(0, 0, 0, 0.08);
 }
 
 .scoreboard-player-cell {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 6px;
+  gap: 4px;
   background: var(--player-color, #d9c79f);
   border-color: var(--player-border, #c4a872);
   color: var(--player-text, #2f1b12);
   text-shadow: var(--player-name-shadow);
+  box-shadow: 2px 0 0 rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.scoreboard-cell.scoreboard-header.scoreboard-player-cell {
+  background: var(--scoreboard-header-bg);
+  color: var(--scoreboard-header-color);
+  text-shadow: none;
+  border-color: #d5b47e;
+}
+
+.scoreboard-corner {
+  background: #f6ead0;
 }
 
 .scoreboard-player-info {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   min-width: 0;
 }
 
@@ -3806,27 +4041,27 @@ body.splash-ready #splashLoadingBlock {
 }
 
 .scoreboard-player-name {
-    font-size: 13px;
-    font-weight: 800;
-    line-height: 1.05;
-    font-family: var(--player-names-font);
-    text-transform: var(--player-names-transform);
-    text-align: left;
-    color: var(--player-name-color);
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    overflow: hidden;
-    max-height: 28px;
-    word-break: normal;
-    overflow-wrap: normal;
-    text-shadow: var(--player-name-shadow);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.05;
+  font-family: var(--player-names-font);
+  text-transform: var(--player-names-transform);
+  text-align: left;
+  color: var(--player-name-color);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  max-height: 28px;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  text-shadow: var(--player-name-shadow);
 }
 
 .scoreboard-player-total {
-  font-size: 26px;
+  font-size: 23px;
   font-weight: 900;
-  min-width: 48px;
+  min-width: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3854,6 +4089,7 @@ body.splash-ready #splashLoadingBlock {
   align-items: center;
   justify-content: center;
   background: #fffaf1;
+  padding: var(--scoreboard-score-pad);
 }
 
 .scoreboard-score-cell.is-round-max::after,
@@ -3863,9 +4099,9 @@ body.splash-ready #splashLoadingBlock {
 
 .scoreboard-score-pill {
   width: 100%;
-  height: 30px;
-  border-radius: 10px;
-  border: 2px solid #d7b882;
+  height: calc(100% - (var(--scoreboard-score-pad) * 2));
+  border-radius: calc(var(--scoreboard-cell-radius) - var(--scoreboard-score-pad));
+  border: var(--scoreboard-cell-border) solid #d7b882;
   background: #fff;
   text-align: center;
   font-weight: 800;
@@ -3900,18 +4136,51 @@ body.splash-ready #splashLoadingBlock {
   border-color: #d04d2e;
   color: #8a2b15;
 }
+.scoreboard-score-pill.is-negative {
+  color: #b3342a;
+}
+.scoreboard-score-pill.is-invalid {
+  border-color: #b3342a;
+  color: #b9b0a6;
+  background: #ffd9d6;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), 0 0 0 2px #b3342a;
+  position: relative;
+}
+.scoreboard-score-pill.is-invalid::after {
+  content: "✕";
+  position: absolute;
+  inset: 0;
+  color: rgba(179, 52, 42, 0.9);
+  font-size: 34px;
+  font-weight: 900;
+  text-shadow:
+    1px 0 0 rgba(179, 52, 42, 0.9),
+    -1px 0 0 rgba(179, 52, 42, 0.9),
+    0 1px 0 rgba(179, 52, 42, 0.9),
+    0 -1px 0 rgba(179, 52, 42, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
 
 .scoreboard-score-value {
   font-size: 13px;
   font-weight: 800;
 }
+.scoreboard-score-value.is-negative {
+  color: #b3342a;
+}
+.scoreboard-score-value.is-invalid {
+  color: #b3342a;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.65);
+}
 
 @media (orientation: portrait) {
-  .scoreboard-table {
-    --scoreboard-player-col: 180px;
-    --scoreboard-round-col: 42px;
-    --scoreboard-cell-height: 50px;
-    gap: 5px;
+  .scoreboard-table-shell {
+    --scoreboard-round-col: 50px;
+    --scoreboard-cell-height: 36px;
+    --scoreboard-gap: 5px;
   }
 
   .scoreboard-cell {
@@ -3923,35 +4192,45 @@ body.splash-ready #splashLoadingBlock {
     letter-spacing: 0.4px;
   }
 
+  .scoreboard-score-pill {
+    font-size: 18px;
+    padding: 0 2px;
+  }
+
+  .scoreboard-score-value {
+    font-size: 12px;
+  }
+
   .scoreboard-player-name {
-    font-size: 15px;
+    font-size: 13px;
     line-height: 1.05;
     white-space: normal;
-    text-align: center;
+    text-align: left;
     overflow: hidden;
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
+    word-break: break-word;
+    overflow-wrap: anywhere;
   }
-
-  .scoreboard-player-cell {
-    gap: 4px;
-    padding: 0 6px;
-  }
-
+  
   .scoreboard-player-order {
-    min-width: 18px;
-    height: 18px;
-    font-size: 11px;
+    min-width: 22px;
+    height: 22px;
+    font-size: 14px;
   }
 
 }
 
 @media (orientation: landscape) {
-  .scoreboard-table {
-    --scoreboard-player-col: 150px;
+  .scoreboard-table-shell {
     --scoreboard-round-col: 64px;
-    --scoreboard-cell-height: 44px;
+    --scoreboard-cell-height: 36px;
+  }
+
+  .scoreboard-table-left-col,
+  .scoreboard-table {
+    padding-bottom: var(--scoreboard-actions-pad, 0px);
   }
 }
 
@@ -3967,6 +4246,21 @@ body.splash-ready #splashLoadingBlock {
   text-align: center;
   max-width: 90%;
   box-shadow: 0 2px 0 #c4893c;
+}
+.scoreboard-note.has-icon::before {
+  content: "!";
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #f0c25f;
+  color: #5a2f1c;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: 12px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 1px 2px rgba(0, 0, 0, 0.15);
+  margin-right: 6px;
 }
 
 .scoreboard-empty {

@@ -45,6 +45,8 @@ import {
   PLAYER_COLORS,
   CREATION_TIMEUP_AUTO_ACTION_MS,
   ROUND_KEYPAD_AUTO_ZERO_ON_NAV,
+  SIMULATE_MATCH_ON_START,
+  SIMULATED_MATCH_DATA,
 } from "../../core/constants.js";
 import { matchController, validateWordRemote } from "../../core/matchController.js";
 import { openModal, closeModal, closeTopModal } from "./modal.js";
@@ -128,6 +130,7 @@ let winnersModalOpen = false;
 let suppressWinnersPrompt = false;
 let lastWinnersIds = [];
 let scoreboardReturnWinners = false;
+let simulatedStartActive = false;
 let openPlayerColorIndex = null;
 let openPlayerNameIndex = null;
 let lastPlayerSwap = null;
@@ -490,6 +493,36 @@ function getScoreboardOddScore() {
   return null;
 }
 
+function getScoreboardOutOfRangeScore() {
+  const rounds = scoreboardRounds || [];
+  const players = scoreboardPlayers || [];
+  for (const round of rounds) {
+    for (const player of players) {
+      const value = scoreboardDraft?.[String(player.id)]?.[round];
+      if (!isScoreFilled(value)) continue;
+      const num = getScoreNumber(value);
+      if (num < MIN_ROUND_SCORE || num > MAX_ROUND_SCORE) {
+        return { playerId: String(player.id), round };
+      }
+    }
+  }
+  return null;
+}
+
+function getScoreboardMissingScore() {
+  const rounds = scoreboardRounds || [];
+  const players = scoreboardPlayers || [];
+  for (const round of rounds) {
+    for (const player of players) {
+      const value = scoreboardDraft?.[String(player.id)]?.[round];
+      if (!isScoreFilled(value)) {
+        return { playerId: String(player.id), round };
+      }
+    }
+  }
+  return null;
+}
+
 function updateScoreboardWarnings() {
   const note = document.getElementById("scoreboardNote");
   const saveBtn = document.getElementById("scoreboardSaveBtn");
@@ -499,42 +532,44 @@ function updateScoreboardWarnings() {
     if (saveBtn) saveBtn.disabled = true;
     return;
   }
-  const players = scoreboardPlayers || [];
-  const rounds = scoreboardRounds || [];
-  // Construir un objeto plano de puntuaciones draft: {playerId: value}
-  const scores = {};
-  for (const player of players) {
-    let total = 0;
-    let hasScore = false;
-    for (const round of rounds) {
-      const value = scoreboardDraft?.[String(player.id)]?.[round];
-      if (value !== undefined) {
-        total += Number(value);
-        hasScore = true;
-      }
-    }
-    // Para la validación, solo se toma el valor de cada ronda, pero aquí sumamos para mostrar el error en el jugador
-    // Si quieres validar por ronda, adapta el bucle
-    if (hasScore) scores[String(player.id)] = total;
-  }
-  const { missing, oddPlayer, outOfRangePlayer } = validateScores(players, scores);
-  if (oddPlayer) {
+  const odd = getScoreboardOddScore();
+  const outOfRange = getScoreboardOutOfRangeScore();
+  const missing = getScoreboardMissingScore();
+  if (odd) {
     setI18n(note, "matchScoreboardOdd", {
-      vars: { player: getScoreboardPlayerLabel(oddPlayer.id) },
+      vars: {
+        player: getScoreboardPlayerLabel(odd.playerId),
+        round: odd.round,
+      },
     });
     note.classList.remove("hidden");
-  } else if (outOfRangePlayer) {
-    setI18n(note, "matchRoundScoresOutOfRange", {
-      vars: { player: getScoreboardPlayerLabel(outOfRangePlayer.id), min: MIN_ROUND_SCORE, max: MAX_ROUND_SCORE },
+    note.classList.add("has-icon");
+  } else if (outOfRange) {
+    setI18n(note, "matchScoreboardScoresOutOfRange", {
+      vars: {
+        player: getScoreboardPlayerLabel(outOfRange.playerId),
+        round: outOfRange.round,
+        min: MIN_ROUND_SCORE,
+        max: MAX_ROUND_SCORE,
+      },
     });
     note.classList.remove("hidden");
+    note.classList.add("has-icon");
   } else if (missing) {
-    setI18n(note, "matchRoundScoresMissing");
+    setI18n(note, "matchScoreboardScoresMissing", {
+      vars: {
+        player: getScoreboardPlayerLabel(missing.playerId),
+        round: missing.round,
+      },
+    });
     note.classList.remove("hidden");
+    note.classList.add("has-icon");
   } else {
     note.classList.add("hidden");
+    note.classList.remove("has-icon");
   }
-  if (saveBtn) saveBtn.disabled = !!oddPlayer || !!outOfRangePlayer || !!missing;
+  if (saveBtn) saveBtn.disabled = !!odd || !!outOfRange || !!missing;
+  updateScoreboardActionPadding();
 }
 
 function updateScoreboardKeypad(matchState) {
@@ -2111,6 +2146,20 @@ function isIOS() {
         (navigator.userAgent.includes('Mac') && 'ontouchend' in document);
 }
 
+function isLocalHost() {
+  const host = window.location.hostname;
+  if (host === "localhost" || host === "127.0.0.1" || host === "0.0.0.0") return true;
+  if (host.endsWith(".local")) return true;
+  if (/^10\./.test(host)) return true;
+  if (/^192\.168\./.test(host)) return true;
+  const m = host.match(/^172\.(\d+)\./);
+  if (m) {
+    const n = Number(m[1]);
+    return n >= 16 && n <= 31;
+  }
+  return false;
+}
+
 function isOfflineStandaloneIOS() {
   return isIOS() && isStandaloneApp() && navigator.onLine === false;
 }
@@ -2690,9 +2739,62 @@ function openSocialLink(kind) {
 }
 
 function initMatch() {
+  if (SIMULATE_MATCH_ON_START && isLocalHost()) {
+    const applied = applySimulatedMatch();
+    if (applied) {
+      simulatedStartActive = true;
+      showScreen("match");
+    }
+  }
   const snap = matchController.getState();
   if (!snap) return;
   renderMatchFromState(snap);
+}
+
+function applySimulatedMatch() {
+  if (window.__simulatedMatchApplied) return false;
+  if (!SIMULATED_MATCH_DATA || !SIMULATED_MATCH_DATA.players) return false;
+  window.__simulatedMatchApplied = true;
+
+  const prefs = SIMULATED_MATCH_DATA.preferences || {};
+  matchController.applyPreferences(prefs);
+  matchController.setPlayers(
+    SIMULATED_MATCH_DATA.players.map((name, idx) => ({ id: `p${idx + 1}`, name }))
+  );
+  matchController.startMatch();
+
+  const state = matchController.getState();
+  const playerIds = state.players.map((p) => p.id);
+  const rounds = Array.isArray(SIMULATED_MATCH_DATA.rounds)
+    ? SIMULATED_MATCH_DATA.rounds
+    : [];
+
+  rounds.forEach((scores, idx) => {
+    const scoreMap = {};
+    playerIds.forEach((id, i) => {
+      const value = Array.isArray(scores) ? scores[i] : 0;
+      scoreMap[id] = Number.isFinite(Number(value)) ? Number(value) : 0;
+    });
+    matchController.addRoundScores(scoreMap);
+  });
+
+  const winners = Array.isArray(SIMULATED_MATCH_DATA.winners)
+    ? SIMULATED_MATCH_DATA.winners
+        .map((idx) => playerIds[idx])
+        .filter(Boolean)
+    : [];
+  if (winners.length && SIMULATED_MATCH_DATA.showWinners === true) {
+    matchController.declareWinners(winners);
+  }
+
+  const nextState = matchController.getState();
+  tempMatchPrefs = buildMatchPrefs(nextState.preferencesRef || {});
+  tempMatchPlayers = nextState.players.map((player) => ({
+    id: player.id,
+    name: player.name,
+    color: player.color,
+  }));
+  return true;
 }
 
 function formatSeconds(val) {
@@ -2856,12 +2958,22 @@ function getScoreNumber(value) {
   return Number.isFinite(num) ? num : 0;
 }
 
+function isScoreOutOfRange(value) {
+  if (!isScoreFilled(value)) return false;
+  const num = getScoreNumber(value);
+  return num < MIN_ROUND_SCORE || num > MAX_ROUND_SCORE;
+}
+
 function getScoreboardTotals(players, rounds, values) {
   const totals = new Map();
   players.forEach((player) => {
     const id = String(player.id);
     const row = values[id] || {};
-    const total = rounds.reduce((sum, round) => sum + getScoreNumber(row[round]), 0);
+    const total = rounds.reduce((sum, round) => {
+      const value = row[round];
+      if (!isScoreFilled(value) || isScoreOutOfRange(value)) return sum;
+      return sum + getScoreNumber(value);
+    }, 0);
     totals.set(id, total);
   });
   return totals;
@@ -2908,15 +3020,16 @@ function updateScoreboardDirty() {
     });
   });
   scoreboardDirty = dirty;
-  const actions = document.getElementById("scoreboardActions");
-  if (actions) {
-    actions.classList.toggle("hidden", scoreboardReadOnly || !scoreboardDirty);
+  const actionButtons = document.getElementById("scoreboardActionButtons");
+  if (actionButtons) {
+    actionButtons.classList.toggle("hidden", scoreboardReadOnly || !scoreboardDirty);
   }
   updateScoreboardWarnings();
 }
 
 function updateScoreboardIndicators() {
   const table = document.getElementById("scoreboardTable");
+  const tableLeft = document.getElementById("scoreboardTableLeftCol");
   if (!table || !scoreboardDraft) return;
   const players = scoreboardPlayers || [];
   const rounds = scoreboardRounds || [];
@@ -2925,18 +3038,20 @@ function updateScoreboardIndicators() {
   const roundMax = getScoreboardRoundMax(rounds, players, scoreboardDraft);
   const overallMax = getScoreboardOverallMax(rounds, players, scoreboardDraft);
 
-  table.querySelectorAll(".scoreboard-player-cell").forEach((cell) => {
-    const playerId = cell.dataset.playerId;
-    if (!playerId) return;
-    const totalEl = cell.querySelector(".scoreboard-player-total");
-    if (totalEl) {
-      totalEl.textContent = String(totals.get(playerId) ?? 0);
-    }
-      cell.classList.toggle(
-        "is-leader",
-        maxTotal > 0 && totals.get(playerId) === maxTotal && maxTotal > 0
-      );
-  });
+  if (tableLeft) {
+    tableLeft.querySelectorAll(".scoreboard-player-cell").forEach((cell) => {
+      const playerId = cell.dataset.playerId;
+      if (!playerId) return;
+      const totalEl = cell.querySelector(".scoreboard-player-total");
+      if (totalEl) {
+        totalEl.textContent = String(totals.get(playerId) ?? 0);
+      }
+        cell.classList.toggle(
+          "is-leader",
+          maxTotal > 0 && totals.get(playerId) === maxTotal && maxTotal > 0
+        );
+    });
+  }
 
   table.querySelectorAll(".scoreboard-score-cell").forEach((cell) => {
     const round = Number(cell.dataset.round);
@@ -2945,13 +3060,14 @@ function updateScoreboardIndicators() {
     const value = scoreboardDraft[playerId]?.[round];
     const roundMaxValue = roundMax.get(round);
       const scoreNum = getScoreNumber(value);
+      const isValid = isScoreFilled(value) && !isScoreOutOfRange(value);
       const isRoundMax =
         roundMaxValue != null &&
-        isScoreFilled(value) &&
+        isValid &&
         scoreNum === roundMaxValue && scoreNum > 0;
       const isOverallMax =
         overallMax != null &&
-        isScoreFilled(value) &&
+        isValid &&
         scoreNum === overallMax && scoreNum > 0;
       cell.classList.toggle("is-round-max", isRoundMax);
       cell.classList.toggle("is-overall-max", isOverallMax);
@@ -2961,21 +3077,29 @@ function updateScoreboardIndicators() {
       pill.textContent = formatScoreboardScoreDisplay(value);
       pill.classList.toggle("is-empty", !isScoreFilled(value));
       pill.classList.toggle("is-odd", isOddScore(value));
+      pill.classList.toggle("is-negative", isScoreFilled(value) && getScoreNumber(value) < 0);
+      pill.classList.toggle("is-invalid", isScoreOutOfRange(value));
     }
     const label = cell.querySelector(".scoreboard-score-value");
     if (label) {
       label.textContent = isScoreFilled(value)
         ? String(value)
         : shellTexts.matchRoundScorePlaceholder;
+      label.classList.toggle("is-negative", isScoreFilled(value) && getScoreNumber(value) < 0);
+      label.classList.toggle("is-invalid", isScoreOutOfRange(value));
     }
   });
 }
 
 function renderScoreboardScreen(matchState) {
   const table = document.getElementById("scoreboardTable");
+  const tableHeader = document.getElementById("scoreboardTableHeaderRow");
+  const tableLeft = document.getElementById("scoreboardTableLeftCol");
+  const tableCorner = document.getElementById("scoreboardTableCorner");
+  const tableShell = document.getElementById("scoreboardTableShell");
   const note = document.getElementById("scoreboardNote");
-  const actions = document.getElementById("scoreboardActions");
-  if (!table) return;
+  const actionButtons = document.getElementById("scoreboardActionButtons");
+  if (!table || !tableHeader || !tableLeft || !tableCorner || !tableShell) return;
 
   if (!scoreboardDraft) {
     const data = buildScoreboardData(matchState);
@@ -2988,14 +3112,17 @@ function renderScoreboardScreen(matchState) {
 
   const rounds = scoreboardRounds || [];
   const players = scoreboardPlayers || [];
-  table.style.setProperty("--scoreboard-rounds", Math.max(1, rounds.length).toString());
+  tableShell.style.setProperty("--scoreboard-rounds", Math.max(1, rounds.length).toString());
   table.innerHTML = "";
+  tableHeader.innerHTML = "";
+  tableLeft.innerHTML = "";
 
-  if (actions) {
-    actions.classList.toggle("hidden", scoreboardReadOnly || !scoreboardDirty);
+  if (actionButtons) {
+    actionButtons.classList.toggle("hidden", scoreboardReadOnly || !scoreboardDirty);
   }
 
   if (!rounds.length || !players.length) {
+    tableCorner.textContent = "";
     const empty = document.createElement("div");
     empty.className = "scoreboard-empty";
     setI18n(empty, "matchScoreboardEmpty");
@@ -3003,16 +3130,15 @@ function renderScoreboardScreen(matchState) {
     return;
   }
 
-  const headerPlayer = document.createElement("div");
-  headerPlayer.className = "scoreboard-cell scoreboard-header";
-  setI18n(headerPlayer, "matchScoreboardPlayerHeader");
-  table.appendChild(headerPlayer);
+  tableCorner.className =
+    "scoreboard-cell scoreboard-header scoreboard-player-cell scoreboard-corner";
+  setI18n(tableCorner, "matchScoreboardPlayerHeader");
   rounds.forEach((round) => {
     const header = document.createElement("div");
     header.className = "scoreboard-cell scoreboard-header";
     const label = shellTexts.matchScoreboardRoundShort.replace("{round}", round);
     header.textContent = label;
-    table.appendChild(header);
+    tableHeader.appendChild(header);
   });
 
   const totals = getScoreboardTotals(players, rounds, scoreboardDraft);
@@ -3054,7 +3180,7 @@ function renderScoreboardScreen(matchState) {
     leaderBadge.setAttribute("aria-hidden", "true");
 
     playerCell.append(info, total, leaderBadge);
-    table.appendChild(playerCell);
+    tableLeft.appendChild(playerCell);
 
     rounds.forEach((round) => {
       const cell = document.createElement("div");
@@ -3063,13 +3189,14 @@ function renderScoreboardScreen(matchState) {
       cell.dataset.round = String(round);
       const value = scoreboardDraft[id]?.[round] ?? "";
       const scoreNum = getScoreNumber(value);
+      const isValid = isScoreFilled(value) && !isScoreOutOfRange(value);
       const isRoundMax =
         roundMax.get(round) != null &&
-        isScoreFilled(value) &&
+        isValid &&
         scoreNum === roundMax.get(round) && scoreNum > 0;
       const isOverallMax =
         overallMax != null &&
-        isScoreFilled(value) &&
+        isValid &&
         scoreNum === overallMax && scoreNum > 0;
       cell.classList.toggle("is-round-max", isRoundMax);
       cell.classList.toggle("is-overall-max", isOverallMax);
@@ -3079,6 +3206,8 @@ function renderScoreboardScreen(matchState) {
         label.textContent = isScoreFilled(value)
           ? String(value)
           : shellTexts.matchRoundScorePlaceholder;
+        label.classList.toggle("is-negative", isScoreFilled(value) && getScoreNumber(value) < 0);
+        label.classList.toggle("is-invalid", isScoreOutOfRange(value));
         cell.appendChild(label);
       } else {
         const pill = document.createElement("button");
@@ -3087,12 +3216,29 @@ function renderScoreboardScreen(matchState) {
         pill.textContent = formatScoreboardScoreDisplay(value);
         pill.classList.toggle("is-empty", !isScoreFilled(value));
         pill.classList.toggle("is-odd", isOddScore(value));
+        pill.classList.toggle("is-negative", isScoreFilled(value) && getScoreNumber(value) < 0);
+        pill.classList.toggle("is-invalid", isScoreOutOfRange(value));
         cell.appendChild(pill);
       }
       table.appendChild(cell);
     });
   });
   updateScoreboardWarnings();
+  updateScoreboardHintBounds();
+  const tableWrap = document.getElementById("scoreboardTableWrap");
+  const hintOverlay = document.getElementById("scoreboardHints");
+  if (tableWrap) {
+    requestAnimationFrame(() => {
+      updateHorizontalScrollHintState(tableWrap, hintOverlay || tableShell);
+      updateScrollHintState(tableWrap, null, null, hintOverlay || tableShell);
+      const config = tableWrap.closest(".scoreboard-config");
+      if (config) updateScrollHintState(tableWrap, null, null, config);
+      const header = document.getElementById("scoreboardTableHeader");
+      const left = document.getElementById("scoreboardTableLeft");
+      if (header) header.scrollLeft = tableWrap.scrollLeft;
+      if (left) left.scrollTop = tableWrap.scrollTop;
+    });
+  }
 }
 
 function renderMatchScoreboard(matchState) {
@@ -3177,6 +3323,7 @@ function renderMatchScoreboard(matchState) {
       const pointsEl = document.createElement("span");
       pointsEl.className = "match-score-points";
       pointsEl.textContent = String(score);
+      pointsEl.classList.toggle("is-negative", score < 0);
       meta.appendChild(pointsEl);
     }
 
@@ -3815,7 +3962,7 @@ function updateActionOverlayState(container, scrollEl) {
   updateScrollHintState(scrollEl, hasScroll, hasBelow);
 }
 
-function updateScrollHintState(scrollEl, hasScroll = null, hasBelow = null) {
+function updateScrollHintState(scrollEl, hasScroll = null, hasBelow = null, containerOverride = null) {
   if (!scrollEl) return;
   const computedHasScroll =
     hasScroll ?? scrollEl.scrollHeight > scrollEl.clientHeight + 1;
@@ -3824,11 +3971,24 @@ function updateScrollHintState(scrollEl, hasScroll = null, hasBelow = null) {
     (computedHasScroll &&
       scrollEl.scrollTop < scrollEl.scrollHeight - scrollEl.clientHeight - 1);
   const computedHasAbove = computedHasScroll && scrollEl.scrollTop > 1;
-  const container = scrollEl.closest(".match-config");
+  const container = containerOverride || scrollEl.closest(".match-config");
   if (!container) return;
   container.classList.toggle("has-scroll", computedHasScroll);
   container.classList.toggle("has-scroll-below", computedHasBelow);
   container.classList.toggle("has-scroll-above", computedHasAbove);
+}
+
+function updateScoreboardActionPadding() {
+  const shell = document.getElementById("scoreboardTableShell");
+  const actions = document.getElementById("scoreboardActions");
+  if (!shell || !actions) return;
+  const note = document.getElementById("scoreboardNote");
+  const buttons = document.getElementById("scoreboardActionButtons");
+  const hasContent =
+    (note && !note.classList.contains("hidden")) ||
+    (buttons && !buttons.classList.contains("hidden"));
+  const pad = hasContent ? actions.offsetHeight : 0;
+  shell.style.setProperty("--scoreboard-actions-pad", `${pad}px`);
 }
 
 function updateActionOverlayStates() {
@@ -3840,9 +4000,42 @@ function updateActionOverlayStates() {
   const roundEndScroll = roundEndConfig?.querySelector(".round-end-content");
   updateActionOverlayState(roundEndConfig, roundEndScroll);
 
-  document
-    .querySelectorAll(".match-config-scroll")
-    .forEach((scrollEl) => updateScrollHintState(scrollEl));
+  document.querySelectorAll(".match-config-scroll").forEach((scrollEl) => {
+    if (scrollEl.classList.contains("scoreboard-scroll")) return;
+    updateScrollHintState(scrollEl);
+  });
+
+  const scoreboardWrap = document.getElementById("scoreboardTableWrap");
+  if (scoreboardWrap) {
+    const scoreboardShell = document.getElementById("scoreboardTableShell");
+    const hintOverlay = document.getElementById("scoreboardHints");
+    updateScoreboardHintBounds();
+    updateScoreboardActionPadding();
+    updateHorizontalScrollHintState(scoreboardWrap, hintOverlay || scoreboardShell);
+    if (hintOverlay || scoreboardShell) {
+      updateScrollHintState(scoreboardWrap, null, null, hintOverlay || scoreboardShell);
+    }
+    const config = scoreboardWrap.closest(".scoreboard-config");
+    if (config) updateScrollHintState(scoreboardWrap, null, null, config);
+  }
+}
+
+function updateScoreboardHintBounds() {
+  const hints = document.getElementById("scoreboardHints");
+  const wrap = document.getElementById("scoreboardTableWrap");
+  if (!hints || !wrap) return;
+  const config = wrap.closest(".scoreboard-config");
+  if (!config) return;
+  const wrapRect = wrap.getBoundingClientRect();
+  const configRect = config.getBoundingClientRect();
+  const top = Math.max(0, wrapRect.top - configRect.top);
+  const left = Math.max(0, wrapRect.left - configRect.left);
+  const right = Math.max(0, configRect.right - wrapRect.right);
+  const bottom = Math.max(0, configRect.bottom - wrapRect.bottom);
+  hints.style.top = `${top}px`;
+  hints.style.left = `${left}px`;
+  hints.style.right = `${right}px`;
+  hints.style.bottom = `${bottom}px`;
 }
 
 function setupActionOverlayListeners() {
@@ -3867,6 +4060,7 @@ function setupActionOverlayListeners() {
   });
 
   document.querySelectorAll(".match-config-scroll").forEach((scrollEl) => {
+    if (scrollEl.classList.contains("scoreboard-scroll")) return;
     if (!scrollEl || scrollEl.dataset.scrollHintListener === "1") return;
     const onUpdate = () => updateScrollHintState(scrollEl);
     scrollEl.addEventListener("scroll", onUpdate);
@@ -3907,11 +4101,80 @@ function setupActionOverlayListeners() {
     setTimeout(() => updateScrollHintState(scrollEl), 250);
   });
 
+  const tableWrap = document.getElementById("scoreboardTableWrap");
+  const tableShell = document.getElementById("scoreboardTableShell");
+  const tableHeader = document.getElementById("scoreboardTableHeader");
+  const tableLeft = document.getElementById("scoreboardTableLeft");
+  const hintOverlay = document.getElementById("scoreboardHints");
+  if (tableWrap && tableWrap.dataset.scrollHintX !== "1") {
+    const updateXY = () => {
+      if (tableHeader) tableHeader.scrollLeft = tableWrap.scrollLeft;
+      if (tableLeft) tableLeft.scrollTop = tableWrap.scrollTop;
+      updateScoreboardHintBounds();
+      updateHorizontalScrollHintState(tableWrap, hintOverlay || tableShell);
+      if (hintOverlay || tableShell) {
+        updateScrollHintState(tableWrap, null, null, hintOverlay || tableShell);
+      }
+      const config = tableWrap.closest(".scoreboard-config");
+      if (config) {
+        updateScrollHintState(tableWrap, null, null, config);
+      }
+    };
+    tableWrap.addEventListener("scroll", updateXY);
+    if (window.ResizeObserver) {
+      const observer = new ResizeObserver(updateXY);
+      observer.observe(tableWrap);
+      tableWrap._scrollHintXObserver = observer;
+    }
+    tableWrap.dataset.scrollHintX = "1";
+    updateXY();
+    const hintHost = hintOverlay || tableShell || tableWrap;
+    const downChevron = hintHost.querySelector(".scroll-hint-down");
+    if (downChevron) {
+      downChevron.addEventListener("click", () => {
+        const step = Math.max(60, Math.round(tableWrap.clientHeight * 0.6));
+        tableWrap.scrollBy({ top: step, behavior: "smooth" });
+      });
+    }
+    const upChevron = hintHost.querySelector(".scroll-hint-up");
+    if (upChevron) {
+      upChevron.addEventListener("click", () => {
+        const step = Math.max(60, Math.round(tableWrap.clientHeight * 0.6));
+        tableWrap.scrollBy({ top: -step, behavior: "smooth" });
+      });
+    }
+    const leftChevron = hintHost.querySelector(".scroll-hint-left");
+    if (leftChevron) {
+      leftChevron.addEventListener("click", () => {
+        const step = Math.max(60, Math.round(tableWrap.clientWidth * 0.6));
+        tableWrap.scrollBy({ left: -step, behavior: "smooth" });
+      });
+    }
+    const rightChevron = hintHost.querySelector(".scroll-hint-right");
+    if (rightChevron) {
+      rightChevron.addEventListener("click", () => {
+        const step = Math.max(60, Math.round(tableWrap.clientWidth * 0.6));
+        tableWrap.scrollBy({ left: step, behavior: "smooth" });
+      });
+    }
+  }
+
   const onResize = () => updateActionOverlayStates();
   window.addEventListener("resize", onResize);
   if (window.visualViewport) {
     window.visualViewport.addEventListener("resize", onResize);
   }
+}
+
+function updateHorizontalScrollHintState(scrollEl, stateEl) {
+  if (!scrollEl) return;
+  const target = stateEl || scrollEl;
+  const hasScroll = scrollEl.scrollWidth > scrollEl.clientWidth + 1;
+  const atStart = scrollEl.scrollLeft <= 1;
+  const atEnd =
+    scrollEl.scrollLeft >= scrollEl.scrollWidth - scrollEl.clientWidth - 1;
+  target.classList.toggle("has-scroll-left", hasScroll && !atStart);
+  target.classList.toggle("has-scroll-right", hasScroll && !atEnd);
 }
 
 function showRoundIntro(matchState) {
@@ -5765,7 +6028,7 @@ function bootstrapShell() {
   setupDebugPanel();
   setupInstallFlow();
   setupServiceWorkerMessaging();
-  showScreen("splash");
+  showScreen(simulatedStartActive ? "match" : "splash");
   startSplashLoader();
   detectInstalledApp().finally(() => updateInstallButtonVisibility());
   scaleGame();
