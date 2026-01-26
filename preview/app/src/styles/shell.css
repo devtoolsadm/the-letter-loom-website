@@ -1307,6 +1307,15 @@ body.shell-ready #game-root {
   line-height: 1;
 }
 
+.help-footer {
+  margin-top: 6px;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 700;
+  color: rgba(73, 44, 22, 0.65);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
 .fullwidth-btn {
   width: 100%;
   max-width: 260px;

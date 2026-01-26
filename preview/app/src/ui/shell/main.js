@@ -1878,6 +1878,7 @@ function renderShellTexts() {
   setI18nById("helpTiktokShort", "helpTiktokShort");
   setI18nById("helpEmailShort", "helpEmailShort");
   setI18nById("helpWebShort", "helpWebShort");
+  setI18nById("helpFooter", "helpFooter", { vars: { year, version: APP_VERSION } });
 
   setI18nById("setupTitle", "setupTitle");
   setI18nById("setupSubtitle", "setupSubtitle");
@@ -6126,7 +6127,11 @@ function setupDebugPanel() {
 
   function render() {
     const showDebug = window.__showDebugLogs === true;
-    const entries = getLogs().filter((entry) => showDebug || entry.level !== "debug");
+    const allEntries = getLogs();
+    let entries = allEntries.filter((entry) => showDebug || entry.level !== "debug");
+    if (!entries.length && allEntries.length) {
+      entries = allEntries;
+    }
     list.innerHTML = "";
     entries.forEach((entry) => {
       const item = document.createElement("div");
