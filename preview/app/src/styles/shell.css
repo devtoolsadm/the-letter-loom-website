@@ -2105,11 +2105,11 @@ body.splash-ready #splashLoadingBlock {
 }
 
 .round-end-keypad-close.modal-close {
-  top: 32px;
-  right: 4px;
+  top: 10px;
+  right: 10px;
   width: 34px;
   height: 34px;
-  position: fixed;
+  position: absolute;
 }
 
 .round-end-keypad-close.modal-close::before,
