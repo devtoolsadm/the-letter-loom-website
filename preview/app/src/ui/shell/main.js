@@ -3244,7 +3244,9 @@ function renderScoreboardScreen(matchState) {
       if (config) updateScrollHintState(tableWrap, null, null, config);
       const header = document.getElementById("scoreboardTableHeader");
       const left = document.getElementById("scoreboardTableLeft");
+      const leftCol = document.getElementById("scoreboardTableLeftCol");
       if (header) header.scrollLeft = tableWrap.scrollLeft;
+      if (leftCol) leftCol.style.transform = "";
       if (left) left.scrollTop = tableWrap.scrollTop;
     });
   }
@@ -4003,13 +4005,20 @@ function scrollByClamped(scrollEl, { top = 0, left = 0 } = {}) {
 function updateScoreboardActionPadding() {
   const shell = document.getElementById("scoreboardTableShell");
   const actions = document.getElementById("scoreboardActions");
-  if (!shell || !actions) return;
+  const wrap = document.getElementById("scoreboardTableWrap");
+  if (!shell || !actions || !wrap) return;
   const note = document.getElementById("scoreboardNote");
   const buttons = document.getElementById("scoreboardActionButtons");
   const hasContent =
     (note && !note.classList.contains("hidden")) ||
     (buttons && !buttons.classList.contains("hidden"));
-  const pad = hasContent ? actions.offsetHeight : 0;
+  let pad = 0;
+  if (hasContent) {
+    const wrapRect = wrap.getBoundingClientRect();
+    const actionsRect = actions.getBoundingClientRect();
+    const overlaps = actionsRect.top < wrapRect.bottom - 1;
+    pad = overlaps ? actions.offsetHeight : 0;
+  }
   shell.style.setProperty("--scoreboard-actions-pad", `${pad}px`);
 }
 
@@ -4127,10 +4136,12 @@ function setupActionOverlayListeners() {
   const tableShell = document.getElementById("scoreboardTableShell");
   const tableHeader = document.getElementById("scoreboardTableHeader");
   const tableLeft = document.getElementById("scoreboardTableLeft");
+  const tableLeftCol = document.getElementById("scoreboardTableLeftCol");
   const hintOverlay = document.getElementById("scoreboardHints");
   if (tableWrap && tableWrap.dataset.scrollHintX !== "1") {
     const updateXY = () => {
       if (tableHeader) tableHeader.scrollLeft = tableWrap.scrollLeft;
+      if (tableLeftCol) tableLeftCol.style.transform = "";
       if (tableLeft) tableLeft.scrollTop = tableWrap.scrollTop;
       updateScoreboardHintBounds();
       updateHorizontalScrollHintState(tableWrap, hintOverlay || tableShell);
