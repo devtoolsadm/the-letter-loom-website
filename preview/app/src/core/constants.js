@@ -100,7 +100,7 @@ export const SIMULATED_MATCH_DATA = {
     [8, 20, 14, 26, 0, 30, 22, 12],
     [18, 24, 12, 10, 16, 8, 26, 0],
     [22, 0, 18, 14, 20, 0, 28, 16],
-    [6, 26, 0, 18, -24, 24, 30, 12],
+    [6, 26, 0, 18, 24, -24, 30, 12],
   ],
   winners: [], // indices in players array
   showWinners: false,

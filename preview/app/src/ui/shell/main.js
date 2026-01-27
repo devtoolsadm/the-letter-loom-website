@@ -1879,6 +1879,7 @@ function renderShellTexts() {
   setI18nById("helpEmailShort", "helpEmailShort");
   setI18nById("helpWebShort", "helpWebShort");
   setI18nById("helpFooter", "helpFooter", { vars: { year, version: APP_VERSION } });
+  setI18nById("scoreboardEditHint", "matchScoreboardEditHint");
 
   setI18nById("setupTitle", "setupTitle");
   setI18nById("setupSubtitle", "setupSubtitle");
@@ -3098,6 +3099,7 @@ function renderScoreboardScreen(matchState) {
   const tableLeft = document.getElementById("scoreboardTableLeftCol");
   const tableCorner = document.getElementById("scoreboardTableCorner");
   const tableShell = document.getElementById("scoreboardTableShell");
+  const editHint = document.getElementById("scoreboardEditHint");
   const note = document.getElementById("scoreboardNote");
   const actionButtons = document.getElementById("scoreboardActionButtons");
   if (!table || !tableHeader || !tableLeft || !tableCorner || !tableShell) return;
@@ -3127,6 +3129,9 @@ function renderScoreboardScreen(matchState) {
 
   if (actionButtons) {
     actionButtons.classList.toggle("hidden", scoreboardReadOnly || !scoreboardDirty);
+  }
+  if (editHint) {
+    editHint.classList.toggle("hidden", scoreboardReadOnly);
   }
 
   if (!rounds.length || !players.length) {
@@ -4012,12 +4017,22 @@ function updateScoreboardActionPadding() {
   const hasContent =
     (note && !note.classList.contains("hidden")) ||
     (buttons && !buttons.classList.contains("hidden"));
+  const isPortrait = window.matchMedia
+    ? window.matchMedia("(orientation: portrait)").matches
+    : window.innerHeight > window.innerWidth;
+  const playerCount = (scoreboardPlayers || []).length;
+  const allowPad = !isPortrait || playerCount > 6;
   let pad = 0;
-  if (hasContent) {
-    const wrapRect = wrap.getBoundingClientRect();
-    const actionsRect = actions.getBoundingClientRect();
-    const overlaps = actionsRect.top < wrapRect.bottom - 1;
-    pad = overlaps ? actions.offsetHeight : 0;
+  if (hasContent && allowPad) {
+    const hintBase = actions.offsetHeight;
+    if (isPortrait) {
+      pad = hintBase;
+    } else {
+      const wrapRect = wrap.getBoundingClientRect();
+      const actionsRect = actions.getBoundingClientRect();
+      const overlaps = actionsRect.top < wrapRect.bottom - 1;
+      pad = overlaps ? hintBase : 0;
+    }
   }
   shell.style.setProperty("--scoreboard-actions-pad", `${pad}px`);
 }
