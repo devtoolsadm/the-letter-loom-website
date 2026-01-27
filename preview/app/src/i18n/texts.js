@@ -11,7 +11,7 @@ export const TEXTS = {
     appDescription: "El juego de cartas mas divertido de todos los tiempos!",
     splashTitle: "Empezar partida",
     splashSubtitle: "Controla los cronos y la puntuación del juego de cartas.",
-    splashContinue: "Jugar!!",
+    splashContinue: "Jugar!",
     splashResume: "Reanudar partida guardada",
     splashHelp: "Ver instrucciones",
     splashLoadingLabel: "Cargando...",

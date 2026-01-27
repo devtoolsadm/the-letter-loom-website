@@ -24,8 +24,6 @@ export const CREATION_TIMEUP_AUTO_ACTION_MS = 3000;
 export const MATCH_MODE_ROUNDS = "rounds";
 export const MATCH_MODE_POINTS = "points";
 
-
-
 // Palette of player colors (string identifiers or hex values)
 const USE_VIVID_PLAYER_COLORS = true;
 
@@ -68,40 +66,73 @@ if (USE_VIVID_PLAYER_COLORS && typeof document !== "undefined") {
   root.style.setProperty("--player-name-color", "#ffffff");
   root.style.setProperty(
     "--player-name-shadow",
-    "0 1px 0 rgba(0,0,0,0.6), 0 -1px 0 rgba(0,0,0,0.6), 1px 0 0 rgba(0,0,0,0.6), -1px 0 0 rgba(0,0,0,0.6)"
+    "0 1px 0 rgba(0,0,0,0.6), 0 -1px 0 rgba(0,0,0,0.6), 1px 0 0 rgba(0,0,0,0.6), -1px 0 0 rgba(0,0,0,0.6)",
   );
 }
 
 // Debug-only: preload a simulated match on app start.
 export const SIMULATE_MATCH_ON_START = true;
-export const SIMULATED_MATCH_DATA = {
-  players: ["Raquel", "Ramon", "Refa", "Elvira", "Juan Sebastián", "A.Sebastiánduroitia", "Andrea", "Margina"],
-  preferences: {
-    playersCount: 8,
-    strategySeconds: 15,
-    creationSeconds: 15,
-    mode: MATCH_MODE_ROUNDS,
-    roundsTarget: 16,
-    pointsTarget: 500,
-    scoringEnabled: true,
+const SIMULATED_MATCH_DATA_ARR = [
+  {
+    players: [
+      "Raquel",
+      "Ramon",
+      "Refa",
+      "Elvira",
+      "Juan Sebastián",
+      "A.Sebastiánduroitia",
+      "Andrea",
+      "Margina",
+    ],
+    preferences: {
+      playersCount: 8,
+      strategySeconds: 15,
+      creationSeconds: 15,
+      mode: MATCH_MODE_ROUNDS,
+      roundsTarget: 16,
+      pointsTarget: 500,
+      scoringEnabled: true,
+    },
+    rounds: [
+      [112, 18, 0, 24, 10, 14, 20, 8],
+      [130, 0, 16, 12, 6, 22, 28, 18],
+      [14, 26, 10, 0, 12, 18, 24, 16],
+      [8, 20, 14, 26, 0, 30, 22, 12],
+      [18, 24, 12, 10, 16, 8, 26, 0],
+      [22, 0, 18, 14, 20, 0, 28, 16],
+      [6, 26, 0, 18, 24, 124, 30, 12],
+      [12, 22, 16, 0, 18, 4, -8, 0],
+      [12, 18, 0, 24, 10, 14, 20, 8],
+      [30, 0, 16, 12, 6, 22, 28, 18],
+      [14, 26, 10, 0, 12, 18, 24, 16],
+      [8, 20, 14, 26, 0, 30, 22, 12],
+      [18, 24, 12, 10, 16, 8, 26, 0],
+      [22, 0, 18, 14, 20, 0, 28, 16],
+      [6, 26, 0, 18, 24, -24, 30, 12],
+    ],
+    winners: [], // indices in players array
+    showWinners: false,
   },
-  rounds: [
-    [112, 18, 0, 24, 10, 14, 20, 8],
-    [130, 0, 16, 12, 6, 22, 28, 18],
-    [14, 26, 10, 0, 12, 18, 24, 16],
-    [8, 20, 14, 26, 0, 30, 22, 12],
-    [18, 24, 12, 10, 16, 8, 26, 0],
-    [22, 0, 18, 14, 20, 0, 28, 16],
-    [6, 26, 0, 18, 24, 124, 30, 12],
-    [12, 22, 16, 0, 18, 4, -8, 0],
-    [12, 18, 0, 24, 10, 14, 20, 8],
-    [30, 0, 16, 12, 6, 22, 28, 18],
-    [14, 26, 10, 0, 12, 18, 24, 16],
-    [8, 20, 14, 26, 0, 30, 22, 12],
-    [18, 24, 12, 10, 16, 8, 26, 0],
-    [22, 0, 18, 14, 20, 0, 28, 16],
-    [6, 26, 0, 18, 24, -24, 30, 12],
-  ],
-  winners: [], // indices in players array
-  showWinners: false,
-};
+  {
+    players: [
+      "Raquel",
+      "Ramon",
+      "Rafa",
+    ],
+    preferences: {
+      playersCount: 3,
+      strategySeconds: 15,
+      creationSeconds: 15,
+      mode: MATCH_MODE_ROUNDS,
+      roundsTarget: 16,
+      pointsTarget: 500,
+      scoringEnabled: true,
+    },
+    rounds: [
+      [112, 18, 0, 24, 10, 14, 20, 8],
+    ],
+    winners: [], // indices in players array
+    showWinners: false,
+  },  
+];
+export const SIMULATED_MATCH_DATA = SIMULATED_MATCH_DATA_ARR[1];
