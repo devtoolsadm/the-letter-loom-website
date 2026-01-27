@@ -1880,6 +1880,8 @@ function renderShellTexts() {
   setI18nById("helpWebShort", "helpWebShort");
   setI18nById("helpFooter", "helpFooter", { vars: { year, version: APP_VERSION } });
   setI18nById("scoreboardEditHint", "matchScoreboardEditHint");
+  setI18nById("matchScoreboardOpenBtn", "matchScoreboardEdit", { attr: "aria-label" });
+  setI18nById("matchScoreboardOpenBtn", "matchScoreboardEdit");
 
   setI18nById("setupTitle", "setupTitle");
   setI18nById("setupSubtitle", "setupSubtitle");
