@@ -43,6 +43,41 @@ const PRECACHE_ASSETS = [
   `${BASE_PATH}assets/fonts/Montserrat-Black.woff2`,
 ];
 
+async function precacheAssets(cache, { skipVersion = false } = {}) {
+  const assets = skipVersion
+    ? PRECACHE_ASSETS.filter((url) => url !== VERSION_JS)
+    : PRECACHE_ASSETS;
+  await Promise.allSettled(
+    assets.map(async (url) => {
+      try {
+        const response = await fetch(url, { cache: "no-store" });
+        if (!response.ok) {
+          logSw("warn", "Precache skipped (non-200 response)", {
+            url,
+            status: response.status,
+          });
+          return;
+        }
+        await cache.put(url, response.clone());
+      } catch (err) {
+        logSw("warn", "Precache failed", { url, err });
+      }
+    })
+  );
+}
+
+async function rotateCacheVersion(newVersion, versionResponse) {
+  const previousCache = CACHE_NAME;
+  cacheVersion = newVersion;
+  CACHE_NAME = `${CACHE_PREFIX}-${cacheVersion}`;
+  const cache = await caches.open(CACHE_NAME);
+  await cache.put(new Request(VERSION_JS), versionResponse.clone());
+  await precacheAssets(cache, { skipVersion: true });
+  const keys = await caches.keys();
+  await Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)));
+  logSw("info", `Cache rotated from ${previousCache} to ${CACHE_NAME}`);
+}
+
 if (IS_LOCAL && DEV_BYPASS_CACHE) {
   logSw("info", "Development mode: cache bypass enabled");
 }
@@ -55,11 +90,7 @@ self.addEventListener("install", (event) => {
       .then(async () => {
         if (IS_LOCAL && DEV_BYPASS_CACHE) return;
         const cache = await caches.open(CACHE_NAME);
-        await Promise.allSettled(
-          PRECACHE_ASSETS.map((url) =>
-            cache.add(url).catch((err) => logSw("warn", "Precache failed", { url, err }))
-          )
-        );
+        await precacheAssets(cache);
       })
       .finally(() => {
         self.skipWaiting();
@@ -133,13 +164,30 @@ async function handleVersionRequest(request) {
     const cacheKey = new Request(VERSION_JS);
     const cached = await cache.match(cacheKey);
     const cachedText = cached ? await cached.text() : null;
+    const match = text.match(/APP_VERSION\\s*=\\s*\"([^\"]+)\"/);
+    const newVersion = match && match[1] ? match[1] : null;
     if (cachedText === null) {
-      await cache.put(cacheKey, response.clone());
-      logSw("debug", "version.js cached for the first time");
+      if (newVersion && newVersion !== cacheVersion) {
+        await rotateCacheVersion(newVersion, response.clone());
+        logSw("info", "version.js cached and cache rotated");
+      } else {
+        await cache.put(cacheKey, response.clone());
+        logSw("debug", "version.js cached for the first time");
+      }
     } else if (text !== cachedText) {
-      await cache.put(cacheKey, response.clone());
+      if (newVersion && newVersion !== cacheVersion) {
+        await rotateCacheVersion(newVersion, response.clone());
+      } else {
+        await cache.put(cacheKey, response.clone());
+      }
       notifyClients({ type: "refresh" });
-      logSw("info", "version.js changed, notified clients");
+      if (newVersion && newVersion !== cacheVersion) {
+        logSw("info", `version.js changed (${newVersion}); cache rotated and clients notified`);
+      } else if (!newVersion) {
+        logSw("warn", "version.js changed but no APP_VERSION found; cache not rotated");
+      } else {
+        logSw("info", "version.js changed, notified clients");
+      }
     } else {
       logSw("debug", "version.js unchanged");
     }
