@@ -3913,11 +3913,15 @@ body.splash-ready #splashLoadingBlock {
   --scoreboard-cell-border: 2px;
   --scoreboard-cell-radius: 10px;
   --scoreboard-score-pad: 2px;
+  --scoreboard-header-height: var(--scoreboard-cell-height);
   --scoreboard-cell-size: calc(
     var(--scoreboard-cell-height) + (var(--scoreboard-cell-border) * 2)
   );
+  --scoreboard-header-size: calc(
+    var(--scoreboard-header-height) + (var(--scoreboard-cell-border) * 2)
+  );
   grid-template-columns: var(--scoreboard-player-col) minmax(0, max-content);
-  grid-template-rows: var(--scoreboard-cell-size) minmax(0, 1fr);
+  grid-template-rows: var(--scoreboard-header-size) minmax(0, 1fr);
   gap: var(--scoreboard-gap);
   padding: var(--scoreboard-pad-top) var(--scoreboard-pad-x) var(--scoreboard-pad-bottom);
   border-radius: 16px;
@@ -3957,7 +3961,7 @@ body.splash-ready #splashLoadingBlock {
     var(--scoreboard-rounds, 1),
     minmax(var(--scoreboard-round-col), 0.7fr)
   );
-  grid-auto-rows: var(--scoreboard-cell-size);
+  grid-auto-rows: var(--scoreboard-header-size);
   gap: var(--scoreboard-gap);
   width: max-content;
   min-width: calc(
@@ -4030,7 +4034,7 @@ body.splash-ready #splashLoadingBlock {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: var(--scoreboard-cell-size);
+  height: var(--scoreboard-header-size);
   z-index: 1;
 }
 
@@ -4047,7 +4051,7 @@ body.splash-ready #splashLoadingBlock {
   height: var(--scoreboard-cell-size);
   padding: 0 8px;
   text-align: center;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 2px 0 rgba(0, 0, 0, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }
 
 .scoreboard-player-cell {
@@ -4296,12 +4300,27 @@ body.splash-ready #splashLoadingBlock {
 @media (orientation: landscape) {
   .scoreboard-table-shell {
     --scoreboard-round-col: 64px;
-    --scoreboard-cell-height: 36px;
+    --scoreboard-header-height: 30px;
   }
 
   .scoreboard-table-left-col,
   .scoreboard-table {
     padding-bottom: var(--scoreboard-actions-pad, 0px);
+    grid-auto-rows: calc(42px + (var(--scoreboard-cell-border) * 2));
+  }
+
+  .scoreboard-table-header-row {
+    grid-auto-rows: var(--scoreboard-header-size);
+  }
+
+  .scoreboard-table-corner,
+  .scoreboard-cell.scoreboard-header {
+    height: var(--scoreboard-header-size);
+  }
+
+  .scoreboard-table-left-col .scoreboard-cell,
+  .scoreboard-table .scoreboard-cell {
+    height: calc(42px + (var(--scoreboard-cell-border) * 2));
   }
 }
 

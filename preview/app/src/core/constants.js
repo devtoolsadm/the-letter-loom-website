@@ -110,7 +110,7 @@ const SIMULATED_MATCH_DATA_ARR = [
       [22, 0, 18, 14, 20, 0, 28, 16],
       [6, 26, 0, 18, 24, -24, 30, 12],
     ],
-    winners: [], // indices in players array
+    winners: [], 
     showWinners: false,
   },
   {
@@ -131,7 +131,7 @@ const SIMULATED_MATCH_DATA_ARR = [
     rounds: [
       [112, 18, 0, 24, 10, 14, 20, 8],
     ],
-    winners: [], // indices in players array
+    winners: [], 
     showWinners: false,
   },  
 ];
