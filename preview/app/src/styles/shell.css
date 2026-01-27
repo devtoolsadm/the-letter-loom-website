@@ -961,7 +961,7 @@ body.shell-ready #game-root {
 /* Glossy variants */
 .btn-green,
 .game-btn.primary {
-  --btn-main: #2cb34a;
+  --btn-main: red; /* #2cb34a; */
   --btn-dark: #1e7f34;
   --btn-text: #fff;
 }
