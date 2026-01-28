@@ -38,7 +38,8 @@
           s.onerror = () => reject(new Error(`Failed to load ${src}`));
           document.head.appendChild(s);
         });
-      if (isIOS && isStandalone && navigator.onLine === false) {
+      const isOffline = navigator.onLine === false;
+      if (isOffline) {
         load(localSrc)
           .then((src) => resolveReady(src))
           .catch((err) => {

@@ -157,13 +157,19 @@ self.addEventListener("fetch", (event) => {
 });
 
 async function handleVersionRequest(request) {
+  const cache = await caches.open(CACHE_NAME);
+  const cacheKey = new Request(VERSION_JS);
+  const cached = await cache.match(cacheKey);
+  const isOffline =
+    typeof self.navigator !== "undefined" && self.navigator.onLine === false;
+  if (isOffline && cached) {
+    logSw("info", "version.js served from cache (offline)");
+    return cached;
+  }
   try {
     const response = await fetch(request, { cache: "no-store" });
     const text = await response.clone().text();
-    const cache = await caches.open(CACHE_NAME);
-    const cacheKey = new Request(VERSION_JS);
-    const cached = await cache.match(cacheKey);
-    const cachedText = cached ? await cached.text() : null;
+    const cachedText = cached ? await cached.clone().text() : null;
     const match = text.match(/APP_VERSION\\s*=\\s*\"([^\"]+)\"/);
     const newVersion = match && match[1] ? match[1] : null;
     if (cachedText === null) {

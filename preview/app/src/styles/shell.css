@@ -3909,7 +3909,8 @@ body.splash-ready #splashLoadingBlock {
   --scoreboard-pad-bottom: 10px;
   --scoreboard-player-col: 200px;
   --scoreboard-round-col: 58px;
-  --scoreboard-cell-height: 42px;
+  --scoreboard-data-height: 42px;
+  --scoreboard-cell-height: var(--scoreboard-data-height);
   --scoreboard-cell-border: 2px;
   --scoreboard-cell-radius: 10px;
   --scoreboard-score-pad: 2px;
@@ -4034,7 +4035,7 @@ body.splash-ready #splashLoadingBlock {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: var(--scoreboard-header-size);
+  height: var(--scoreboard-cell-size);
   z-index: 1;
 }
 
@@ -4249,7 +4250,7 @@ body.splash-ready #splashLoadingBlock {
 @media (orientation: portrait) {
   .scoreboard-table-shell {
     --scoreboard-round-col: 50px;
-    --scoreboard-cell-height: 36px;
+    --scoreboard-data-height: 36px;
     --scoreboard-gap: 5px;
   }
 
@@ -4306,7 +4307,6 @@ body.splash-ready #splashLoadingBlock {
   .scoreboard-table-left-col,
   .scoreboard-table {
     padding-bottom: var(--scoreboard-actions-pad, 0px);
-    grid-auto-rows: calc(42px + (var(--scoreboard-cell-border) * 2));
   }
 
   .scoreboard-table-header-row {
@@ -4316,11 +4316,6 @@ body.splash-ready #splashLoadingBlock {
   .scoreboard-table-corner,
   .scoreboard-cell.scoreboard-header {
     height: var(--scoreboard-header-size);
-  }
-
-  .scoreboard-table-left-col .scoreboard-cell,
-  .scoreboard-table .scoreboard-cell {
-    height: calc(42px + (var(--scoreboard-cell-border) * 2));
   }
 }
 
