@@ -104,9 +104,10 @@ self.addEventListener("activate", (event) => {
     cacheReady
       .catch(() => {})
       .then(() =>
-        caches.keys().then((keys) =>
-          Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
-        )
+        caches.keys().then((keys) => {
+          if (!keys.includes(CACHE_NAME)) return;
+          return Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)));
+        })
       )
       .then(() => notifyClients({ type: "refresh" }))
   );
@@ -127,8 +128,7 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       (async () => {
         await cacheReady.catch(() => {});
-        const cache = await caches.open(CACHE_NAME);
-        const cached = await cache.match(`${BASE_PATH}index.html`);
+        const cached = await matchAppShell();
         if (cached) return cached;
         try {
           const resp = await fetch(event.request);
@@ -234,6 +234,29 @@ async function cacheFirst(request) {
     if (cached) return cached;
     throw err;
   }
+}
+
+async function matchAppShell() {
+  const candidates = [`${BASE_PATH}index.html`, `${BASE_PATH}`];
+  try {
+    const cache = await caches.open(CACHE_NAME);
+    for (const url of candidates) {
+      const hit = await cache.match(url);
+      if (hit) return hit;
+    }
+  } catch {}
+  try {
+    const keys = await caches.keys();
+    for (const key of keys) {
+      if (key === CACHE_NAME) continue;
+      const cache = await caches.open(key);
+      for (const url of candidates) {
+        const hit = await cache.match(url);
+        if (hit) return hit;
+      }
+    }
+  } catch {}
+  return null;
 }
 
 function notifyClients(message) {
