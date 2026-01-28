@@ -126,6 +126,7 @@ self.addEventListener("fetch", (event) => {
   if (event.request.mode === "navigate" || event.request.destination === "document") {
     event.respondWith(
       (async () => {
+        await cacheReady.catch(() => {});
         const cache = await caches.open(CACHE_NAME);
         const cached = await cache.match(`${BASE_PATH}index.html`);
         if (cached) return cached;
@@ -157,6 +158,7 @@ self.addEventListener("fetch", (event) => {
 });
 
 async function handleVersionRequest(request) {
+  await cacheReady.catch(() => {});
   const cache = await caches.open(CACHE_NAME);
   const cacheKey = new Request(VERSION_JS);
   const cached = await cache.match(cacheKey);
@@ -208,6 +210,7 @@ async function handleVersionRequest(request) {
 }
 
 async function cacheFirst(request) {
+  await cacheReady.catch(() => {});
   const cache = await caches.open(CACHE_NAME);
   const cached = await cache.match(request);
   if (cached) {
@@ -259,15 +262,24 @@ function logSw(level, message, context) {
 
 async function resolveCacheVersion() {
   try {
-    const cache = await caches.open(CACHE_NAME);
-    const cached = await cache.match(new Request(VERSION_JS));
-    if (!cached) return;
-    const text = await cached.text();
-    const match = text.match(/APP_VERSION\s*=\s*"([^"]+)"/);
-    if (match && match[1]) {
-      cacheVersion = match[1];
-      CACHE_NAME = `${CACHE_PREFIX}-${cacheVersion}`;
-      logSw("debug", `Cache version resolved from cache: ${CACHE_NAME}`);
+    const keys = await caches.keys();
+    const candidates = keys.filter((key) => key.startsWith(`${CACHE_PREFIX}-`));
+    if (!candidates.length) return;
+    for (const key of candidates) {
+      const cache = await caches.open(key);
+      const cached = await cache.match(new Request(VERSION_JS));
+      if (!cached) continue;
+      const text = await cached.text();
+      const match = text.match(/APP_VERSION\s*=\s*"([^"]+)"/);
+      if (match && match[1]) {
+        cacheVersion = match[1];
+        CACHE_NAME = `${CACHE_PREFIX}-${cacheVersion}`;
+        logSw("debug", `Cache version resolved from cache: ${CACHE_NAME}`);
+        return;
+      }
+      CACHE_NAME = key;
+      logSw("debug", `Cache version resolved from cache key: ${CACHE_NAME}`);
+      return;
     }
   } catch (err) {
     logSw("warn", "Could not resolve cache version from cache; using default", err);
