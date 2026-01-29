@@ -42,6 +42,14 @@ const PRECACHE_ASSETS = [
   `${BASE_PATH}assets/fonts/Fredoka-Bold.woff2`,
   `${BASE_PATH}assets/fonts/Montserrat-Black.woff2`,
 ];
+const CRITICAL_ASSETS = [
+  `${BASE_PATH}index.html`,
+  `${BASE_PATH}src/ui/shell/main.js`,
+  `${BASE_PATH}src/styles/shell.css`,
+  `${BASE_PATH}src/ui/shell/modal.js`,
+  `${BASE_PATH}src/styles/modal.css`,
+  `${BASE_PATH}src/i18n/texts.js`,
+];
 
 async function precacheAssets(cache, { skipVersion = false } = {}) {
   const assets = skipVersion
@@ -68,11 +76,22 @@ async function precacheAssets(cache, { skipVersion = false } = {}) {
 
 async function rotateCacheVersion(newVersion, versionResponse) {
   const previousCache = CACHE_NAME;
-  cacheVersion = newVersion;
-  CACHE_NAME = `${CACHE_PREFIX}-${cacheVersion}`;
-  const cache = await caches.open(CACHE_NAME);
+  const previousVersion = cacheVersion;
+  const nextCacheName = `${CACHE_PREFIX}-${newVersion}`;
+  const cache = await caches.open(nextCacheName);
   await cache.put(new Request(VERSION_JS), versionResponse.clone());
   await precacheAssets(cache, { skipVersion: true });
+
+  const ready = await hasCriticalAssets(cache);
+  if (!ready) {
+    cacheVersion = previousVersion;
+    CACHE_NAME = previousCache;
+    logSw("warn", `Cache rotation aborted; critical assets missing in ${nextCacheName}`);
+    return;
+  }
+
+  cacheVersion = newVersion;
+  CACHE_NAME = nextCacheName;
   const keys = await caches.keys();
   await Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)));
   logSw("info", `Cache rotated from ${previousCache} to ${CACHE_NAME}`);
@@ -234,6 +253,14 @@ async function cacheFirst(request) {
     if (cached) return cached;
     throw err;
   }
+}
+
+async function hasCriticalAssets(cache) {
+  for (const url of CRITICAL_ASSETS) {
+    const hit = await cache.match(url);
+    if (!hit) return false;
+  }
+  return true;
 }
 
 async function matchAppShell() {
