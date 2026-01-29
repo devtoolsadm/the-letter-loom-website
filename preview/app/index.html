@@ -22,9 +22,14 @@
       const isIOS =
         /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
         (navigator.userAgent.includes("Mac") && "ontouchend" in document);
+      const urlParams = new URLSearchParams(window.location.search);
+      const fromPWA = urlParams.get("fromPWA") === "1";
       const isStandalone =
         window.navigator.standalone === true ||
-        (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
+        (window.matchMedia &&
+          (window.matchMedia("(display-mode: standalone)").matches ||
+            window.matchMedia("(display-mode: fullscreen)").matches)) ||
+        fromPWA;
       let resolveReady;
       window.pwaInstallReady = new Promise((res) => {
         resolveReady = res;
@@ -39,7 +44,12 @@
           document.head.appendChild(s);
         });
       const isOffline = navigator.onLine === false;
-      if (isOffline) {
+      if (isStandalone) {
+        resolveReady(null);
+        return;
+      }
+      const preferLocal = isIOS && isOffline;
+      if (preferLocal || isOffline) {
         load(localSrc)
           .then((src) => resolveReady(src))
           .catch((err) => {

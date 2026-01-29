@@ -2106,7 +2106,7 @@ function setupWakeLock() {
       fallbackFailed: shellTexts.wakeLockStatusFallbackFailed,
       inactive: shellTexts.wakeLockStatusInactive,
     },
-    showDebug: true,
+    showDebug: false,
   });
 }
 
@@ -6217,9 +6217,19 @@ function setupDebugPanel() {
 
 function fetchVersionFile() {
   if (isOfflineStandaloneIOS()) return;
-  fetch("src/core/version.js", { cache: "no-store" }).catch((err) =>
-    logger.warn("Version file fetch failed", err)
-  );
+  const doFetch = () =>
+    fetch("src/core/version.js", { cache: "no-store" }).catch((err) =>
+      logger.warn("Version file fetch failed", err)
+    );
+  if ("serviceWorker" in navigator) {
+    if (navigator.serviceWorker.controller) {
+      doFetch();
+      return;
+    }
+    navigator.serviceWorker.ready.then(doFetch).catch(doFetch);
+    return;
+  }
+  doFetch();
 }
 
 function isPreviewEnv() {
