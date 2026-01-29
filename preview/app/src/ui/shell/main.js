@@ -5496,7 +5496,7 @@ function startSplashLoader() {
 
   const assets = loadSplashAssets();
   const total = assets.total || 1;
-  const minDuration = 3000;
+  const minDuration = (isStandaloneApp() || fromPWA) ? 1 : 3000;
   const start = Date.now();
   let completed = 0;
 
