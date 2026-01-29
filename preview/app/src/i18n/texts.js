@@ -87,6 +87,9 @@ export const TEXTS = {
     confirmBodyPhaseChange: "¿Seguro que quieres cambiar de fase?",
     confirmTitleFinish: "Finalizar cronómetro",
     confirmBodyFinish: "¿Seguro que quieres terminar esta fase?",
+    confirmTitleResumeStale: "Reanudar partida",
+    confirmBodyResumeStale:
+      "Se encontró una partida a medias del {date} con {players}. ¿Quieres reanudarla?",
     confirmAccept: "Aceptar",
     confirmCancel: "Cancelar",
     matchTitle: "Partida",
@@ -293,6 +296,9 @@ export const TEXTS = {
     confirmBodyPhaseChange: "Are you sure you want to switch phases?",
     confirmTitleFinish: "Finish timer",
     confirmBodyFinish: "Are you sure you want to finish this phase?",
+    confirmTitleResumeStale: "Resume match",
+    confirmBodyResumeStale:
+      "We found an unfinished match from {date} with {players}. Do you want to resume it?",
     confirmAccept: "OK",
     confirmCancel: "Cancel",
     matchTitle: "Game",

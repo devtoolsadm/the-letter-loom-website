@@ -46,7 +46,7 @@ import {
   CREATION_TIMEUP_AUTO_ACTION_MS,
   ROUND_KEYPAD_AUTO_ZERO_ON_NAV,
   SIMULATE_MATCH_ON_START,
-  SIMULATED_MATCH_DATA,
+  SIMULATED_MATCH_STATE,
 } from "../../core/constants.js";
 import { matchController, validateWordRemote } from "../../core/matchController.js";
 import { openModal, closeModal, closeTopModal } from "./modal.js";
@@ -58,6 +58,14 @@ import {
 import { loadState, updateState } from "../../core/stateStore.js";
 import { APP_VERSION } from "../../core/version.js";
 import { logger, onLog, getLogs } from "../../core/logger.js";
+import {
+  loadActiveMatch,
+  saveActiveMatch,
+  clearActiveMatch,
+  upsertArchiveMatch,
+  normalizeMatchForResume,
+  isResumeEligible,
+} from "../../core/matchStorage.js";
 
 const urlParams = new URLSearchParams(window.location.search);
 const fromPWA = urlParams.get("fromPWA") === "1";
@@ -101,6 +109,9 @@ let splashLoaderComplete = false;
 let splashLoaderProgress = 0;
 let hasScaledOnce = false;
 let installedAppDetected = false;
+let activeMatchSaveTimer = null;
+let restoredMatchActive = false;
+let skipNextActiveMatchSave = false;
 let creationTimeupTimer = null;
 let creationTimeupCancelled = false;
 let introAudio = null;
@@ -2366,7 +2377,12 @@ function scaleGame() {
 
 function setupNavigation() {
   const map = [
-    ["splashContinueBtn", () => showScreen("match")],
+    ["splashContinueBtn", () => {
+      const prompted = maybePromptRestoreStaleMatch({
+        onDecline: () => showScreen("match"),
+      });
+      if (!prompted) showScreen("match");
+    }],
     ["resumeMatchBtn", () => showScreen("match")],
     ["splashHelpBtn", () => showScreen("help")],
     ["helpBtn", () => showScreen("help")],
@@ -2744,60 +2760,146 @@ function openSocialLink(kind) {
 
 function initMatch() {
   if (SIMULATE_MATCH_ON_START && isLocalHost()) {
-    const applied = applySimulatedMatch();
-    if (applied) {
-      simulatedStartActive = true;
-      showScreen("match");
-    }
+    applySimulatedMatch();
+  }
+  if (restoreActiveMatchIfEligible()) {
+    showScreen("match");
   }
   const snap = matchController.getState();
   if (!snap) return;
   renderMatchFromState(snap);
 }
 
-function applySimulatedMatch() {
-  if (window.__simulatedMatchApplied) return false;
-  if (!SIMULATED_MATCH_DATA || !SIMULATED_MATCH_DATA.players) return false;
-  window.__simulatedMatchApplied = true;
+function buildActiveMatchSnapshot(matchState, { status = "active", exitExplicit = false } = {}) {
+  if (!matchState) return null;
+  return {
+    matchId: matchState.matchId,
+    status,
+    exitExplicit,
+    lastSavedAt: Date.now(),
+    matchState,
+  };
+}
 
-  const prefs = SIMULATED_MATCH_DATA.preferences || {};
-  matchController.applyPreferences(prefs);
-  matchController.setPlayers(
-    SIMULATED_MATCH_DATA.players.map((name, idx) => ({ id: `p${idx + 1}`, name }))
-  );
-  matchController.startMatch();
-
-  const state = matchController.getState();
-  const playerIds = state.players.map((p) => p.id);
-  const rounds = Array.isArray(SIMULATED_MATCH_DATA.rounds)
-    ? SIMULATED_MATCH_DATA.rounds
-    : [];
-
-  rounds.forEach((scores, idx) => {
-    const scoreMap = {};
-    playerIds.forEach((id, i) => {
-      const value = Array.isArray(scores) ? scores[i] : 0;
-      scoreMap[id] = Number.isFinite(Number(value)) ? Number(value) : 0;
-    });
-    matchController.addRoundScores(scoreMap);
-  });
-
-  const winners = Array.isArray(SIMULATED_MATCH_DATA.winners)
-    ? SIMULATED_MATCH_DATA.winners
-        .map((idx) => playerIds[idx])
-        .filter(Boolean)
-    : [];
-  if (winners.length && SIMULATED_MATCH_DATA.showWinners === true) {
-    matchController.declareWinners(winners);
+function persistActiveMatchSnapshot(matchState) {
+  if (!matchState) return;
+  if (!matchState.isActive && !matchState.matchOver) return;
+  const status = matchState.matchOver
+    ? "finished"
+    : matchState.isActive
+      ? "active"
+      : "inactive";
+  const snapshot = buildActiveMatchSnapshot(matchState, { status });
+  if (snapshot) {
+    saveActiveMatch(snapshot);
   }
+}
 
-  const nextState = matchController.getState();
-  tempMatchPrefs = buildMatchPrefs(nextState.preferencesRef || {});
-  tempMatchPlayers = nextState.players.map((player) => ({
+function scheduleActiveMatchSave(matchState) {
+  if (activeMatchSaveTimer) return;
+  activeMatchSaveTimer = window.setTimeout(() => {
+    activeMatchSaveTimer = null;
+    persistActiveMatchSnapshot(matchState || matchController.getState());
+  }, 200);
+}
+
+function matchHasAnyScores(matchState) {
+  const players = matchState?.players || [];
+  return players.some((player) => Array.isArray(player.rounds) && player.rounds.length > 0);
+}
+
+function finalizeMatchSnapshot(matchState, { status = "finished", exitExplicit = false } = {}) {
+  if (!matchState) {
+    clearActiveMatch();
+    return;
+  }
+  if (!matchState.isActive && !matchState.matchOver && !matchHasAnyScores(matchState)) {
+    clearActiveMatch();
+    return;
+  }
+  if (exitExplicit) {
+    skipNextActiveMatchSave = true;
+  }
+  const snapshot = buildActiveMatchSnapshot(matchState, { status, exitExplicit });
+  if (snapshot) {
+    snapshot.savedAt = snapshot.lastSavedAt;
+    upsertArchiveMatch(snapshot);
+    clearActiveMatch();
+  }
+}
+
+function restoreActiveMatchIfEligible() {
+  const stored = loadActiveMatch();
+  if (!isResumeEligible(stored)) return false;
+  return restoreMatchFromSnapshot(stored);
+}
+
+function restoreMatchFromSnapshot(snapshot) {
+  const normalized = normalizeMatchForResume(snapshot?.matchState);
+  if (!normalized) return false;
+  matchController.loadMatchState(normalized, { persist: true });
+  tempMatchPrefs = buildMatchPrefs(normalized.preferencesRef || {});
+  tempMatchPlayers = normalized.players.map((player) => ({
     id: player.id,
     name: player.name,
     color: player.color,
   }));
+  restoredMatchActive = true;
+  return true;
+}
+
+function formatStoredMatchSummary(snapshot) {
+  if (!snapshot?.matchState) return { date: "", players: "" };
+  const date = snapshot.lastSavedAt
+    ? new Date(snapshot.lastSavedAt).toLocaleString(shellLanguage || "es")
+    : "";
+  const players = Array.isArray(snapshot.matchState.players)
+    ? snapshot.matchState.players.map((p) => p.name).filter(Boolean).join(", ")
+    : "";
+  return { date, players };
+}
+
+function maybePromptRestoreStaleMatch({ onAccept, onDecline } = {}) {
+  const stored = loadActiveMatch();
+  if (!stored?.matchState) return false;
+  if (stored.exitExplicit) return false;
+  const status = stored.status || "active";
+  if (status !== "active") return false;
+  if (isResumeEligible(stored)) return false;
+
+  const summary = formatStoredMatchSummary(stored);
+  openConfirm({
+    title: "confirmTitleResumeStale",
+    body: "confirmBodyResumeStale",
+    acceptText: "confirmAccept",
+    cancelText: "cancel",
+    bodyVars: summary,
+    onConfirm: () => {
+      const restored = restoreMatchFromSnapshot(stored);
+      if (restored) {
+        showScreen("match");
+      }
+      if (typeof onAccept === "function") onAccept(restored);
+    },
+    onCancel: () => {
+      clearActiveMatch();
+      if (typeof onDecline === "function") onDecline();
+    },
+  });
+  return true;
+}
+
+function applySimulatedMatch() {
+  if (window.__simulatedMatchApplied) return false;
+  if (!SIMULATED_MATCH_STATE || !SIMULATED_MATCH_STATE.players) return false;
+  window.__simulatedMatchApplied = true;
+
+  const normalized = normalizeMatchForResume(SIMULATED_MATCH_STATE);
+  const snapshot = buildActiveMatchSnapshot(normalized, { status: "active" });
+  if (snapshot) {
+    snapshot.lastSavedAt = normalized.updatedAt || snapshot.lastSavedAt;
+    saveActiveMatch(snapshot);
+  }
   return true;
 }
 
@@ -4577,7 +4679,13 @@ function updateMatchPreferences(partial) {
   renderMatch();
 }
 
-function startMatchPlay() {
+function startMatchPlay({ skipResumePrompt = false } = {}) {
+  if (!skipResumePrompt) {
+    const prompted = maybePromptRestoreStaleMatch({
+      onDecline: () => startMatchPlay({ skipResumePrompt: true }),
+    });
+    if (prompted) return;
+  }
   stopClockLoop(false);
   if (introAudio) {
     introAudio.pause();
@@ -4646,6 +4754,10 @@ function startMatchPhase(kind) {
   const phase = st.phase;
   if (kind === "strategy") {
     if (phase === "config") {
+      const prompted = maybePromptRestoreStaleMatch({
+        onDecline: () => startMatchPhase(kind),
+      });
+      if (prompted) return;
       matchController.startMatch();
     }
     const current = matchController.getState().phase;
@@ -4685,6 +4797,12 @@ function startMatchPhase(kind) {
         clockLowTimeMode = false;
         playClockLoop();
       }
+    } else if (phase === "config") {
+      const prompted = maybePromptRestoreStaleMatch({
+        onDecline: () => startMatchPhase(kind),
+      });
+      if (prompted) return;
+      matchController.startMatch();
     }
   }
   renderMatch();
@@ -5112,6 +5230,7 @@ function confirmExitToSplash() {
     acceptText: "confirmAccept",
     cancelText: "cancel",
     onConfirm: () => {
+      finalizeMatchSnapshot(matchController.getState(), { status: "finished", exitExplicit: true });
       stopClockLoop(true);
       resetMatchState();
       showScreen("splash");
@@ -5121,6 +5240,7 @@ function confirmExitToSplash() {
 
 function exitMatchDirect() {
   playClickSfx();
+  finalizeMatchSnapshot(matchController.getState(), { status: "finished", exitExplicit: true });
   stopClockLoop(true);
   preserveMatchConfigOnExit = false;
   resetMatchState();
@@ -5779,7 +5899,17 @@ function setupCreationTimeupInteractionTracking() {
 }
 
 function setupMatchControllerEvents() {
-  matchController.on("statechange", () => renderMatch());
+  matchController.on("statechange", () => {
+    renderMatch();
+    if (skipNextActiveMatchSave) {
+      skipNextActiveMatchSave = false;
+      return;
+    }
+    const st = matchController.getState();
+    if (!st?.matchOver) {
+      scheduleActiveMatchSave(st);
+    }
+  });
   matchController.on("phaseStart", ({ phase }) => {
     if (phase && phase.endsWith("-run")) {
       clockLowTimeMode = false;
@@ -5815,6 +5945,7 @@ function setupMatchControllerEvents() {
   matchController.on("matchFinished", ({ winners }) => {
     stopClockLoop(false);
     showMatchWinners(winners);
+    finalizeMatchSnapshot(matchController.getState(), { status: "finished" });
   });
 }
 
@@ -6064,6 +6195,14 @@ function bootstrapShell() {
   setupWakeLockActivityTracking();
   setupCreationTimeupInteractionTracking();
   document.addEventListener("modal:closed", handleModalClosed);
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      persistActiveMatchSnapshot(matchController.getState());
+    }
+  });
+  window.addEventListener("pagehide", () => {
+    persistActiveMatchSnapshot(matchController.getState());
+  });
     if (!unsubscribeLanguage) {
     unsubscribeLanguage = onShellLanguageChange(handleLanguageChange);
     window.addEventListener("beforeunload", () => {
@@ -6078,7 +6217,7 @@ function bootstrapShell() {
   setupDebugPanel();
   setupInstallFlow();
   setupServiceWorkerMessaging();
-  showScreen(simulatedStartActive ? "match" : "splash");
+  showScreen(simulatedStartActive || restoredMatchActive ? "match" : "splash");
   startSplashLoader();
   detectInstalledApp().finally(() => updateInstallButtonVisibility());
   scaleGame();

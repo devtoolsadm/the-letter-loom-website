@@ -72,8 +72,9 @@ if (USE_VIVID_PLAYER_COLORS && typeof document !== "undefined") {
 
 // Debug-only: preload a simulated match on app start.
 export const SIMULATE_MATCH_ON_START = true;
-const SIMULATED_MATCH_DATA_ARR = [
+const SIMULATED_MATCH_SEEDS = [
   {
+    lastSavedAt: "2026-01-29T08:00:00Z",
     players: [
       "Raquel",
       "Ramon",
@@ -93,6 +94,7 @@ const SIMULATED_MATCH_DATA_ARR = [
       pointsTarget: 500,
       scoringEnabled: true,
     },
+    phase: "creation-ready",
     rounds: [
       [112, 18, 0, 24, 10, 14, 20, 8],
       [130, 0, 16, 12, 6, 22, 28, 18],
@@ -110,15 +112,9 @@ const SIMULATED_MATCH_DATA_ARR = [
       [22, 0, 18, 14, 20, 0, 28, 16],
       [6, 26, 0, 18, 24, -24, 30, 12],
     ],
-    winners: [], 
-    showWinners: false,
   },
   {
-    players: [
-      "Raquel",
-      "Ramon",
-      "Rafa",
-    ],
+    players: ["Raquel", "Ramon", "Rafa"],
     preferences: {
       playersCount: 3,
       strategySeconds: 15,
@@ -128,11 +124,74 @@ const SIMULATED_MATCH_DATA_ARR = [
       pointsTarget: 500,
       scoringEnabled: true,
     },
-    rounds: [
-      [112, 18, 0, 24, 10, 14, 20, 8],
-    ],
-    winners: [], 
-    showWinners: false,
-  },  
+    phase: "strategy-run",
+    rounds: [[112, 18, 0]],
+  },
 ];
-export const SIMULATED_MATCH_DATA = SIMULATED_MATCH_DATA_ARR[1];
+
+function buildSimulatedMatchState(seed = {}) {
+  const prefs = seed.preferences || {};
+  const players = (seed.players || []).map((name, idx) => ({
+    id: `p${idx + 1}`,
+    name,
+    abbrev: String(name || "").slice(0, 3).toUpperCase(),
+    color: PLAYER_COLORS[idx % PLAYER_COLORS.length],
+    score: 0,
+    rounds: [],
+  }));
+
+  const rounds = Array.isArray(seed.rounds) ? seed.rounds : [];
+  rounds.forEach((scores, roundIndex) => {
+    players.forEach((player, idx) => {
+      const value = Array.isArray(scores) ? scores[idx] : 0;
+      const points = Number.isFinite(Number(value)) ? Number(value) : 0;
+      player.rounds.push({ round: roundIndex + 1, points, tieBreak: false });
+      player.score += points;
+    });
+  });
+
+  const strategySeconds = prefs.strategySeconds ?? DEFAULT_STRATEGY_SECONDS;
+  const creationSeconds = prefs.creationSeconds ?? DEFAULT_CREATION_SECONDS;
+  const phase = seed.phase || "strategy-ready";
+  const remaining = Number.isFinite(Number(seed.remaining))
+    ? Number(seed.remaining)
+    : phase.startsWith("creation")
+      ? creationSeconds
+      : phase.startsWith("strategy")
+        ? strategySeconds
+        : 0;
+  const resolveSeedTime = (value) => {
+    if (Number.isFinite(Number(value))) return Number(value);
+    if (typeof value === "string") {
+      const parsed = Date.parse(value);
+      if (!Number.isNaN(parsed)) return parsed;
+    }
+    return null;
+  };
+  const updatedAt =
+    resolveSeedTime(seed.updatedAt) ??
+    resolveSeedTime(seed.lastSavedAt) ??
+    Date.now();
+  return {
+    matchId: seed.matchId || `sim-${Date.now().toString(36)}`,
+    isActive: seed.isActive ?? true,
+    round: Number.isFinite(Number(seed.round)) ? Number(seed.round) : rounds.length ? rounds.length + 1 : 1,
+    phase,
+    remaining,
+    mode: prefs.mode === MATCH_MODE_POINTS ? MATCH_MODE_POINTS : MATCH_MODE_ROUNDS,
+    roundsTarget: prefs.roundsTarget ?? DEFAULT_ROUNDS_TARGET,
+    pointsTarget: prefs.pointsTarget ?? DEFAULT_POINTS_TARGET,
+    scoringEnabled: prefs.scoringEnabled ?? true,
+    strategySeconds,
+    creationSeconds,
+    players,
+    tieBreak: null,
+    tieBreakPending: null,
+    winnerIds: [],
+    matchOver: false,
+    preferencesRef: { ...prefs },
+    updatedAt,
+  };
+}
+
+export const SIMULATED_MATCH_STATE = buildSimulatedMatchState(SIMULATED_MATCH_SEEDS[1]);

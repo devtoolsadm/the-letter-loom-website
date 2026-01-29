@@ -19,6 +19,10 @@ function clamp(val, min, max) {
   return Math.min(max, Math.max(min, val));
 }
 
+function createMatchId() {
+  return `m${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+}
+
 function buildPlayers(count, knownNames = []) {
   const n = clamp(count, MIN_PLAYERS, MAX_PLAYERS);
   const list = [];
@@ -81,10 +85,11 @@ class MatchController {
         ? matchState.players
         : buildPlayers(basePrefs.playersCount ?? DEFAULT_PLAYER_COUNT, knownNames);
     return {
-      isActive: false,
-      round: 1,
-      phase: "config",
-      remaining: 0,
+      matchId: matchState.matchId || createMatchId(),
+      isActive: matchState.isActive ?? false,
+      round: matchState.round ?? 1,
+      phase: matchState.phase ?? "config",
+      remaining: matchState.remaining ?? 0,
       mode: matchState.mode ?? (basePrefs.mode === MATCH_MODE_POINTS ? MATCH_MODE_POINTS : MATCH_MODE_ROUNDS),
       roundsTarget: matchState.roundsTarget ?? basePrefs.roundsTarget ?? DEFAULT_ROUNDS_TARGET,
       pointsTarget: matchState.pointsTarget ?? basePrefs.pointsTarget ?? DEFAULT_POINTS_TARGET,
@@ -127,6 +132,7 @@ class MatchController {
       MAX_PLAYERS
     );
     return {
+      matchId: createMatchId(),
       isActive: false,
       round: 1,
       phase: "config",
@@ -181,6 +187,20 @@ class MatchController {
 
   getState() {
     return JSON.parse(JSON.stringify(this._state));
+  }
+
+  loadMatchState(matchState, { persist = true } = {}) {
+    if (!matchState || typeof matchState !== "object") return false;
+    this.stopTimer();
+    const prefs = matchState.preferencesRef || {};
+    const state = loadState();
+    const knownNames = state.settings?.knownPlayerNames || [];
+    this._state = this._withDefaults(matchState, prefs, knownNames);
+    if (persist) {
+      this._persist();
+    }
+    this._emit("statechange", {});
+    return true;
   }
 
   setValidator(fn) {
