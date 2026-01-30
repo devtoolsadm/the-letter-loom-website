@@ -1,5 +1,6 @@
-const CACHE_PREFIX = "letter-loom-cache"; 
-let cacheVersion = "v0";
+const CACHE_PREFIX = "letter-loom-cache";
+const APP_VERSION = "v0.0.74";
+let cacheVersion = APP_VERSION;
 let CACHE_NAME = `${CACHE_PREFIX}-${cacheVersion}`;
 const BASE_PATH = self.location.pathname.replace(/\/[^/]*$/, "/");
 const VERSION_JS = `${BASE_PATH}src/core/version.js`;
@@ -132,6 +133,19 @@ self.addEventListener("activate", (event) => {
   );
   self.clients.claim();
   logSw("info", `Service worker activated (cache ${CACHE_NAME})`);
+});
+
+self.addEventListener("message", (event) => {
+  if (event?.data?.type === "get-sw-version") {
+    const payload = { type: "sw-version", version: APP_VERSION, cache: CACHE_NAME };
+    if (event.source && typeof event.source.postMessage === "function") {
+      event.source.postMessage(payload);
+    } else {
+      self.clients.matchAll().then((clients) => {
+        clients.forEach((client) => client.postMessage(payload));
+      });
+    }
+  }
 });
 
 self.addEventListener("fetch", (event) => {

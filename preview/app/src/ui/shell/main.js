@@ -6204,6 +6204,7 @@ function assignSrcToNodes(nodes, src) {
 
 function bootstrapShell() {
   logger.info(`App version ${APP_VERSION}`);
+  requestServiceWorkerVersion();
   const textErrors = validateTexts(TEXTS);
   if (textErrors.length) {
     const msg = `Translation validation failed:\n${textErrors.join("\n")}`;
@@ -6275,8 +6276,11 @@ function registerServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
   navigator.serviceWorker
     .register("service-worker.js")
-    .then(() => {
+    .then((registration) => {
       logger.debug("Service worker registered");
+      if (navigator.onLine === true) {
+        registration.update().catch(() => {});
+      }
     })
     .catch((err) => logger.error("Service worker registration failed", err));
 }
@@ -6292,14 +6296,34 @@ function setupServiceWorkerMessaging() {
   };
 
   navigator.serviceWorker.addEventListener("message", (event) => {
-    if (event.data && event.data.type === "refresh") {
+    if (!event.data) return;
+    if (event.data.type === "refresh") {
       triggerReload();
+      return;
+    }
+    if (event.data.type === "sw-version") {
+      const ver = event.data.version || "unknown";
+      const cache = event.data.cache || "";
+      logger.info(`Service worker version ${ver}${cache ? ` (${cache})` : ""}`);
     }
   });
 
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     triggerReload();
   });
+}
+
+function requestServiceWorkerVersion() {
+  if (!("serviceWorker" in navigator)) return;
+  const send = (ctrl) => {
+    if (!ctrl || typeof ctrl.postMessage !== "function") return;
+    ctrl.postMessage({ type: "get-sw-version" });
+  };
+  if (navigator.serviceWorker.controller) {
+    send(navigator.serviceWorker.controller);
+    return;
+  }
+  navigator.serviceWorker.ready.then((reg) => send(reg.active)).catch(() => {});
 }
 
 function handleLanguageChange(lang) {
