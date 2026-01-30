@@ -112,6 +112,7 @@ let installedAppDetected = false;
 let activeMatchSaveTimer = null;
 let restoredMatchActive = false;
 let skipNextActiveMatchSave = false;
+let persistentStorageChecked = false;
 let creationTimeupTimer = null;
 let creationTimeupCancelled = false;
 let introAudio = null;
@@ -4709,6 +4710,7 @@ function startMatchPlay({ skipResumePrompt = false } = {}) {
     matchController.setPlayers(finalPlayers);
   }
   matchController.startMatch();
+  persistActiveMatchSnapshot(matchController.getState());
   renderMatch();
 }
 
@@ -4759,10 +4761,12 @@ function startMatchPhase(kind) {
       });
       if (prompted) return;
       matchController.startMatch();
+      persistActiveMatchSnapshot(matchController.getState());
     }
     const current = matchController.getState().phase;
     if (current === "strategy-ready") {
       matchController.startPhase("strategy");
+      persistActiveMatchSnapshot(matchController.getState());
       playClockLoop();
     } else if (current === "strategy-run") {
       matchController.pause();
@@ -4782,6 +4786,7 @@ function startMatchPhase(kind) {
   } else if (kind === "creation") {
     if (phase === "strategy-timeup" || phase === "creation-ready") {
       matchController.startPhase("creation");
+      persistActiveMatchSnapshot(matchController.getState());
       playClockLoop();
     } else if (phase === "creation-run") {
       matchController.pause();
@@ -4803,6 +4808,7 @@ function startMatchPhase(kind) {
       });
       if (prompted) return;
       matchController.startMatch();
+      persistActiveMatchSnapshot(matchController.getState());
     }
   }
   renderMatch();
@@ -4944,6 +4950,7 @@ function applyScoreboardChanges() {
   scoreboardBase = cloneScoreboardValues(data.values);
   scoreboardDraft = cloneScoreboardValues(data.values);
   scoreboardDirty = false;
+  persistActiveMatchSnapshot(nextState);
   renderScoreboardScreen(nextState);
   updateScoreboardDirty();
 }
@@ -4978,6 +4985,7 @@ function handleRoundEndContinue() {
     });
     matchController.addRoundScores(scores);
     const nextState = matchController.getState();
+    persistActiveMatchSnapshot(nextState);
     if (nextState?.matchOver) {
       roundEndScores = {};
       roundEndUnlocked = new Set();
@@ -6216,6 +6224,7 @@ function bootstrapShell() {
   setupWakeLock();
   setupDebugPanel();
   setupInstallFlow();
+  requestPersistentStorage();
   setupServiceWorkerMessaging();
   showScreen(simulatedStartActive || restoredMatchActive ? "match" : "splash");
   startSplashLoader();
@@ -6509,6 +6518,25 @@ function updateInstallButtonVisibility() {
   if (!btn) return;
   const hidden = !fromInstall && (isStandaloneApp() || fromPWA || installedAppDetected);
   btn.style.display = hidden ? "none" : "";
+}
+
+async function requestPersistentStorage() {
+  if (persistentStorageChecked) return;
+  persistentStorageChecked = true;
+  if (!(isStandaloneApp() || fromPWA)) return;
+  const storage = navigator.storage;
+  if (!storage || typeof storage.persist !== "function") return;
+  try {
+    const granted = await storage.persist();
+    if (granted) {
+      persistentStorageGranted = true;
+      logger.debug("Persistent storage granted");
+    } else {
+      logger.warn("Persistent storage denied");
+    }
+  } catch (err) {
+    logger.warn("Persistent storage request failed", err);
+  }
 }
 
 function updateInstallCopy() {
