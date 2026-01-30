@@ -113,6 +113,10 @@ let activeMatchSaveTimer = null;
 let restoredMatchActive = false;
 let skipNextActiveMatchSave = false;
 let persistentStorageChecked = false;
+let persistentStorageGranted = false;
+let debugPanelTitleEl = null;
+let debugFilterLabelEl = null;
+let debugFilterSelectEl = null;
 let creationTimeupTimer = null;
 let creationTimeupCancelled = false;
 let introAudio = null;
@@ -2000,6 +2004,7 @@ function renderShellTexts() {
   });
 
   updateInstallCopy();
+  updateDebugFilterLabels();
   renderLanguageSelector();
   renderSettingsLanguageSelector();
   updateManifestLink();
@@ -2007,6 +2012,27 @@ function renderShellTexts() {
   updateSettingsControls();
   updateLanguageButton();
   updateInstallButtonVisibility();
+}
+
+function updateDebugFilterLabels() {
+  if (debugPanelTitleEl) {
+    debugPanelTitleEl.textContent = shellTexts.debugLogTitle || "Debug Log";
+  }
+  if (debugFilterLabelEl) {
+    debugFilterLabelEl.textContent = shellTexts.debugLogFilterLabel || "Filtro";
+  }
+  if (debugFilterSelectEl) {
+    const options = debugFilterSelectEl.options;
+    const labels = [
+      shellTexts.debugLogFilterDebug || "Debug",
+      shellTexts.debugLogFilterInfo || "Info",
+      shellTexts.debugLogFilterWarn || "Warn",
+      shellTexts.debugLogFilterError || "Error",
+    ];
+    for (let i = 0; i < options.length && i < labels.length; i += 1) {
+      options[i].textContent = labels[i];
+    }
+  }
 }
 
 function openConfirm({
@@ -6177,7 +6203,7 @@ function assignSrcToNodes(nodes, src) {
 }
 
 function bootstrapShell() {
-  logger.debug(`App version ${APP_VERSION}`);
+  logger.info(`App version ${APP_VERSION}`);
   const textErrors = validateTexts(TEXTS);
   if (textErrors.length) {
     const msg = `Translation validation failed:\n${textErrors.join("\n")}`;
@@ -6300,9 +6326,32 @@ function setupDebugPanel() {
   const panel = document.createElement("div");
   panel.className = "debug-panel hidden";
   const title = document.createElement("h3");
-  title.textContent = "Debug Log";
+  title.textContent = shellTexts.debugLogTitle || "Debug Log";
+  const filterRow = document.createElement("div");
+  filterRow.className = "debug-filter-row";
+  const filterLabel = document.createElement("span");
+  filterLabel.textContent = "Filtro";
+  const filterSelect = document.createElement("select");
+  filterSelect.className = "debug-filter-select";
+  ["debug", "info", "warn", "error"].forEach((value) => {
+    const opt = document.createElement("option");
+    opt.value = value;
+    filterSelect.appendChild(opt);
+  });
+  const storedFilter = localStorage.getItem("debugLogFilter");
+  if (storedFilter && ["debug", "info", "warn", "error"].includes(storedFilter)) {
+    filterSelect.value = storedFilter;
+  } else {
+    filterSelect.value = "info";
+  }
+  filterSelect.addEventListener("change", () => {
+    localStorage.setItem("debugLogFilter", filterSelect.value);
+    render();
+  });
+  filterRow.append(filterLabel, filterSelect);
   const list = document.createElement("div");
   panel.appendChild(title);
+  panel.appendChild(filterRow);
   panel.appendChild(list);
 
   container.appendChild(toggleBtn);
@@ -6323,13 +6372,19 @@ function setupDebugPanel() {
   window.__revealDebugPanel = reveal;
 
   function render() {
-    const showDebug = window.__showDebugLogs === true;
     const allEntries = getLogs();
-    let entries = allEntries.filter((entry) => showDebug || entry.level !== "debug");
-    if (!entries.length && allEntries.length) {
-      entries = allEntries;
-    }
+    const rank = { debug: 0, info: 1, warn: 2, error: 3 };
+    const filter = filterSelect.value || "info";
+    const minRank = rank[filter] ?? rank.info;
+    const entries = allEntries.filter((entry) => (rank[entry.level] ?? 0) >= minRank);
     list.innerHTML = "";
+    if (!entries.length) {
+      const empty = document.createElement("div");
+      empty.className = "debug-log-empty";
+      empty.textContent = shellTexts.debugLogEmpty || "Sin entradas";
+      list.appendChild(empty);
+      return;
+    }
     entries.forEach((entry) => {
       const item = document.createElement("div");
       item.className = `debug-log-entry ${entry.level || ""}`;
@@ -6354,6 +6409,10 @@ function setupDebugPanel() {
     list.scrollTop = list.scrollHeight;
   }
 
+  debugPanelTitleEl = title;
+  debugFilterLabelEl = filterLabel;
+  debugFilterSelectEl = filterSelect;
+  updateDebugFilterLabels();
   render();
   onLog(() => render());
   updateDebugScale(container);

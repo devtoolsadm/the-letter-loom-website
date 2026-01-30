@@ -1052,8 +1052,46 @@ body.shell-ready #game-root {
 }
 
 .debug-panel h3 {
-  margin: 0 0 8px;
+  margin: 0 0 6px;
   font-size: 14px;
+  letter-spacing: 0.3px;
+}
+
+.debug-filter-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.debug-filter-row span {
+  font-size: 11px;
+  color: #cbd5f5;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.debug-filter-select {
+  flex: 1;
+  min-width: 120px;
+  background: rgba(8, 12, 28, 0.9);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11px;
+  line-height: 1.4;
+  cursor: pointer;
+}
+
+.debug-filter-select:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.6);
 }
 
 .debug-log-entry {
@@ -1083,6 +1121,14 @@ body.shell-ready #game-root {
 
 .debug-log-entry:last-child {
   border-bottom: none;
+}
+
+.debug-log-empty {
+  padding: 8px 6px;
+  color: #a1accb;
+  font-size: 11px;
+  text-align: center;
+  letter-spacing: 0.2px;
 }
 
 .debug-log-entry .meta {

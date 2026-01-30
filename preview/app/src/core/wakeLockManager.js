@@ -69,6 +69,9 @@ export async function requestLock() {
   const fallbackOk = await activateFallbackLock();
   userRequestedLock = fallbackOk;
   logDebug(`wake lock fallback result`, { success: fallbackOk });
+  if (!fallbackOk) {
+    logger.error("wake lock could not be acquired (standard + fallback failed)");
+  }
   return fallbackOk;
 }
 
