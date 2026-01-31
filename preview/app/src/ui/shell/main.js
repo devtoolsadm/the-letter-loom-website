@@ -1796,6 +1796,8 @@ let pausedBeforeConfirm = null;
 let lastLowTimeTick = 0;
 let lastRoundIntroKey = "";
 let roundIntroTimer = null;
+let roundIntroActive = false;
+let pendingDealerFocusState = null;
 let validationRules = appState.settings.validationRules ?? null; // persisted rules
 let tempValidationRules = null; // temp during settings (init later)
 let rulesEditContext = "live"; // "live" | "temp"
@@ -4216,24 +4218,12 @@ function renderMatchFromState(matchState) {
   const stratTotal = matchState.strategySeconds ?? DEFAULT_STRATEGY_SECONDS;
   const creationTotal = matchState.creationSeconds ?? DEFAULT_CREATION_SECONDS;
 
-  if (matchState.phase !== lastMatchPhase) {
-    if (matchState.phase === "strategy-ready") {
-      const dealerPillEl = document.getElementById("matchDealerPill");
-      if (dealerPillEl) {
-        dealerPillEl.classList.remove("dealer-focus");
-        void dealerPillEl.offsetWidth;
-        dealerPillEl.classList.add("dealer-focus");
-        if (dealerFocusTimer) {
-          clearTimeout(dealerFocusTimer);
-        }
-        dealerFocusTimer = setTimeout(() => {
-          dealerPillEl.classList.remove("dealer-focus");
-          dealerFocusTimer = null;
-        }, 2200);
+    if (matchState.phase !== lastMatchPhase) {
+      if (matchState.phase === "strategy-ready") {
+        triggerDealerFocus(matchState);
       }
+      lastMatchPhase = matchState.phase;
     }
-    lastMatchPhase = matchState.phase;
-  }
 
   if (matchState.phase !== "config") {
     matchConfigExpanded = false;
@@ -4864,9 +4854,11 @@ function updateHorizontalScrollHintState(scrollEl, stateEl) {
 function showRoundIntro(matchState) {
   if (!matchState || matchState.phase === "config") return;
   const isTieBreak = !!matchState.tieBreak?.players?.length;
-  if (!isTieBreak && !String(matchState.phase || "").startsWith("strategy")) return;
+  const phase = String(matchState.phase || "");
+  if (!isTieBreak && matchState.phase !== "strategy-ready") return;
+  if (isTieBreak && matchState.phase !== "strategy-ready") return;
   const tieIndex = matchState.tieBreak?.index || 1;
-  const roundKey = `${matchState.round}-${matchState.phase}-${isTieBreak ? `tb${tieIndex}` : "round"}`;
+  const roundKey = `${matchState.round}-${isTieBreak ? `tb${tieIndex}` : "round"}`;
   if (roundKey === lastRoundIntroKey) return;
   lastRoundIntroKey = roundKey;
   const intro = document.getElementById("roundIntro");
@@ -4903,6 +4895,8 @@ function showRoundIntro(matchState) {
   void intro.offsetWidth;
   intro.classList.add("show");
   intro.setAttribute("aria-hidden", "false");
+  roundIntroActive = true;
+  pendingDealerFocusState = matchState.phase === "strategy-ready" ? matchState : null;
   playModalOpenSound();
   if (!intro._dismissRoundIntro) {
     intro.addEventListener("click", () => dismissRoundIntro());
@@ -4923,6 +4917,32 @@ function dismissRoundIntro() {
   intro.classList.remove("show");
   intro.classList.add("hidden");
   intro.setAttribute("aria-hidden", "true");
+  roundIntroActive = false;
+  if (pendingDealerFocusState) {
+    const st = pendingDealerFocusState;
+    pendingDealerFocusState = null;
+    triggerDealerFocus(st);
+  }
+}
+
+function triggerDealerFocus(matchState) {
+  if (!matchState || matchState.phase !== "strategy-ready") return;
+  if (roundIntroActive) {
+    pendingDealerFocusState = matchState;
+    return;
+  }
+  const dealerPillEl = document.getElementById("matchDealerPill");
+  if (!dealerPillEl) return;
+  dealerPillEl.classList.remove("dealer-focus");
+  void dealerPillEl.offsetWidth;
+  dealerPillEl.classList.add("dealer-focus");
+  if (dealerFocusTimer) {
+    clearTimeout(dealerFocusTimer);
+  }
+  dealerFocusTimer = setTimeout(() => {
+    dealerPillEl.classList.remove("dealer-focus");
+    dealerFocusTimer = null;
+  }, 2200);
 }
 
 function clearStatusValidation() {
