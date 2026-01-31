@@ -43,10 +43,17 @@ import {
   MATCH_MODE_ROUNDS,
   MATCH_MODE_POINTS,
   PLAYER_COLORS,
+  PLAYER_COLORS_PASTEL,
   CREATION_TIMEUP_AUTO_ACTION_MS,
   ROUND_KEYPAD_AUTO_ZERO_ON_NAV,
   SIMULATE_MATCH_ON_START,
   SIMULATED_MATCH_STATE,
+  SIMULATE_RECORDS_ON_START,
+  SIMULATED_RECORDS,
+  SIMULATED_MATCH_SEEDS,
+  buildSimulatedMatchState,
+  RECORD_MIN_POINTS,
+  RECORD_AVG_PENALTY_K,
 } from "../../core/constants.js";
 import { matchController, validateWordRemote } from "../../core/matchController.js";
 import { openModal, closeModal, closeTopModal } from "./modal.js";
@@ -65,6 +72,8 @@ import {
   upsertArchiveMatch,
   normalizeMatchForResume,
   isResumeEligible,
+  loadArchive,
+  loadRecords,
 } from "../../core/matchStorage.js";
 
 const urlParams = new URLSearchParams(window.location.search);
@@ -170,13 +179,38 @@ let roundEndUnlocked = new Set();
 let roundEndSelectedWinners = new Set();
 let roundEndKeypadOpen = false;
 let roundEndKeypadPlayerId = null;
+let lastMatchWord = "";
+let lastMatchWordFeatures = {
+  sameColor: false,
+  usedWildcard: false,
+  doubleScore: false,
+  plusPoints: false,
+  minusPoints: false,
+};
+let recordWordModalState = null;
+let recordWordFeatures = {
+  sameColor: false,
+  usedWildcard: false,
+  doubleScore: false,
+  plusPoints: false,
+  minusPoints: false,
+};
+let recordWordPendingNext = null;
+let recordWordModalStaging = false;
+let scoreboardWordCandidatesDraft = null;
+let scoreboardWordCandidatesDirty = false;
+let scoreboardWordCandidatesMatchId = null;
 let scoreboardDraft = null;
 let scoreboardBase = null;
 let scoreboardRounds = [];
 let scoreboardPlayers = [];
 let scoreboardDirty = false;
 let scoreboardReadOnly = false;
+let scoreboardInfoText = "";
+let scoreboardRecordHighlight = null;
 let scoreboardReturnScreen = "match";
+let recordsReturnScreen = "scoreboard";
+let recordsTab = "words";
 let pausedBeforeScoreboard = null;
 let scoreboardKeypadOpen = false;
 let scoreboardKeypadPlayerId = null;
@@ -341,8 +375,8 @@ function normalizePlayerName(value) {
     }
   }
 
-  function openRoundEndKeypad(playerId) {
-    const st = matchController.getState();
+function openRoundEndKeypad(playerId) {
+  const st = matchController.getState();
     if (!st?.scoringEnabled) return;
     const id = String(playerId || "");
     if (!id) return;
@@ -437,6 +471,34 @@ function normalizePlayerName(value) {
     if (currentId && isRoundScoreEmpty(roundEndScores[String(currentId)])) {
       if (ROUND_KEYPAD_AUTO_ZERO_ON_NAV) {
         applyRoundEndKeypadValue(st, currentId, "0");
+      }
+    }
+    if (currentId) {
+      const raw = roundEndScores[String(currentId)];
+      const points = Number(raw);
+      const invalid = !isScoreValidForRecord(raw, { requireEven: true });
+      const roundNumber = st.round;
+      if (!invalid && Number.isFinite(points) && points >= RECORD_MIN_POINTS) {
+        const candidate = getWordCandidate(st.matchId, currentId, roundNumber);
+        const shouldPrompt =
+          !candidate ||
+          candidate.ignored ||
+          !candidate.word ||
+          Number(candidate.points) !== points;
+        if (shouldPrompt) {
+          const nextId = getRoundEndKeypadNeighbor(st, direction);
+          openRecordWordModal(
+            {
+              matchId: st.matchId,
+              playerId: currentId,
+              round: roundNumber,
+              points,
+              when: Date.now(),
+            },
+            { pendingNext: { nextId, autoAdvance: !nextId && direction === "next" } }
+          );
+          return;
+        }
       }
     }
     const nextId = getRoundEndKeypadNeighbor(st, direction);
@@ -650,7 +712,49 @@ function closeScoreboardKeypad({ restore = false } = {}) {
   if (restore && id != null && round != null && scoreboardDraft) {
     applyScoreboardKeypadValue(matchController.getState(), id, round, initialValue ?? "");
   }
+  if (!restore && id != null && round != null) {
+    handleScoreboardRecordCandidateUpdate(matchController.getState(), id, round, initialValue);
+  }
   updateScoreboardKeypad(matchController.getState());
+}
+
+function handleScoreboardRecordCandidateUpdate(matchState, playerId, round, initialValue) {
+  if (!matchState || scoreboardReadOnly) return;
+  if (!scoreboardDraft) return;
+  const matchId = matchState.matchId;
+  if (!matchId) return;
+  ensureScoreboardWordCandidatesDraft(matchState);
+  const id = String(playerId);
+  const rnd = Number(round);
+  const current = scoreboardDraft?.[id]?.[rnd] ?? "";
+  const previous = initialValue ?? "";
+  if (String(current) === String(previous)) return;
+  const invalid = !isScoreValidForRecord(current, { requireEven: true });
+  const points = getScoreNumber(current);
+  if (invalid || !Number.isFinite(points) || points < RECORD_MIN_POINTS) {
+    removeScoreboardWordCandidate(matchId, id, rnd);
+    return;
+  }
+  const existing = getScoreboardWordCandidate(matchId, id, rnd);
+  if (!existing || existing.ignored || !existing.word) {
+    openRecordWordModalFromScoreboard(
+      {
+        matchId,
+        playerId: id,
+        round: rnd,
+        points,
+        when: Date.now(),
+      },
+      { pendingNext: null }
+    );
+    return;
+  }
+  upsertScoreboardWordCandidate(matchId, {
+    ...existing,
+    points,
+    when: Date.now(),
+    ignored: false,
+  });
 }
 
 function applyScoreboardKeypadValue(matchState, playerId, round, value) {
@@ -706,6 +810,14 @@ function handleScoreboardKeypadKey(key) {
 }
 
 function handleScoreboardKeypadNavigate(direction) {
+  if (scoreboardKeypadPlayerId != null && scoreboardKeypadRound != null) {
+    handleScoreboardRecordCandidateUpdate(
+      matchController.getState(),
+      scoreboardKeypadPlayerId,
+      scoreboardKeypadRound,
+      scoreboardKeypadInitialValue
+    );
+  }
   const idx = getScoreboardKeypadIndex(scoreboardKeypadPlayerId, scoreboardKeypadRound);
   if (idx < 0) {
     closeScoreboardKeypad();
@@ -724,6 +836,14 @@ function handleScoreboardKeypadNavigate(direction) {
 
 function isRoundScoreEmpty(value) {
   return value == null || String(value).trim() === "";
+}
+
+function isScoreValidForRecord(value, { requireEven = true } = {}) {
+  if (!isScoreFilled(value)) return false;
+  if (isScoreOutOfRange(value)) return false;
+  if (getScoreNumber(value) < 0) return false;
+  if (requireEven && isOddScore(value)) return false;
+  return true;
 }
 
 function buildRoundEndOrder(matchState) {
@@ -1684,6 +1804,312 @@ let preserveMatchConfigOnExit = false;
 
 tempValidationRules = cloneValidationRules(validationRules);
 
+const WORD_CANDIDATES_KEY = "letterloom_word_candidates";
+
+function loadWordCandidatesMap() {
+  const raw = localStorage.getItem(WORD_CANDIDATES_KEY);
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function cloneWordCandidatesList(list) {
+  return (list || []).map((item) => ({
+    ...item,
+    features: item?.features ? { ...item.features } : undefined,
+  }));
+}
+
+function getWordCandidatesListFromMap(map, matchId) {
+  return Array.isArray(map?.[matchId]) ? map[matchId] : [];
+}
+
+function getWordCandidateFromList(list, playerId, round) {
+  return (
+    (list || []).find(
+      (item) =>
+        String(item?.playerId) === String(playerId) &&
+        Number(item?.round) === Number(round)
+    ) || null
+  );
+}
+
+function upsertWordCandidateInList(list, candidate) {
+  const idx = (list || []).findIndex(
+    (item) =>
+      String(item?.playerId) === String(candidate?.playerId) &&
+      Number(item?.round) === Number(candidate?.round)
+  );
+  if (idx >= 0) {
+    list[idx] = { ...list[idx], ...candidate };
+  } else {
+    list.push(candidate);
+  }
+  return list;
+}
+
+function removeWordCandidateFromList(list, playerId, round) {
+  const idx = (list || []).findIndex(
+    (item) =>
+      String(item?.playerId) === String(playerId) &&
+      Number(item?.round) === Number(round)
+  );
+  if (idx >= 0) list.splice(idx, 1);
+  return list;
+}
+
+function ensureScoreboardWordCandidatesDraft(matchState) {
+  const matchId = matchState?.matchId;
+  if (!matchId) return;
+  if (scoreboardWordCandidatesMatchId === matchId && scoreboardWordCandidatesDraft) {
+    return;
+  }
+  const map = loadWordCandidatesMap();
+  scoreboardWordCandidatesDraft = cloneWordCandidatesList(
+    getWordCandidatesListFromMap(map, matchId)
+  );
+  scoreboardWordCandidatesDirty = false;
+  scoreboardWordCandidatesMatchId = matchId;
+}
+
+function getScoreboardWordCandidate(matchId, playerId, round) {
+  if (scoreboardWordCandidatesMatchId === matchId && scoreboardWordCandidatesDraft) {
+    return getWordCandidateFromList(scoreboardWordCandidatesDraft, playerId, round);
+  }
+  return getWordCandidate(matchId, playerId, round);
+}
+
+function upsertScoreboardWordCandidate(matchId, candidate) {
+  if (!matchId) return;
+  if (scoreboardWordCandidatesMatchId !== matchId || !scoreboardWordCandidatesDraft) {
+    ensureScoreboardWordCandidatesDraft({ matchId });
+  }
+  if (!scoreboardWordCandidatesDraft) return;
+  upsertWordCandidateInList(scoreboardWordCandidatesDraft, candidate);
+  scoreboardWordCandidatesDirty = true;
+}
+
+function removeScoreboardWordCandidate(matchId, playerId, round) {
+  if (!matchId) return;
+  if (scoreboardWordCandidatesMatchId !== matchId || !scoreboardWordCandidatesDraft) {
+    ensureScoreboardWordCandidatesDraft({ matchId });
+  }
+  if (!scoreboardWordCandidatesDraft) return;
+  removeWordCandidateFromList(scoreboardWordCandidatesDraft, playerId, round);
+  scoreboardWordCandidatesDirty = true;
+}
+
+function persistScoreboardWordCandidatesDraft() {
+  const matchId = scoreboardWordCandidatesMatchId;
+  if (!matchId || !scoreboardWordCandidatesDirty) return;
+  const map = loadWordCandidatesMap();
+  map[matchId] = cloneWordCandidatesList(scoreboardWordCandidatesDraft || []);
+  saveWordCandidatesMap(map);
+  scoreboardWordCandidatesDirty = false;
+}
+
+function discardScoreboardWordCandidatesDraft(matchState) {
+  const matchId = matchState?.matchId || scoreboardWordCandidatesMatchId;
+  if (!matchId) return;
+  const map = loadWordCandidatesMap();
+  scoreboardWordCandidatesDraft = cloneWordCandidatesList(
+    getWordCandidatesListFromMap(map, matchId)
+  );
+  scoreboardWordCandidatesDirty = false;
+  scoreboardWordCandidatesMatchId = matchId;
+}
+
+function openRecordWordModal(candidate, { pendingNext = null } = {}) {
+  const input = document.getElementById("recordWordInput");
+  recordWordModalState = candidate;
+  recordWordPendingNext = pendingNext;
+  recordWordModalStaging = false;
+  recordWordFeatures = {
+    sameColor: false,
+    usedWildcard: false,
+    doubleScore: false,
+    plusPoints: false,
+    minusPoints: false,
+  };
+  if (candidate?.matchId && candidate?.playerId != null && candidate?.round != null) {
+    const existing = getWordCandidate(candidate.matchId, candidate.playerId, candidate.round);
+    if (existing?.features) {
+      recordWordFeatures = { ...recordWordFeatures, ...existing.features };
+    }
+    if (existing?.word) {
+      candidate.word = existing.word;
+    }
+  }
+  document.querySelectorAll(".record-word-chip").forEach((btn) => {
+    const key = btn.dataset.feature;
+    btn.classList.toggle("active", !!recordWordFeatures[key]);
+  });
+  if (input) {
+    input.value = candidate?.word || "";
+    input.focus();
+  }
+  updateRecordWordSaveState();
+  openModal("record-word", { closable: true });
+}
+
+function openRecordWordModalFromScoreboard(candidate, { pendingNext = null } = {}) {
+  const input = document.getElementById("recordWordInput");
+  recordWordModalState = candidate;
+  recordWordPendingNext = pendingNext;
+  recordWordModalStaging = true;
+  recordWordFeatures = {
+    sameColor: false,
+    usedWildcard: false,
+    doubleScore: false,
+    plusPoints: false,
+    minusPoints: false,
+  };
+  if (candidate?.matchId && candidate?.playerId != null && candidate?.round != null) {
+    const existing = getScoreboardWordCandidate(
+      candidate.matchId,
+      candidate.playerId,
+      candidate.round
+    );
+    if (existing?.features) {
+      recordWordFeatures = { ...recordWordFeatures, ...existing.features };
+    }
+    if (existing?.word) {
+      candidate.word = existing.word;
+    }
+  }
+  document.querySelectorAll(".record-word-chip").forEach((btn) => {
+    const key = btn.dataset.feature;
+    btn.classList.toggle("active", !!recordWordFeatures[key]);
+  });
+  if (input) {
+    input.value = candidate?.word || "";
+    input.focus();
+  }
+  updateRecordWordSaveState();
+  openModal("record-word", { closable: true });
+}
+
+function closeRecordWordModal({ continuePending = true } = {}) {
+  closeModal("record-word", { reason: "action" });
+  const pending = continuePending ? recordWordPendingNext : null;
+  recordWordPendingNext = null;
+  recordWordModalState = null;
+  recordWordModalStaging = false;
+  if (pending?.nextId) {
+    openRoundEndKeypad(pending.nextId);
+    return;
+  }
+  if (pending?.autoAdvance) {
+    closeRoundEndKeypad({ autoAdvance: true });
+  }
+}
+
+function handleRecordWordToggle(e) {
+  const btn = e.currentTarget;
+  const key = btn?.dataset?.feature;
+  if (!key) return;
+  recordWordFeatures[key] = !recordWordFeatures[key];
+  btn.classList.toggle("active", recordWordFeatures[key]);
+}
+
+function handleRecordWordSkip() {
+  if (recordWordModalState?.matchId) {
+    if (recordWordModalStaging) {
+      upsertScoreboardWordCandidate(recordWordModalState.matchId, {
+        ...recordWordModalState,
+        ignored: true,
+      });
+    } else {
+      upsertWordCandidate(recordWordModalState.matchId, {
+        ...recordWordModalState,
+        ignored: true,
+      });
+    }
+  }
+  closeRecordWordModal({ continuePending: true });
+}
+
+function handleRecordWordSave() {
+  const input = document.getElementById("recordWordInput");
+  const word = String(input?.value || "").trim();
+  if (!recordWordModalState || !recordWordModalState.matchId) return;
+  if (!word) {
+    if (input) input.focus();
+    return;
+  }
+  if (recordWordModalStaging) {
+    upsertScoreboardWordCandidate(recordWordModalState.matchId, {
+      ...recordWordModalState,
+      word,
+      features: { ...recordWordFeatures },
+      ignored: false,
+    });
+  } else {
+    upsertWordCandidate(recordWordModalState.matchId, {
+      ...recordWordModalState,
+      word,
+      features: { ...recordWordFeatures },
+      ignored: false,
+    });
+  }
+  closeRecordWordModal({ continuePending: true });
+}
+
+function updateRecordWordSaveState() {
+  const input = document.getElementById("recordWordInput");
+  const saveBtn = document.getElementById("recordWordSaveBtn");
+  const clearBtn = document.getElementById("recordWordClearBtn");
+  if (!saveBtn) return;
+  const hasWord = String(input?.value || "").trim().length > 0;
+  saveBtn.disabled = !hasWord;
+  saveBtn.classList.toggle("disabled", !hasWord);
+  if (clearBtn) clearBtn.classList.toggle("hidden", !hasWord);
+}
+
+function saveWordCandidatesMap(map) {
+  localStorage.setItem(WORD_CANDIDATES_KEY, JSON.stringify(map || {}));
+}
+
+function getWordCandidate(matchId, playerId, round) {
+  const map = loadWordCandidatesMap();
+  const list = Array.isArray(map[matchId]) ? map[matchId] : [];
+  return (
+    list.find(
+      (item) =>
+        String(item?.playerId) === String(playerId) &&
+        Number(item?.round) === Number(round)
+    ) || null
+  );
+}
+
+function upsertWordCandidate(matchId, candidate) {
+  const map = loadWordCandidatesMap();
+  const list = Array.isArray(map[matchId]) ? [...map[matchId]] : [];
+  const idx = list.findIndex(
+    (item) =>
+      String(item?.playerId) === String(candidate?.playerId) &&
+      Number(item?.round) === Number(candidate?.round)
+  );
+  if (idx >= 0) {
+    list[idx] = { ...list[idx], ...candidate };
+  } else {
+    list.push(candidate);
+  }
+  map[matchId] = list;
+  saveWordCandidatesMap(map);
+}
+
+function removeWordCandidatesForMatch(matchId) {
+  const map = loadWordCandidatesMap();
+  if (map[matchId]) {
+    delete map[matchId];
+    saveWordCandidatesMap(map);
+  }
+}
+
 function createValidationSection(mountId, key) {
   const mount = document.getElementById(mountId);
   const tpl = document.getElementById("validation-template");
@@ -1773,6 +2199,16 @@ function clearMatchWordFor(key = "match", focusInput = true) {
     if (focusInput) section.input.focus();
     section.input.setAttribute("autocomplete", "off");
     updateValidationControls(section);
+  }
+  if (key === "match") {
+    lastMatchWord = "";
+    lastMatchWordFeatures = {
+      sameColor: false,
+      usedWildcard: false,
+      doubleScore: false,
+      plusPoints: false,
+      minusPoints: false,
+    };
   }
   clearStatusValidationFor(key);
 }
@@ -1932,6 +2368,8 @@ function renderShellTexts() {
   setI18nById("supportBody", "supportBody");
   setI18nById("supportCtaBtn", "supportCta");
   setI18nById("matchWinnersScoreBtn", "matchScoreboardOpen");
+  setI18nById("matchWinnersRecordsBtn", "recordsOpen");
+  setI18nById("matchWinnersRecordsNote", "matchWinnersRecordsNote");
   setI18nById("matchWinnersOkBtn", "matchWinnerOk");
   setI18nById("matchTitle", "matchTitle");
   setI18nById("matchConfigTitle", "matchConfigTitle");
@@ -1982,6 +2420,26 @@ function renderShellTexts() {
   setI18nById("scoreboardSettingsBtn", "settingsTitle", { attr: "aria-label" });
   setI18nById("scoreboardSaveBtn", "save");
   setI18nById("scoreboardCancelBtn", "cancel");
+  setI18nById("recordsTitle", "recordsTitle");
+  setI18nById("recordsBackBtn", "matchExit", { attr: "aria-label" });
+  setI18nById("recordsSettingsBtn", "settingsTitle", { attr: "aria-label" });
+  setI18nById("splashRecordsBtn", "recordsOpen", { attr: "aria-label" });
+  setI18nById("recordsTabWordsBtn", "recordsTabWords");
+  setI18nById("recordsTabMatchesBtn", "recordsTabMatches");
+  setI18nById("recordsWordPill", "recordsWordPill");
+  setI18nById("recordsMatchPill", "recordsMatchPill");
+  setI18nById("recordWordTitle", "recordWordTitle");
+  setI18nById("recordWordCaption", "recordWordCaption");
+  setI18nById("recordWordInput", "recordWordPlaceholder", { attr: "placeholder" });
+  setI18nById("recordWordInput", "recordWordPlaceholder", { attr: "aria-label" });
+  setI18nById("recordWordClearBtn", "recordWordClear", { attr: "aria-label" });
+  setI18nById("recordWordSameColor", "recordWordSameColor");
+  setI18nById("recordWordWildcard", "recordWordWildcard");
+  setI18nById("recordWordDouble", "recordWordDouble");
+  setI18nById("recordWordPlus", "recordWordPlus");
+  setI18nById("recordWordMinus", "recordWordMinus");
+  setI18nById("recordWordSkipBtn", "recordWordSkip");
+  setI18nById("recordWordSaveBtn", "recordWordSave");
   setI18nById("rulesTitle", "matchRulesTitle");
   setI18nById("rulesInfoPill", "matchRulesInfo");
   setI18nById("rulesRestoreBtn", "matchRulesRestore");
@@ -2455,7 +2913,16 @@ function setupNavigation() {
     ["scoreboardSettingsBtn", () => openSettingsModal()],
     ["scoreboardSaveBtn", () => applyScoreboardChanges()],
     ["scoreboardCancelBtn", () => resetScoreboardDraft()],
+    ["recordsSettingsBtn", () => openSettingsModal()],
+    ["recordsBackBtn", () => closeRecords()],
+    ["recordsTabWordsBtn", () => setRecordsTab("words")],
+    ["recordsTabMatchesBtn", () => setRecordsTab("matches")],
+    ["splashRecordsBtn", () => openRecords()],
+    ["recordWordSaveBtn", () => handleRecordWordSave()],
+    ["recordWordSkipBtn", () => handleRecordWordSkip()],
+    ["recordWordCloseBtn", () => handleRecordWordSkip()],
     ["matchWinnersScoreBtn", () => openScoreboard({ readOnly: true })],
+    ["matchWinnersRecordsBtn", () => openRecordsFromWinners()],
     ["matchWinnersOkBtn", () => closeModal("match-winners", { reason: "action" })],
     ["rulesRestoreBtn", () => confirmRestoreDefaultRules()],
     ["rulesSaveBtn", () => saveRulesModal()],
@@ -2582,6 +3049,26 @@ function setupNavigation() {
   const confirmCancel = document.getElementById("confirmCancelBtn");
   if (confirmCancel) {
     confirmCancel.addEventListener("click", () => handleConfirmCancel());
+  }
+
+  document.querySelectorAll(".record-word-chip").forEach((btn) => {
+    btn.addEventListener("click", handleRecordWordToggle);
+  });
+
+  const recordWordInput = document.getElementById("recordWordInput");
+  if (recordWordInput) {
+    recordWordInput.addEventListener("input", () => updateRecordWordSaveState());
+  }
+  const recordWordClearBtn = document.getElementById("recordWordClearBtn");
+  if (recordWordClearBtn) {
+    recordWordClearBtn.addEventListener("click", () => {
+      const input = document.getElementById("recordWordInput");
+      if (input) {
+        input.value = "";
+        input.focus();
+      }
+      updateRecordWordSaveState();
+    });
   }
 
   const addPlayerBtn = document.getElementById("addPlayerBtn");
@@ -2725,9 +3212,9 @@ function setupNavigation() {
       openRulesModal("temp");
     });
   if (matchPhaseHelpBtn)
-    matchPhaseHelpBtn.addEventListener("click", () => {
-      playClickSfx();
-      showScreen("help");
+    matchPhaseHelpBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
     });
   if (matchPhaseStrategyBtn)
     matchPhaseStrategyBtn.addEventListener("click", () => handlePhaseTabClick("strategy"));
@@ -2788,6 +3275,9 @@ function openSocialLink(kind) {
 function initMatch() {
   if (SIMULATE_MATCH_ON_START && isLocalHost()) {
     applySimulatedMatch();
+  }
+  if (SIMULATE_RECORDS_ON_START && isLocalHost()) {
+    applySimulatedRecords();
   }
   if (restoreActiveMatchIfEligible()) {
     showScreen("match");
@@ -3250,6 +3740,9 @@ function renderScoreboardScreen(matchState) {
     scoreboardDraft = cloneScoreboardValues(data.values);
     scoreboardDirty = false;
   }
+  if (!scoreboardReadOnly) {
+    ensureScoreboardWordCandidatesDraft(matchState);
+  }
 
   const rounds = scoreboardRounds || [];
   const players = scoreboardPlayers || [];
@@ -3262,7 +3755,17 @@ function renderScoreboardScreen(matchState) {
     actionButtons.classList.toggle("hidden", scoreboardReadOnly || !scoreboardDirty);
   }
   if (editHint) {
-    editHint.classList.toggle("hidden", scoreboardReadOnly);
+    if (scoreboardReadOnly) {
+      if (scoreboardInfoText) {
+        editHint.textContent = scoreboardInfoText;
+        editHint.classList.remove("hidden");
+      } else {
+        editHint.classList.add("hidden");
+      }
+    } else {
+      editHint.textContent = shellTexts.matchScoreboardEditHint || "";
+      editHint.classList.remove("hidden");
+    }
   }
 
   if (!rounds.length || !players.length) {
@@ -3345,26 +3848,28 @@ function renderScoreboardScreen(matchState) {
         scoreNum === overallMax && scoreNum > 0;
       cell.classList.toggle("is-round-max", isRoundMax);
       cell.classList.toggle("is-overall-max", isOverallMax);
+      const pill = document.createElement("button");
+      pill.type = "button";
+      pill.className = "scoreboard-score-pill";
+      pill.textContent = formatScoreboardScoreDisplay(value);
+      pill.classList.toggle("is-empty", !isScoreFilled(value));
+      pill.classList.toggle("is-odd", isOddScore(value));
+      pill.classList.toggle("is-negative", isScoreFilled(value) && getScoreNumber(value) < 0);
+      pill.classList.toggle("is-invalid", isScoreOutOfRange(value));
       if (scoreboardReadOnly) {
-        const label = document.createElement("span");
-        label.className = "scoreboard-score-value";
-        label.textContent = isScoreFilled(value)
-          ? String(value)
-          : shellTexts.matchRoundScorePlaceholder;
-        label.classList.toggle("is-negative", isScoreFilled(value) && getScoreNumber(value) < 0);
-        label.classList.toggle("is-invalid", isScoreOutOfRange(value));
-        cell.appendChild(label);
-      } else {
-        const pill = document.createElement("button");
-        pill.type = "button";
-        pill.className = "scoreboard-score-pill";
-        pill.textContent = formatScoreboardScoreDisplay(value);
-        pill.classList.toggle("is-empty", !isScoreFilled(value));
-        pill.classList.toggle("is-odd", isOddScore(value));
-        pill.classList.toggle("is-negative", isScoreFilled(value) && getScoreNumber(value) < 0);
-        pill.classList.toggle("is-invalid", isScoreOutOfRange(value));
-        cell.appendChild(pill);
+        pill.disabled = true;
+        pill.classList.add("is-readonly");
       }
+      const isRecord =
+        scoreboardRecordHighlight &&
+        String(matchState?.matchId || "") === String(scoreboardRecordHighlight.matchId) &&
+        String(scoreboardRecordHighlight.playerId) === id &&
+        Number(scoreboardRecordHighlight.round) === Number(round);
+      if (isRecord) {
+        cell.classList.add("is-record");
+        pill.classList.add("is-record");
+      }
+      cell.appendChild(pill);
       table.appendChild(cell);
     });
   });
@@ -3755,7 +4260,7 @@ function renderMatchFromState(matchState) {
     }
   }
 
-  //TO-DO: Improve this showRoundIntro(matchState);
+    showRoundIntro(matchState);
   if (modeRoundsBtn && modePointsBtn) {
     const isPoints = matchState.mode === MATCH_MODE_POINTS;
     modeRoundsBtn.classList.toggle("active", !isPoints);
@@ -4358,8 +4863,10 @@ function updateHorizontalScrollHintState(scrollEl, stateEl) {
 
 function showRoundIntro(matchState) {
   if (!matchState || matchState.phase === "config") return;
-  if (!String(matchState.phase || "").startsWith("strategy")) return;
-  const roundKey = `${matchState.round}-${matchState.phase}`;
+  const isTieBreak = !!matchState.tieBreak?.players?.length;
+  if (!isTieBreak && !String(matchState.phase || "").startsWith("strategy")) return;
+  const tieIndex = matchState.tieBreak?.index || 1;
+  const roundKey = `${matchState.round}-${matchState.phase}-${isTieBreak ? `tb${tieIndex}` : "round"}`;
   if (roundKey === lastRoundIntroKey) return;
   lastRoundIntroKey = roundKey;
   const intro = document.getElementById("roundIntro");
@@ -4370,12 +4877,20 @@ function showRoundIntro(matchState) {
     clearTimeout(roundIntroTimer);
     roundIntroTimer = null;
   }
-  const roundTemplate = shellTexts.matchRound;
-  const roundText =
-    typeof roundTemplate === "string"
-      ? roundTemplate.replace("{round}", matchState.round)
-      : `Round ${matchState.round}`;
-  title.textContent = roundText;
+  if (isTieBreak) {
+    const template = shellTexts.matchTieBreakTitle || "Tie break {index}";
+    title.textContent =
+      typeof template === "string"
+        ? template.replace("{index}", tieIndex)
+        : `Tie break ${tieIndex}`;
+  } else {
+    const roundTemplate = shellTexts.matchRound;
+    const roundText =
+      typeof roundTemplate === "string"
+        ? roundTemplate.replace("{round}", matchState.round)
+        : `Round ${matchState.round}`;
+    title.textContent = roundText;
+  }
   const dealerInfo = getDealerInfo(matchState);
   dealer.textContent = `${shellTexts.matchDealerLabel} ${dealerInfo.name}`;
   const palette = getDealerPalette(dealerInfo.color);
@@ -4388,12 +4903,26 @@ function showRoundIntro(matchState) {
   void intro.offsetWidth;
   intro.classList.add("show");
   intro.setAttribute("aria-hidden", "false");
+  playModalOpenSound();
+  if (!intro._dismissRoundIntro) {
+    intro.addEventListener("click", () => dismissRoundIntro());
+    intro._dismissRoundIntro = true;
+  }
   roundIntroTimer = setTimeout(() => {
-    intro.classList.remove("show");
-    intro.classList.add("hidden");
-    intro.setAttribute("aria-hidden", "true");
+    dismissRoundIntro();
+  }, 2600);
+}
+
+function dismissRoundIntro() {
+  if (roundIntroTimer) {
+    clearTimeout(roundIntroTimer);
     roundIntroTimer = null;
-  }, 1700);
+  }
+  const intro = document.getElementById("roundIntro");
+  if (!intro) return;
+  intro.classList.remove("show");
+  intro.classList.add("hidden");
+  intro.setAttribute("aria-hidden", "true");
 }
 
 function clearStatusValidation() {
@@ -4612,6 +5141,16 @@ async function handleValidateSection(key = "match") {
     status.textContent = `${base}${reason}`;
     status.className = `match-validation-status ${ok ? "ok" : "fail"}`;
     showValidationResult(ok ? "ok" : "fail", `${base}${reason}`);
+    if (key === "match" && ok) {
+      lastMatchWord = word;
+      lastMatchWordFeatures = {
+        sameColor: false,
+        usedWildcard: false,
+        doubleScore: false,
+        plusPoints: false,
+        minusPoints: false,
+      };
+    }
   } catch (e) {
     logger.error("Word validation failed", e);
     status.textContent = shellTexts.matchValidateError;
@@ -4903,6 +5442,7 @@ function openScoreboard({ readOnly = false } = {}) {
   scoreboardDraft = cloneScoreboardValues(data.values);
   scoreboardDirty = false;
   scoreboardReadOnly = readOnly;
+  scoreboardInfoText = "";
   scoreboardReturnScreen = currentScreen || "match";
   scoreboardReturnWinners = winnersModalOpen;
   scoreboardKeypadOpen = false;
@@ -4928,6 +5468,8 @@ function closeScoreboard() {
   scoreboardPlayers = [];
   scoreboardDirty = false;
   scoreboardReadOnly = false;
+  scoreboardInfoText = "";
+  scoreboardRecordHighlight = null;
   scoreboardKeypadOpen = false;
   scoreboardKeypadPlayerId = null;
   scoreboardKeypadRound = null;
@@ -4952,6 +5494,265 @@ function closeScoreboard() {
   }
 }
 
+function formatRecordDate(value) {
+  if (!value) return "";
+  const parsed = typeof value === "number" ? value : Date.parse(value);
+  if (!Number.isFinite(parsed)) return "";
+  return new Date(parsed).toLocaleDateString(shellLanguage || "es");
+}
+
+function formatRecordPoints(value, { average = false } = {}) {
+  if (value == null || value === "") return "";
+  const num = Number(value);
+  if (!Number.isFinite(num)) return String(value);
+  return average ? num.toFixed(2) : String(num);
+}
+
+function buildRecordDateMessage(dateValue) {
+  const date = formatRecordDate(dateValue);
+  const template = shellTexts.scoreboardRecordDate || "Partida del {date}";
+  return template.replace("{date}", date || "");
+}
+
+function openRecordScoreboard(record, { highlightWord = false } = {}) {
+  if (!record || !record.matchId) return;
+  const archive = loadArchive();
+  const entry = archive?.byId?.[String(record.matchId)];
+  if (!entry?.matchState) return;
+  scoreboardRounds = [];
+  scoreboardPlayers = [];
+  scoreboardBase = null;
+  scoreboardDraft = null;
+  scoreboardDirty = false;
+  scoreboardReadOnly = true;
+  scoreboardInfoText = buildRecordDateMessage(
+    record.when || entry.savedAt || entry.matchState?.updatedAt
+  );
+  scoreboardRecordHighlight =
+    highlightWord && record.playerId != null && record.round != null
+      ? {
+          matchId: String(record.matchId),
+          playerId: String(record.playerId),
+          round: Number(record.round),
+        }
+      : null;
+  scoreboardReturnScreen = "records";
+  scoreboardReturnWinners = false;
+  scoreboardKeypadOpen = false;
+  scoreboardKeypadPlayerId = null;
+  scoreboardKeypadRound = null;
+  scoreboardKeypadOrder = [];
+  scoreboardKeypadInitialValue = null;
+  renderScoreboardScreen(entry.matchState);
+  showScreen("scoreboard");
+  scaleGame();
+}
+
+function renderRecordsList({ listId, records, emptyText, showWord = false } = {}) {
+  const list = document.getElementById(listId);
+  if (!list) return;
+  const rows = Array.isArray(records) ? records.slice(0, 10) : [];
+  list.innerHTML = "";
+
+  if (!rows.length) {
+    const empty = document.createElement("div");
+    empty.className = "records-empty";
+    empty.textContent = emptyText || shellTexts.recordsEmpty || "Sin records";
+    list.appendChild(empty);
+    return;
+  }
+
+  rows.forEach((record, idx) => {
+    const pill = document.createElement("div");
+    pill.className = "records-pill";
+    pill.addEventListener("click", () =>
+      openRecordScoreboard(record, { highlightWord: showWord })
+    );
+    const color = PLAYER_COLORS[idx % PLAYER_COLORS.length];
+    const palette = getDealerPalette(color);
+    pill.style.setProperty("--pill-bg-1", palette.bg);
+    pill.style.setProperty("--pill-border", palette.border);
+
+    const top = document.createElement("div");
+    top.className = "records-pill-top";
+    const pos = document.createElement("span");
+    pos.className = "records-pill-pos";
+    pos.textContent = `#${idx + 1}`;
+    const name = document.createElement("span");
+    name.className = "records-pill-name";
+    name.textContent = record.playerName || "";
+    const points = document.createElement("span");
+    points.className = "records-pill-points";
+    points.textContent = formatRecordPoints(record.points, { average: !showWord });
+    top.append(pos, name, points);
+
+    let wordRow = null;
+    if (showWord) {
+      wordRow = document.createElement("div");
+      wordRow.className = "records-pill-word-row";
+      const wordValue = String(record.word || "").trim();
+      const letters = [...wordValue];
+      const length = letters.length;
+      let rowsCount = 1;
+      if (length >= 11) {
+        rowsCount = Math.ceil(length / 9);
+        if (rowsCount < 2) rowsCount = 2;
+        if (rowsCount > 3) rowsCount = 3;
+      }
+      let rowSizes = [];
+      if (rowsCount === 1) {
+        rowSizes = [length];
+      } else {
+        let remaining = length;
+        let ok = false;
+        for (let attempt = rowsCount; attempt >= 1 && !ok; attempt -= 1) {
+          remaining = length;
+          rowSizes = [];
+          ok = true;
+          for (let i = 0; i < attempt - 1; i += 1) {
+            const minNeededForRest = 8 * Math.max(0, attempt - 2 - i);
+            const maxForRow = remaining - minNeededForRest;
+            const count = Math.min(9, maxForRow);
+            if (count < 8) {
+              ok = false;
+              break;
+            }
+            rowSizes.push(count);
+            remaining -= count;
+          }
+          if (ok) {
+            rowSizes.push(remaining);
+            rowsCount = attempt;
+          }
+        }
+      }
+      let offset = 0;
+      for (let rowIndex = 0; rowIndex < rowSizes.length; rowIndex += 1) {
+        const size = rowSizes[rowIndex];
+        const row = document.createElement("div");
+        row.className = "records-pill-word-line";
+        letters.slice(offset, offset + size).forEach((letter) => {
+          const tile = document.createElement("span");
+          tile.className = "records-pill-letter";
+          tile.textContent = letter.toUpperCase();
+          row.appendChild(tile);
+        });
+        wordRow.appendChild(row);
+        offset += size;
+      }
+    }
+
+    const mid = document.createElement("div");
+    mid.className = "records-pill-mid";
+    const round = document.createElement("span");
+    round.className = "records-pill-tag";
+    round.textContent = record.round != null ? `B${record.round}` : "";
+    const date = document.createElement("span");
+    date.className = "records-pill-date";
+    date.textContent = formatRecordDate(record.when);
+    if (date.textContent) mid.appendChild(date);
+    if (round.textContent) mid.appendChild(round);
+
+    const playersRow = document.createElement("div");
+    playersRow.className = "records-pill-players";
+    if (showWord) {
+      const features = record.features || {};
+      const featureLabels = [
+        ["sameColor", shellTexts.recordsFeatureSameColor],
+        ["usedWildcard", shellTexts.recordsFeatureWildcard],
+        ["doubleScore", shellTexts.recordsFeatureDouble],
+        ["plusPoints", shellTexts.recordsFeaturePlus],
+        ["minusPoints", shellTexts.recordsFeatureMinus],
+      ];
+      featureLabels.forEach(([key, label]) => {
+        if (!features[key] || !label) return;
+        const chip = document.createElement("span");
+        chip.className = `records-pill-chip records-feature-${key}`;
+        chip.textContent = label;
+        playersRow.appendChild(chip);
+      });
+    } else {
+      const others = Array.isArray(record.otherPlayers) ? record.otherPlayers : [];
+      others.forEach((player) => {
+        const chip = document.createElement("span");
+        chip.className = "records-pill-chip";
+        chip.textContent = player;
+        playersRow.appendChild(chip);
+      });
+    }
+
+    const view = document.createElement("span");
+    view.className = "records-pill-view";
+    view.setAttribute("aria-hidden", "true");
+    view.textContent = shellTexts.recordsViewMatch || "Ver partida";
+
+    pill.append(top);
+    if (wordRow) pill.appendChild(wordRow);
+    pill.append(mid, playersRow, view);
+    list.appendChild(pill);
+  });
+}
+
+function renderRecordsScreen() {
+  const records = loadRecords() || {};
+  const wordRecords = Array.isArray(records.bestWord) ? records.bestWord : [];
+  const matchRecords = Array.isArray(records.bestMatch) ? records.bestMatch : [];
+
+  renderRecordsList({
+    listId: "recordsWordList",
+    records: wordRecords,
+    emptyText: shellTexts.recordsEmptyWord,
+    showWord: true,
+  });
+
+  renderRecordsList({
+    listId: "recordsMatchList",
+    records: matchRecords,
+    emptyText: shellTexts.recordsEmptyMatch,
+    showWord: false,
+  });
+
+  setRecordsTab(recordsTab || "words");
+}
+
+function openRecords() {
+  const records = loadRecords() || {};
+  const hasWordRecords = Array.isArray(records.bestWord) && records.bestWord.length > 0;
+  const hasMatchRecords = Array.isArray(records.bestMatch) && records.bestMatch.length > 0;
+  if (!hasWordRecords && hasMatchRecords) {
+    recordsTab = "matches";
+  } else {
+    recordsTab = "words";
+  }
+  recordsReturnScreen = currentScreen || "scoreboard";
+  showScreen("records");
+  scaleGame();
+}
+
+function closeRecords() {
+  if (recordsReturnScreen === "match-winners" && lastWinnersIds.length) {
+    suppressWinnersPrompt = false;
+    showMatchWinners(lastWinnersIds);
+    return;
+  }
+  showScreen(recordsReturnScreen || "scoreboard");
+  scaleGame();
+}
+
+function setRecordsTab(nextTab) {
+  recordsTab = nextTab === "matches" ? "matches" : "words";
+  const tabs = document.getElementById("recordsTabs");
+  const wordsBtn = document.getElementById("recordsTabWordsBtn");
+  const matchesBtn = document.getElementById("recordsTabMatchesBtn");
+  const wordsSection = document.getElementById("recordsWordList")?.closest(".records-section");
+  const matchesSection = document.getElementById("recordsMatchList")?.closest(".records-section");
+  if (tabs) tabs.classList.toggle("is-points", recordsTab === "matches");
+  if (wordsBtn) wordsBtn.classList.toggle("active", recordsTab === "words");
+  if (matchesBtn) matchesBtn.classList.toggle("active", recordsTab === "matches");
+  if (wordsSection) wordsSection.classList.toggle("hidden", recordsTab !== "words");
+  if (matchesSection) matchesSection.classList.toggle("hidden", recordsTab !== "matches");
+}
+
 function applyScoreboardChanges() {
   const st = matchController.getState();
   if (!st || !scoreboardDraft) return;
@@ -4969,6 +5770,7 @@ function applyScoreboardChanges() {
     });
     matchController.updateRoundScores(round, scores);
   });
+  persistScoreboardWordCandidatesDraft();
   const nextState = matchController.getState();
   const data = buildScoreboardData(nextState);
   scoreboardRounds = data.rounds;
@@ -4985,6 +5787,7 @@ function resetScoreboardDraft(matchState) {
   if (!scoreboardBase) return;
   scoreboardDraft = cloneScoreboardValues(scoreboardBase);
   scoreboardDirty = false;
+  discardScoreboardWordCandidatesDraft(matchState || matchController.getState());
   renderScoreboardScreen(matchState || matchController.getState());
   updateScoreboardDirty();
   updateScoreboardIndicators();
@@ -5009,6 +5812,7 @@ function handleRoundEndContinue() {
       const raw = roundEndScores[String(player.id)];
       scores[player.id] = clampRoundScore(raw);
     });
+    const roundNumber = st.round;
     matchController.addRoundScores(scores);
     const nextState = matchController.getState();
     persistActiveMatchSnapshot(nextState);
@@ -5161,6 +5965,8 @@ function showMatchWinners(winnerIds = []) {
   const subtitleEl = document.getElementById("matchWinnersSubtitle");
   const listEl = document.getElementById("matchWinnersList");
   const scoreBtn = document.getElementById("matchWinnersScoreBtn");
+  const recordsBtn = document.getElementById("matchWinnersRecordsBtn");
+  const recordsNote = document.getElementById("matchWinnersRecordsNote");
   const isMulti = winners.length > 1;
 
   if (titleEl) {
@@ -5185,6 +5991,7 @@ function showMatchWinners(winnerIds = []) {
   if (scoreBtn) {
     scoreBtn.classList.toggle("hidden", !st.scoringEnabled);
   }
+  updateMatchWinnersRecordsUI(st, { recordsBtn, recordsNote });
   playModalOpenSound();
   winnersModalOpen = true;
   openModal("match-winners", {
@@ -5198,6 +6005,59 @@ function showMatchWinners(winnerIds = []) {
       }
     },
   });
+}
+
+function getMatchRecordNames(matchState, records) {
+  const matchId = matchState?.matchId;
+  if (!matchId) return [];
+  const players = Array.isArray(matchState?.players) ? matchState.players : [];
+  const byId = new Map(players.map((p) => [String(p.id), p.name || ""]));
+  const names = new Set();
+  const wordRecords = Array.isArray(records?.bestWord) ? records.bestWord : [];
+  const matchRecords = Array.isArray(records?.bestMatch) ? records.bestMatch : [];
+  const all = [...wordRecords, ...matchRecords];
+  all.forEach((entry) => {
+    if (!entry || String(entry.matchId) !== String(matchId)) return;
+    const name =
+      entry.playerName ||
+      byId.get(String(entry.playerId)) ||
+      `${shellTexts.playerLabel} ${entry.playerId}`;
+    if (name) names.add(name);
+  });
+  return Array.from(names);
+}
+
+function updateMatchWinnersRecordsUI(matchState, { recordsBtn, recordsNote } = {}) {
+  if (!matchState) return;
+  const records = loadRecords() || {};
+  const recordNames = getMatchRecordNames(matchState, records);
+  const hasRecords = recordNames.length > 0;
+  if (recordsBtn) recordsBtn.classList.toggle("hidden", !hasRecords);
+  if (recordsNote) {
+    recordsNote.classList.toggle("hidden", !hasRecords);
+    if (hasRecords) {
+      const namesText = formatNameList(recordNames, shellLanguage || "es");
+      const template = shellTexts.matchWinnersRecordsNote || "";
+      recordsNote.textContent = template.replace("{names}", namesText);
+    }
+  }
+}
+
+function formatNameList(names, lang = "es") {
+  const list = Array.isArray(names) ? names.filter(Boolean) : [];
+  if (list.length <= 1) return list[0] || "";
+  const conj = lang.startsWith("en") ? "and" : "y";
+  if (list.length === 2) return `${list[0]} ${conj} ${list[1]}`;
+  return `${list.slice(0, -1).join(", ")} ${conj} ${list[list.length - 1]}`;
+}
+
+function openRecordsFromWinners() {
+  if (winnersModalOpen) {
+    suppressWinnersPrompt = true;
+    closeModal("match-winners", { reason: "records" });
+  }
+  openRecords();
+  recordsReturnScreen = "match-winners";
 }
 
 function finishMatchPhase(kind) {
@@ -5348,6 +6208,8 @@ function showScreen(name) {
     renderRoundEndScreen();
   } else if (name === "scoreboard") {
     renderScoreboardScreen(matchController.getState());
+  } else if (name === "records") {
+    renderRecordsScreen();
   } else {
     if (name === "splash") {
       if (!preserveMatchConfigOnExit) {
@@ -5978,8 +6840,16 @@ function setupMatchControllerEvents() {
   });
   matchController.on("matchFinished", ({ winners }) => {
     stopClockLoop(false);
-    showMatchWinners(winners);
     finalizeMatchSnapshot(matchController.getState(), { status: "finished" });
+    const finalState = matchController.getState();
+    recordMatchAverages(finalState);
+    finalizeWordRecordCandidates(finalState);
+    showMatchWinners(winners);
+    if (winnersModalOpen && finalState) {
+      const recordsBtn = document.getElementById("matchWinnersRecordsBtn");
+      const recordsNote = document.getElementById("matchWinnersRecordsNote");
+      updateMatchWinnersRecordsUI(finalState, { recordsBtn, recordsNote });
+    }
   });
 }
 
@@ -6283,6 +7153,204 @@ function registerServiceWorker() {
       }
     })
     .catch((err) => logger.error("Service worker registration failed", err));
+}
+
+function applySimulatedRecords() {
+  if (window.__simulatedRecordsApplied) return false;
+  if (!SIMULATED_RECORDS) return false;
+  window.__simulatedRecordsApplied = true;
+  const existing = loadRecords() || {};
+  const simulatedWord = Array.isArray(SIMULATED_RECORDS.bestWord) ? SIMULATED_RECORDS.bestWord : [];
+  const simulatedMatch = Array.isArray(SIMULATED_RECORDS.bestMatch)
+    ? SIMULATED_RECORDS.bestMatch
+    : [];
+  const mergeByKey = (items, keyFn) => {
+    const map = new Map();
+    items.forEach((item) => {
+      const key = keyFn(item);
+      if (!key) return;
+      map.set(key, item);
+    });
+    return Array.from(map.values());
+  };
+  const bestWord = mergeByKey(
+    [...(Array.isArray(existing.bestWord) ? existing.bestWord : []), ...simulatedWord],
+    (item) => {
+      if (!item) return "";
+      return `${item.matchId || ""}|${item.playerId || ""}|${item.round || ""}|${item.word || ""}`;
+    }
+  );
+  const bestMatch = mergeByKey(
+    [...(Array.isArray(existing.bestMatch) ? existing.bestMatch : []), ...simulatedMatch],
+    (item) => {
+      if (!item) return "";
+      return `${item.matchId || ""}|${item.playerId || ""}`;
+    }
+  );
+  const records = { ...existing, bestWord, bestMatch };
+  localStorage.setItem("letterloom_match_records", JSON.stringify(records));
+  const seeds = Array.isArray(SIMULATED_MATCH_SEEDS) ? SIMULATED_MATCH_SEEDS : [];
+  if (seeds.length) {
+    const seedsById = new Map(seeds.map((seed) => [String(seed.matchId || ""), seed]));
+    const ids = new Set();
+    [...records.bestWord, ...records.bestMatch].forEach((entry) => {
+      if (entry?.matchId) ids.add(String(entry.matchId));
+    });
+    ids.forEach((matchId) => {
+      const seed = seedsById.get(String(matchId));
+      if (!seed) return;
+      const matchState = buildSimulatedMatchState(seed);
+      const savedAt = seed.lastSavedAt ? Date.parse(seed.lastSavedAt) : Date.now();
+      upsertArchiveMatch({
+        matchId,
+        savedAt: Number.isFinite(savedAt) ? savedAt : Date.now(),
+        status: "finished",
+        matchState,
+      });
+    });
+  }
+  return true;
+}
+
+function saveRecords(records) {
+  localStorage.setItem("letterloom_match_records", JSON.stringify(records || {}));
+}
+
+function sortRecords(list, valueKey = "points") {
+  return [...list].sort((a, b) => {
+    const av = Number(a?.[valueKey]) || 0;
+    const bv = Number(b?.[valueKey]) || 0;
+    if (bv !== av) return bv - av;
+    const aw = Number.isFinite(Number(a?.when)) ? Number(a.when) : Date.parse(a?.when || 0);
+    const bw = Number.isFinite(Number(b?.when)) ? Number(b.when) : Date.parse(b?.when || 0);
+    if (Number.isFinite(aw) && Number.isFinite(bw)) return aw - bw;
+    return 0;
+  });
+}
+
+function upsertWordRecord(entry, records) {
+  if (!entry) return records;
+  const list = Array.isArray(records.bestWord) ? [...records.bestWord] : [];
+  const key = `${entry.matchId || ""}|${entry.playerId || ""}|${entry.round || ""}|${entry.word || ""}`;
+  const existingIndex = list.findIndex(
+    (item) =>
+      `${item?.matchId || ""}|${item?.playerId || ""}|${item?.round || ""}|${item?.word || ""}` ===
+      key
+  );
+  if (existingIndex >= 0) {
+    const prev = list[existingIndex];
+    if (Number(entry.points) > Number(prev?.points || 0)) {
+      list[existingIndex] = entry;
+    }
+  } else {
+    list.push(entry);
+  }
+  const sorted = sortRecords(list, "points").slice(0, 10);
+  return { ...records, bestWord: sorted };
+}
+
+function upsertMatchRecord(entry, records) {
+  if (!entry) return records;
+  const list = Array.isArray(records.bestMatch) ? [...records.bestMatch] : [];
+  const key = `${entry.matchId || ""}|${entry.playerId || ""}`;
+  const existingIndex = list.findIndex(
+    (item) => `${item?.matchId || ""}|${item?.playerId || ""}` === key
+  );
+  if (existingIndex >= 0) {
+    const prev = list[existingIndex];
+    if (Number(entry.points) > Number(prev?.points || 0)) {
+      list[existingIndex] = entry;
+    }
+  } else {
+    list.push(entry);
+  }
+  const sorted = sortRecords(list, "points").slice(0, 10);
+  return { ...records, bestMatch: sorted };
+}
+
+function maybeRecordWordScores(matchState, scoresByPlayerId, roundNumber) {
+  if (!matchState || !scoresByPlayerId) return;
+  if (!lastMatchWord) return;
+  const records = loadRecords() || {};
+  const when = Date.now();
+  Object.entries(scoresByPlayerId).forEach(([playerId, raw]) => {
+    const points = Number(raw);
+    if (!Number.isFinite(points) || points < RECORD_MIN_POINTS) return;
+    const player = matchState.players?.find((p) => String(p.id) === String(playerId));
+    const entry = {
+      matchId: matchState.matchId,
+      playerId,
+      playerName: player?.name || "",
+      round: roundNumber,
+      word: lastMatchWord,
+      points,
+      when,
+      features: { ...lastMatchWordFeatures },
+    };
+    const next = upsertWordRecord(entry, records);
+    records.bestWord = next.bestWord;
+  });
+  saveRecords(records);
+}
+
+function recordMatchAverages(matchState) {
+  if (!matchState?.matchOver) return;
+  const records = loadRecords() || {};
+  const when = Date.now();
+  const rounds = matchState.round ?? 0;
+  matchState.players?.forEach((player) => {
+    const total = Number(player.score) || 0;
+    const played = Array.isArray(player.rounds) ? player.rounds.length : rounds;
+    if (!played) return;
+    const avg = total / played;
+    const adjusted = avg * (played / (played + RECORD_AVG_PENALTY_K));
+    if (adjusted < RECORD_MIN_POINTS) return;
+    const entry = {
+      matchId: matchState.matchId,
+      playerId: player.id,
+      playerName: player.name || "",
+      points: Number(adjusted.toFixed(2)),
+      rounds: played,
+      when,
+      otherPlayers: matchState.players
+        .filter((p) => p.id !== player.id)
+        .map((p) => p.name)
+        .filter(Boolean),
+    };
+    const next = upsertMatchRecord(entry, records);
+    records.bestMatch = next.bestMatch;
+  });
+  saveRecords(records);
+}
+
+function finalizeWordRecordCandidates(matchState) {
+  if (!matchState?.matchOver) return;
+  const map = loadWordCandidatesMap();
+  const list = Array.isArray(map[matchState.matchId]) ? map[matchState.matchId] : [];
+  if (!list.length) return;
+  let records = loadRecords() || {};
+  list.forEach((candidate) => {
+    if (candidate?.ignored) return;
+    if (!candidate?.word) return;
+    const points = Number(candidate?.points);
+    if (!Number.isFinite(points)) return;
+    if (points < RECORD_MIN_POINTS) return;
+    if (!isScoreValidForRecord(points, { requireEven: true })) return;
+    const player = matchState.players?.find((p) => String(p.id) === String(candidate.playerId));
+    const entry = {
+      matchId: matchState.matchId,
+      playerId: candidate.playerId,
+      playerName: player?.name || "",
+      round: candidate.round,
+      word: candidate.word,
+      points: Number(candidate.points),
+      when: candidate.when || Date.now(),
+      features: { ...candidate.features },
+    };
+    records = upsertWordRecord(entry, records);
+  });
+  saveRecords(records);
+  removeWordCandidatesForMatch(matchState.matchId);
 }
 
 function setupServiceWorkerMessaging() {

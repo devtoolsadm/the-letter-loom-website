@@ -116,6 +116,9 @@
                 data-modal-open="settings">
                 <span class="icon-btn-img icon-settings" aria-hidden="true"></span>
               </button>
+              <button class="icon-btn glossy btn-yellow" type="button" id="splashRecordsBtn" aria-label="Records">
+                <span class="icon-btn-img icon-records" aria-hidden="true"></span>
+              </button>
               <button class="icon-btn glossy btn-yellow" type="button" id="buyBtn" aria-label="Buy"
                 data-modal-open="support">
                 <span class="icon-btn-img icon-shop" aria-hidden="true"></span>
@@ -523,9 +526,9 @@
           </div>
           <div class="match-config scoreboard-config">
             <div class="match-config-scroll scoreboard-scroll">
-            <div class="match-section scoreboard-section">
-              <div class="scoreboard-edit-hint" id="scoreboardEditHint"></div>
-              <div class="scoreboard-table-shell" id="scoreboardTableShell">
+              <div class="match-section scoreboard-section">
+                <div class="scoreboard-edit-hint" id="scoreboardEditHint"></div>
+                <div class="scoreboard-table-shell" id="scoreboardTableShell">
                   <div class="scoreboard-table-corner" id="scoreboardTableCorner"></div>
                   <div class="scoreboard-table-header" id="scoreboardTableHeader">
                     <div class="scoreboard-table-header-row" id="scoreboardTableHeaderRow"></div>
@@ -579,6 +582,38 @@
               <div class="round-end-keypad-actions">
                 <button class="game-btn btn-blue" type="button" id="scoreboardKeypadCancelBtn"></button>
                 <button class="game-btn btn-green" type="button" id="scoreboardKeypadAcceptBtn"></button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="screen records-screen" id="screen-records">
+          <div class="screen-topbar records-top-row">
+            <button class="icon-btn glossy btn-yellow" type="button" id="recordsBackBtn" aria-label="Back">
+              <span class="icon-btn-img icon-prev" aria-hidden="true"></span>
+            </button>
+            <div class="modal-ribbon topbar-title text-border text-white text-uppercase" id="recordsTitle"></div>
+            <button class="icon-btn glossy btn-yellow" type="button" id="recordsSettingsBtn" aria-label="Settings">
+              <span class="icon-btn-img icon-settings" aria-hidden="true"></span>
+            </button>
+          </div>
+          <div class="match-config records-config">
+            <div class="scroll-hint-overlay" aria-hidden="true">
+              <div class="scroll-hint-chevron scroll-hint-up"></div>
+              <div class="scroll-hint-chevron scroll-hint-down"></div>
+            </div>
+            <div class="match-config-scroll records-scroll">
+              <div class="match-controls match-mode-switch records-tabs" id="recordsTabs">
+                <button class="game-btn ghost active" type="button" id="recordsTabWordsBtn"></button>
+                <button class="game-btn ghost" type="button" id="recordsTabMatchesBtn"></button>
+              </div>
+              <div class="match-section records-section">
+                <div class="records-block-pill" id="recordsWordPill"></div>
+                <div class="records-list" id="recordsWordList"></div>
+              </div>
+              <div class="match-section records-section">
+                <div class="records-block-pill" id="recordsMatchPill"></div>
+                <div class="records-list" id="recordsMatchList"></div>
               </div>
             </div>
           </div>
@@ -698,15 +733,17 @@
             <div class="before"></div>
             <div class="after"></div>
           </div>
-          <div class="modal-content match-winners-content">
-            <div class="match-winners-trophy" aria-hidden="true"></div>
-            <div class="match-winners-subtitle" id="matchWinnersSubtitle"></div>
-            <div class="match-winners-list" id="matchWinnersList"></div>
-            <div class="settings-actions">
-              <button class="game-btn ghost" type="button" id="matchWinnersScoreBtn"></button>
-              <button class="game-btn primary" type="button" id="matchWinnersOkBtn"></button>
+            <div class="modal-content match-winners-content">
+              <div class="match-winners-trophy" aria-hidden="true"></div>
+              <div class="match-winners-subtitle" id="matchWinnersSubtitle"></div>
+              <div class="match-winners-list" id="matchWinnersList"></div>
+              <div class="match-winners-records-note hidden" id="matchWinnersRecordsNote"></div>
+              <div class="settings-actions match-winners-actions">
+                <button class="game-btn ghost" type="button" id="matchWinnersScoreBtn"></button>
+                <button class="game-btn ghost hidden" type="button" id="matchWinnersRecordsBtn"></button>
+                <button class="game-btn primary" type="button" id="matchWinnersOkBtn"></button>
+              </div>
             </div>
-          </div>
         </div>
       </div>
     </div>
@@ -727,6 +764,37 @@
               <button class="game-btn ghost" type="button" id="rulesCancelBtn"
                 data-modal-close="validation-rules"></button>
               <button class="game-btn primary" type="button" id="rulesSaveBtn"></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-overlay" data-modal="record-word" data-closable="1">
+      <div class="frame-panel record-word-modal">
+        <div class="modal-stitch"></div>
+        <div class="modal-ribbon"><span id="recordWordTitle"></span></div>
+        <button class="modal-close" data-modal-close="record-word" aria-label="Close" id="recordWordCloseBtn"></button>
+        <div class="modal-canvas">
+          <div class="modal-content record-word-content">
+            <div class="record-word-caption" id="recordWordCaption"></div>
+            <div class="match-input-wrap">
+              <input type="text" id="recordWordInput" class="match-validation-input validation-input"
+                maxlength="32" aria-label="" autocomplete="off" autocapitalize="off" autocorrect="off"
+                spellcheck="false" />
+              <button class="match-clear-btn validation-clear hidden" type="button" id="recordWordClearBtn"
+                aria-label="">×</button>
+            </div>
+            <div class="record-word-features">
+              <button class="record-word-chip" type="button" data-feature="sameColor" id="recordWordSameColor"></button>
+              <button class="record-word-chip" type="button" data-feature="usedWildcard" id="recordWordWildcard"></button>
+              <button class="record-word-chip" type="button" data-feature="doubleScore" id="recordWordDouble"></button>
+              <button class="record-word-chip" type="button" data-feature="plusPoints" id="recordWordPlus"></button>
+              <button class="record-word-chip" type="button" data-feature="minusPoints" id="recordWordMinus"></button>
+            </div>
+            <div class="record-word-actions">
+              <button class="game-btn ghost" type="button" id="recordWordSkipBtn"></button>
+              <button class="game-btn primary" type="button" id="recordWordSaveBtn"></button>
             </div>
           </div>
         </div>

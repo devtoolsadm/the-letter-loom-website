@@ -27,7 +27,7 @@ export const MATCH_MODE_POINTS = "points";
 // Palette of player colors (string identifiers or hex values)
 const USE_VIVID_PLAYER_COLORS = true;
 
-const PLAYER_COLORS_PASTEL = [
+export const PLAYER_COLORS_PASTEL = [
   "#FFB3B3", // Light red
   "#AFC3FF", // Light blue
   "#D8B6FF", // Light purple
@@ -59,6 +59,8 @@ export const PLAYER_COLORS = USE_VIVID_PLAYER_COLORS
 
 export const DEFAULT_PLAYER_COUNT = 2;
 export const ROUND_KEYPAD_AUTO_ZERO_ON_NAV = false;
+export const RECORD_MIN_POINTS = 20;
+export const RECORD_AVG_PENALTY_K = 5;
 
 // Apply fixed player name styling when using vivid colors.
 if (USE_VIVID_PLAYER_COLORS && typeof document !== "undefined") {
@@ -71,9 +73,11 @@ if (USE_VIVID_PLAYER_COLORS && typeof document !== "undefined") {
 }
 
 // Debug-only: preload a simulated match on app start.
-export const SIMULATE_MATCH_ON_START = true;
-const SIMULATED_MATCH_SEEDS = [
+export const SIMULATE_MATCH_ON_START = false;
+export const SIMULATE_RECORDS_ON_START = false;
+export const SIMULATED_MATCH_SEEDS = [
   {
+    matchId: "sim-match-8p",
     lastSavedAt: "2026-01-29T08:00:00Z",
     players: [
       "Raquel",
@@ -114,27 +118,33 @@ const SIMULATED_MATCH_SEEDS = [
     ],
   },
   {
-    players: ["Raquel", "Ramon", "Rafa"],
+    matchId: "sim-match-3p",
+    players: ["Raquel", "Rafa"],
     preferences: {
-      playersCount: 3,
+      playersCount: 2,
       strategySeconds: 15,
       creationSeconds: 15,
       mode: MATCH_MODE_ROUNDS,
-      roundsTarget: 16,
+      roundsTarget: 3,
       pointsTarget: 500,
       scoringEnabled: true,
     },
-    phase: "strategy-run",
-    rounds: [[112, 18, 0]],
+    phase: "creation-run",
+    rounds: [
+      [112, 18, 0],
+      [130, 0, 16],
+    ],
   },
 ];
 
-function buildSimulatedMatchState(seed = {}) {
+export function buildSimulatedMatchState(seed = {}) {
   const prefs = seed.preferences || {};
   const players = (seed.players || []).map((name, idx) => ({
     id: `p${idx + 1}`,
     name,
-    abbrev: String(name || "").slice(0, 3).toUpperCase(),
+    abbrev: String(name || "")
+      .slice(0, 3)
+      .toUpperCase(),
     color: PLAYER_COLORS[idx % PLAYER_COLORS.length],
     score: 0,
     rounds: [],
@@ -175,10 +185,15 @@ function buildSimulatedMatchState(seed = {}) {
   return {
     matchId: seed.matchId || `sim-${Date.now().toString(36)}`,
     isActive: seed.isActive ?? true,
-    round: Number.isFinite(Number(seed.round)) ? Number(seed.round) : rounds.length ? rounds.length + 1 : 1,
+    round: Number.isFinite(Number(seed.round))
+      ? Number(seed.round)
+      : rounds.length
+        ? rounds.length + 1
+        : 1,
     phase,
     remaining,
-    mode: prefs.mode === MATCH_MODE_POINTS ? MATCH_MODE_POINTS : MATCH_MODE_ROUNDS,
+    mode:
+      prefs.mode === MATCH_MODE_POINTS ? MATCH_MODE_POINTS : MATCH_MODE_ROUNDS,
     roundsTarget: prefs.roundsTarget ?? DEFAULT_ROUNDS_TARGET,
     pointsTarget: prefs.pointsTarget ?? DEFAULT_POINTS_TARGET,
     scoringEnabled: prefs.scoringEnabled ?? true,
@@ -194,4 +209,275 @@ function buildSimulatedMatchState(seed = {}) {
   };
 }
 
-export const SIMULATED_MATCH_STATE = buildSimulatedMatchState(SIMULATED_MATCH_SEEDS[1]);
+export const SIMULATED_MATCH_STATE = buildSimulatedMatchState(
+  SIMULATED_MATCH_SEEDS[1],
+);
+
+export const SIMULATED_RECORDS = {
+  bestWord: [
+    {
+      matchId: "sim-match-8p",
+      playerId: "p6",
+      playerName: "A.Sebastiánduroitia",
+      round: 7,
+      word: "ESTRATEGIA",
+      points: 124,
+      when: "2026-01-29T08:05:00Z",
+      features: {
+        sameColor: true,
+        usedWildcard: false,
+        doubleScore: true,
+        plusPoints: true,
+        minusPoints: false,
+      },
+    },
+    {
+      matchId: "sim-match-8p",
+      playerId: "p1",
+      playerName: "Raquel",
+      round: 2,
+      word: "LUMINOSA",
+      points: 130,
+      when: "2026-01-29T08:10:00Z",
+      features: {
+        sameColor: false,
+        usedWildcard: true,
+        doubleScore: true,
+        plusPoints: false,
+        minusPoints: false,
+      },
+    },
+    {
+      matchId: "sim-match-8p",
+      playerId: "p3",
+      playerName: "Rafa",
+      round: 5,
+      word: "INSPIRACION",
+      points: 130,
+      when: "2026-01-29T08:45:00Z",
+      features: {
+        sameColor: true,
+        usedWildcard: true,
+        doubleScore: false,
+        plusPoints: true,
+        minusPoints: false,
+      },
+    },
+    {
+      matchId: "sim-match-8p",
+      playerId: "p2",
+      playerName: "Ramon",
+      round: 9,
+      word: "CONSTRUCCION",
+      points: 118,
+      when: "2026-01-29T08:55:00Z",
+      features: {
+        sameColor: false,
+        usedWildcard: false,
+        doubleScore: false,
+        plusPoints: true,
+        minusPoints: false,
+      },
+    },
+    {
+      matchId: "sim-match-8p",
+      playerId: "p4",
+      playerName: "Elvira",
+      round: 11,
+      word: "EXTRAVAGANTE",
+      points: 112,
+      when: "2026-01-29T09:05:00Z",
+      features: {
+        sameColor: true,
+        usedWildcard: false,
+        doubleScore: true,
+        plusPoints: false,
+        minusPoints: true,
+      },
+    },
+    {
+      matchId: "sim-match-8p",
+      playerId: "p5",
+      playerName: "Juan Sebastián",
+      round: 12,
+      word: "SOMBRA",
+      points: 112,
+      when: "2026-01-29T09:20:00Z",
+      features: {
+        sameColor: false,
+        usedWildcard: false,
+        doubleScore: false,
+        plusPoints: false,
+        minusPoints: true,
+      },
+    },
+    {
+      matchId: "sim-match-8p",
+      playerId: "p7",
+      playerName: "Andrea",
+      round: 6,
+      word: "ORIGENES",
+      points: 108,
+      when: "2026-01-29T09:35:00Z",
+      features: {
+        sameColor: true,
+        usedWildcard: true,
+        doubleScore: false,
+        plusPoints: false,
+        minusPoints: false,
+      },
+    },
+    {
+      matchId: "sim-match-8p",
+      playerId: "p8",
+      playerName: "Marcos",
+      round: 8,
+      word: "CARACTERISTICO",
+      points: 106,
+      when: "2026-01-29T09:50:00Z",
+      features: {
+        sameColor: false,
+        usedWildcard: false,
+        doubleScore: true,
+        plusPoints: true,
+        minusPoints: false,
+      },
+    },
+    {
+      matchId: "sim-match-8p",
+      playerId: "p6",
+      playerName: "A.Sebastiánduroitia",
+      round: 10,
+      word: "DESCONOCIMIENTO",
+      points: 104,
+      when: "2026-01-29T10:05:00Z",
+      features: {
+        sameColor: true,
+        usedWildcard: false,
+        doubleScore: false,
+        plusPoints: true,
+        minusPoints: false,
+      },
+    },
+    {
+      matchId: "sim-match-8p",
+      playerId: "p2",
+      playerName: "Ramon",
+      round: 13,
+      word: "INCONMENSURABLE",
+      points: 102,
+      when: "2026-01-29T10:20:00Z",
+      features: {
+        sameColor: false,
+        usedWildcard: true,
+        doubleScore: true,
+        plusPoints: false,
+        minusPoints: true,
+      },
+    },
+  ],
+  bestMatch: [
+    {
+      matchId: "sim-match-8p",
+      playerId: "p1",
+      playerName: "Raquel",
+      points: 28.8,
+      rounds: 15,
+      when: "2026-01-29T08:20:00Z",
+      otherPlayers: [
+        "Ramon",
+        "Rafa",
+        "Elvira",
+        "Juan",
+        "Marcos",
+        "Andrea",
+        "A.Sebastián",
+      ],
+    },
+    {
+      matchId: "sim-match-8p",
+      playerId: "p7",
+      playerName: "Andrea",
+      points: 24.46,
+      rounds: 15,
+      when: "2026-01-29T08:20:00Z",
+      otherPlayers: [
+        "Raquel",
+        "Ramon",
+        "Rafa",
+        "Elvira",
+        "Juan",
+        "Marcos",
+        "A.Sebastián",
+      ],
+    },
+    {
+      matchId: "sim-match-8p",
+      playerId: "p2",
+      playerName: "Ramon",
+      points: 24.86,
+      rounds: 14,
+      when: "2026-01-29T09:15:00Z",
+      otherPlayers: [
+        "Raquel",
+        "Rafa",
+        "Elvira",
+        "Juan",
+        "Marcos",
+        "Andrea",
+        "A.Sebastián",
+      ],
+    },
+    {
+      matchId: "sim-match-8p",
+      playerId: "p6",
+      playerName: "A.Sebastiánduroitia",
+      points: 22.4,
+      rounds: 15,
+      when: "2026-01-29T09:05:00Z",
+      otherPlayers: [
+        "Raquel",
+        "Ramon",
+        "Rafa",
+        "Elvira",
+        "Juan",
+        "Marcos",
+        "Andrea",
+      ],
+    },
+    {
+      matchId: "sim-match-8p",
+      playerId: "p4",
+      playerName: "Elvira",
+      points: 22.29,
+      rounds: 14,
+      when: "2026-01-29T09:30:00Z",
+      otherPlayers: [
+        "Raquel",
+        "Ramon",
+        "Rafa",
+        "Juan",
+        "Marcos",
+        "Andrea",
+        "A.Sebastián",
+      ],
+    },
+    {
+      matchId: "sim-match-8p",
+      playerId: "p5",
+      playerName: "Juan Sebastián",
+      points: 24.0,
+      rounds: 13,
+      when: "2026-01-29T10:10:00Z",
+      otherPlayers: [
+        "Raquel",
+        "Ramon",
+        "Rafa",
+        "Elvira",
+        "Marcos",
+        "Andrea",
+        "A.Sebastián",
+      ],
+    },
+  ],
+};
