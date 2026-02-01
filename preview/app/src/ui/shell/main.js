@@ -4220,6 +4220,7 @@ function renderMatchFromState(matchState) {
 
     if (matchState.phase !== lastMatchPhase) {
       if (matchState.phase === "strategy-ready") {
+        showRoundIntro(matchState);
         triggerDealerFocus(matchState);
       }
       lastMatchPhase = matchState.phase;
@@ -4250,7 +4251,6 @@ function renderMatchFromState(matchState) {
     }
   }
 
-    showRoundIntro(matchState);
   if (modeRoundsBtn && modePointsBtn) {
     const isPoints = matchState.mode === MATCH_MODE_POINTS;
     modeRoundsBtn.classList.toggle("active", !isPoints);
@@ -4902,9 +4902,10 @@ function showRoundIntro(matchState) {
     intro.addEventListener("click", () => dismissRoundIntro());
     intro._dismissRoundIntro = true;
   }
+  const durationMs = getRoundIntroDurationMs(intro);
   roundIntroTimer = setTimeout(() => {
     dismissRoundIntro();
-  }, 2600);
+  }, durationMs);
 }
 
 function dismissRoundIntro() {
@@ -4923,6 +4924,17 @@ function dismissRoundIntro() {
     pendingDealerFocusState = null;
     triggerDealerFocus(st);
   }
+}
+
+function getRoundIntroDurationMs(introEl) {
+  if (!introEl) return 2000;
+  const raw = getComputedStyle(introEl).getPropertyValue("--round-intro-duration").trim();
+  if (!raw) return 2000;
+  const match = raw.match(/^(\d+(?:\.\d+)?)(ms|s)$/i);
+  if (!match) return 2000;
+  const value = Number(match[1]);
+  if (!Number.isFinite(value)) return 2000;
+  return match[2].toLowerCase() === "s" ? value * 1000 : value;
 }
 
 function triggerDealerFocus(matchState) {
@@ -7092,27 +7104,28 @@ function assignSrcToNodes(nodes, src) {
   });
 }
 
-function bootstrapShell() {
-  logger.info(`App version ${APP_VERSION}`);
-  requestServiceWorkerVersion();
-  const textErrors = validateTexts(TEXTS);
+  function bootstrapShell() {
+    logger.info(`App version ${APP_VERSION}`);
+    requestServiceWorkerVersion();
+    const textErrors = validateTexts(TEXTS);
   if (textErrors.length) {
     const msg = `Translation validation failed:\n${textErrors.join("\n")}`;
     logger.error(msg);
     throw new Error(msg);
   }
-  updateBodyLanguageClass(shellLanguage);
-  setupAudio();
-  setupMatchControllerEvents();
-  matchController.setValidator((word, customRules) =>
+    updateBodyLanguageClass(shellLanguage);
+    setupAudio();
+    setupMatchControllerEvents();
+    matchController.setValidator((word, customRules) =>
     validateWordRemote({
       word,
       language: shellLanguage,
       customRules,
     })
   );
-  initValidationSections();
-  renderShellTexts();
+    initValidationSections();
+    renderShellTexts();
+    updatePreviewBadge();
   initMatch();
   setupLanguageSelector();
   setupNavigation();
@@ -7173,6 +7186,25 @@ function registerServiceWorker() {
       }
     })
     .catch((err) => logger.error("Service worker registration failed", err));
+}
+
+function updatePreviewBadge() {
+  const badge = document.getElementById("previewLogoBadge");
+  if (!badge) return;
+  const host = window.location.hostname || "";
+  const href = window.location.href || "";
+  const isLocal =
+    host === "localhost" ||
+    host === "127.0.0.1" ||
+    host === "::1" ||
+    host.endsWith(".local");
+  const isPreview = /preview/i.test(host) || /preview/i.test(href);
+  const shouldShow = isPreview || isLocal;
+  badge.classList.toggle("hidden", !shouldShow);
+  badge.textContent = isLocal && !isPreview ? "LOCAL" : "PREVIEW";
+  badge.classList.remove("is-active");
+  void badge.offsetWidth;
+  if (shouldShow) badge.classList.add("is-active");
 }
 
 function applySimulatedRecords() {

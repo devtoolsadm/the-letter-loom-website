@@ -11,14 +11,21 @@
 /* Colores para el título Letter Loom */
 /* Resalta la versión en entorno de preview */
 .preview-version-highlight {
-    background: #f9ff00;
-    color: #fff;
-    font-weight: bold;
-    border-radius: 0.5em;
-    padding: 0.2em 0.7em;
-    box-shadow: 0 0 0.5em #979b00;
-    font-size: 1.2em;
-    letter-spacing: 0.05em;
+      background: #f9ff00;
+      color: #fff;
+      font-weight: bold;
+      border-radius: 0.5em;
+      padding: 0.2em 0.7em;
+      box-shadow: 0 0 0.5em #979b00;
+      font-size: 1.2em;
+      letter-spacing: 0.05em;
+      position: fixed;
+      top: 8px;
+      left: 8px;
+      right: auto;
+      bottom: auto;
+      z-index: 10000;
+      pointer-events: none;
 }
 /* Unificación de tamaños de fuente en controles */
 .control-label {

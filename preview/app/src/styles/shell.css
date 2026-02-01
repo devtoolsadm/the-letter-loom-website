@@ -670,6 +670,11 @@ body.shell-ready #game-root {
   inset: 0;
   background: rgba(255, 248, 235, 0.35);
   backdrop-filter: blur(6px);
+  opacity: 0;
+}
+
+.round-intro.show::before {
+  animation: round-intro-blur var(--round-intro-duration, 1.8s) ease-in-out forwards;
 }
 
 .round-intro-inner {
@@ -714,7 +719,7 @@ body.shell-ready #game-root {
 }
 
 .round-intro.show .round-intro-inner {
-  animation: round-intro-panel 1.8s ease-in-out forwards;
+  animation: round-intro-panel var(--round-intro-duration, 1.8s) ease-in-out forwards;
 }
 
 @keyframes round-intro-panel {
@@ -729,13 +734,32 @@ body.shell-ready #game-root {
     transform: translateY(0) scale(1.02);
     opacity: 1;
   }
-  98% {
+  50% {
     transform: translateY(0) scale(1.02);
     opacity: 1;
   }
   100% {
-    transform: translateY(-30px) scale(0.98);
+    transform: translateY(-120px) scale(0.5);
     opacity: 0;
+  }
+}
+
+@keyframes round-intro-blur {
+  0% {
+    opacity: 0;
+    backdrop-filter: blur(8px);
+  }
+  25% {
+    opacity: 0.9;
+    backdrop-filter: blur(6px);
+  }
+  92% {
+    opacity: 0.8;
+    backdrop-filter: blur(4px);
+  }
+  100% {
+    opacity: 0;
+    backdrop-filter: blur(0px);
   }
 }
 
@@ -1428,6 +1452,50 @@ body.shell-ready #game-root {
   gap: 18px;
   text-align: center;
   margin-bottom: 28px;
+}
+
+.splash-logo-wrap {
+  position: relative;
+  display: inline-flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.preview-logo-badge {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  background: #f9ff00;
+  color: #3a2a00;
+  font-weight: 900;
+  border-radius: 0.5em;
+  padding: 0.32em 0.95em;
+  box-shadow: 0 0 0.8em #979b00, 0 7px 14px rgba(0, 0, 0, 0.25);
+  font-size: 18px;
+  letter-spacing: 0.05em;
+  transform: rotate(-20deg) scale(0.6);
+  opacity: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.preview-logo-badge.is-active {
+  animation: previewBadgeStamp 1.8s ease-out 0.55s forwards;
+}
+
+@keyframes previewBadgeStamp {
+  0% {
+    opacity: 0;
+    transform: rotate(-25deg) scale(0.4);
+  }
+  70% {
+    opacity: 1;
+    transform: rotate(-8deg) scale(1.05);
+  }
+  100% {
+    opacity: 1;
+    transform: rotate(-8deg) scale(1);
+  }
 }
 
 .splash-logo {
