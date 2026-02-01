@@ -217,6 +217,7 @@ let scoreboardKeypadPlayerId = null;
 let scoreboardKeypadRound = null;
 let scoreboardKeypadOrder = [];
 let scoreboardKeypadInitialValue = null;
+let delegatedControlsBound = false;
 
 function getActivePlayers(matchState) {
   const players = Array.isArray(matchState?.players) ? matchState.players : [];
@@ -2574,8 +2575,14 @@ function preventMobileZoom() {
   document.addEventListener(
     "touchend",
     (event) => {
+      const target = event.target;
+      const isInteractive =
+        target instanceof Element &&
+        target.closest(
+          "button, input, textarea, select, a, [role='button'], [data-keypad]"
+        );
       const now = Date.now();
-      if (now - lastTouchEnd <= 350) {
+      if (!isInteractive && now - lastTouchEnd <= 350) {
         event.preventDefault();
       }
       lastTouchEnd = now;
@@ -2937,6 +2944,8 @@ function setupNavigation() {
     if (el) el.addEventListener("click", handler);
   });
 
+  setupDelegatedControls();
+
   const matchScoreboard = document.getElementById("matchScoreboard");
   if (matchScoreboard) {
     matchScoreboard.addEventListener("click", () => {
@@ -2968,15 +2977,6 @@ function setupNavigation() {
       if (e.target === roundEndKeypad) {
         closeRoundEndKeypad();
       }
-    });
-  }
-
-  const roundEndKeypadGrid = document.getElementById("roundEndKeypadGrid");
-  if (roundEndKeypadGrid) {
-    roundEndKeypadGrid.addEventListener("click", (e) => {
-      const btn = e.target.closest("[data-keypad]");
-      if (!btn) return;
-      handleRoundEndKeypadKey(btn.dataset.keypad);
     });
   }
 
@@ -3017,15 +3017,6 @@ function setupNavigation() {
       if (e.target === scoreboardKeypad) {
         closeScoreboardKeypad({ restore: true });
       }
-    });
-  }
-
-  const scoreboardKeypadGrid = document.getElementById("scoreboardKeypadGrid");
-  if (scoreboardKeypadGrid) {
-    scoreboardKeypadGrid.addEventListener("click", (e) => {
-      const btn = e.target.closest("[data-keypad]");
-      if (!btn) return;
-      handleScoreboardKeypadKey(btn.dataset.keypad);
     });
   }
 
@@ -3181,32 +3172,16 @@ function setupNavigation() {
     });
   }
 
-  const playersMinus = document.getElementById("matchPlayersMinus");
-  const playersPlus = document.getElementById("matchPlayersPlus");
   const modeRoundsBtn = document.getElementById("matchModeRoundsBtn");
   const modePointsBtn = document.getElementById("matchModePointsBtn");
   const modeSwitch = document.querySelector(".match-mode-switch");
-  const roundsMinus = document.getElementById("matchRoundsMinus");
-  const roundsPlus = document.getElementById("matchRoundsPlus");
-  const pointsMinus = document.getElementById("matchPointsMinus");
-  const pointsPlus = document.getElementById("matchPointsPlus");
   const scoringToggle = document.getElementById("matchScoringToggle");
   const matchRulesBtn = document.getElementById("matchRulesBtn");
   const matchPhaseHelpBtn = document.getElementById("matchPhaseHelpBtn");
   const matchPhaseStrategyBtn = document.getElementById("matchPhaseStrategyBtn");
   const matchPhaseCreationBtn = document.getElementById("matchPhaseCreationBtn");
-  const stratMinus = document.getElementById("matchStrategyMinus");
-  const stratPlus = document.getElementById("matchStrategyPlus");
-  const creaMinus = document.getElementById("matchCreationMinus");
-  const creaPlus = document.getElementById("matchCreationPlus");
-  if (playersMinus) playersMinus.addEventListener("click", () => adjustPlayers(-1));
-  if (playersPlus) playersPlus.addEventListener("click", () => adjustPlayers(1));
   if (modeRoundsBtn) modeRoundsBtn.addEventListener("click", () => setMatchMode(MATCH_MODE_ROUNDS));
   if (modePointsBtn) modePointsBtn.addEventListener("click", () => setMatchMode(MATCH_MODE_POINTS));
-  if (roundsMinus) roundsMinus.addEventListener("click", () => adjustRounds(-1));
-  if (roundsPlus) roundsPlus.addEventListener("click", () => adjustRounds(1));
-  if (pointsMinus) pointsMinus.addEventListener("click", () => adjustPoints(-5));
-  if (pointsPlus) pointsPlus.addEventListener("click", () => adjustPoints(5));
   if (scoringToggle) scoringToggle.addEventListener("click", toggleScoring);
   if (matchRulesBtn)
     matchRulesBtn.addEventListener("click", () => {
@@ -3222,10 +3197,68 @@ function setupNavigation() {
     matchPhaseStrategyBtn.addEventListener("click", () => handlePhaseTabClick("strategy"));
   if (matchPhaseCreationBtn)
     matchPhaseCreationBtn.addEventListener("click", () => handlePhaseTabClick("creation"));
-  if (stratMinus) stratMinus.addEventListener("click", () => adjustMatchTimer("strategy", -10));
-  if (stratPlus) stratPlus.addEventListener("click", () => adjustMatchTimer("strategy", 10));
-  if (creaMinus) creaMinus.addEventListener("click", () => adjustMatchTimer("creation", -10));
-  if (creaPlus) creaPlus.addEventListener("click", () => adjustMatchTimer("creation", 10));
+}
+
+function setupDelegatedControls() {
+  if (delegatedControlsBound) return;
+  delegatedControlsBound = true;
+  document.addEventListener("click", (e) => {
+    const keypadBtn = e.target.closest("[data-keypad]");
+    if (keypadBtn) {
+      const key = keypadBtn.dataset.keypad;
+      if (!key) return;
+      if (keypadBtn.closest("#roundEndKeypadGrid")) {
+        handleRoundEndKeypadKey(key);
+        return;
+      }
+      if (keypadBtn.closest("#scoreboardKeypadGrid")) {
+        handleScoreboardKeypadKey(key);
+        return;
+      }
+      return;
+    }
+
+    const control = e.target.closest(
+      "#matchPlayersMinus, #matchPlayersPlus, #matchRoundsMinus, #matchRoundsPlus, #matchPointsMinus, #matchPointsPlus, #matchStrategyMinus, #matchStrategyPlus, #matchCreationMinus, #matchCreationPlus"
+    );
+    if (!control) return;
+    const button = control.closest("button") || control;
+    if (button.disabled) return;
+    switch (control.id) {
+      case "matchPlayersMinus":
+        adjustPlayers(-1);
+        break;
+      case "matchPlayersPlus":
+        adjustPlayers(1);
+        break;
+      case "matchRoundsMinus":
+        adjustRounds(-1);
+        break;
+      case "matchRoundsPlus":
+        adjustRounds(1);
+        break;
+      case "matchPointsMinus":
+        adjustPoints(-5);
+        break;
+      case "matchPointsPlus":
+        adjustPoints(5);
+        break;
+      case "matchStrategyMinus":
+        adjustMatchTimer("strategy", -10);
+        break;
+      case "matchStrategyPlus":
+        adjustMatchTimer("strategy", 10);
+        break;
+      case "matchCreationMinus":
+        adjustMatchTimer("creation", -10);
+        break;
+      case "matchCreationPlus":
+        adjustMatchTimer("creation", 10);
+        break;
+      default:
+        break;
+    }
+  });
 }
 
 function openManual() {
