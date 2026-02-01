@@ -2329,11 +2329,25 @@ body.splash-ready #splashLoadingBlock {
   align-items: center;
   justify-content: center;
 }
+
+.round-end-keypad-value-text {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
 .round-end-keypad-value.is-negative {
   color: #b3342a;
 }
 
-.round-end-keypad-value.is-editing::after {
+.round-end-keypad-value.is-invalid {
+  border-color: #b3342a;
+  color: #b9b0a6;
+  background: #ffd9d6;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), 0 0 0 2px #b3342a;
+  position: relative;
+}
+
+.round-end-keypad-value.is-editing .round-end-keypad-value-text::after {
   content: "";
   width: 14px;
   height: 3px;

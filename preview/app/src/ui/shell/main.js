@@ -314,6 +314,13 @@ function normalizePlayerName(value) {
     return String(value);
   }
 
+  function getRoundEndWarningTargets() {
+    return [
+      document.getElementById("roundEndWarning"),
+      document.getElementById("roundEndKeypadWarning"),
+    ].filter(Boolean);
+  }
+
   function canContinueRoundEnd(matchState) {
     if (!matchState?.scoringEnabled) return false;
     const players = getActivePlayers(matchState);
@@ -357,7 +364,12 @@ function normalizePlayerName(value) {
     const valueEl = document.getElementById("roundEndKeypadValue");
     if (valueEl) {
       const value = roundEndScores[String(playerId)];
-      valueEl.textContent = isRoundScoreEmpty(value) ? "" : formatRoundEndScoreDisplay(value);
+      const textValue = isRoundScoreEmpty(value) ? "" : formatRoundEndScoreDisplay(value);
+      valueEl.textContent = "";
+      const span = document.createElement("span");
+      span.className = "round-end-keypad-value-text";
+      span.textContent = textValue;
+      valueEl.appendChild(span);
       valueEl.classList.toggle("is-negative", Number(value) < 0);
       valueEl.classList.toggle("is-editing", true);
     }
@@ -376,8 +388,8 @@ function normalizePlayerName(value) {
     }
   }
 
-function openRoundEndKeypad(playerId) {
-  const st = matchController.getState();
+  function openRoundEndKeypad(playerId) {
+    const st = matchController.getState();
     if (!st?.scoringEnabled) return;
     const id = String(playerId || "");
     if (!id) return;
@@ -394,6 +406,7 @@ function openRoundEndKeypad(playerId) {
     roundEndKeypadPlayerId = id;
     clearMatchWordFor("round-keypad", false);
     clearStatusValidationFor("round-keypad");
+    clearRoundEndKeypadValidation();
     updateRoundEndLockState(st);
     updateRoundEndContinueState(st);
     updateRoundEndKeypad(st);
@@ -421,9 +434,60 @@ function openRoundEndKeypad(playerId) {
     const id = String(playerId);
     roundEndScores[id] = value;
     roundEndUnlocked.add(id);
+    clearRoundEndKeypadValidation();
     updateRoundEndLockState(matchState);
     updateRoundEndContinueState(matchState);
     updateRoundEndKeypad(matchState);
+  }
+
+  function clearRoundEndKeypadValidation() {
+    const valueEl = document.getElementById("roundEndKeypadValue");
+    if (valueEl) valueEl.classList.remove("is-invalid");
+    const warnings = getRoundEndWarningTargets();
+    warnings.forEach((warning) => warning.classList.add("hidden"));
+  }
+
+  function validateRoundEndKeypadValue(matchState, playerId) {
+    const id = String(playerId);
+    const raw = roundEndScores[id];
+    const warnings = getRoundEndWarningTargets();
+    const valueEl = document.getElementById("roundEndKeypadValue");
+    const playerLabel = getRoundEndPlayerLabel(matchState, id);
+    const missing = isRoundScoreEmpty(raw);
+    const odd = !missing && isOddScore(raw);
+    const outOfRange = !missing && isScoreOutOfRange(raw);
+    if (valueEl) valueEl.classList.toggle("is-invalid", odd || outOfRange || missing);
+    if (!warnings.length) {
+      return { valid: !(missing || odd || outOfRange) };
+    }
+    if (odd) {
+      playValidationResultSound(false);
+      warnings.forEach((warning) => {
+        setI18n(warning, "matchRoundScoresOdd", { vars: { player: playerLabel } });
+        warning.classList.toggle("hidden", false);
+      });
+      return { valid: false };
+    }
+    if (outOfRange) {
+      playValidationResultSound(false);
+      warnings.forEach((warning) => {
+        setI18n(warning, "matchRoundScoresOutOfRange", {
+          vars: { player: playerLabel, min: MIN_ROUND_SCORE, max: MAX_ROUND_SCORE },
+        });
+        warning.classList.toggle("hidden", false);
+      });
+      return { valid: false };
+    }
+    if (missing) {
+      playValidationResultSound(false);
+      warnings.forEach((warning) => {
+        setI18n(warning, "matchRoundScoresMissing");
+        warning.classList.toggle("hidden", false);
+      });
+      return { valid: false };
+    }
+    warnings.forEach((warning) => warning.classList.add("hidden"));
+    return { valid: true };
   }
 
   function handleRoundEndKeypadKey(key) {
@@ -475,6 +539,10 @@ function openRoundEndKeypad(playerId) {
       }
     }
     if (currentId) {
+      const validation = validateRoundEndKeypadValue(st, currentId);
+      if (!validation.valid) {
+        return;
+      }
       const raw = roundEndScores[String(currentId)];
       const points = Number(raw);
       const invalid = !isScoreValidForRecord(raw, { requireEven: true });
