@@ -73,6 +73,8 @@ import {
   normalizeMatchForResume,
   isResumeEligible,
   loadArchive,
+  saveArchive,
+  matchHasRecord,
   loadRecords,
 } from "../../core/matchStorage.js";
 
@@ -179,6 +181,7 @@ let roundEndUnlocked = new Set();
 let roundEndSelectedWinners = new Set();
 let roundEndKeypadOpen = false;
 let roundEndKeypadPlayerId = null;
+let roundEndValidationByPlayer = new Map();
 let lastMatchWord = "";
 let lastMatchWordFeatures = {
   sameColor: false,
@@ -197,6 +200,9 @@ let recordWordFeatures = {
 };
 let recordWordPendingNext = null;
 let recordWordModalStaging = false;
+let recordWordValidating = false;
+let recordWordStatusWord = "";
+let recordWordStatusOk = null;
 let scoreboardWordCandidatesDraft = null;
 let scoreboardWordCandidatesDirty = false;
 let scoreboardWordCandidatesMatchId = null;
@@ -263,6 +269,7 @@ function buildMatchPrefs(src = {}) {
     roundsTarget,
     pointsTarget: src.pointsTarget ?? DEFAULT_POINTS_TARGET,
     scoringEnabled: src.scoringEnabled ?? true,
+    validateRecordWords: src.validateRecordWords ?? true,
   };
 }
 
@@ -314,6 +321,75 @@ function normalizePlayerName(value) {
     return String(value);
   }
 
+  function normalizeValidationWord(value) {
+    return String(value || "").trim().toLowerCase();
+  }
+
+  function getRoundEndValidationEntry(playerId) {
+    return roundEndValidationByPlayer.get(String(playerId)) || null;
+  }
+
+  function setRoundEndValidationEntry(playerId, entry) {
+    if (!playerId || !entry) return;
+    roundEndValidationByPlayer.set(String(playerId), entry);
+    syncRecordWordStatusFromEntry(playerId, entry);
+  }
+
+  function clearRoundEndValidationEntry(playerId) {
+    if (!playerId) return;
+    roundEndValidationByPlayer.delete(String(playerId));
+    syncRecordWordStatusFromEntry(playerId, null);
+  }
+
+  function syncRecordWordStatusFromEntry(playerId, entry) {
+    if (
+      !recordWordModalState ||
+      recordWordModalState.source !== "round-end" ||
+      String(recordWordModalState.playerId) !== String(playerId)
+    ) {
+      return;
+    }
+    const statusEl = document.getElementById("recordWordValidationStatus");
+    const input = document.getElementById("recordWordInput");
+    if (!statusEl || !input) return;
+    const wordKey = normalizeValidationWord(input.value || "");
+    if (
+      entry &&
+      Number(entry.round) === Number(recordWordModalState.round) &&
+      entry.wordKey === wordKey &&
+      entry.statusText
+    ) {
+      statusEl.textContent = entry.statusText;
+      statusEl.className = `${entry.statusClass} record-word-validation-status`;
+      recordWordStatusWord = wordKey;
+      recordWordStatusOk = entry.ok === true;
+      return;
+    }
+    statusEl.textContent = "";
+    statusEl.className = "match-validation-status record-word-validation-status";
+    recordWordStatusWord = "";
+    recordWordStatusOk = null;
+  }
+
+  function restoreRoundEndValidation(playerId) {
+    const section = validationSections.get("round-keypad");
+    if (!section) return;
+    const entry = getRoundEndValidationEntry(playerId);
+    if (!entry) {
+      clearMatchWordFor("round-keypad", false);
+      clearStatusValidationFor("round-keypad");
+      return;
+    }
+    if (section.input) {
+      section.input.value = entry.word || "";
+      updateValidationControls(section);
+    }
+    if (section.status) {
+      section.status.textContent = entry.statusText || "";
+      section.status.className = entry.statusClass || "match-validation-status";
+    }
+  }
+
   function getRoundEndWarningTargets() {
     return [
       document.getElementById("roundEndWarning"),
@@ -335,7 +411,7 @@ function normalizePlayerName(value) {
     return roundEndOrder.indexOf(String(playerId));
   }
 
-  function updateRoundEndKeypad(matchState) {
+function updateRoundEndKeypad(matchState) {
     const keypad = document.getElementById("roundEndKeypad");
     if (!keypad) return;
     keypad.classList.toggle("hidden", !roundEndKeypadOpen);
@@ -365,11 +441,19 @@ function normalizePlayerName(value) {
     if (valueEl) {
       const value = roundEndScores[String(playerId)];
       const textValue = isRoundScoreEmpty(value) ? "" : formatRoundEndScoreDisplay(value);
+      const points = getScoreNumber(value);
+      const invalid = !isScoreValidForRecord(value, { requireEven: true });
+      const records = loadRecords() || {};
+      const showRecord = !invalid && canEnterWordRecords(points, records);
       valueEl.textContent = "";
       const span = document.createElement("span");
       span.className = "round-end-keypad-value-text";
       span.textContent = textValue;
       valueEl.appendChild(span);
+      const badge = document.createElement("span");
+      badge.className = "round-end-keypad-record";
+      badge.classList.toggle("hidden", !showRecord);
+      valueEl.appendChild(badge);
       valueEl.classList.toggle("is-negative", Number(value) < 0);
       valueEl.classList.toggle("is-editing", true);
     }
@@ -404,8 +488,7 @@ function normalizePlayerName(value) {
     }
     roundEndKeypadOpen = true;
     roundEndKeypadPlayerId = id;
-    clearMatchWordFor("round-keypad", false);
-    clearStatusValidationFor("round-keypad");
+    restoreRoundEndValidation(id);
     clearRoundEndKeypadValidation();
     updateRoundEndLockState(st);
     updateRoundEndContinueState(st);
@@ -539,15 +622,19 @@ function normalizePlayerName(value) {
       }
     }
     if (currentId) {
-      const validation = validateRoundEndKeypadValue(st, currentId);
-      if (!validation.valid) {
-        return;
+      const isEmpty = isRoundScoreEmpty(roundEndScores[String(currentId)]);
+      if (!(direction === "prev" && isEmpty)) {
+        const validation = validateRoundEndKeypadValue(st, currentId);
+        if (!validation.valid) {
+          return;
+        }
       }
       const raw = roundEndScores[String(currentId)];
       const points = Number(raw);
       const invalid = !isScoreValidForRecord(raw, { requireEven: true });
       const roundNumber = st.round;
-      if (!invalid && Number.isFinite(points) && points >= RECORD_MIN_POINTS) {
+      const records = loadRecords() || {};
+      if (!invalid && canEnterWordRecords(points, records)) {
         const candidate = getWordCandidate(st.matchId, currentId, roundNumber);
         const shouldPrompt =
           !candidate ||
@@ -563,6 +650,7 @@ function normalizePlayerName(value) {
               round: roundNumber,
               points,
               when: Date.now(),
+              source: "round-end",
             },
             { pendingNext: { nextId, autoAdvance: !nextId && direction === "next" } }
           );
@@ -750,7 +838,20 @@ function updateScoreboardKeypad(matchState) {
   const valueEl = document.getElementById("scoreboardKeypadValue");
   if (valueEl) {
     const value = scoreboardDraft?.[String(playerId)]?.[Number(round)];
-    valueEl.textContent = isScoreFilled(value) ? String(value) : "";
+    const textValue = isScoreFilled(value) ? String(value) : "";
+    const points = getScoreNumber(value);
+    const invalid = !isScoreValidForRecord(value, { requireEven: true });
+    const records = loadRecords() || {};
+    const showRecord = !invalid && canEnterWordRecords(points, records);
+    valueEl.textContent = "";
+    const span = document.createElement("span");
+    span.className = "round-end-keypad-value-text";
+    span.textContent = textValue;
+    valueEl.appendChild(span);
+    const badge = document.createElement("span");
+    badge.className = "round-end-keypad-record";
+    badge.classList.toggle("hidden", !showRecord);
+    valueEl.appendChild(badge);
     valueEl.classList.toggle("is-negative", Number(value) < 0);
     valueEl.classList.toggle("is-editing", true);
   }
@@ -800,7 +901,8 @@ function handleScoreboardRecordCandidateUpdate(matchState, playerId, round, init
   if (String(current) === String(previous)) return;
   const invalid = !isScoreValidForRecord(current, { requireEven: true });
   const points = getScoreNumber(current);
-  if (invalid || !Number.isFinite(points) || points < RECORD_MIN_POINTS) {
+  const records = loadRecords() || {};
+  if (invalid || !canEnterWordRecords(points, records)) {
     removeScoreboardWordCandidate(matchId, id, rnd);
     return;
   }
@@ -813,6 +915,7 @@ function handleScoreboardRecordCandidateUpdate(matchState, playerId, round, init
         round: rnd,
         points,
         when: Date.now(),
+        source: "scoreboard",
       },
       { pendingNext: null }
     );
@@ -1995,9 +2098,12 @@ function discardScoreboardWordCandidatesDraft(matchState) {
 
 function openRecordWordModal(candidate, { pendingNext = null } = {}) {
   const input = document.getElementById("recordWordInput");
+  const statusEl = document.getElementById("recordWordValidationStatus");
   recordWordModalState = candidate;
   recordWordPendingNext = pendingNext;
   recordWordModalStaging = false;
+  recordWordStatusWord = "";
+  recordWordStatusOk = null;
   recordWordFeatures = {
     sameColor: false,
     usedWildcard: false,
@@ -2013,6 +2119,12 @@ function openRecordWordModal(candidate, { pendingNext = null } = {}) {
     if (existing?.word) {
       candidate.word = existing.word;
     }
+    if (candidate?.source === "round-end") {
+      const entry = getRoundEndValidationEntry(candidate.playerId);
+      if (entry?.word && Number(entry.round) === Number(candidate.round)) {
+        candidate.word = entry.word;
+      }
+    }
   }
   document.querySelectorAll(".record-word-chip").forEach((btn) => {
     const key = btn.dataset.feature;
@@ -2022,15 +2134,26 @@ function openRecordWordModal(candidate, { pendingNext = null } = {}) {
     input.value = candidate?.word || "";
     input.focus();
   }
+  if (statusEl) {
+    statusEl.textContent = "";
+    statusEl.className = "match-validation-status record-word-validation-status";
+  }
+  if (candidate?.source === "round-end" && candidate?.playerId != null) {
+    const entry = getRoundEndValidationEntry(candidate.playerId);
+    if (entry) syncRecordWordStatusFromEntry(candidate.playerId, entry);
+  }
   updateRecordWordSaveState();
   openModal("record-word", { closable: true });
 }
 
 function openRecordWordModalFromScoreboard(candidate, { pendingNext = null } = {}) {
   const input = document.getElementById("recordWordInput");
+  const statusEl = document.getElementById("recordWordValidationStatus");
   recordWordModalState = candidate;
   recordWordPendingNext = pendingNext;
   recordWordModalStaging = true;
+  recordWordStatusWord = "";
+  recordWordStatusOk = null;
   recordWordFeatures = {
     sameColor: false,
     usedWildcard: false,
@@ -2058,6 +2181,14 @@ function openRecordWordModalFromScoreboard(candidate, { pendingNext = null } = {
   if (input) {
     input.value = candidate?.word || "";
     input.focus();
+  }
+  if (statusEl) {
+    statusEl.textContent = "";
+    statusEl.className = "match-validation-status record-word-validation-status";
+  }
+  if (candidate?.source === "round-end" && candidate?.playerId != null) {
+    const entry = getRoundEndValidationEntry(candidate.playerId);
+    if (entry) syncRecordWordStatusFromEntry(candidate.playerId, entry);
   }
   updateRecordWordSaveState();
   openModal("record-word", { closable: true });
@@ -2103,13 +2234,107 @@ function handleRecordWordSkip() {
   closeRecordWordModal({ continuePending: true });
 }
 
-function handleRecordWordSave() {
+function setRecordWordValidating(isValidating) {
+  recordWordValidating = isValidating;
+  const statusEl = document.getElementById("recordWordValidationStatus");
+  if (statusEl) statusEl.classList.toggle("is-validating", isValidating);
+  const spinner = document.getElementById("recordWordSpinner");
+  if (spinner) spinner.classList.toggle("hidden", !isValidating);
+}
+
+async function handleRecordWordSave() {
   const input = document.getElementById("recordWordInput");
   const word = String(input?.value || "").trim();
   if (!recordWordModalState || !recordWordModalState.matchId) return;
   if (!word) {
     if (input) input.focus();
     return;
+  }
+  if (recordWordValidating) return;
+  const st = matchController.getState();
+  const requiresValidation =
+    recordWordModalState?.source === "round-end" &&
+    st?.matchId === recordWordModalState?.matchId &&
+    st?.scoringEnabled &&
+    st?.validateRecordWords !== false;
+  if (requiresValidation) {
+    const entry = getRoundEndValidationEntry(recordWordModalState?.playerId);
+    const valid =
+      !!entry?.ok &&
+      Number(entry?.round) === Number(recordWordModalState?.round) &&
+      entry.wordKey === normalizeValidationWord(word);
+    if (!valid) {
+      const statusEl = document.getElementById("recordWordValidationStatus");
+      const saveBtn = document.getElementById("recordWordSaveBtn");
+      setRecordWordValidating(true);
+      if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.classList.add("disabled");
+      }
+      try {
+        const rulesText = getValidationRules();
+        const result = await matchController.validateWord(word, rulesText);
+        const ok = !!result?.isValid;
+        const base = ok ? shellTexts.matchValidateOk : shellTexts.matchValidateFail;
+        const reason = result?.reason ? ` ${result.reason}` : "";
+        if (statusEl) {
+          statusEl.textContent = `${base}${reason}`;
+          statusEl.className = `match-validation-status record-word-validation-status ${ok ? "ok" : "fail"}`;
+        }
+        recordWordStatusWord = normalizeValidationWord(word);
+        recordWordStatusOk = ok;
+        playValidationResultSound(ok);
+        if (!ok) {
+          if (recordWordModalState?.playerId) {
+            setRoundEndValidationEntry(recordWordModalState.playerId, {
+              word,
+              wordKey: normalizeValidationWord(word),
+              ok: false,
+              round: recordWordModalState.round,
+              statusText: `${base}${reason}`,
+              statusClass: "match-validation-status fail",
+            });
+          }
+          updateRecordWordSaveState();
+          if (input) input.focus();
+          return;
+        }
+        if (recordWordModalState?.playerId) {
+          setRoundEndValidationEntry(recordWordModalState.playerId, {
+            word,
+            wordKey: normalizeValidationWord(word),
+            ok: true,
+            round: recordWordModalState.round,
+            statusText: `${base}${reason}`,
+            statusClass: "match-validation-status ok",
+          });
+        }
+      } catch (e) {
+        logger.error("Record word validation failed", e);
+        if (statusEl) {
+          statusEl.textContent = shellTexts.matchValidateError;
+          statusEl.className = "match-validation-status record-word-validation-status fail";
+        }
+        recordWordStatusWord = normalizeValidationWord(word);
+        recordWordStatusOk = false;
+        playValidationResultSound(false);
+        if (recordWordModalState?.playerId) {
+          setRoundEndValidationEntry(recordWordModalState.playerId, {
+            word,
+            wordKey: normalizeValidationWord(word),
+            ok: false,
+            round: recordWordModalState.round,
+            statusText: shellTexts.matchValidateError,
+            statusClass: "match-validation-status fail",
+          });
+        }
+        if (input) input.focus();
+        return;
+      } finally {
+        setRecordWordValidating(false);
+        updateRecordWordSaveState();
+      }
+    }
   }
   if (recordWordModalStaging) {
     upsertScoreboardWordCandidate(recordWordModalState.matchId, {
@@ -2133,11 +2358,66 @@ function updateRecordWordSaveState() {
   const input = document.getElementById("recordWordInput");
   const saveBtn = document.getElementById("recordWordSaveBtn");
   const clearBtn = document.getElementById("recordWordClearBtn");
+  const statusEl = document.getElementById("recordWordValidationStatus");
   if (!saveBtn) return;
-  const hasWord = String(input?.value || "").trim().length > 0;
-  saveBtn.disabled = !hasWord;
-  saveBtn.classList.toggle("disabled", !hasWord);
+  const rawWord = String(input?.value || "");
+  const word = rawWord.trim();
+  const wordKey = normalizeValidationWord(word);
+  if (recordWordModalState?.source === "round-end" && recordWordModalState?.playerId) {
+    if (!word) {
+      clearRoundEndValidationEntry(recordWordModalState.playerId);
+    } else {
+      const entry = getRoundEndValidationEntry(recordWordModalState.playerId);
+      const key = normalizeValidationWord(word);
+      if (!entry || entry.wordKey !== key) {
+        setRoundEndValidationEntry(recordWordModalState.playerId, {
+          word,
+          wordKey: key,
+          ok: false,
+          round: recordWordModalState.round,
+          statusText: "",
+          statusClass: "match-validation-status",
+        });
+      }
+    }
+    const section = validationSections.get("round-keypad");
+    if (section?.input) {
+      section.input.value = word;
+      updateValidationControls(section);
+    }
+    const entry = getRoundEndValidationEntry(recordWordModalState.playerId);
+    if (section?.status) {
+      if (entry?.ok && entry.wordKey === normalizeValidationWord(word)) {
+        section.status.textContent = entry.statusText || "";
+        section.status.className = entry.statusClass || "match-validation-status ok";
+      } else {
+        section.status.textContent = "";
+        section.status.className = "match-validation-status";
+      }
+    }
+    if (entry) syncRecordWordStatusFromEntry(recordWordModalState.playerId, entry);
+  }
+  const hasWord = word.length > 0;
+  const st = matchController.getState();
+  const requiresValidation =
+    recordWordModalState?.source === "round-end" &&
+    st?.matchId === recordWordModalState?.matchId &&
+    st?.scoringEnabled &&
+    st?.validateRecordWords !== false;
+  const hasFailedValidation =
+    requiresValidation &&
+    recordWordStatusWord &&
+    recordWordStatusWord === wordKey &&
+    recordWordStatusOk === false;
+  saveBtn.disabled = !hasWord || recordWordValidating || hasFailedValidation;
+  saveBtn.classList.toggle("disabled", !hasWord || recordWordValidating || hasFailedValidation);
   if (clearBtn) clearBtn.classList.toggle("hidden", !hasWord);
+  if (statusEl && recordWordStatusWord && wordKey !== recordWordStatusWord) {
+    statusEl.textContent = "";
+    statusEl.className = "match-validation-status record-word-validation-status";
+    recordWordStatusWord = "";
+    recordWordStatusOk = null;
+  }
 }
 
 function saveWordCandidatesMap(map) {
@@ -2203,6 +2483,22 @@ function createValidationSection(mountId, key) {
     refs.input.addEventListener("input", () => {
       sanitizeValidationInput(refs);
       clearStatusValidationFor(key);
+      if (key === "round-keypad" && roundEndKeypadPlayerId) {
+        const word = refs.input.value || "";
+        const keyWord = normalizeValidationWord(word);
+        if (keyWord) {
+          setRoundEndValidationEntry(roundEndKeypadPlayerId, {
+            word,
+            wordKey: keyWord,
+            ok: false,
+            round: matchController.getState()?.round,
+            statusText: "",
+            statusClass: "match-validation-status",
+          });
+        } else {
+          clearRoundEndValidationEntry(roundEndKeypadPlayerId);
+        }
+      }
       updateValidationControls(refs);
     });
     refs.input.addEventListener("keydown", (e) => {
@@ -2458,6 +2754,8 @@ function renderShellTexts() {
   setI18nById("matchRoundsLabel", "matchRoundsLabel");
   setI18nById("matchPointsLabel", "matchPointsLabel");
   setI18nById("matchScoringLabel", "matchScoringLabel");
+  setI18nById("matchRecordValidationLabel", "matchRecordValidationLabel");
+  setI18nById("matchRecordValidationCaption", "matchRecordValidationCaptionOn");
   setI18nById("matchRulesCaption", "matchRulesInfo");
   setI18nById("matchRulesBtnText", "matchRulesConfigure");
   setI18nById("matchStrategyLabel", "matchStrategyLabel");
@@ -2500,10 +2798,12 @@ function renderShellTexts() {
   setI18nById("recordsWordPill", "recordsWordPill");
   setI18nById("recordsMatchPill", "recordsMatchPill");
   setI18nById("recordWordTitle", "recordWordTitle");
+  setI18nById("recordWordIntro", "recordWordIntro");
   setI18nById("recordWordCaption", "recordWordCaption");
   setI18nById("recordWordInput", "recordWordPlaceholder", { attr: "placeholder" });
   setI18nById("recordWordInput", "recordWordPlaceholder", { attr: "aria-label" });
   setI18nById("recordWordClearBtn", "recordWordClear", { attr: "aria-label" });
+  setI18nById("recordWordFeaturesHint", "recordWordFeaturesHint");
   setI18nById("recordWordSameColor", "recordWordSameColor");
   setI18nById("recordWordWildcard", "recordWordWildcard");
   setI18nById("recordWordDouble", "recordWordDouble");
@@ -3244,6 +3544,7 @@ function setupNavigation() {
   const modePointsBtn = document.getElementById("matchModePointsBtn");
   const modeSwitch = document.querySelector(".match-mode-switch");
   const scoringToggle = document.getElementById("matchScoringToggle");
+  const recordValidationToggle = document.getElementById("matchRecordValidationToggle");
   const matchRulesBtn = document.getElementById("matchRulesBtn");
   const matchPhaseHelpBtn = document.getElementById("matchPhaseHelpBtn");
   const matchPhaseStrategyBtn = document.getElementById("matchPhaseStrategyBtn");
@@ -3251,6 +3552,7 @@ function setupNavigation() {
   if (modeRoundsBtn) modeRoundsBtn.addEventListener("click", () => setMatchMode(MATCH_MODE_ROUNDS));
   if (modePointsBtn) modePointsBtn.addEventListener("click", () => setMatchMode(MATCH_MODE_POINTS));
   if (scoringToggle) scoringToggle.addEventListener("click", toggleScoring);
+  if (recordValidationToggle) recordValidationToggle.addEventListener("click", toggleRecordValidation);
   if (matchRulesBtn)
     matchRulesBtn.addEventListener("click", () => {
       rulesEditContext = "temp";
@@ -4132,11 +4434,20 @@ function renderRoundEndScreen() {
   if (!matchState) return;
 
   const scoringSection = document.getElementById("roundEndScoringSection");
+  const validationSection = document.getElementById("roundEndValidationMount")?.parentElement;
   const scoringList = document.getElementById("roundEndScoringList");
   const scoringEnabled = !!matchState.scoringEnabled;
   const tieBreakPending =
     Array.isArray(matchState?.tieBreakPending?.players) &&
     matchState.tieBreakPending.players.length > 0;
+
+  if (validationSection) {
+    validationSection.classList.toggle("hidden", scoringEnabled);
+    if (scoringEnabled) {
+      clearMatchWordFor("match", false);
+      clearStatusValidationFor("match");
+    }
+  }
 
   if (!scoringEnabled || tieBreakPending) {
     roundEndKeypadOpen = false;
@@ -4309,6 +4620,8 @@ function renderMatchFromState(matchState) {
   const pointsVal = document.getElementById("matchPointsValue");
   const scoringToggle = document.getElementById("matchScoringToggle");
   const scoringCaption = document.getElementById("matchScoringCaption");
+  const recordValidationToggle = document.getElementById("matchRecordValidationToggle");
+  const recordValidationCaption = document.getElementById("matchRecordValidationCaption");
   const modeCaption = document.getElementById("matchModeCaption");
   const summaryBlock = document.getElementById("matchConfigSummary");
   const summaryCaption = document.getElementById("matchSummaryCaption");
@@ -4374,6 +4687,25 @@ function renderMatchFromState(matchState) {
       scoringCaption,
       matchState.scoringEnabled ? "matchScoringCaptionOn" : "matchScoringCaptionOff"
     );
+  }
+  if (recordValidationToggle) {
+    const rawEnabled = matchState.validateRecordWords !== false;
+    const disabled = !matchState.scoringEnabled;
+    const enabled = !disabled && rawEnabled;
+    recordValidationToggle.textContent = "";
+    recordValidationToggle.classList.toggle("active", enabled);
+    recordValidationToggle.setAttribute("aria-pressed", enabled ? "true" : "false");
+    recordValidationToggle.disabled = disabled;
+    recordValidationToggle.classList.toggle("is-disabled", disabled);
+  }
+  if (recordValidationCaption) {
+    if (!matchState.scoringEnabled) {
+      setI18n(recordValidationCaption, "matchRecordValidationCaptionOff");
+    } else if (matchState.validateRecordWords !== false) {
+      setI18n(recordValidationCaption, "matchRecordValidationCaptionOn");
+    } else {
+      setI18n(recordValidationCaption, "matchRecordValidationCaptionDisabled");
+    }
   }
   if (modeCaption) {
     if (matchState.mode === MATCH_MODE_POINTS) {
@@ -4874,6 +5206,67 @@ function setupActionOverlayListeners() {
     setTimeout(() => updateScrollHintState(scrollEl), 250);
   });
 
+  const recordsConfig = document.querySelector(".records-config");
+  const recordsWordList = document.getElementById("recordsWordList");
+  const recordsMatchList = document.getElementById("recordsMatchList");
+  const recordsWordSection = recordsWordList?.closest(".records-section");
+  const recordsMatchSection = recordsMatchList?.closest(".records-section");
+  if (recordsConfig && !recordsConfig.dataset.recordsScrollHints) {
+    const getActiveList = () => {
+      if (recordsMatchSection && !recordsMatchSection.classList.contains("hidden")) {
+        return recordsMatchSection;
+      }
+      if (recordsWordSection && !recordsWordSection.classList.contains("hidden")) {
+        return recordsWordSection;
+      }
+      return recordsWordSection || recordsMatchSection || null;
+    };
+    const onUpdate = () => {
+      const active = getActiveList();
+      if (!active) return;
+      updateScrollHintState(active, null, null, recordsConfig);
+    };
+    [recordsWordSection, recordsMatchSection].forEach((section) => {
+      if (!section) return;
+      section.addEventListener("scroll", onUpdate);
+      if (window.ResizeObserver) {
+        const observer = new ResizeObserver(onUpdate);
+        observer.observe(section);
+        section._scrollHintObserver = observer;
+      }
+      if (window.MutationObserver) {
+        const mutationObserver = new MutationObserver(onUpdate);
+        mutationObserver.observe(section, {
+          childList: true,
+          subtree: true,
+          attributes: true,
+        });
+        section._scrollHintMutationObserver = mutationObserver;
+      }
+    });
+    const downChevron = recordsConfig.querySelector(".scroll-hint-down");
+    if (downChevron) {
+      downChevron.addEventListener("click", () => {
+        const active = getActiveList();
+        if (!active) return;
+        const step = Math.max(60, Math.round(active.clientHeight * 0.6));
+        scrollByClamped(active, { top: step });
+      });
+    }
+    const upChevron = recordsConfig.querySelector(".scroll-hint-up");
+    if (upChevron) {
+      upChevron.addEventListener("click", () => {
+        const active = getActiveList();
+        if (!active) return;
+        const step = Math.max(60, Math.round(active.clientHeight * 0.6));
+        scrollByClamped(active, { top: -step });
+      });
+    }
+    recordsConfig.dataset.recordsScrollHints = "1";
+    requestAnimationFrame(onUpdate);
+    setTimeout(onUpdate, 250);
+  }
+
   const tableWrap = document.getElementById("scoreboardTableWrap");
   const tableShell = document.getElementById("scoreboardTableShell");
   const tableHeader = document.getElementById("scoreboardTableHeader");
@@ -5274,6 +5667,17 @@ async function handleValidateSection(key = "match") {
     status.textContent = `${base}${reason}`;
     status.className = `match-validation-status ${ok ? "ok" : "fail"}`;
     showValidationResult(ok ? "ok" : "fail", `${base}${reason}`);
+    if (key === "round-keypad" && roundEndKeypadPlayerId) {
+      const st = matchController.getState();
+      setRoundEndValidationEntry(roundEndKeypadPlayerId, {
+        word,
+        wordKey: normalizeValidationWord(word),
+        ok,
+        round: st?.round,
+        statusText: status.textContent,
+        statusClass: status.className,
+      });
+    }
     if (key === "match" && ok) {
       lastMatchWord = word;
       lastMatchWordFeatures = {
@@ -5289,11 +5693,24 @@ async function handleValidateSection(key = "match") {
     status.textContent = shellTexts.matchValidateError;
     status.className = "match-validation-status error";
     showValidationResult("error", shellTexts.matchValidateError);
+    if (key === "round-keypad" && roundEndKeypadPlayerId) {
+      const st = matchController.getState();
+      setRoundEndValidationEntry(roundEndKeypadPlayerId, {
+        word,
+        wordKey: normalizeValidationWord(word),
+        ok: false,
+        round: st?.round,
+        statusText: status.textContent,
+        statusClass: status.className,
+      });
+    }
   } finally {
     section.root?.classList.remove("loading");
     if (input) {
       input.disabled = false;
-      input.value = "";
+      if (key !== "round-keypad") {
+        input.value = "";
+      }
     }
     if (validateBtn) validateBtn.disabled = false;
     if (section.clearBtn) section.clearBtn.disabled = false;
@@ -5351,6 +5768,13 @@ function toggleScoring() {
   updateMatchPreferences({ scoringEnabled: !tempMatchPrefs.scoringEnabled });
 }
 
+function toggleRecordValidation() {
+  const st = matchController.getState();
+  if (!st || st.phase !== "config") return;
+  if (!tempMatchPrefs.scoringEnabled) return;
+  updateMatchPreferences({ validateRecordWords: !tempMatchPrefs.validateRecordWords });
+}
+
 function updateMatchPreferences(partial) {
   const st = matchController.getState() || {};
   tempMatchPrefs = {
@@ -5373,6 +5797,7 @@ function updateMatchPreferences(partial) {
     roundsTarget: tempMatchPrefs.roundsTarget ?? DEFAULT_ROUNDS_TARGET,
     pointsTarget: tempMatchPrefs.pointsTarget ?? DEFAULT_POINTS_TARGET,
     scoringEnabled: tempMatchPrefs.scoringEnabled ?? true,
+    validateRecordWords: tempMatchPrefs.validateRecordWords ?? true,
   };
   matchController.applyPreferences(prefs, { persist: false });
   renderMatch();
@@ -5538,6 +5963,7 @@ function openRoundEndScreen() {
   roundEndOrder = buildRoundEndOrder(st);
   roundEndUnlocked = new Set();
   roundEndSelectedWinners = new Set();
+  roundEndValidationByPlayer = new Map();
   roundEndKeypadOpen = false;
   roundEndKeypadPlayerId = null;
   const activePlayers = getActivePlayers(st);
@@ -5648,10 +6074,50 @@ function buildRecordDateMessage(dateValue) {
 }
 
 function openRecordScoreboard(record, { highlightWord = false } = {}) {
-  if (!record || !record.matchId) return;
+  if (!record || !record.matchId) {
+    logger.warn("openRecordScoreboard: missing record or matchId", record || null);
+    return;
+  }
   const archive = loadArchive();
   const entry = archive?.byId?.[String(record.matchId)];
-  if (!entry?.matchState) return;
+  if (!entry) {
+    logger.warn("openRecordScoreboard: archive entry missing", {
+      matchId: record.matchId,
+      archiveCount: Array.isArray(archive?.order) ? archive.order.length : 0,
+    });
+    return;
+  }
+  if (!entry.matchState) {
+    logger.warn("openRecordScoreboard: matchState missing in archive entry", {
+      matchId: record.matchId,
+      savedAt: entry.savedAt || null,
+      status: entry.status || null,
+    });
+    return;
+  }
+  let matchState = entry.matchState;
+  const players = Array.isArray(matchState.players) ? matchState.players : [];
+  const roundsTotal = players.reduce(
+    (sum, player) => sum + (Array.isArray(player.rounds) ? player.rounds.length : 0),
+    0
+  );
+  if (roundsTotal === 0) {
+    const active = loadActiveMatch();
+    if (
+      active?.matchState?.matchId &&
+      String(active.matchState.matchId) === String(record.matchId) &&
+      matchHasAnyScores(active.matchState)
+    ) {
+      matchState = active.matchState;
+    } else {
+      logger.warn("openRecordScoreboard: matchState has no rounds", {
+        matchId: record.matchId,
+        players: players.length,
+        round: matchState.round ?? null,
+        phase: matchState.phase || null,
+      });
+    }
+  }
   scoreboardRounds = [];
   scoreboardPlayers = [];
   scoreboardBase = null;
@@ -5676,7 +6142,7 @@ function openRecordScoreboard(record, { highlightWord = false } = {}) {
   scoreboardKeypadRound = null;
   scoreboardKeypadOrder = [];
   scoreboardKeypadInitialValue = null;
-  renderScoreboardScreen(entry.matchState);
+  renderScoreboardScreen(matchState);
   showScreen("scoreboard");
   scaleGame();
 }
@@ -5698,9 +6164,42 @@ function renderRecordsList({ listId, records, emptyText, showWord = false } = {}
   rows.forEach((record, idx) => {
     const pill = document.createElement("div");
     pill.className = "records-pill";
-    pill.addEventListener("click", () =>
-      openRecordScoreboard(record, { highlightWord: showWord })
-    );
+    let longPressTimer = null;
+    let longPressFired = false;
+    const clearLongPress = () => {
+      if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+      }
+    };
+    const startLongPress = () => {
+      clearLongPress();
+      longPressFired = false;
+      longPressTimer = setTimeout(() => {
+        longPressFired = true;
+        openConfirm({
+          title: "confirmTitleDeleteRecord",
+          body: "confirmBodyDeleteRecord",
+          acceptText: "confirmDelete",
+          onConfirm: () => {
+            deleteRecordEntry(record, showWord ? "word" : "match");
+            renderRecordsScreen();
+          },
+        });
+      }, 3000);
+    };
+    pill.addEventListener("pointerdown", startLongPress);
+    pill.addEventListener("pointerup", clearLongPress);
+    pill.addEventListener("pointerleave", clearLongPress);
+    pill.addEventListener("pointercancel", clearLongPress);
+    pill.addEventListener("click", (event) => {
+      if (longPressFired) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+      openRecordScoreboard(record, { highlightWord: showWord });
+    });
     const color = PLAYER_COLORS[idx % PLAYER_COLORS.length];
     const palette = getDealerPalette(color);
     pill.style.setProperty("--pill-bg-1", palette.bg);
@@ -5884,6 +6383,11 @@ function setRecordsTab(nextTab) {
   if (matchesBtn) matchesBtn.classList.toggle("active", recordsTab === "matches");
   if (wordsSection) wordsSection.classList.toggle("hidden", recordsTab !== "words");
   if (matchesSection) matchesSection.classList.toggle("hidden", recordsTab !== "matches");
+  const recordsConfig = document.querySelector(".records-config");
+  const activeSection = recordsTab === "matches" ? matchesSection : wordsSection;
+  if (recordsConfig && activeSection) {
+    updateScrollHintState(activeSection, null, null, recordsConfig);
+  }
 }
 
 function applyScoreboardChanges() {
@@ -6973,10 +7477,28 @@ function setupMatchControllerEvents() {
   });
   matchController.on("matchFinished", ({ winners }) => {
     stopClockLoop(false);
-    finalizeMatchSnapshot(matchController.getState(), { status: "finished" });
     const finalState = matchController.getState();
     recordMatchAverages(finalState);
     finalizeWordRecordCandidates(finalState);
+    const records = loadRecords() || {};
+    if (finalState?.matchId) {
+      upsertArchiveMatch(
+        {
+          matchId: finalState.matchId,
+          savedAt: Date.now(),
+          status: "finished",
+          matchState: finalState,
+        },
+        { records }
+      );
+      const archive = loadArchive();
+      logger.debug(
+        `Archive upsert on finish: matchId=${finalState.matchId} hasEntry=${!!archive?.byId?.[String(
+          finalState.matchId
+        )]} total=${Array.isArray(archive?.order) ? archive.order.length : 0}`
+      );
+    }
+    finalizeMatchSnapshot(finalState, { status: "finished" });
     showMatchWinners(winners);
     if (winnersModalOpen && finalState) {
       const recordsBtn = document.getElementById("matchWinnersRecordsBtn");
@@ -7367,6 +7889,66 @@ function applySimulatedRecords() {
 
 function saveRecords(records) {
   localStorage.setItem("letterloom_match_records", JSON.stringify(records || {}));
+  const wordCount = Array.isArray(records?.bestWord) ? records.bestWord.length : 0;
+  const matchCount = Array.isArray(records?.bestMatch) ? records.bestMatch.length : 0;
+  const ids = new Set();
+  (records?.bestWord || []).forEach((entry) => entry?.matchId && ids.add(String(entry.matchId)));
+  (records?.bestMatch || []).forEach((entry) => entry?.matchId && ids.add(String(entry.matchId)));
+  logger.debug(`Records saved: words=${wordCount} matches=${matchCount} ids=${[...ids].join(",")}`);
+  const current = matchController.getState?.();
+  if (current?.matchId && ids.has(String(current.matchId)) && matchHasAnyScores(current)) {
+    upsertArchiveMatch(
+      {
+        matchId: current.matchId,
+        savedAt: Date.now(),
+        status: current.matchOver ? "finished" : "active",
+        matchState: current,
+      },
+      { records }
+    );
+  }
+}
+
+function deleteRecordEntry(record, kind) {
+  if (!record) return;
+  const records = loadRecords() || {};
+  logger.debug(`Delete record: kind=${kind || "unknown"} matchId=${record.matchId || ""}`);
+  if (kind === "word") {
+    const list = Array.isArray(records.bestWord) ? records.bestWord : [];
+    const targetMatch = String(record.matchId || "");
+    const targetPlayer = String(record.playerId || "");
+    const targetRound = String(record.round || "");
+    const targetWord = String(record.word || "");
+    const next = list.filter((item) => {
+      const matchId = String(item?.matchId || "");
+      const playerId = String(item?.playerId || "");
+      const round = String(item?.round || "");
+      if (targetMatch && targetPlayer && targetRound) {
+        return matchId !== targetMatch || playerId !== targetPlayer || round !== targetRound;
+      }
+      return String(item?.word || "") !== targetWord;
+    });
+    records.bestWord = next;
+  } else if (kind === "match") {
+    const list = Array.isArray(records.bestMatch) ? records.bestMatch : [];
+    const next = list.filter(
+      (item) =>
+        String(item?.matchId || "") !== String(record.matchId || "") ||
+        String(item?.playerId || "") !== String(record.playerId || "")
+    );
+    records.bestMatch = next;
+  }
+  saveRecords(records);
+  const matchId = record?.matchId != null ? String(record.matchId) : "";
+  if (matchId && !matchHasRecord(matchId, records)) {
+    const archive = loadArchive();
+    if (archive?.byId?.[matchId]) {
+      delete archive.byId[matchId];
+      archive.order = (archive.order || []).filter((id) => String(id) !== matchId);
+      saveArchive(archive);
+      logger.debug(`Archive entry removed for matchId=${matchId}`);
+    }
+  }
 }
 
 function sortRecords(list, valueKey = "points") {
@@ -7379,6 +7961,36 @@ function sortRecords(list, valueKey = "points") {
     if (Number.isFinite(aw) && Number.isFinite(bw)) return aw - bw;
     return 0;
   });
+}
+
+function getWordRecordThreshold(records) {
+  const list = Array.isArray(records?.bestWord) ? records.bestWord : [];
+  if (list.length < 10) return RECORD_MIN_POINTS;
+  const sorted = sortRecords(list, "points");
+  return Number(sorted[9]?.points) || RECORD_MIN_POINTS;
+}
+
+function canEnterWordRecords(points, records) {
+  if (!Number.isFinite(points) || points < RECORD_MIN_POINTS) return false;
+  const list = Array.isArray(records?.bestWord) ? records.bestWord : [];
+  if (list.length < 10) return true;
+  const threshold = getWordRecordThreshold(records);
+  return points > threshold;
+}
+
+function getMatchRecordThreshold(records) {
+  const list = Array.isArray(records?.bestMatch) ? records.bestMatch : [];
+  if (list.length < 10) return Number.NEGATIVE_INFINITY;
+  const sorted = sortRecords(list, "points");
+  return Number(sorted[9]?.points) || Number.NEGATIVE_INFINITY;
+}
+
+function canEnterMatchRecords(points, records) {
+  if (!Number.isFinite(points)) return false;
+  const list = Array.isArray(records?.bestMatch) ? records.bestMatch : [];
+  if (list.length < 10) return true;
+  const threshold = getMatchRecordThreshold(records);
+  return points > threshold;
 }
 
 function upsertWordRecord(entry, records) {
@@ -7428,7 +8040,7 @@ function maybeRecordWordScores(matchState, scoresByPlayerId, roundNumber) {
   const when = Date.now();
   Object.entries(scoresByPlayerId).forEach(([playerId, raw]) => {
     const points = Number(raw);
-    if (!Number.isFinite(points) || points < RECORD_MIN_POINTS) return;
+    if (!canEnterWordRecords(points, records)) return;
     const player = matchState.players?.find((p) => String(p.id) === String(playerId));
     const entry = {
       matchId: matchState.matchId,
@@ -7457,7 +8069,6 @@ function recordMatchAverages(matchState) {
     if (!played) return;
     const avg = total / played;
     const adjusted = avg * (played / (played + RECORD_AVG_PENALTY_K));
-    if (adjusted < RECORD_MIN_POINTS) return;
     const entry = {
       matchId: matchState.matchId,
       playerId: player.id,
@@ -7470,6 +8081,14 @@ function recordMatchAverages(matchState) {
         .map((p) => p.name)
         .filter(Boolean),
     };
+    const existing = Array.isArray(records.bestMatch)
+      ? records.bestMatch.find(
+          (item) =>
+            `${item?.matchId || ""}|${item?.playerId || ""}` ===
+            `${entry.matchId || ""}|${entry.playerId || ""}`
+        )
+      : null;
+    if (!existing && !canEnterMatchRecords(entry.points, records)) return;
     const next = upsertMatchRecord(entry, records);
     records.bestMatch = next.bestMatch;
   });
@@ -7487,8 +8106,8 @@ function finalizeWordRecordCandidates(matchState) {
     if (!candidate?.word) return;
     const points = Number(candidate?.points);
     if (!Number.isFinite(points)) return;
-    if (points < RECORD_MIN_POINTS) return;
     if (!isScoreValidForRecord(points, { requireEven: true })) return;
+    if (!canEnterWordRecords(points, records)) return;
     const player = matchState.players?.find((p) => String(p.id) === String(candidate.playerId));
     const entry = {
       matchId: matchState.matchId,
@@ -7715,7 +8334,11 @@ function setupInstallFlow() {
         pwaEl.disableFallback = false;
       }
 
-      if (!pwaEl.isConnected) document.body.appendChild(pwaEl);
+      if (!pwaEl.isConnected) {
+        document.body.appendChild(pwaEl);
+      } else if (pwaEl.parentElement !== document.body) {
+        document.body.appendChild(pwaEl);
+      }
 
       const installBtn = document.getElementById("installAppBtn");
       if (installBtn) {
@@ -7733,7 +8356,6 @@ function setupInstallFlow() {
           .addEventListener("change", updateInstallButtonVisibility);
 
       if (fromInstall) {
-        logger.debug("fromInstall detected; opening pwa-install dialog");
         triggerPwaInstall(pwaEl, true);
       }
     })
@@ -7789,6 +8411,8 @@ async function waitForPwaInstallElement(pwaEl) {
     logger.warn("pwa-install custom element not defined yet", err);
   }
   if (!pwaEl.isConnected) {
+    document.body.appendChild(pwaEl);
+  } else if (pwaEl.parentElement !== document.body) {
     document.body.appendChild(pwaEl);
   }
   const updateReady = pwaEl.updateComplete;

@@ -29,6 +29,7 @@ const defaultState = () => ({
     roundsTarget: DEFAULT_ROUNDS_TARGET,
     pointsTarget: DEFAULT_POINTS_TARGET,
     scoringEnabled: true,
+    validateRecordWords: true,
     players: [],
   },
   matchState: null,

@@ -97,6 +97,7 @@ export const SIMULATED_MATCH_SEEDS = [
       roundsTarget: 16,
       pointsTarget: 500,
       scoringEnabled: true,
+      validateRecordWords: true,
     },
     phase: "creation-ready",
     rounds: [
@@ -128,6 +129,7 @@ export const SIMULATED_MATCH_SEEDS = [
       roundsTarget: 3,
       pointsTarget: 500,
       scoringEnabled: true,
+      validateRecordWords: true,
     },
     phase: "creation-run",
     rounds: [

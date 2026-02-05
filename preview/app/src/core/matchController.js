@@ -94,6 +94,8 @@ class MatchController {
       roundsTarget: matchState.roundsTarget ?? basePrefs.roundsTarget ?? DEFAULT_ROUNDS_TARGET,
       pointsTarget: matchState.pointsTarget ?? basePrefs.pointsTarget ?? DEFAULT_POINTS_TARGET,
       scoringEnabled: matchState.scoringEnabled ?? basePrefs.scoringEnabled ?? true,
+      validateRecordWords:
+        matchState.validateRecordWords ?? basePrefs.validateRecordWords ?? true,
       strategySeconds: clamp(
         matchState.strategySeconds ?? basePrefs.strategySeconds ?? DEFAULT_STRATEGY_SECONDS,
         MIN_PHASE_SECONDS,
@@ -141,6 +143,7 @@ class MatchController {
       roundsTarget: prefs.roundsTarget ?? DEFAULT_ROUNDS_TARGET,
       pointsTarget: prefs.pointsTarget ?? DEFAULT_POINTS_TARGET,
       scoringEnabled: prefs.scoringEnabled ?? true,
+      validateRecordWords: prefs.validateRecordWords ?? true,
       strategySeconds: clamp(
         prefs.strategySeconds ?? DEFAULT_STRATEGY_SECONDS,
         MIN_PHASE_SECONDS,
@@ -266,6 +269,7 @@ class MatchController {
 
   startMatch() {
     this.stopTimer();
+    this._state.matchId = createMatchId();
     this._state.round = 1;
     this._state.phase = "strategy-ready";
     this._state.remaining = this._state.strategySeconds;
@@ -546,7 +550,7 @@ class MatchController {
 export const matchController = new MatchController();
 
 // Reusable word validator helper (proxy or direct Gemini)
-const proxy_AI_URL = "https://sync01.elzaburu.es/quick-tests/gemini-proxy.cfm";
+const proxy_AI_URL = "https://sync01.elzaburu.es/quick-tests/gemini-proxy1.cfm";
 const apiKey_ValidateWord = "dbnBobjw2e5xXE"; 
 
 export async function validateWordRemote({ word, language, customRules }) {

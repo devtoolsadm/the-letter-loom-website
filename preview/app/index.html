@@ -323,6 +323,17 @@
                     <span class="match-rules-btn-text" id="matchRulesBtnText"></span>
                   </button>
                   <div class="match-rules-caption" id="matchRulesCaption"></div>
+                
+                                  <div class="match-row">
+                    <div class="match-label" id="matchRecordValidationLabel"></div>
+                    <div class="match-controls match-toggle">
+                      <button class="toggle-switch" type="button" id="matchRecordValidationToggle"
+                        aria-pressed="true"></button>
+                    </div>
+                  </div>
+                  <div class="match-scoring-caption" id="matchRecordValidationCaption"></div>
+
+                
                 </div>
 
               </div>
@@ -781,14 +792,21 @@
         <button class="modal-close" data-modal-close="record-word" aria-label="Close" id="recordWordCloseBtn"></button>
         <div class="modal-canvas">
           <div class="modal-content record-word-content">
-            <div class="record-word-caption" id="recordWordCaption"></div>
-            <div class="match-input-wrap">
-              <input type="text" id="recordWordInput" class="match-validation-input validation-input"
-                maxlength="32" aria-label="" autocomplete="off" autocapitalize="off" autocorrect="off"
-                spellcheck="false" />
-              <button class="match-clear-btn validation-clear hidden" type="button" id="recordWordClearBtn"
-                aria-label="">×</button>
+            <div class="record-word-intro records-block-pill">
+              <span id="recordWordIntro"></span>
             </div>
+            <div class="record-word-input-row match-validation-row">
+              <div class="match-input-wrap">
+                <input type="text" id="recordWordInput" class="match-validation-input validation-input"
+                  maxlength="32" aria-label="" autocomplete="off" autocapitalize="off" autocorrect="off"
+                  spellcheck="false" />
+                <button class="match-clear-btn validation-clear hidden" type="button" id="recordWordClearBtn"
+                  aria-label="">×</button>
+              </div>
+              <span class="record-word-spinner hidden" id="recordWordSpinner" aria-hidden="true"></span>
+            </div>
+            <div class="match-validation-status record-word-validation-status" id="recordWordValidationStatus"></div>
+            <div class="record-word-features-hint" id="recordWordFeaturesHint"></div>
             <div class="record-word-features">
               <button class="record-word-chip" type="button" data-feature="sameColor" id="recordWordSameColor"></button>
               <button class="record-word-chip" type="button" data-feature="usedWildcard" id="recordWordWildcard"></button>
