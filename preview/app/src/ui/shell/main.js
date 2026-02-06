@@ -7208,26 +7208,26 @@ function startSplashLoader() {
   });
 }
 
+function ensureAudioContextAvailable() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    musicGain = audioCtx.createGain();
+    soundGain = audioCtx.createGain();
+    const musicLevel = (musicVolume / 100) * 0.7;
+    const soundLevel = soundVolume / 100;
+    musicGain.gain.value = musicLevel;
+    soundGain.gain.value = soundLevel;
+    musicGain.connect(audioCtx.destination);
+    soundGain.connect(audioCtx.destination);
+  }
+  if (audioCtx.state === "suspended") {
+    audioCtx.resume().catch(() => {});
+  }
+}
+
 function setupAudio() {
   if (audioReady) return;
   audioReady = true;
-
-  const ensureAudioContext = () => {
-    if (!audioCtx) {
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      musicGain = audioCtx.createGain();
-      soundGain = audioCtx.createGain();
-      const musicLevel = (musicVolume / 100) * 0.7;
-      const soundLevel = soundVolume / 100;
-      musicGain.gain.value = musicLevel;
-      soundGain.gain.value = soundLevel;
-      musicGain.connect(audioCtx.destination);
-      soundGain.connect(audioCtx.destination);
-    }
-    if (audioCtx.state === "suspended") {
-      audioCtx.resume().catch(() => {});
-    }
-  };
 
   introAudio = new Audio("assets/sounds/intro.wav");
   introAudio.loop = true;
@@ -7256,7 +7256,7 @@ function setupAudio() {
   failAudio.volume = 1;
 
   const unlock = () => {
-    ensureAudioContext();
+    ensureAudioContextAvailable();
     loadSfxBuffers();
     loadClockBuffer();
     loadIntroBuffer();
@@ -7304,7 +7304,7 @@ function setupAudio() {
     (evt) => {
       const btn = evt.target.closest("button,input[type='range']");
       if (!btn) return;
-      ensureAudioContext();
+      ensureAudioContextAvailable();
       playClickSfx();
     },
     true
@@ -7525,11 +7525,28 @@ function stopAllMusic() {
   }
 }
 
-function suspendAudioForBackground() {
-  if (audioCtx && audioCtx.state !== "closed" && audioCtx.state !== "suspended") {
-    audioCtx.suspend().catch(() => {});
-    audioSuspendedByVisibility = true;
+function closeAudioForBackground() {
+  if (audioCtx && audioCtx.state !== "closed") {
+    audioCtx.close().catch(() => {});
+    audioCtx = null;
   }
+  musicGain = null;
+  soundGain = null;
+  musicSource = null;
+  clickSource = null;
+  clockSource = null;
+  tickSource = null;
+  timeSource = null;
+  modalOpenSource = null;
+  successSource = null;
+  failSource = null;
+  sfxBuffers = null;
+  sfxBuffersLoading = false;
+  clockBuffer = null;
+  clockBufferLoading = false;
+  introBuffer = null;
+  introBufferLoading = false;
+  audioSuspendedByVisibility = true;
   if ("mediaSession" in navigator) {
     try {
       navigator.mediaSession.metadata = null;
@@ -7538,16 +7555,18 @@ function suspendAudioForBackground() {
   }
 }
 
-function resumeAudioAfterBackground() {
-  if (audioCtx && audioSuspendedByVisibility) {
-    audioCtx.resume().catch(() => {});
-    audioSuspendedByVisibility = false;
-  }
+function reopenAudioAfterBackground() {
+  if (!audioSuspendedByVisibility) return;
+  ensureAudioContextAvailable();
+  loadSfxBuffers();
+  loadClockBuffer();
+  loadIntroBuffer();
+  audioSuspendedByVisibility = false;
 }
 
 function resumeMusicForState() {
   if (!audioReady || !musicOn) return;
-  resumeAudioAfterBackground();
+  reopenAudioAfterBackground();
   const st = matchController.getState();
   const phase = st?.phase || "";
   const isRun = phase.endsWith("-run");
@@ -7973,7 +7992,7 @@ function assignSrcToNodes(nodes, src) {
         matchController.pause();
       }
       stopAllMusic();
-      suspendAudioForBackground();
+      closeAudioForBackground();
     } else {
       if (pausedByVisibility) {
         pausedByVisibility = false;
@@ -7989,7 +8008,7 @@ function assignSrcToNodes(nodes, src) {
       matchController.pause();
     }
     stopAllMusic();
-    suspendAudioForBackground();
+    closeAudioForBackground();
   });
     if (!unsubscribeLanguage) {
     unsubscribeLanguage = onShellLanguageChange(handleLanguageChange);
