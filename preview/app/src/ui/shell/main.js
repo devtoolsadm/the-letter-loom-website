@@ -162,6 +162,7 @@ let introSource = null;
 let pausedByVisibility = false;
 let audioSuspendedByVisibility = false;
 let pendingClockStart = false;
+let pendingAudioResume = false;
 let wakeLockTimer = null;
 let winnersModalOpen = false;
 let suppressWinnersPrompt = false;
@@ -7234,6 +7235,10 @@ function setupAudio() {
     loadIntroBuffer();
     updateAudioVolumes();
     attemptPlayIntro();
+    if (pendingAudioResume) {
+      pendingAudioResume = false;
+      resumeMusicForState();
+    }
     document.removeEventListener("pointerdown", unlock, true);
   };
   document.addEventListener("pointerdown", unlock, true);
@@ -7246,6 +7251,10 @@ function setupAudio() {
       ensureAudioContextAvailable();
       loadSfxBuffers();
       playClickSfx();
+      if (pendingAudioResume) {
+        pendingAudioResume = false;
+        resumeMusicForState();
+      }
     },
     true
   );
@@ -7890,8 +7899,32 @@ function assignSrcToNodes(nodes, src) {
       persistActiveMatchSnapshot(matchController.getState());
     }
   });
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      const st = matchController.getState();
+      if (currentScreen === "match" && st?.phase?.endsWith("-run")) {
+        pausedByVisibility = true;
+        matchController.pause();
+      }
+      stopAllMusic();
+      closeAudioForBackground();
+    } else {
+      if (pausedByVisibility) {
+        pausedByVisibility = false;
+        matchController.resume();
+      }
+      pendingAudioResume = true;
+    }
+  });
   window.addEventListener("pagehide", () => {
     persistActiveMatchSnapshot(matchController.getState());
+    const st = matchController.getState();
+    if (currentScreen === "match" && st?.phase?.endsWith("-run")) {
+      pausedByVisibility = true;
+      matchController.pause();
+    }
+    stopAllMusic();
+    closeAudioForBackground();
   });
   window.addEventListener("blur", () => {
     const st = matchController.getState();
@@ -7907,33 +7940,7 @@ function assignSrcToNodes(nodes, src) {
       pausedByVisibility = false;
       matchController.resume();
     }
-    resumeMusicForState();
-  });
-  document.addEventListener("visibilitychange", () => {
-    if (document.hidden) {
-      const st = matchController.getState();
-      if (currentScreen === "match" && st?.phase?.endsWith("-run")) {
-        pausedByVisibility = true;
-        matchController.pause();
-      }
-      stopAllMusic();
-      closeAudioForBackground();
-    } else {
-      if (pausedByVisibility) {
-        pausedByVisibility = false;
-        matchController.resume();
-      }
-      resumeMusicForState();
-    }
-  });
-  window.addEventListener("pagehide", () => {
-    const st = matchController.getState();
-    if (currentScreen === "match" && st?.phase?.endsWith("-run")) {
-      pausedByVisibility = true;
-      matchController.pause();
-    }
-    stopAllMusic();
-    closeAudioForBackground();
+    pendingAudioResume = true;
   });
     if (!unsubscribeLanguage) {
     unsubscribeLanguage = onShellLanguageChange(handleLanguageChange);
