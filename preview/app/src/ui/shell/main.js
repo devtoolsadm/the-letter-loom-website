@@ -7396,6 +7396,17 @@ function startIntroLoop() {
   } catch (e) {}
 }
 
+function stopIntroLoop() {
+  if (!introSource) return;
+  try {
+    introSource.stop(0);
+  } catch (e) {}
+  try {
+    introSource.disconnect();
+  } catch (e) {}
+  introSource = null;
+}
+
 function playSfxBuffer(name) {
   if (!soundOn || !audioCtx || !soundGain || !sfxBuffers || !sfxBuffers[name]) return false;
   if (audioCtx.state === "suspended") {
@@ -7457,6 +7468,7 @@ function updateAudioVolumes() {
 
 function playClockLoop() {
   if (!musicOn) return;
+  stopIntroLoop();
   if (introAudio) {
     introAudio.pause();
   }
@@ -7504,15 +7516,7 @@ function stopClockLoop(allowIntro = true) {
 
 function stopAllMusic() {
   stopClockLoop(false);
-  if (introSource) {
-    try {
-      introSource.stop(0);
-    } catch (e) {}
-    try {
-      introSource.disconnect();
-    } catch (e) {}
-    introSource = null;
-  }
+  stopIntroLoop();
   if (introAudio) {
     try {
       introAudio.pause();
