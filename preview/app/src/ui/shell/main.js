@@ -161,6 +161,7 @@ let introBufferLoading = false;
 let introSource = null;
 let pausedByVisibility = false;
 let audioSuspendedByVisibility = false;
+let pendingClockStart = false;
 let wakeLockTimer = null;
 let winnersModalOpen = false;
 let suppressWinnersPrompt = false;
@@ -2592,10 +2593,7 @@ function clearMatchWordFor(key = "match", focusInput = true) {
 function playClickSfx() {
   if (!soundOn) return;
   if (playSfxBuffer("click")) return;
-  if (!clickAudio) return;
-  const instance = clickAudio.cloneNode();
-  instance.volume = (soundVolume / 100) * clickAudio.volume;
-  instance.play().catch(() => {});
+  loadSfxBuffers();
 }
 // 1x1 transparent GIF to avoid broken-image icons before real sources are assigned
 const PLACEHOLDER_IMG =
@@ -7229,60 +7227,13 @@ function setupAudio() {
   if (audioReady) return;
   audioReady = true;
 
-  tickAudio = new Audio("assets/sounds/tick.mp3");
-  tickAudio.volume = 1;
-
-  timeAudio = new Audio("assets/sounds/time.mp3");
-  timeAudio.volume = 1;
-
-  modalOpenAudio = new Audio("assets/sounds/open.mp3");
-  modalOpenAudio.volume = 1;
-
-  clickAudio = new Audio("assets/sounds/click.mp3");
-  clickAudio.volume = 1;
-
-  successAudio = new Audio("assets/sounds/success.mp3");
-  successAudio.volume = 1;
-
-  failAudio = new Audio("assets/sounds/fail.mp3");
-  failAudio.volume = 1;
-
   const unlock = () => {
     ensureAudioContextAvailable();
     loadSfxBuffers();
     loadClockBuffer();
     loadIntroBuffer();
-    if (!tickSource && audioCtx) {
-      tickSource = audioCtx.createMediaElementSource(tickAudio);
-      tickSource.connect(soundGain);
-    }
-    if (!timeSource && audioCtx) {
-      timeSource = audioCtx.createMediaElementSource(timeAudio);
-      timeSource.connect(soundGain);
-    }
-    if (!modalOpenSource && audioCtx) {
-      modalOpenSource = audioCtx.createMediaElementSource(modalOpenAudio);
-      modalOpenSource.connect(soundGain);
-    }
-    if (!clickSource && audioCtx) {
-      clickSource = audioCtx.createMediaElementSource(clickAudio);
-      clickSource.connect(soundGain);
-    }
-    if (!successSource && audioCtx) {
-      successSource = audioCtx.createMediaElementSource(successAudio);
-      successSource.connect(soundGain);
-    }
-    if (!failSource && audioCtx) {
-      failSource = audioCtx.createMediaElementSource(failAudio);
-      failSource.connect(soundGain);
-    }
     updateAudioVolumes();
     attemptPlayIntro();
-    if (clickAudio) {
-      clickAudio.play().catch(() => {});
-      clickAudio.pause();
-      clickAudio.currentTime = 0;
-    }
     document.removeEventListener("pointerdown", unlock, true);
   };
   document.addEventListener("pointerdown", unlock, true);
@@ -7293,6 +7244,7 @@ function setupAudio() {
       const btn = evt.target.closest("button,input[type='range']");
       if (!btn) return;
       ensureAudioContextAvailable();
+      loadSfxBuffers();
       playClickSfx();
     },
     true
@@ -7342,6 +7294,14 @@ function loadClockBuffer() {
     .then((data) => audioCtx.decodeAudioData(data))
     .then((buffer) => {
       clockBuffer = buffer;
+      if (pendingClockStart) {
+        pendingClockStart = false;
+        const st = matchController.getState();
+        const phase = st?.phase || "";
+        if (currentScreen === "match" && phase.endsWith("-run") && !clockLowTimeMode) {
+          playClockLoop();
+        }
+      }
     })
     .catch(() => {})
     .finally(() => {
@@ -7431,27 +7391,6 @@ function updateAudioVolumes() {
   const soundLevel = soundVolume / 100;
   if (musicGain) musicGain.gain.value = musicLevel;
   if (soundGain) soundGain.gain.value = soundLevel;
-  // fallback for platforms without Web Audio volume control
-  if (introAudio) {
-    introAudio.volume = musicLevel;
-  }
-  if (clockAudio) {
-    clockAudio.volume = musicLevel;
-  }
-  if (tickAudio) {
-    tickAudio.volume = soundLevel;
-  }
-  if (timeAudio) {
-    timeAudio.volume = soundLevel;
-  }
-  if (modalOpenAudio) {
-    modalOpenAudio.volume = soundLevel;
-  }
-  if (clickAudio) {
-    clickAudio.volume = soundLevel;
-  }
-  if (successAudio) successAudio.volume = soundLevel;
-  if (failAudio) failAudio.volume = soundLevel;
 }
 
 function playClockLoop() {
@@ -7466,6 +7405,7 @@ function playClockLoop() {
     }
     if (!clockBuffer) {
       loadClockBuffer();
+      pendingClockStart = true;
       return;
     }
     if (clockSource) {
@@ -7484,6 +7424,7 @@ function playClockLoop() {
 }
 
 function stopClockLoop(allowIntro = true) {
+  pendingClockStart = false;
   if (clockSource) {
     try {
       clockSource.stop(0);
@@ -7521,17 +7462,12 @@ function closeAudioForBackground() {
   musicGain = null;
   soundGain = null;
   musicSource = null;
-  clickSource = null;
   clockSource = null;
-  tickSource = null;
-  timeSource = null;
-  modalOpenSource = null;
-  successSource = null;
-  failSource = null;
   sfxBuffers = null;
   sfxBuffersLoading = false;
   clockBuffer = null;
   clockBufferLoading = false;
+  pendingClockStart = false;
   introBuffer = null;
   introBufferLoading = false;
   audioSuspendedByVisibility = true;
@@ -7576,22 +7512,14 @@ function playLowTimeTick(force = false) {
   if (!force && now - lastLowTimeTick < 900) return;
   lastLowTimeTick = now;
   if (playSfxBuffer("tick")) return;
-  if (!tickAudio) return;
-  const inst = tickAudio.cloneNode();
-  inst.volume = (soundVolume / 100) * 1.0;
-  inst.play().catch(() => {});
+  loadSfxBuffers();
 }
 
 function triggerTimeUpEffects(kind) {
   if (soundOn) {
-    if (!playSfxBuffer("time") && timeAudio) {
-      try {
-        const inst = timeAudio.cloneNode();
-        inst.volume = (soundVolume / 100) * 1.0;
-        inst.play().catch(() => {});
-      } catch (e) {
-        playLowTimeTick(true);
-      }
+    if (!playSfxBuffer("time")) {
+      loadSfxBuffers();
+      playLowTimeTick(true);
     }
   }
   if (navigator.vibrate) {
@@ -7715,21 +7643,14 @@ function setupMatchControllerEvents() {
 function playModalOpenSound() {
   if (!soundOn) return;
   if (playSfxBuffer("modal")) return;
-  if (!modalOpenAudio) return;
-  const inst = modalOpenAudio.cloneNode();
-  inst.volume = (soundVolume / 100) * 1.0;
-  inst.play().catch(() => {});
+  loadSfxBuffers();
 }
 
 function playValidationResultSound(ok = true) {
   if (!soundOn) return;
   const key = ok ? "success" : "fail";
   if (playSfxBuffer(key)) return;
-  const base = ok ? successAudio : failAudio;
-  if (!base) return;
-  const inst = base.cloneNode();
-  inst.volume = (soundVolume / 100) * 1.0;
-  inst.play().catch(() => {});
+  loadSfxBuffers();
 }
 
 function resetWakeLockTimer() {
@@ -7971,6 +7892,22 @@ function assignSrcToNodes(nodes, src) {
   });
   window.addEventListener("pagehide", () => {
     persistActiveMatchSnapshot(matchController.getState());
+  });
+  window.addEventListener("blur", () => {
+    const st = matchController.getState();
+    if (currentScreen === "match" && st?.phase?.endsWith("-run")) {
+      pausedByVisibility = true;
+      matchController.pause();
+    }
+    stopAllMusic();
+    closeAudioForBackground();
+  });
+  window.addEventListener("focus", () => {
+    if (pausedByVisibility) {
+      pausedByVisibility = false;
+      matchController.resume();
+    }
+    resumeMusicForState();
   });
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) {

@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "letter-loom-cache";
-const APP_VERSION = "v0.0.89";
+const APP_VERSION = "v0.0.90";
 let cacheVersion = APP_VERSION;
 let CACHE_NAME = `${CACHE_PREFIX}-${cacheVersion}`;
 const BASE_PATH = self.location.pathname.replace(/\/[^/]*$/, "/");
