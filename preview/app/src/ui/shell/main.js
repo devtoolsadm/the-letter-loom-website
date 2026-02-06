@@ -7229,14 +7229,6 @@ function setupAudio() {
   if (audioReady) return;
   audioReady = true;
 
-  introAudio = new Audio("assets/sounds/intro.wav");
-  introAudio.loop = true;
-  introAudio.volume = 1;
-
-  clockAudio = new Audio("assets/sounds/clock-melody.mp3");
-  clockAudio.loop = true;
-  clockAudio.volume = 1;
-
   tickAudio = new Audio("assets/sounds/tick.mp3");
   tickAudio.volume = 1;
 
@@ -7260,10 +7252,6 @@ function setupAudio() {
     loadSfxBuffers();
     loadClockBuffer();
     loadIntroBuffer();
-    if (!musicSource && audioCtx) {
-      musicSource = audioCtx.createMediaElementSource(introAudio);
-      musicSource.connect(musicGain);
-    }
     if (!tickSource && audioCtx) {
       tickSource = audioCtx.createMediaElementSource(tickAudio);
       tickSource.connect(soundGain);
