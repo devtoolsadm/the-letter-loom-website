@@ -172,6 +172,7 @@ let lastMatchPhase = null;
 let dealerFocusTimer = null;
 const WAKE_LOCK_TIMEOUT_MS = 5 * 60 * 1000;
 const TIMEUP_VIBRATION_MS = 400;
+const LOW_TIME_THRESHOLD = 10;
 
 // Match config controls (temporary until starting the match)
 let tempMatchPrefs = buildMatchPrefs(appState.gamePreferences);
@@ -4576,7 +4577,7 @@ function updateMatchTick() {
   if (strategyCard) {
     strategyCard.classList.toggle(
       "time-pressure",
-      st.phase === "strategy-run" && st.remaining <= 10 && st.remaining > 5
+      st.phase === "strategy-run" && st.remaining <= LOW_TIME_THRESHOLD && st.remaining > 5
     );
     strategyCard.classList.toggle(
       "time-pressure-urgent",
@@ -4587,7 +4588,7 @@ function updateMatchTick() {
   if (creationCard) {
     creationCard.classList.toggle(
       "time-pressure",
-      st.phase === "creation-run" && st.remaining <= 10 && st.remaining > 5
+      st.phase === "creation-run" && st.remaining <= LOW_TIME_THRESHOLD && st.remaining > 5
     );
     creationCard.classList.toggle(
       "time-pressure-urgent",
@@ -4881,7 +4882,7 @@ function renderMatchFromState(matchState) {
     strategyCard.classList.toggle("hidden", !showStrategyTimers);
     strategyCard.classList.toggle(
       "time-pressure",
-      matchState.phase === "strategy-run" && matchState.remaining <= 10
+      matchState.phase === "strategy-run" && matchState.remaining <= LOW_TIME_THRESHOLD
     );
     strategyCard.classList.toggle(
       "time-pressure-urgent",
@@ -4899,7 +4900,7 @@ function renderMatchFromState(matchState) {
     creationCard.classList.toggle("hidden", !showCreationTimers);
     creationCard.classList.toggle(
       "time-pressure",
-      matchState.phase === "creation-run" && matchState.remaining <= 10
+      matchState.phase === "creation-run" && matchState.remaining <= LOW_TIME_THRESHOLD
     );
     creationCard.classList.toggle(
       "time-pressure-urgent",
@@ -5895,7 +5896,7 @@ function startMatchPhase(kind) {
       matchController.resume();
       const resumed = matchController.getState();
       const remaining = resumed?.remaining ?? 0;
-      if (remaining <= 10 && remaining > 0) {
+      if (remaining <= LOW_TIME_THRESHOLD && remaining > 0) {
         clockLowTimeMode = true;
         stopClockLoop(false);
       } else {
@@ -5915,7 +5916,7 @@ function startMatchPhase(kind) {
       matchController.resume();
       const resumed = matchController.getState();
       const remaining = resumed?.remaining ?? 0;
-      if (remaining <= 10 && remaining > 0) {
+      if (remaining <= LOW_TIME_THRESHOLD && remaining > 0) {
         clockLowTimeMode = true;
         stopClockLoop(false);
       } else {
@@ -7456,6 +7457,33 @@ function stopClockLoop(allowIntro = true) {
   }
 }
 
+function stopAllMusic() {
+  stopClockLoop(false);
+  if (introAudio) {
+    try {
+      introAudio.pause();
+      introAudio.currentTime = 0;
+    } catch (e) {}
+  }
+}
+
+function resumeMusicForState() {
+  if (!audioReady || !musicOn) return;
+  const st = matchController.getState();
+  const phase = st?.phase || "";
+  const isRun = phase.endsWith("-run");
+  if (currentScreen === "match" && isRun) {
+    clockLowTimeMode = st?.remaining <= LOW_TIME_THRESHOLD;
+    if (!clockLowTimeMode) {
+      playClockLoop();
+    }
+    return;
+  }
+  if (currentScreen !== "match") {
+    attemptPlayIntro();
+  }
+}
+
 function playLowTimeTick(force = false) {
   if (!soundOn) return;
   const now = Date.now();
@@ -7548,13 +7576,13 @@ function setupMatchControllerEvents() {
     if (!phase) return;
     const kind = phase.startsWith("strategy") ? "strategy" : phase.startsWith("creation") ? "creation" : null;
     if (!kind) return;
-    if (remaining <= 10 && remaining > 0) {
+    if (remaining <= LOW_TIME_THRESHOLD && remaining > 0) {
       if (!clockLowTimeMode) {
         clockLowTimeMode = true;
         stopClockLoop(false);
       }
       playLowTimeTick();
-    } else if (remaining > 10 && clockLowTimeMode) {
+    } else if (remaining > LOW_TIME_THRESHOLD && clockLowTimeMode) {
       clockLowTimeMode = false;
       playClockLoop();
     }
@@ -7857,6 +7885,16 @@ function assignSrcToNodes(nodes, src) {
   });
   window.addEventListener("pagehide", () => {
     persistActiveMatchSnapshot(matchController.getState());
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      stopAllMusic();
+    } else {
+      resumeMusicForState();
+    }
+  });
+  window.addEventListener("pagehide", () => {
+    stopAllMusic();
   });
     if (!unsubscribeLanguage) {
     unsubscribeLanguage = onShellLanguageChange(handleLanguageChange);
