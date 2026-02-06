@@ -6676,9 +6676,9 @@ function updateMatchWinnersRecordsUI(matchState, { recordsBtn, recordsNote } = {
   if (recordsNote) {
     recordsNote.classList.toggle("hidden", !hasRecords);
     if (hasRecords) {
-      const namesText = formatNameList(recordNames, shellLanguage || "es");
+      const namesText = formatNameListHtml(recordNames, shellLanguage || "es");
       const template = shellTexts.matchWinnersRecordsNote || "";
-      recordsNote.textContent = template.replace("{names}", namesText);
+      recordsNote.innerHTML = template.replace("{names}", namesText);
     }
   }
 }
@@ -6689,6 +6689,27 @@ function formatNameList(names, lang = "es") {
   const conj = lang.startsWith("en") ? "and" : "y";
   if (list.length === 2) return `${list[0]} ${conj} ${list[1]}`;
   return `${list.slice(0, -1).join(", ")} ${conj} ${list[list.length - 1]}`;
+}
+
+function escapeHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function formatNameListHtml(names, lang = "es") {
+  const list = Array.isArray(names) ? names.filter(Boolean) : [];
+  if (!list.length) return "";
+  const conj = lang.startsWith("en") ? "and" : "y";
+  const wrap = (name) => `<span class="match-winners-record-name">${escapeHtml(name)}</span>`;
+  if (list.length === 1) return wrap(list[0]);
+  if (list.length === 2) return `${wrap(list[0])} ${conj} ${wrap(list[1])}`;
+  const head = list.slice(0, -1).map((name) => wrap(name)).join(", ");
+  const tail = wrap(list[list.length - 1]);
+  return `${head} ${conj} ${tail}`;
 }
 
 function openRecordsFromWinners() {

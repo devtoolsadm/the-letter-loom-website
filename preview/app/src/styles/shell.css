@@ -4629,6 +4629,14 @@ body.splash-ready #splashLoadingBlock {
   margin-top: 4px;
 }
 
+.match-winners-record-name {
+  color: var(--player-name-color, #2f1b12);
+  text-shadow: var(--player-name-shadow);
+  font-family: var(--player-names-font);
+  text-transform: var(--player-names-transform);
+  font-weight: 900;
+}
+
 .match-winners-actions {
   flex-direction: column;
   gap: 10px;
