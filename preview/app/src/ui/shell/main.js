@@ -163,6 +163,7 @@ let pausedByVisibility = false;
 let audioSuspendedByVisibility = false;
 let pendingClockStart = false;
 let pendingAudioResume = false;
+let pendingAudioResumeHandler = null;
 let wakeLockTimer = null;
 let winnersModalOpen = false;
 let suppressWinnersPrompt = false;
@@ -7258,6 +7259,19 @@ function setupAudio() {
     },
     true
   );
+
+  if (!pendingAudioResumeHandler) {
+    pendingAudioResumeHandler = () => {
+      if (!pendingAudioResume) return;
+      pendingAudioResume = false;
+      ensureAudioContextAvailable();
+      loadSfxBuffers();
+      loadClockBuffer();
+      loadIntroBuffer();
+      resumeMusicForState();
+    };
+    document.addEventListener("pointerdown", pendingAudioResumeHandler, true);
+  }
 
   attemptPlayIntro();
   updateAudioVolumes();
