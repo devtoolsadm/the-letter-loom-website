@@ -156,6 +156,10 @@ let sfxBuffers = null;
 let sfxBuffersLoading = false;
 let clockBuffer = null;
 let clockBufferLoading = false;
+let introBuffer = null;
+let introBufferLoading = false;
+let introSource = null;
+let pausedByVisibility = false;
 let wakeLockTimer = null;
 let winnersModalOpen = false;
 let suppressWinnersPrompt = false;
@@ -7254,6 +7258,7 @@ function setupAudio() {
     ensureAudioContext();
     loadSfxBuffers();
     loadClockBuffer();
+    loadIntroBuffer();
     if (!musicSource && audioCtx) {
       musicSource = audioCtx.createMediaElementSource(introAudio);
       musicSource.connect(musicGain);
@@ -7355,6 +7360,41 @@ function loadClockBuffer() {
     });
 }
 
+function loadIntroBuffer() {
+  if (!audioCtx || introBufferLoading || introBuffer) return;
+  introBufferLoading = true;
+  fetch("assets/sounds/intro.wav")
+    .then((res) => res.arrayBuffer())
+    .then((data) => audioCtx.decodeAudioData(data))
+    .then((buffer) => {
+      introBuffer = buffer;
+      startIntroLoop();
+    })
+    .catch(() => {})
+    .finally(() => {
+      introBufferLoading = false;
+    });
+}
+
+function startIntroLoop() {
+  if (!audioCtx || !musicOn || !introBuffer || currentScreen === "match") return;
+  if (audioCtx.state === "suspended") {
+    audioCtx.resume().catch(() => {});
+  }
+  if (introSource) {
+    try {
+      introSource.stop(0);
+    } catch (e) {}
+  }
+  introSource = audioCtx.createBufferSource();
+  introSource.buffer = introBuffer;
+  introSource.loop = true;
+  introSource.connect(musicGain);
+  try {
+    introSource.start(0);
+  } catch (e) {}
+}
+
 function playSfxBuffer(name) {
   if (!soundOn || !audioCtx || !soundGain || !sfxBuffers || !sfxBuffers[name]) return false;
   if (audioCtx.state === "suspended") {
@@ -7378,8 +7418,12 @@ function attemptPlayIntro() {
   if (audioCtx && audioCtx.state === "suspended") {
     audioCtx.resume().catch(() => {});
   }
-  if (!introAudio || !musicOn) return;
-  introAudio.play().catch(() => {});
+  if (!musicOn) return;
+  if (introBuffer) {
+    startIntroLoop();
+    return;
+  }
+  loadIntroBuffer();
 }
 
 function updateAudioVolumes() {
@@ -7459,6 +7503,15 @@ function stopClockLoop(allowIntro = true) {
 
 function stopAllMusic() {
   stopClockLoop(false);
+  if (introSource) {
+    try {
+      introSource.stop(0);
+    } catch (e) {}
+    try {
+      introSource.disconnect();
+    } catch (e) {}
+    introSource = null;
+  }
   if (introAudio) {
     try {
       introAudio.pause();
@@ -7888,12 +7941,26 @@ function assignSrcToNodes(nodes, src) {
   });
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) {
+      const st = matchController.getState();
+      if (currentScreen === "match" && st?.phase?.endsWith("-run")) {
+        pausedByVisibility = true;
+        matchController.pause();
+      }
       stopAllMusic();
     } else {
+      if (pausedByVisibility) {
+        pausedByVisibility = false;
+        matchController.resume();
+      }
       resumeMusicForState();
     }
   });
   window.addEventListener("pagehide", () => {
+    const st = matchController.getState();
+    if (currentScreen === "match" && st?.phase?.endsWith("-run")) {
+      pausedByVisibility = true;
+      matchController.pause();
+    }
     stopAllMusic();
   });
     if (!unsubscribeLanguage) {
