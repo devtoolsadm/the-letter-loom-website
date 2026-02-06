@@ -160,6 +160,7 @@ let introBuffer = null;
 let introBufferLoading = false;
 let introSource = null;
 let pausedByVisibility = false;
+let audioSuspendedByVisibility = false;
 let wakeLockTimer = null;
 let winnersModalOpen = false;
 let suppressWinnersPrompt = false;
@@ -7520,8 +7521,29 @@ function stopAllMusic() {
   }
 }
 
+function suspendAudioForBackground() {
+  if (audioCtx && audioCtx.state !== "closed" && audioCtx.state !== "suspended") {
+    audioCtx.suspend().catch(() => {});
+    audioSuspendedByVisibility = true;
+  }
+  if ("mediaSession" in navigator) {
+    try {
+      navigator.mediaSession.metadata = null;
+      navigator.mediaSession.playbackState = "none";
+    } catch (e) {}
+  }
+}
+
+function resumeAudioAfterBackground() {
+  if (audioCtx && audioSuspendedByVisibility) {
+    audioCtx.resume().catch(() => {});
+    audioSuspendedByVisibility = false;
+  }
+}
+
 function resumeMusicForState() {
   if (!audioReady || !musicOn) return;
+  resumeAudioAfterBackground();
   const st = matchController.getState();
   const phase = st?.phase || "";
   const isRun = phase.endsWith("-run");
@@ -7947,6 +7969,7 @@ function assignSrcToNodes(nodes, src) {
         matchController.pause();
       }
       stopAllMusic();
+      suspendAudioForBackground();
     } else {
       if (pausedByVisibility) {
         pausedByVisibility = false;
@@ -7962,6 +7985,7 @@ function assignSrcToNodes(nodes, src) {
       matchController.pause();
     }
     stopAllMusic();
+    suspendAudioForBackground();
   });
     if (!unsubscribeLanguage) {
     unsubscribeLanguage = onShellLanguageChange(handleLanguageChange);
