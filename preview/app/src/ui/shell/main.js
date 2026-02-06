@@ -152,6 +152,10 @@ let timeSource = null;
 let modalOpenSource = null;
 let successSource = null;
 let failSource = null;
+let sfxBuffers = null;
+let sfxBuffersLoading = false;
+let clockBuffer = null;
+let clockBufferLoading = false;
 let wakeLockTimer = null;
 let winnersModalOpen = false;
 let suppressWinnersPrompt = false;
@@ -2580,16 +2584,9 @@ function clearMatchWordFor(key = "match", focusInput = true) {
   clearStatusValidationFor(key);
 }
 function playClickSfx() {
-  if (!soundOn || !clickAudio) return;
-  // If routed through Web Audio, use the shared element with gain; otherwise clone
-  if (audioCtx && soundGain && clickSource) {
-    soundGain.gain.value = soundVolume / 100;
-    try {
-      clickAudio.currentTime = 0;
-    } catch (e) {}
-    clickAudio.play().catch(() => {});
-    return;
-  }
+  if (!soundOn) return;
+  if (playSfxBuffer("click")) return;
+  if (!clickAudio) return;
   const instance = clickAudio.cloneNode();
   instance.volume = (soundVolume / 100) * clickAudio.volume;
   instance.play().catch(() => {});
@@ -7254,13 +7251,11 @@ function setupAudio() {
 
   const unlock = () => {
     ensureAudioContext();
+    loadSfxBuffers();
+    loadClockBuffer();
     if (!musicSource && audioCtx) {
       musicSource = audioCtx.createMediaElementSource(introAudio);
       musicSource.connect(musicGain);
-    }
-    if (!clockSource && audioCtx) {
-      clockSource = audioCtx.createMediaElementSource(clockAudio);
-      clockSource.connect(musicGain);
     }
     if (!tickSource && audioCtx) {
       tickSource = audioCtx.createMediaElementSource(tickAudio);
@@ -7312,6 +7307,72 @@ function setupAudio() {
   updateAudioVolumes();
 }
 
+function loadSfxBuffers() {
+  if (!audioCtx || sfxBuffersLoading || sfxBuffers) return;
+  sfxBuffersLoading = true;
+  const files = {
+    click: "assets/sounds/click.mp3",
+    tick: "assets/sounds/tick.mp3",
+    time: "assets/sounds/time.mp3",
+    modal: "assets/sounds/open.mp3",
+    success: "assets/sounds/success.mp3",
+    fail: "assets/sounds/fail.mp3",
+  };
+  const entries = Object.entries(files);
+  Promise.all(
+    entries.map(async ([key, url]) => {
+      const res = await fetch(url);
+      const data = await res.arrayBuffer();
+      const buffer = await audioCtx.decodeAudioData(data);
+      return [key, buffer];
+    })
+  )
+    .then((pairs) => {
+      sfxBuffers = {};
+      pairs.forEach(([key, buffer]) => {
+        sfxBuffers[key] = buffer;
+      });
+    })
+    .catch(() => {})
+    .finally(() => {
+      sfxBuffersLoading = false;
+    });
+}
+
+function loadClockBuffer() {
+  if (!audioCtx || clockBufferLoading || clockBuffer) return;
+  clockBufferLoading = true;
+  fetch("assets/sounds/clock-melody.mp3")
+    .then((res) => res.arrayBuffer())
+    .then((data) => audioCtx.decodeAudioData(data))
+    .then((buffer) => {
+      clockBuffer = buffer;
+    })
+    .catch(() => {})
+    .finally(() => {
+      clockBufferLoading = false;
+    });
+}
+
+function playSfxBuffer(name) {
+  if (!soundOn || !audioCtx || !soundGain || !sfxBuffers || !sfxBuffers[name]) return false;
+  if (audioCtx.state === "suspended") {
+    audioCtx.resume().catch(() => {});
+  }
+  const source = audioCtx.createBufferSource();
+  source.buffer = sfxBuffers[name];
+  const gain = audioCtx.createGain();
+  gain.gain.value = soundVolume / 100;
+  source.connect(gain);
+  gain.connect(soundGain);
+  try {
+    source.start(0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function attemptPlayIntro() {
   if (audioCtx && audioCtx.state === "suspended") {
     audioCtx.resume().catch(() => {});
@@ -7349,17 +7410,43 @@ function updateAudioVolumes() {
 }
 
 function playClockLoop() {
-  if (!musicOn || !clockAudio) return;
+  if (!musicOn) return;
   if (introAudio) {
     introAudio.pause();
   }
-  if (audioCtx && audioCtx.state === "suspended") {
-    audioCtx.resume().catch(() => {});
+  if (audioCtx) {
+    if (audioCtx.state === "suspended") {
+      audioCtx.resume().catch(() => {});
+    }
+    if (!clockBuffer) {
+      loadClockBuffer();
+      return;
+    }
+    if (clockSource) {
+      try {
+        clockSource.stop(0);
+      } catch (e) {}
+    }
+    clockSource = audioCtx.createBufferSource();
+    clockSource.buffer = clockBuffer;
+    clockSource.loop = true;
+    clockSource.connect(musicGain);
+    try {
+      clockSource.start(0);
+    } catch (e) {}
   }
-  clockAudio.play().catch(() => {});
 }
 
 function stopClockLoop(allowIntro = true) {
+  if (clockSource) {
+    try {
+      clockSource.stop(0);
+    } catch (e) {}
+    try {
+      clockSource.disconnect();
+    } catch (e) {}
+    clockSource = null;
+  }
   if (clockAudio) {
     clockAudio.pause();
     clockAudio.currentTime = 0;
@@ -7374,6 +7461,7 @@ function playLowTimeTick(force = false) {
   const now = Date.now();
   if (!force && now - lastLowTimeTick < 900) return;
   lastLowTimeTick = now;
+  if (playSfxBuffer("tick")) return;
   if (!tickAudio) return;
   const inst = tickAudio.cloneNode();
   inst.volume = (soundVolume / 100) * 1.0;
@@ -7381,13 +7469,15 @@ function playLowTimeTick(force = false) {
 }
 
 function triggerTimeUpEffects(kind) {
-  if (soundOn && timeAudio) {
-    try {
-      const inst = timeAudio.cloneNode();
-      inst.volume = (soundVolume / 100) * 1.0;
-      inst.play().catch(() => {});
-    } catch (e) {
-      playLowTimeTick(true);
+  if (soundOn) {
+    if (!playSfxBuffer("time") && timeAudio) {
+      try {
+        const inst = timeAudio.cloneNode();
+        inst.volume = (soundVolume / 100) * 1.0;
+        inst.play().catch(() => {});
+      } catch (e) {
+        playLowTimeTick(true);
+      }
     }
   }
   if (navigator.vibrate) {
@@ -7509,7 +7599,9 @@ function setupMatchControllerEvents() {
 }
 
 function playModalOpenSound() {
-  if (!soundOn || !modalOpenAudio) return;
+  if (!soundOn) return;
+  if (playSfxBuffer("modal")) return;
+  if (!modalOpenAudio) return;
   const inst = modalOpenAudio.cloneNode();
   inst.volume = (soundVolume / 100) * 1.0;
   inst.play().catch(() => {});
@@ -7517,6 +7609,8 @@ function playModalOpenSound() {
 
 function playValidationResultSound(ok = true) {
   if (!soundOn) return;
+  const key = ok ? "success" : "fail";
+  if (playSfxBuffer(key)) return;
   const base = ok ? successAudio : failAudio;
   if (!base) return;
   const inst = base.cloneNode();
