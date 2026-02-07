@@ -2827,8 +2827,8 @@ body.splash-ready #splashLoadingBlock {
   justify-content: center;
   gap: 8px;
   margin: 4px 0 0;
-  font-size: var(--text-md);
-  font-weight: 700;
+  font-size: var(--text-sm);
+  font-weight: 600;
   color: #6b4a1d;
   line-height: 1.2;
   text-align: center;
@@ -2850,7 +2850,7 @@ body.splash-ready #splashLoadingBlock {
 
 .match-summary-details {
   font-size: var(--text-sm);
-  font-weight: 700;
+  font-weight: 600;
   color: #7b5530;
   line-height: 1.2;
   text-align: center;
@@ -3078,8 +3078,8 @@ body.splash-ready #splashLoadingBlock {
 
 .match-scoring-caption,
 .match-rules-caption {
-  font-size: var(--text-md);
-  font-weight: 700;
+  font-size: var(--text-sm);
+  font-weight: 600;
   color: #6b4a1d;
   text-align: center;
   padding: 6px 8px;
@@ -3133,7 +3133,8 @@ body.splash-ready #splashLoadingBlock {
 
 .match-mode-caption {
   margin: 4px 0px 0px 0px;
-  font-size: var(--text-md);
+  font-size: var(--text-sm);
+  font-weight: 600;
   color: #6b4a1d;
   text-align: center;
   padding: 6px 8px;
@@ -5386,7 +5387,7 @@ body.splash-ready #splashLoadingBlock {
   border: 2px solid #d69a3a;
   background: #fff4d6;
   color: #7b3b21;
-  font-size: 12px;
+  font-size: var(--text-sm);
   font-weight: 800;
   line-height: 1.2;
   box-shadow: 0 2px 0 #c4893c;
@@ -5414,7 +5415,7 @@ body.splash-ready #splashLoadingBlock {
   right: 4px;
   padding: 4px 10px 4px 22px;
   border-radius: 14px;
-  font-size: 11px;
+  font-size: var(--text-sm);
   font-weight: 700;
   border: 1px solid #c48f3a;
   background: #fff;
