@@ -1445,6 +1445,7 @@ function handlePlayerPointerUp() {
     list.splice(insertIndex, 0, moved);
     tempMatchPlayers = list;
     markPlayerSwap(fromIndex, insertIndex);
+    playClickSfx();
     triggerHapticFeedback(16);
   }
   renderMatchPlayers();
