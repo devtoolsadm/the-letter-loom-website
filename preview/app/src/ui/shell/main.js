@@ -131,7 +131,7 @@ let debugFilterSelectEl = null;
 let creationTimeupTimer = null;
 let creationTimeupCancelled = false;
 let introAudio = null;
-let matchConfigExpanded = false;
+let matchConfigCustomizeOpen = false;
 let clickAudio = null;
 let clockAudio = null;
 let tickAudio = null;
@@ -2744,7 +2744,7 @@ function renderShellTexts() {
   setI18nById("matchTitle", "matchTitle");
   setI18nById("matchConfigTitle", "matchConfigTitle");
   setI18nById("matchTopbarTitle", "matchConfigTitle");
-  setI18nById("matchSummaryConfigBtn", "matchConfigConfigure");
+  setI18nById("matchCustomizeBtn", "matchConfigCustomize");
   setI18nById("matchPlayersLabel", "matchPlayersLabel");
   setI18nById("matchPlayersCaption", "matchPlayersCaption");
   setI18nById("matchModeLabel", "matchModeLabel");
@@ -3264,8 +3264,8 @@ function setupNavigation() {
     ["matchBackBtn", () => exitMatchDirect()],
     ["matchSettingsBtn", () => openSettingsModal()],
     ["matchScoreboardOpenBtn", () => openScoreboard()],
-    ["matchSummaryConfigBtn", () => {
-      matchConfigExpanded = true;
+    ["matchCustomizeBtn", () => {
+      matchConfigCustomizeOpen = true;
       renderMatchFromState(matchController.getState());
       const scrollEl = document.querySelector(".match-config-scroll");
       if (scrollEl) scrollEl.scrollTop = 0;
@@ -4630,7 +4630,7 @@ function renderMatchFromState(matchState) {
   const summaryCaption = document.getElementById("matchSummaryCaption");
   const summaryDetails = document.getElementById("matchSummaryDetails");
   const modeBlock = document.getElementById("matchModeBlock");
-  const advancedBlock = document.getElementById("matchConfigAdvanced");
+  const advancedBlock = document.getElementById("matchConfigCustomize");
   const scoreboardOpenBtn = document.getElementById("matchScoreboardOpenBtn");
   const stratTotal = matchState.strategySeconds ?? DEFAULT_STRATEGY_SECONDS;
   const creationTotal = matchState.creationSeconds ?? DEFAULT_CREATION_SECONDS;
@@ -4644,12 +4644,12 @@ function renderMatchFromState(matchState) {
     }
 
   if (matchState.phase !== "config") {
-    matchConfigExpanded = false;
+    matchConfigCustomizeOpen = false;
   }
-  const showSummary = matchState.phase === "config" && !matchConfigExpanded;
+  const showSummary = matchState.phase === "config" && !matchConfigCustomizeOpen;
   if (summaryBlock) summaryBlock.classList.toggle("hidden", !showSummary);
-  if (modeBlock) modeBlock.classList.toggle("hidden", !matchConfigExpanded);
-  if (advancedBlock) advancedBlock.classList.toggle("hidden", !matchConfigExpanded);
+  if (modeBlock) modeBlock.classList.toggle("hidden", !matchConfigCustomizeOpen);
+  if (advancedBlock) advancedBlock.classList.toggle("hidden", !matchConfigCustomizeOpen);
   applyPhaseValue(strategyVal, stratTotal);
   applyPhaseValue(creationVal, creationTotal);
   if (playersVal)
@@ -6833,7 +6833,7 @@ function handleConfirmCancel() {
 function showScreen(name) {
   currentScreen = name;
   if (name !== "match") {
-    matchConfigExpanded = false;
+    matchConfigCustomizeOpen = false;
   }
   if (name !== "match") {
     clearCreationTimeupAutoAdvance(true);
@@ -6873,10 +6873,6 @@ function showScreen(name) {
     });
   }
   if (name === "match") {
-    const st = matchController.getState();
-    if (st?.phase === "config") {
-      matchConfigExpanded = true;
-    }
     renderMatch();
   } else if (name === "round-end") {
     renderRoundEndScreen();
