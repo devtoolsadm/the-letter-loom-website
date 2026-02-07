@@ -4755,12 +4755,9 @@ function renderMatchFromState(matchState) {
       .replace("{scoring}", scoring);
     const parts = resolved.split("·").map((part) => part.trim()).filter(Boolean);
     summaryDetails.innerHTML = parts
-      .map((part, idx) => {
-        const item = `<span class="match-summary-item">${escapeHtml(part)}</span>`;
-        if (idx === 0) return item;
-        return `<span class="match-summary-sep">·</span>${item}`;
-      })
+      .map((part) => `<span class="match-summary-item">${escapeHtml(part)}</span>`)
       .join(" ");
+    updateSummarySeparators(summaryDetails);
   }
 
   if (topbarTitle) {
@@ -7573,6 +7570,21 @@ function playLowTimeTick(force = false) {
   loadSfxBuffers();
 }
 
+function updateSummarySeparators(container) {
+  if (!container) return;
+  container.querySelectorAll(".match-summary-sep").forEach((el) => el.remove());
+  const items = Array.from(container.querySelectorAll(".match-summary-item"));
+  if (items.length < 2) return;
+  const offsets = items.map((item) => item.offsetTop);
+  for (let i = 1; i < items.length; i += 1) {
+    if (offsets[i] !== offsets[i - 1]) continue;
+    const sep = document.createElement("span");
+    sep.className = "match-summary-sep";
+    sep.textContent = "·";
+    container.insertBefore(sep, items[i]);
+  }
+}
+
 function triggerHapticFeedback(pattern = 12) {
   if (!navigator.vibrate) return;
   try {
@@ -8032,6 +8044,15 @@ if (document.readyState === "loading") {
   bootstrapShell();
 }
 
+let swReloading = false;
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (swReloading) return;
+    swReloading = true;
+    window.location.reload();
+  });
+}
+
 function registerServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
   navigator.serviceWorker
@@ -8041,6 +8062,21 @@ function registerServiceWorker() {
       if (navigator.onLine === true) {
         registration.update().catch(() => {});
       }
+      if (registration.waiting) {
+        registration.waiting.postMessage({ type: "skip-waiting" });
+      }
+      registration.addEventListener("updatefound", () => {
+        const installing = registration.installing;
+        if (!installing) return;
+        installing.addEventListener("statechange", () => {
+          if (installing.state === "installed" && navigator.serviceWorker.controller) {
+            const waiting = registration.waiting || installing;
+            if (waiting) {
+              waiting.postMessage({ type: "skip-waiting" });
+            }
+          }
+        });
+      });
     })
     .catch((err) => logger.error("Service worker registration failed", err));
 }
