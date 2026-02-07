@@ -74,7 +74,7 @@ if (USE_VIVID_PLAYER_COLORS && typeof document !== "undefined") {
 
 // Debug-only: preload a simulated match on app start.
 export const SIMULATE_MATCH_ON_START = false;
-export const SIMULATE_RECORDS_ON_START = false;
+export const SIMULATE_RECORDS_ON_START = true;
 export const SIMULATED_MATCH_SEEDS = [
   {
     matchId: "sim-match-8p",

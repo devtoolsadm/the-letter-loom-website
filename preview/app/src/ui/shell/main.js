@@ -5341,6 +5341,145 @@ function setupActionOverlayListeners() {
     }
   }
 
+  if (tableWrap && tableLeft && tableLeft.dataset.scrollProxy !== "1") {
+    const onWheel = (e) => {
+      if (!tableWrap) return;
+      e.preventDefault();
+      if (Math.abs(e.deltaX) > 0) {
+        scrollByClamped(tableWrap, { left: e.deltaX });
+      }
+      if (Math.abs(e.deltaY) > 0) {
+        scrollByClamped(tableWrap, { top: e.deltaY });
+      }
+    };
+    let touchStartY = null;
+    let touchStartX = null;
+    const onTouchStart = (e) => {
+      if (!e.touches || e.touches.length !== 1) return;
+      touchStartY = e.touches[0].clientY;
+      touchStartX = e.touches[0].clientX;
+    };
+    const onTouchMove = (e) => {
+      if ((touchStartY == null && touchStartX == null) || !e.touches || e.touches.length !== 1) return;
+      const currentY = e.touches[0].clientY;
+      const currentX = e.touches[0].clientX;
+      const deltaY = touchStartY == null ? 0 : touchStartY - currentY;
+      const deltaX = touchStartX == null ? 0 : touchStartX - currentX;
+      touchStartY = currentY;
+      touchStartX = currentX;
+      e.preventDefault();
+      if (Math.abs(deltaX) > 0) {
+        scrollByClamped(tableWrap, { left: deltaX });
+      }
+      if (Math.abs(deltaY) > 0) {
+        scrollByClamped(tableWrap, { top: deltaY });
+      }
+    };
+    const onTouchEnd = () => {
+      touchStartY = null;
+      touchStartX = null;
+    };
+    tableLeft.addEventListener("wheel", onWheel, { passive: false });
+    tableLeft.addEventListener("touchstart", onTouchStart, { passive: true });
+    tableLeft.addEventListener("touchmove", onTouchMove, { passive: false });
+    tableLeft.addEventListener("touchend", onTouchEnd, { passive: true });
+    tableLeft.addEventListener("touchcancel", onTouchEnd, { passive: true });
+    tableLeft.dataset.scrollProxy = "1";
+  }
+
+  if (tableWrap && tableHeader && tableHeader.dataset.scrollProxyX !== "1") {
+    const onWheelX = (e) => {
+      if (!tableWrap) return;
+      e.preventDefault();
+      if (Math.abs(e.deltaX) > 0) {
+        scrollByClamped(tableWrap, { left: e.deltaX });
+      }
+      if (Math.abs(e.deltaY) > 0) {
+        scrollByClamped(tableWrap, { top: e.deltaY });
+      }
+    };
+    let touchStartX = null;
+    let touchStartY = null;
+    const onTouchStartX = (e) => {
+      if (!e.touches || e.touches.length !== 1) return;
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+    };
+    const onTouchMoveX = (e) => {
+      if ((touchStartX == null && touchStartY == null) || !e.touches || e.touches.length !== 1) return;
+      const currentX = e.touches[0].clientX;
+      const currentY = e.touches[0].clientY;
+      const deltaX = touchStartX == null ? 0 : touchStartX - currentX;
+      const deltaY = touchStartY == null ? 0 : touchStartY - currentY;
+      touchStartX = currentX;
+      touchStartY = currentY;
+      e.preventDefault();
+      if (Math.abs(deltaX) > 0) {
+        scrollByClamped(tableWrap, { left: deltaX });
+      }
+      if (Math.abs(deltaY) > 0) {
+        scrollByClamped(tableWrap, { top: deltaY });
+      }
+    };
+    const onTouchEndX = () => {
+      touchStartX = null;
+      touchStartY = null;
+    };
+    tableHeader.addEventListener("wheel", onWheelX, { passive: false });
+    tableHeader.addEventListener("touchstart", onTouchStartX, { passive: true });
+    tableHeader.addEventListener("touchmove", onTouchMoveX, { passive: false });
+    tableHeader.addEventListener("touchend", onTouchEndX, { passive: true });
+    tableHeader.addEventListener("touchcancel", onTouchEndX, { passive: true });
+    tableHeader.dataset.scrollProxyX = "1";
+  }
+
+  const tableCorner = document.getElementById("scoreboardTableCorner");
+  if (tableWrap && tableCorner && tableCorner.dataset.scrollProxyCorner !== "1") {
+    const onWheelCorner = (e) => {
+      if (!tableWrap) return;
+      e.preventDefault();
+      if (Math.abs(e.deltaX) > 0) {
+        scrollByClamped(tableWrap, { left: e.deltaX });
+      }
+      if (Math.abs(e.deltaY) > 0) {
+        scrollByClamped(tableWrap, { top: e.deltaY });
+      }
+    };
+    let touchStartX = null;
+    let touchStartY = null;
+    const onTouchStartCorner = (e) => {
+      if (!e.touches || e.touches.length !== 1) return;
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+    };
+    const onTouchMoveCorner = (e) => {
+      if ((touchStartX == null && touchStartY == null) || !e.touches || e.touches.length !== 1) return;
+      const currentX = e.touches[0].clientX;
+      const currentY = e.touches[0].clientY;
+      const deltaX = touchStartX == null ? 0 : touchStartX - currentX;
+      const deltaY = touchStartY == null ? 0 : touchStartY - currentY;
+      touchStartX = currentX;
+      touchStartY = currentY;
+      e.preventDefault();
+      if (Math.abs(deltaX) > 0) {
+        scrollByClamped(tableWrap, { left: deltaX });
+      }
+      if (Math.abs(deltaY) > 0) {
+        scrollByClamped(tableWrap, { top: deltaY });
+      }
+    };
+    const onTouchEndCorner = () => {
+      touchStartX = null;
+      touchStartY = null;
+    };
+    tableCorner.addEventListener("wheel", onWheelCorner, { passive: false });
+    tableCorner.addEventListener("touchstart", onTouchStartCorner, { passive: true });
+    tableCorner.addEventListener("touchmove", onTouchMoveCorner, { passive: false });
+    tableCorner.addEventListener("touchend", onTouchEndCorner, { passive: true });
+    tableCorner.addEventListener("touchcancel", onTouchEndCorner, { passive: true });
+    tableCorner.dataset.scrollProxyCorner = "1";
+  }
+
   const onResize = () => updateActionOverlayStates();
   window.addEventListener("resize", onResize);
   if (window.visualViewport) {

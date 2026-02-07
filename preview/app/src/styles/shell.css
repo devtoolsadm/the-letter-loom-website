@@ -64,6 +64,8 @@
   --player-name-color: #2f1b12;
   --player-name-shadow: 0 1px 0 rgba(255, 255, 255, 0.35),
     0 -1px 0 rgba(0, 0, 0, 0.25);
+  --font-heading: "Montserrat", "Fredoka", Arial, sans-serif;
+  --font-text: "Montserrat", "Fredoka", Arial, sans-serif;
   --text-xs: 12px;
   --text-xs2: 13px;
   --text-sm: 14px;
@@ -591,6 +593,23 @@ body.shell-ready #game-root {
   color: white;
 }
 
+.title-primary {
+  --border-color: black;
+  --shadow-color: grey;
+  color: white;
+  text-transform: uppercase;
+  text-shadow:
+    -2px -2px 0 var(--border-color),
+     2px -2px 0 var(--border-color),
+    -2px  2px 0 var(--border-color),
+     2px  2px 0 var(--border-color),
+     0px  2px 0 var(--border-color),
+     0px -2px 0 var(--border-color),
+    -2px  0px 0 var(--border-color),
+     2px  0px 0 var(--border-color),
+     5px 5px 10px var(--shadow-color);
+}
+
 .screen {
   display: none;
   flex-direction: column;
@@ -631,6 +650,21 @@ body.shell-ready #game-root {
   width: 67%;
 }
 
+.modal-ribbon .title-primary,
+.modal-ribbon .text-border {
+  color: #fff;
+  text-shadow:
+    -2px -2px 0 #000,
+     2px -2px 0 #000,
+    -2px  2px 0 #000,
+     2px  2px 0 #000,
+     0px  2px 0 #000,
+     0px -2px 0 #000,
+    -2px  0px 0 #000,
+     2px  0px 0 #000,
+     5px 5px 10px grey;
+}
+
 
 .topbar-title {
   flex: 1 1 auto;
@@ -643,11 +677,26 @@ body.shell-ready #game-root {
   margin: 0px
 }
 
-.lang-es .match-screen .topbar-title {
-  font-size: var(--text-xl);
-} 
+.topbar-title.title-primary,
+.topbar-title.text-border {
+  color: #fff;
+  text-shadow:
+    -2px -2px 0 #000,
+     2px -2px 0 #000,
+    -2px  2px 0 #000,
+     2px  2px 0 #000,
+     0px  2px 0 #000,
+     0px -2px 0 #000,
+    -2px  0px 0 #000,
+     2px  0px 0 #000,
+     5px 5px 10px grey;
+}
 
 .topbar-title[data-i18n="matchRoundEndTitle"] {
+  font-size: var(--text-xl);
+}
+
+.topbar-title[data-i18n="matchScoreboardTitle"] {
   font-size: var(--text-xl);
 }
 
@@ -1356,6 +1405,11 @@ body.shell-ready #game-root {
 
 .help-actions .game-btn {
   width: 100%;
+  max-width: 260px;
+  align-self: center;
+}
+
+.help-wrapper .match-validation-section {
   max-width: 260px;
   align-self: center;
 }
@@ -4131,7 +4185,7 @@ body.splash-ready #splashLoadingBlock {
   border: 1px solid #d7b882;
   background: #fff4d6;
   color: #7b3b21;
-  font-size: 12px;
+  font-size: var(--text-md);
   font-weight: 700;
   line-height: 1.2;
   text-align: center;
@@ -4279,11 +4333,12 @@ body.splash-ready #splashLoadingBlock {
   border: 2px solid #d7b882;
   background: linear-gradient(135deg, rgba(255, 241, 198, 0.9), rgba(255, 224, 150, 0.9));
   color: #7b3b21;
-  font-size: var(--text-sm);
+  font-size: var(--text-md);
   font-weight: 800;
   line-height: 1.2;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 4px 0 rgba(0, 0, 0, 0.12);
   margin: 2px 0 6px;
+  align-self: center;
 }
 
 .records-block-pill::before {
@@ -5613,7 +5668,7 @@ body.splash-ready #splashLoadingBlock {
 
   .match-validation-status {
     display: none;
-    font-size: 12px;
+    font-size: var(--text-md);
     text-align: center;
     color: #4b5563;
     font-weight: 600;
@@ -5643,7 +5698,7 @@ body.splash-ready #splashLoadingBlock {
   color: #0f5132;
   background: #d1f1df;
   position: relative;
-  padding-left: 22px;
+  padding-left: 28px;
 }
 
 .match-validation-status.fail,
@@ -5651,24 +5706,24 @@ body.splash-ready #splashLoadingBlock {
   color: #842029;
   background: #f8d7da;
   position: relative;
-  padding-left: 22px;
+  padding-left: 28px;
 }
 
 .match-validation-status.ok::before,
 .match-validation-status.fail::before,
 .match-validation-status.error::before {
   content: "";
-  width: 16px;
-  height: 16px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   position: absolute;
   left: 6px;
   top: 50%;
   transform: translateY(-50%);
   color: #fff;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 900;
-  line-height: 16px;
+  line-height: 20px;
   text-align: center;
 }
 
