@@ -2933,6 +2933,7 @@ body.splash-ready #splashLoadingBlock {
 .match-timers .match-row.match-row-compact .match-label {
   font-weight: 800;
   font-size: var(--text-md);
+  white-space: nowrap;
   color: #2f1b12;
   margin: 0;
   text-align: left;
@@ -3029,7 +3030,7 @@ body.splash-ready #splashLoadingBlock {
   border: 2px solid #d69a3a;
   background: #fff4d6;
   color: #7b3b21;
-  font-size: 12px;
+  font-size: var(--text-md);
   font-weight: 800;
   letter-spacing: 0.2px;
   text-align: center;

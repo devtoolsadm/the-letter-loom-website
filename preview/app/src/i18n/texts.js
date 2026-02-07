@@ -111,7 +111,7 @@ export const TEXTS = {
     matchPhaseCreation: "Creación",
     matchPlayersLabel: "Jugadores / Orden",
     matchPlayersCaption:
-      "Indica cuántos jugadores sois y vuestra posición en la mesa para saber el orden de repartir.",
+      "Indica cuántos sois y vuestra posición en la mesa para repartir",
     matchModeLabel: "Modalidad",
     matchModeRounds: "Bazas",
     matchModePoints: "Puntos",
@@ -371,7 +371,7 @@ export const TEXTS = {
     matchPhaseCreation: "Creation",
     matchPlayersLabel: "Players / Order",
     matchPlayersCaption:
-      "Tell us how many players there are and where you sit to set the dealing order.",
+      "Indicate how many players you are and your position at the table for dealing order",
     matchModeLabel: "Mode",
     matchModeRounds: "Rounds",
     matchModePoints: "Points",

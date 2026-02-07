@@ -6873,6 +6873,10 @@ function showScreen(name) {
     });
   }
   if (name === "match") {
+    const st = matchController.getState();
+    if (st?.phase === "config") {
+      matchConfigExpanded = true;
+    }
     renderMatch();
   } else if (name === "round-end") {
     renderRoundEndScreen();
