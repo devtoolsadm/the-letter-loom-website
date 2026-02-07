@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "letter-loom-cache";
-const APP_VERSION = "v0.0.93";
+const APP_VERSION = "v0.0.94";
 let cacheVersion = APP_VERSION;
 let CACHE_NAME = `${CACHE_PREFIX}-${cacheVersion}`;
 const BASE_PATH = self.location.pathname.replace(/\/[^/]*$/, "/");
@@ -315,7 +315,7 @@ async function matchAppShell() {
   try {
     const cache = await caches.open(CACHE_NAME);
     for (const url of candidates) {
-      const hit = await cache.match(url);
+      const hit = await cache.match(url, { ignoreSearch: true });
       if (hit) return hit;
     }
   } catch {}
@@ -325,7 +325,7 @@ async function matchAppShell() {
       if (key === CACHE_NAME) continue;
       const cache = await caches.open(key);
       for (const url of candidates) {
-        const hit = await cache.match(url);
+        const hit = await cache.match(url, { ignoreSearch: true });
         if (hit) return hit;
       }
     }

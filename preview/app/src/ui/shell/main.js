@@ -4740,13 +4740,22 @@ function renderMatchFromState(matchState) {
     const scoringKey = matchState.scoringEnabled
       ? "matchConfigSummaryScoringOn"
       : "matchConfigSummaryScoringOff";
-    setI18n(summaryDetails, "matchConfigSummaryDetails", {
-      vars: {
-        strategy: formatPhaseDurationFull(stratTotal),
-        creation: formatPhaseDurationFull(creationTotal),
-        scoring: shellTexts[scoringKey],
-      },
-    });
+    const template = shellTexts.matchConfigSummaryDetails || "";
+    const strategy = formatPhaseDurationFull(stratTotal);
+    const creation = formatPhaseDurationFull(creationTotal);
+    const scoring = shellTexts[scoringKey] || "";
+    const resolved = template
+      .replace("{strategy}", strategy)
+      .replace("{creation}", creation)
+      .replace("{scoring}", scoring);
+    const parts = resolved.split("·").map((part) => part.trim()).filter(Boolean);
+    summaryDetails.innerHTML = parts
+      .map((part, idx) => {
+        const item = `<span class="match-summary-item">${escapeHtml(part)}</span>`;
+        if (idx === 0) return item;
+        return `<span class="match-summary-sep">·</span>${item}`;
+      })
+      .join(" ");
   }
 
   if (topbarTitle) {
