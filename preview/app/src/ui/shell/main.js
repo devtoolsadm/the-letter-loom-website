@@ -1445,12 +1445,14 @@ function handlePlayerPointerUp() {
     list.splice(insertIndex, 0, moved);
     tempMatchPlayers = list;
     markPlayerSwap(fromIndex, insertIndex);
+    triggerHapticFeedback(16);
   }
   renderMatchPlayers();
 }
 
 function startPlayerPointerDrag(e, index, listEl) {
   e.preventDefault();
+  triggerHapticFeedback(12);
   openPlayerColorIndex = null;
   closePlayerNameModal();
   listEl
@@ -1807,6 +1809,7 @@ function renderMatchPlayers() {
     upBtn.addEventListener("click", () => {
       if (index === 0) return;
       playClickSfx();
+      triggerHapticFeedback(10);
       const list = [...tempMatchPlayers];
       const temp = list[index - 1];
       list[index - 1] = list[index];
@@ -1926,6 +1929,7 @@ function renderMatchPlayers() {
     downBtn.addEventListener("click", () => {
       if (index >= tempMatchPlayers.length - 1) return;
       playClickSfx();
+      triggerHapticFeedback(10);
       const list = [...tempMatchPlayers];
       const temp = list[index + 1];
       list[index + 1] = list[index];
@@ -7566,6 +7570,13 @@ function playLowTimeTick(force = false) {
   lastLowTimeTick = now;
   if (playSfxBuffer("tick")) return;
   loadSfxBuffers();
+}
+
+function triggerHapticFeedback(pattern = 12) {
+  if (!navigator.vibrate) return;
+  try {
+    navigator.vibrate(pattern);
+  } catch (e) {}
 }
 
 function triggerTimeUpEffects(kind) {
