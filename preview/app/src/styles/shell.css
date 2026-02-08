@@ -1559,6 +1559,23 @@ body.shell-ready #game-root {
   width: 100%;
 }
 
+.splash-logo-wrap.logo-animated::after {
+  content: "";
+  position: absolute;
+  inset: -6% -8%;
+  pointer-events: none;
+  background: linear-gradient(
+    120deg,
+    rgba(255, 255, 255, 0) 20%,
+    rgba(255, 255, 255, 0.5) 50%,
+    rgba(255, 255, 255, 0) 80%
+  );
+  transform: translateX(-140%);
+  animation: logoShine 12s ease-in-out infinite;
+  mix-blend-mode: screen;
+  opacity: 0;
+}
+
 .preview-logo-badge {
   position: absolute;
   top: 6px;
@@ -1612,22 +1629,6 @@ body.shell-ready #game-root {
     drop-shadow(0 0 10px rgba(255, 255, 255, 0.25));
 }
 
-.splash-logo.logo-animated::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: linear-gradient(
-    120deg,
-    rgba(255, 255, 255, 0) 20%,
-    rgba(255, 255, 255, 0.5) 50%,
-    rgba(255, 255, 255, 0) 80%
-  );
-  transform: translateX(-140%);
-  animation: logoShine 12s ease-in-out infinite;
-  mix-blend-mode: screen;
-  opacity: 0;
-}
 
 @keyframes logoFloat {
   0% {
@@ -4414,7 +4415,7 @@ body.splash-ready #splashLoadingBlock {
   bottom: -12px;
   padding: 2px 8px;
   border-radius: 14px;
-  font-size: 11px;
+  font-size: var(--text-sm);
   font-weight: 700;
   border: 1px solid rgba(255, 255, 255, 0.25);
   background: rgba(0, 0, 0, 0.35);

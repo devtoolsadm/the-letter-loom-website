@@ -54,6 +54,7 @@ import {
   buildSimulatedMatchState,
   RECORD_MIN_POINTS,
   RECORD_AVG_PENALTY_K,
+  WAKE_LOCK_TIMEOUT_MS,
 } from "../../core/constants.js";
 import { matchController, validateWordRemote } from "../../core/matchController.js";
 import { openModal, closeModal, closeTopModal } from "./modal.js";
@@ -61,6 +62,7 @@ import {
   initWakeLockManager,
   requestLock,
   releaseLock,
+  isWakeLockActive,
 } from "../../core/wakeLockManager.js";
 import { loadState, updateState } from "../../core/stateStore.js";
 import { APP_VERSION } from "../../core/version.js";
@@ -178,7 +180,6 @@ let playerDragGhost = null;
 let playerDragOffset = null;
 let lastMatchPhase = null;
 let dealerFocusTimer = null;
-const WAKE_LOCK_TIMEOUT_MS = 5 * 60 * 1000;
 const TIMEUP_VIBRATION_MS = 400;
 const LOW_TIME_THRESHOLD = 10;
 
@@ -2659,9 +2660,7 @@ function playClickFeedback() {
   if (now - lastClickFeedbackAt < 80) return;
   lastClickFeedbackAt = now;
   playClickSfx();
-  if (soundOn) {
-    triggerHapticFeedback(0);
-  }
+  triggerHapticFeedback(0);
 }
 // 1x1 transparent GIF to avoid broken-image icons before real sources are assigned
 const PLACEHOLDER_IMG =
@@ -6438,6 +6437,7 @@ function renderRecordsList({ listId, records, emptyText, showWord = false } = {}
         event.stopPropagation();
         return;
       }
+      playClickFeedback();
       openRecordScoreboard(record, { highlightWord: showWord });
     });
     const color = PLAYER_COLORS[idx % PLAYER_COLORS.length];
@@ -7118,11 +7118,7 @@ function showScreen(name) {
     stopMatchTimer();
     stopClockLoop(true);
   }
-  if (name === "live") {
-    ensureWakeLock(true);
-  } else {
-    ensureWakeLock(false);
-  }
+  ensureWakeLock(true);
   checkOrientationOverlay();
 }
 
@@ -7316,11 +7312,14 @@ function updateLanguageButton() {
 
 async function ensureWakeLock(shouldLock) {
   if (shouldLock) {
+    if (wakeLockActive || isWakeLockActive()) {
+      wakeLockActive = true;
+      resetWakeLockTimer();
+      return;
+    }
     const locked = await requestLock();
     wakeLockActive = locked;
-    if (locked) {
-      resetWakeLockTimer();
-    }
+    if (locked) resetWakeLockTimer();
   } else {
     await releaseLock();
     wakeLockActive = false;
@@ -7455,6 +7454,8 @@ function startSplashLoader() {
       document.body.classList.add("splash-ready");
       if (loadingBlock) loadingBlock.classList.add("hidden");
       if (mainBlock) mainBlock.classList.remove("hidden");
+      const logoWrap = document.querySelector(".splash-logo-wrap");
+      if (logoWrap) logoWrap.classList.add("logo-animated");
       if (logoEl) logoEl.classList.add("logo-animated");
     }, 200);
   };

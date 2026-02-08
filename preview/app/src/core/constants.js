@@ -61,6 +61,7 @@ export const DEFAULT_PLAYER_COUNT = 2;
 export const ROUND_KEYPAD_AUTO_ZERO_ON_NAV = false;
 export const RECORD_MIN_POINTS = 20;
 export const RECORD_AVG_PENALTY_K = 5;
+export const WAKE_LOCK_TIMEOUT_MS = 5 * 60 * 1000;
 
 // Apply fixed player name styling when using vivid colors.
 if (USE_VIVID_PLAYER_COLORS && typeof document !== "undefined") {
@@ -74,7 +75,7 @@ if (USE_VIVID_PLAYER_COLORS && typeof document !== "undefined") {
 
 // Debug-only: preload a simulated match on app start.
 export const SIMULATE_MATCH_ON_START = false;
-export const SIMULATE_RECORDS_ON_START = true;
+export const SIMULATE_RECORDS_ON_START = false;
 export const SIMULATED_MATCH_SEEDS = [
   {
     matchId: "sim-match-8p",
