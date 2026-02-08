@@ -212,8 +212,7 @@
                   <div class="match-summary-caption" id="matchSummaryCaption"></div>
                 </div>
                 <div class="match-summary-details" id="matchSummaryDetails"></div>
-                <button class="match-summary-config-btn" type="button"
-                  id="matchCustomizeBtn"></button>
+                <button class="match-summary-config-btn" type="button" id="matchCustomizeBtn"></button>
               </div>
 
               <div class="match-section match-mode-card match-mode-block hidden" id="matchModeBlock">
@@ -324,8 +323,8 @@
                     <span class="match-rules-btn-text" id="matchRulesBtnText"></span>
                   </button>
                   <div class="match-rules-caption" id="matchRulesCaption"></div>
-                
-                                  <div class="match-row">
+
+                  <div class="match-row">
                     <div class="match-label" id="matchRecordValidationLabel"></div>
                     <div class="match-controls match-toggle">
                       <button class="toggle-switch" type="button" id="matchRecordValidationToggle"
@@ -334,7 +333,7 @@
                   </div>
                   <div class="match-scoring-caption" id="matchRecordValidationCaption"></div>
 
-                
+
                 </div>
 
               </div>
@@ -749,17 +748,17 @@
             <div class="before"></div>
             <div class="after"></div>
           </div>
-            <div class="modal-content match-winners-content">
-              <div class="match-winners-trophy" aria-hidden="true"></div>
-              <div class="match-winners-subtitle" id="matchWinnersSubtitle"></div>
-              <div class="match-winners-list" id="matchWinnersList"></div>
-              <div class="match-winners-records-note hidden" id="matchWinnersRecordsNote"></div>
-              <div class="settings-actions match-winners-actions">
-                <button class="game-btn ghost" type="button" id="matchWinnersScoreBtn"></button>
-                <button class="game-btn ghost hidden" type="button" id="matchWinnersRecordsBtn"></button>
-                <button class="game-btn primary" type="button" id="matchWinnersOkBtn"></button>
-              </div>
+          <div class="modal-content match-winners-content">
+            <div class="match-winners-trophy" aria-hidden="true"></div>
+            <div class="match-winners-subtitle" id="matchWinnersSubtitle"></div>
+            <div class="match-winners-list" id="matchWinnersList"></div>
+            <div class="match-winners-records-note hidden" id="matchWinnersRecordsNote"></div>
+            <div class="settings-actions match-winners-actions">
+              <button class="game-btn ghost" type="button" id="matchWinnersScoreBtn"></button>
+              <button class="game-btn ghost hidden" type="button" id="matchWinnersRecordsBtn"></button>
+              <button class="game-btn primary" type="button" id="matchWinnersOkBtn"></button>
             </div>
+          </div>
         </div>
       </div>
     </div>
@@ -772,7 +771,7 @@
           <div class="modal-content">
             <div class="rules-editor">
               <div class="rules-info-pill" id="rulesInfoPill" data-i18n="matchRulesInfo"></div>
-              <textarea id="rulesTextarea" class="rules-textarea" rows="16" spellcheck="false" autocomplete="off"
+              <textarea id="rulesTextarea" class="rules-textarea" rows="14" spellcheck="false" autocomplete="off"
                 autocorrect="off" autocapitalize="off"></textarea>
               <button class="rules-restore-pill game-btn ghost hidden" type="button" id="rulesRestoreBtn"></button>
             </div>
@@ -798,11 +797,10 @@
             </div>
             <div class="record-word-input-row match-validation-row">
               <div class="match-input-wrap">
-                <input type="text" id="recordWordInput" class="match-validation-input validation-input"
-                  maxlength="32" aria-label="" autocomplete="off" autocapitalize="off" autocorrect="off"
-                  spellcheck="false" />
+                <input type="text" id="recordWordInput" class="match-validation-input validation-input" maxlength="32"
+                  aria-label="" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
                 <button class="match-clear-btn validation-clear hidden" type="button" id="recordWordClearBtn"
-                  aria-label="">×</button>
+                  aria-label="">X</button>
               </div>
               <span class="record-word-spinner hidden" id="recordWordSpinner" aria-hidden="true"></span>
             </div>
@@ -810,7 +808,8 @@
             <div class="record-word-features-hint" id="recordWordFeaturesHint"></div>
             <div class="record-word-features">
               <button class="record-word-chip" type="button" data-feature="sameColor" id="recordWordSameColor"></button>
-              <button class="record-word-chip" type="button" data-feature="usedWildcard" id="recordWordWildcard"></button>
+              <button class="record-word-chip" type="button" data-feature="usedWildcard"
+                id="recordWordWildcard"></button>
               <button class="record-word-chip" type="button" data-feature="doubleScore" id="recordWordDouble"></button>
               <button class="record-word-chip" type="button" data-feature="plusPoints" id="recordWordPlus"></button>
               <button class="record-word-chip" type="button" data-feature="minusPoints" id="recordWordMinus"></button>
@@ -831,7 +830,9 @@
         <div class="modal-canvas">
           <div class="modal-content">
             <div class="player-name-modal">
+              <div class="player-name-hint hidden" id="playerNamesHint"></div>
               <div class="player-name-list" id="playerNamesList"></div>
+              <div class="player-name-hint player-name-hint-delete hidden" id="playerNamesHintDelete"></div>
             </div>
           </div>
         </div>
@@ -850,7 +851,7 @@
             <input type="text" class="match-validation-input validation-input" maxlength="32"
               aria-label="Word to validate" autocomplete="off" autocapitalize="off" autocorrect="off"
               spellcheck="false" />
-            <button class="match-clear-btn validation-clear" type="button" aria-label="Clear word">×</button>
+            <button class="match-clear-btn validation-clear" type="button" aria-label="Clear word">X</button>
           </div>
           <button class="icon-btn glossy btn-green validation-validate" type="button" aria-label="">
             <span class="icon-btn-img icon-finish" aria-hidden="true"></span>

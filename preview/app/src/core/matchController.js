@@ -550,7 +550,7 @@ class MatchController {
 export const matchController = new MatchController();
 
 // Reusable word validator helper (proxy or direct Gemini)
-const proxy_AI_URL = "https://sync01.elzaburu.es/quick-tests/gemini-proxy1.cfm";
+const proxy_AI_URL = "https://sync01.elzaburu.es/quick-tests/gemini-proxy.cfm";
 const apiKey_ValidateWord = "dbnBobjw2e5xXE"; 
 
 export async function validateWordRemote({ word, language, customRules }) {

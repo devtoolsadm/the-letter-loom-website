@@ -654,15 +654,15 @@ body.shell-ready #game-root {
 .modal-ribbon .text-border {
   color: #fff;
   text-shadow:
-    -2px -2px 0 #000,
-     2px -2px 0 #000,
-    -2px  2px 0 #000,
-     2px  2px 0 #000,
-     0px  2px 0 #000,
-     0px -2px 0 #000,
-    -2px  0px 0 #000,
-     2px  0px 0 #000,
-     5px 5px 10px grey;
+    -1px -1px 0 #2b1b12,
+     1px -1px 0 #2b1b12,
+    -1px  1px 0 #2b1b12,
+     1px  1px 0 #2b1b12,
+     0px  1px 0 #2b1b12,
+     0px -1px 0 #2b1b12,
+    -1px  0px 0 #2b1b12,
+     1px  0px 0 #2b1b12,
+     3px 3px 8px rgba(0, 0, 0, 0.35);
 }
 
 
@@ -682,15 +682,15 @@ body.shell-ready #game-root {
 .topbar-title.text-border {
   color: #fff;
   text-shadow:
-    -2px -2px 0 #000,
-     2px -2px 0 #000,
-    -2px  2px 0 #000,
-     2px  2px 0 #000,
-     0px  2px 0 #000,
-     0px -2px 0 #000,
-    -2px  0px 0 #000,
-     2px  0px 0 #000,
-     5px 5px 10px grey;
+    -1px -1px 0 #2b1b12,
+     1px -1px 0 #2b1b12,
+    -1px  1px 0 #2b1b12,
+     1px  1px 0 #2b1b12,
+     0px  1px 0 #2b1b12,
+     0px -1px 0 #2b1b12,
+    -1px  0px 0 #2b1b12,
+     1px  0px 0 #2b1b12,
+     3px 3px 8px rgba(0, 0, 0, 0.35);
 }
 
 .topbar-title[data-i18n="matchRoundEndTitle"] {
@@ -1483,7 +1483,8 @@ body.shell-ready #game-root {
   font-weight: 800;
   font-size: 12px;
   color: var(--icon-btn-text);
-  line-height: 1;
+  line-height: 0.9;
+  padding-bottom: 1px;
 }
 
 .help-footer {
@@ -2279,7 +2280,8 @@ body.splash-ready #splashLoadingBlock {
   color: #2f1b12;
   font-weight: 900;
   font-size: 14px;
-  line-height: 1;
+  line-height: 0.9;
+  padding-bottom: 1px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -3486,8 +3488,8 @@ body.splash-ready #splashLoadingBlock {
 }
 
 .match-player-color-option {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   border-radius: 8px;
   border: 2px solid #c5af7d;
   padding: 0;
@@ -3530,30 +3532,6 @@ body.splash-ready #splashLoadingBlock {
   min-width: 0;
   display: flex;
   align-items: center;
-}
-
-.match-player-name-clear {
-  position: absolute;
-  right: 6px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 18px;
-  height: 18px;
-  border-radius: 6px;
-  border: 2px solid #c44b4b;
-  background: #fff3f3;
-  color: #c44b4b;
-  font-size: 12px;
-  font-weight: 800;
-  line-height: 1;
-  padding: 0;
-  cursor: pointer;
-  box-shadow: 0 2px 0 #a53a3a;
-}
-
-.match-player-name-clear:active {
-  transform: translateY(calc(-50% + 1px));
-  box-shadow: 0 1px 0 #a53a3a;
 }
 
 .match-player-name-btn {
@@ -3643,7 +3621,7 @@ body.splash-ready #splashLoadingBlock {
   background: #fffaf1;
   padding: 6px 10px;
   font-weight: 700;
-  font-size: 12px;
+  font-size: var(--text-md);
   color: #8a6b2d;
   text-align: center;
 }
@@ -3652,6 +3630,25 @@ body.splash-ready #splashLoadingBlock {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.player-name-hint {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: #7b5a2a;
+  text-align: center;
+  line-height: 1.25;
+  padding: 0 6px;
+  white-space: pre-line;
+}
+
+.player-name-hint.hidden {
+  display: none;
+}
+
+.player-name-hint.player-name-hint-delete {
+  font-size: var(--text-xs);
+  margin-top: -2px;
 }
 
 .player-name-list {
@@ -3667,8 +3664,8 @@ body.splash-ready #splashLoadingBlock {
 .player-name-pill {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 6px 4px 10px;
+  gap: 0;
+  padding: 0;
   border-radius: 999px;
   border: 2px solid #d7b882;
   background: #fffaf1;
@@ -3676,6 +3673,7 @@ body.splash-ready #splashLoadingBlock {
   font-weight: 800;
   font-size: 12px;
   box-shadow: 0 2px 0 #c4a45d;
+  overflow: hidden;
 }
 
 .player-name-pill-select {
@@ -3683,24 +3681,29 @@ body.splash-ready #splashLoadingBlock {
   background: transparent;
   color: inherit;
   font: inherit;
-  padding: 0;
+  padding: 4px 10px;
   cursor: pointer;
   white-space: nowrap;
+  text-transform: var(--player-names-transform);
 }
 
 .player-name-pill-remove {
-  width: 18px;
-  height: 18px;
-  border-radius: 6px;
-  border: 2px solid #7f1d1d;
-  background: #ef4444;
+  width: 26px;
+  height: 100%;
+  align-self: stretch;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-left: 2px solid #d7b882;
+  background: #ff4f4f;
   padding: 0;
   cursor: pointer;
-  box-shadow: 0 2px 0 #7f1d1d;
-  background-image: url("../../assets/ui-pack/Icons/SVG/Icon_Small_Blank_X.svg");
+  box-shadow: none;
+  background-image: url("../../assets/img/delete-white.svg");
   background-repeat: no-repeat;
   background-position: center;
-  background-size: 11px 11px;
+  background-size: 20px 20px;
 }
 
 .player-name-empty {
@@ -5430,8 +5433,8 @@ body.splash-ready #splashLoadingBlock {
 
 .icon-mini {
   display: inline-block;
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   background-size: contain;
   background-repeat: no-repeat;
   background-position: center;
@@ -5491,7 +5494,7 @@ body.splash-ready #splashLoadingBlock {
   border-radius: 12px;
   padding: 12px;
   font-family: "Fredoka", sans-serif;
-  font-size: 16px;
+  font-size: 18px;
   line-height: 1.35;
   resize: vertical;
   min-height: 140px;
@@ -5529,9 +5532,11 @@ body.splash-ready #splashLoadingBlock {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex: 0 0 18px;
   width: 18px;
   height: 18px;
   border-radius: 50%;
+  box-sizing: border-box;
   border: 2px solid #d69a3a;
   background: #fff;
   color: #7b3b21;
@@ -5615,26 +5620,34 @@ body.splash-ready #splashLoadingBlock {
   transform: none;
 }
 
-.match-clear-btn {
+.match-clear-btn,
+.match-player-name-clear {
+  --clear-btn-size: 24px;
   position: absolute;
   right: 6px;
   top: 50%;
   transform: translateY(-50%);
-  width: 18px;
-  height: 18px;
+  width: var(--clear-btn-size);
+  height: var(--clear-btn-size);
   border-radius: 6px;
   border: 2px solid #c44b4b;
   background: #fff3f3;
-  font-weight: 800;
-  font-size: 12px;
-  line-height: 1;
-  padding: 0;
   color: #c44b4b;
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1;
+  font-family: var(--font-text);
+  padding: 0;
   cursor: pointer;
   box-shadow: 0 2px 0 #a53a3a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
 }
 
-.match-clear-btn:active {
+.match-clear-btn:active,
+.match-player-name-clear:active {
   transform: translateY(calc(-50% + 1px));
   box-shadow: 0 1px 0 #a53a3a;
 }

@@ -50,6 +50,8 @@ import {
   SIMULATED_MATCH_STATE,
   SIMULATE_RECORDS_ON_START,
   SIMULATED_RECORDS,
+  SIMULATE_NAMES_ON_START,
+  SIMULATED_KNOWN_NAMES,
   SIMULATED_MATCH_SEEDS,
   buildSimulatedMatchState,
   RECORD_MIN_POINTS,
@@ -170,7 +172,6 @@ let pendingAudioResumeHandler = null;
 let wakeLockTimer = null;
 let wakeLockRequestInFlight = false;
 let lastWakeLockSuccessAt = 0;
-let lastWakeLockActivityAt = 0;
 let winnersModalOpen = false;
 let suppressWinnersPrompt = false;
 let lastWinnersIds = [];
@@ -1737,8 +1738,12 @@ function closePlayerNameModal() {
 
 function renderPlayerNameModal() {
   const listEl = document.getElementById("playerNamesList");
+  const hintEl = document.getElementById("playerNamesHint");
+  const hintDeleteEl = document.getElementById("playerNamesHintDelete");
   if (!listEl) return;
   listEl.innerHTML = "";
+  if (hintEl) hintEl.classList.add("hidden");
+  if (hintDeleteEl) hintDeleteEl.classList.add("hidden");
   if (openPlayerNameIndex == null) {
     const empty = document.createElement("div");
     empty.className = "player-name-empty";
@@ -1766,6 +1771,14 @@ function renderPlayerNameModal() {
     setI18n(empty, "matchPlayerNameEmpty");
     listEl.appendChild(empty);
     return;
+  }
+  if (hintEl) {
+    setI18n(hintEl, "matchPlayerNameHintMain");
+    hintEl.classList.remove("hidden");
+  }
+  if (hintDeleteEl) {
+    setI18n(hintDeleteEl, "matchPlayerNameHintDelete");
+    hintDeleteEl.classList.remove("hidden");
   }
   availableNames.forEach((name) => {
     const pill = document.createElement("div");
@@ -1911,7 +1924,7 @@ function renderMatchPlayers() {
       const clearBtn = document.createElement("button");
       clearBtn.type = "button";
       clearBtn.className = "match-player-name-clear";
-      clearBtn.textContent = "x";
+      clearBtn.textContent = "X";
       setI18n(clearBtn, "matchPlayerNameClear", { attr: "aria-label" });
       clearBtn.classList.toggle("hidden", !nameInput.value);
       nameInput.addEventListener("input", (e) => {
@@ -3782,6 +3795,9 @@ function initMatch() {
   }
   if (SIMULATE_RECORDS_ON_START && isLocalHost()) {
     applySimulatedRecords();
+  }
+  if (SIMULATE_NAMES_ON_START && isLocalHost()) {
+    applySimulatedKnownNames();
   }
   if (restoreActiveMatchIfEligible()) {
     showScreen("match");
@@ -7315,10 +7331,6 @@ function updateLanguageButton() {
 
 async function ensureWakeLock(shouldLock) {
   if (shouldLock) {
-    logger.debug("wake-lock: ensure requested", {
-      active: wakeLockActive || isWakeLockActive(),
-      inFlight: wakeLockRequestInFlight,
-    });
     if (wakeLockRequestInFlight) return wakeLockActive || isWakeLockActive();
     wakeLockRequestInFlight = true;
     try {
@@ -7327,16 +7339,12 @@ async function ensureWakeLock(shouldLock) {
       if (locked) {
         resetWakeLockTimer();
         lastWakeLockSuccessAt = Date.now();
-        logger.debug("wake-lock: acquired", { at: lastWakeLockSuccessAt });
-      } else {
-        logger.debug("wake-lock: not acquired");
       }
       return locked;
     } finally {
       wakeLockRequestInFlight = false;
     }
   } else {
-    logger.debug("wake-lock: release requested");
     await releaseLock();
     wakeLockActive = false;
     if (wakeLockTimer) {
@@ -7399,22 +7407,12 @@ function setupLogoLongPressForDebug(logoEl) {
 function setupWakeLockActivityTracking() {
   const activityHandler = async (evt) => {
     if (evt && evt.isTrusted === false) return;
-    lastWakeLockActivityAt = Date.now();
     const now = Date.now();
     const active = wakeLockActive || isWakeLockActive();
-    logger.debug("wake-lock: activity", {
-      type: evt?.type,
-      trusted: evt?.isTrusted,
-      active,
-      sinceSuccess: now - lastWakeLockSuccessAt,
-    });
     resetWakeLockTimer();
     const shouldDebounce =
       !isIOS() && active && now - lastWakeLockSuccessAt < WAKE_LOCK_SUCCESS_DEBOUNCE_MS;
     if (shouldDebounce) {
-      logger.debug("wake-lock: debounce skip", {
-        sinceSuccess: now - lastWakeLockSuccessAt,
-      });
       return;
     }
     await ensureWakeLock(true);
@@ -8074,9 +8072,6 @@ function resetWakeLockTimer() {
     clearTimeout(wakeLockTimer);
   }
   wakeLockTimer = setTimeout(() => {
-    logger.debug("wake-lock: timeout elapsed", {
-      sinceActivity: Date.now() - lastWakeLockActivityAt,
-    });
     ensureWakeLock(false);
   }, WAKE_LOCK_TIMEOUT_MS);
 }
@@ -8496,6 +8491,30 @@ function applySimulatedRecords() {
       });
     });
   }
+  return true;
+}
+
+function applySimulatedKnownNames() {
+  if (window.__simulatedNamesApplied) return false;
+  if (!Array.isArray(SIMULATED_KNOWN_NAMES) || !SIMULATED_KNOWN_NAMES.length) {
+    return false;
+  }
+  window.__simulatedNamesApplied = true;
+  const state = loadState();
+  const existing = Array.isArray(state.settings?.knownPlayerNames)
+    ? state.settings.knownPlayerNames
+    : [];
+  const merged = [];
+  const seen = new Set();
+  [...existing, ...SIMULATED_KNOWN_NAMES].forEach((raw) => {
+    const name = String(raw || "").trim();
+    if (!name) return;
+    const norm = normalizePlayerName(name);
+    if (seen.has(norm)) return;
+    seen.add(norm);
+    merged.push(name);
+  });
+  updateState({ settings: { knownPlayerNames: merged } });
   return true;
 }
 

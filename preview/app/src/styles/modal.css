@@ -271,7 +271,7 @@ body.modal-open {
   font-family: var(--font-text);
   font-weight: 700;
   font-size: clamp(18px, 3vw, 24px);
-  letter-spacing: 1px;
+  letter-spacing: 0.5px;
   text-transform: uppercase;
   color: #fff;
   text-shadow: 0 4px 0 #92400e;

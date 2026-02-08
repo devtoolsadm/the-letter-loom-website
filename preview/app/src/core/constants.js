@@ -61,7 +61,7 @@ export const DEFAULT_PLAYER_COUNT = 2;
 export const ROUND_KEYPAD_AUTO_ZERO_ON_NAV = false;
 export const RECORD_MIN_POINTS = 20;
 export const RECORD_AVG_PENALTY_K = 5;
-export const WAKE_LOCK_TIMEOUT_MS = 3 * 60 * 1000;
+export const WAKE_LOCK_TIMEOUT_MS = 5 * 60 * 1000;
 export const WAKE_LOCK_SUCCESS_DEBOUNCE_MS = 30 * 1000;
 
 // Apply fixed player name styling when using vivid colors.
@@ -77,6 +77,49 @@ if (USE_VIVID_PLAYER_COLORS && typeof document !== "undefined") {
 // Debug-only: preload a simulated match on app start.
 export const SIMULATE_MATCH_ON_START = false;
 export const SIMULATE_RECORDS_ON_START = false;
+export const SIMULATE_NAMES_ON_START = true;
+export const SIMULATED_KNOWN_NAMES = [
+  "Andrea",
+  "Martina",
+  "Raquel",
+  "Ramon",
+  "Refa",
+  "Elvira",
+  "Juan",
+  "Sebastián",
+  "Maria",
+  "Marcos",
+  "Margina",
+  "Isabel",
+  "Lucas",
+  "Nerea",
+  "Tomas",
+  "Aitana",
+  "Hugo",
+  "Sofia",
+  "Mateo",
+  "Noa",
+  "Javier",
+  "Valeria",
+  "Dario",
+  "Lucia",
+  "Alba",
+  "Daniel",
+  "Carla",
+  "Pablo",
+  "Sara",
+  "Adrian",
+  "Irene",
+  "Bruno",
+  "Claudia",
+  "Gonzalo",
+  "Eva",
+  "Rocio",
+  "Julieta",
+  "Victor",
+  "Olga",
+  "Mario",
+];
 export const SIMULATED_MATCH_SEEDS = [
   {
     matchId: "sim-match-8p",
