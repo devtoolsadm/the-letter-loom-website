@@ -1375,7 +1375,9 @@ function updatePlayerDropIndicator(listEl, row, clientY, target) {
         playerDragState.lastHapticIndex !== nextIndex
       ) {
         playerDragState.lastHapticIndex = nextIndex;
-        triggerHapticFeedback(1);
+        if (!isIOS()) {
+          triggerHapticFeedback(1);
+        }
       }
     }
     return;
@@ -1390,7 +1392,9 @@ function updatePlayerDropIndicator(listEl, row, clientY, target) {
         playerDragState.lastHapticIndex !== nextIndex
       ) {
         playerDragState.lastHapticIndex = nextIndex;
-        triggerHapticFeedback(1);
+        if (!isIOS()) {
+          triggerHapticFeedback(1);
+        }
       }
     }
     return;
@@ -1408,7 +1412,9 @@ function updatePlayerDropIndicator(listEl, row, clientY, target) {
         playerDragState.lastHapticIndex !== nextIndex
       ) {
         playerDragState.lastHapticIndex = nextIndex;
-        triggerHapticFeedback(1);
+        if (!isIOS()) {
+          triggerHapticFeedback(1);
+        }
       }
     }
   } else {
@@ -1421,7 +1427,9 @@ function updatePlayerDropIndicator(listEl, row, clientY, target) {
         playerDragState.lastHapticIndex !== nextIndex
       ) {
         playerDragState.lastHapticIndex = nextIndex;
-        triggerHapticFeedback(1);
+        if (!isIOS()) {
+          triggerHapticFeedback(1);
+        }
       }
     }
   }
@@ -1461,6 +1469,7 @@ function handlePlayerPointerUp() {
   if (!playerDragState) return;
   document.removeEventListener("pointermove", handlePlayerPointerMove);
   removePlayerDragGhost();
+  triggerHapticFeedback(2);
   const { fromIndex, overIndex, listEl } = playerDragState;
   clearPlayerDropIndicator(listEl);
   listEl.classList.remove("is-dragging");
@@ -1483,14 +1492,13 @@ function handlePlayerPointerUp() {
     tempMatchPlayers = list;
     markPlayerSwap(fromIndex, insertIndex);
     playClickSfx();
-    triggerHapticFeedback(2);
   }
   renderMatchPlayers();
 }
 
 function startPlayerPointerDrag(e, index, listEl) {
-  e.preventDefault();
   const hapticOk = triggerHapticFeedback(1);
+  e.preventDefault();
   logger.debug("Player drag haptic", {
     vibrateSupported: typeof navigator !== "undefined" && !!navigator.vibrate,
     hapticOk,
@@ -3291,7 +3299,6 @@ function scaleGame() {
 function setupNavigation() {
   const map = [
     ["splashContinueBtn", () => {
-      triggerHapticFeedback(1);
       const prompted = maybePromptRestoreStaleMatch({
         onDecline: () => showScreen("match"),
       });
