@@ -3291,6 +3291,7 @@ function scaleGame() {
 function setupNavigation() {
   const map = [
     ["splashContinueBtn", () => {
+      triggerHapticFeedback(1);
       const prompted = maybePromptRestoreStaleMatch({
         onDecline: () => showScreen("match"),
       });
@@ -7779,25 +7780,23 @@ function triggerHapticFallback() {
   try {
     const wrapper = document.createElement("div");
     const id = `haptic-${Math.random().toString(36).slice(2)}`;
-    wrapper.innerHTML = `<input type="checkbox" id="${id}" role="switch" /><label for="${id}"></label>`;
+    wrapper.innerHTML = `<input type="checkbox" id="${id}" switch /><label for="${id}"></label>`;
     wrapper.setAttribute(
       "style",
-      "position:fixed !important;left:-1000px !important;top:-1000px !important;width:1px !important;height:1px !important;opacity:0.01 !important;pointer-events:none !important;"
+      "position:fixed !important;left:-1000px !important;top:-1000px !important;width:1px !important;height:1px !important;opacity:0.01 !important;"
     );
     document.body.appendChild(wrapper);
-    const input = wrapper.querySelector("input");
-    if (input) {
-      input.click();
+    const label = wrapper.querySelector("label");
+    if (label) {
+      label.click();
       setTimeout(() => {
-        input.click();
+        label.click();
         wrapper.remove();
       }, 20);
     } else {
-      const label = wrapper.querySelector("label");
-      if (label) label.click();
-      setTimeout(() => {
-        wrapper.remove();
-      }, 20);
+      const input = wrapper.querySelector("input");
+      if (input) input.click();
+      setTimeout(() => wrapper.remove(), 20);
     }
     return true;
   } catch (e) {

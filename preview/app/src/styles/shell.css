@@ -672,6 +672,7 @@ body.shell-ready #game-root {
   text-align: center;
   font-family: var(--font-heading);
   font-size: var(--text-xxl);
+  letter-spacing: 0.5px;  
   color: var(--text-dark);
   font-weight: 800;
   margin: 0px
@@ -3134,7 +3135,7 @@ body.splash-ready #splashLoadingBlock {
   font-size: 22px;
 }
 .lang-es .match-screen [data-i18n="matchConfigTitle"] {
-  font-size: 22px;
+  font-size: 21px;
 }
 .lang-en .match-screen [data-i18n="matchConfigTitle"] {
   font-size: 28px;
