@@ -1366,16 +1366,32 @@ function updatePlayerDropIndicator(listEl, row, clientY, target) {
   if (target && target.classList?.contains("match-player-placeholder")) {
     const nextRow = target.nextElementSibling;
     if (playerDragState) {
-      playerDragState.overIndex = nextRow
+      const nextIndex = nextRow
         ? Number(nextRow.dataset.index)
         : listEl.querySelectorAll(".match-player-row").length;
+      playerDragState.overIndex = nextIndex;
+      if (
+        playerDragState.moved &&
+        playerDragState.lastHapticIndex !== nextIndex
+      ) {
+        playerDragState.lastHapticIndex = nextIndex;
+        triggerHapticFeedback(1);
+      }
     }
     return;
   }
   if (!row || !listEl.contains(row)) {
     listEl.appendChild(placeholder);
     if (playerDragState) {
-      playerDragState.overIndex = listEl.querySelectorAll(".match-player-row").length;
+      const nextIndex = listEl.querySelectorAll(".match-player-row").length;
+      playerDragState.overIndex = nextIndex;
+      if (
+        playerDragState.moved &&
+        playerDragState.lastHapticIndex !== nextIndex
+      ) {
+        playerDragState.lastHapticIndex = nextIndex;
+        triggerHapticFeedback(1);
+      }
     }
     return;
   }
@@ -1385,21 +1401,36 @@ function updatePlayerDropIndicator(listEl, row, clientY, target) {
   if (insertAfter) {
     row.after(placeholder);
     if (playerDragState) {
-      playerDragState.overIndex = Number(row.dataset.index) + 1;
+      const nextIndex = Number(row.dataset.index) + 1;
+      playerDragState.overIndex = nextIndex;
+      if (
+        playerDragState.moved &&
+        playerDragState.lastHapticIndex !== nextIndex
+      ) {
+        playerDragState.lastHapticIndex = nextIndex;
+        triggerHapticFeedback(1);
+      }
     }
   } else {
     row.before(placeholder);
     if (playerDragState) {
-      playerDragState.overIndex = Number(row.dataset.index);
+      const nextIndex = Number(row.dataset.index);
+      playerDragState.overIndex = nextIndex;
+      if (
+        playerDragState.moved &&
+        playerDragState.lastHapticIndex !== nextIndex
+      ) {
+        playerDragState.lastHapticIndex = nextIndex;
+        triggerHapticFeedback(1);
+      }
     }
   }
 }
 
-function handlePlayerPointerMove(e) {
+function handlePlayerDragMove(clientX, clientY) {
   if (!playerDragState) return;
-  e.preventDefault();
-  const dx = Math.abs(e.clientX - playerDragState.startX);
-  const dy = Math.abs(e.clientY - playerDragState.startY);
+  const dx = Math.abs(clientX - playerDragState.startX);
+  const dy = Math.abs(clientY - playerDragState.startY);
   if (!playerDragState.moved && dx + dy < 4) {
     return;
   }
@@ -1408,21 +1439,37 @@ function handlePlayerPointerMove(e) {
     const { rowEl, listEl } = playerDragState;
     if (rowEl) {
       rowEl.classList.add("is-dragging");
-      createPlayerDragGhost(rowEl, e.clientX, e.clientY);
-      updatePlayerDropIndicator(listEl, rowEl, e.clientY, rowEl);
+      createPlayerDragGhost(rowEl, clientX, clientY);
+      updatePlayerDropIndicator(listEl, rowEl, clientY, rowEl);
     }
     listEl.classList.add("is-dragging");
   }
-  updatePlayerDragGhost(e.clientX, e.clientY);
+  updatePlayerDragGhost(clientX, clientY);
   const { listEl } = playerDragState;
-  const target = document.elementFromPoint(e.clientX, e.clientY);
+  const target = document.elementFromPoint(clientX, clientY);
   const row = target?.closest(".match-player-row");
-  updatePlayerDropIndicator(listEl, row, e.clientY, target);
+  updatePlayerDropIndicator(listEl, row, clientY, target);
+}
+
+function handlePlayerPointerMove(e) {
+  if (!playerDragState) return;
+  e.preventDefault();
+  handlePlayerDragMove(e.clientX, e.clientY);
+}
+
+function handlePlayerTouchMove(e) {
+  if (!playerDragState || !e.touches || !e.touches.length) return;
+  e.preventDefault();
+  const touch = e.touches[0];
+  handlePlayerDragMove(touch.clientX, touch.clientY);
 }
 
 function handlePlayerPointerUp() {
   if (!playerDragState) return;
   document.removeEventListener("pointermove", handlePlayerPointerMove);
+  document.removeEventListener("touchmove", handlePlayerTouchMove);
+  document.removeEventListener("touchend", handlePlayerTouchEnd);
+  document.removeEventListener("touchcancel", handlePlayerTouchEnd);
   removePlayerDragGhost();
   const { fromIndex, overIndex, listEl } = playerDragState;
   clearPlayerDropIndicator(listEl);
@@ -1451,9 +1498,13 @@ function handlePlayerPointerUp() {
   renderMatchPlayers();
 }
 
+function handlePlayerTouchEnd() {
+  handlePlayerPointerUp();
+}
+
 function startPlayerPointerDrag(e, index, listEl) {
   e.preventDefault();
-  triggerHapticFeedback(0);
+  triggerHapticFeedback(1);
   openPlayerColorIndex = null;
   closePlayerNameModal();
   listEl
@@ -1466,6 +1517,7 @@ function startPlayerPointerDrag(e, index, listEl) {
     startX: e.clientX,
     startY: e.clientY,
     moved: false,
+    lastHapticIndex: null,
     rowEl: null,
   };
   const row = listEl.querySelector(`[data-index="${index}"]`);
@@ -1478,6 +1530,35 @@ function startPlayerPointerDrag(e, index, listEl) {
   document.addEventListener("pointermove", handlePlayerPointerMove);
   document.addEventListener("pointerup", handlePlayerPointerUp, { once: true });
   document.addEventListener("pointercancel", handlePlayerPointerUp, { once: true });
+}
+
+function startPlayerTouchDrag(e, index, listEl) {
+  if (!e.touches || !e.touches.length) return;
+  e.preventDefault();
+  const touch = e.touches[0];
+  triggerHapticFeedback(1);
+  openPlayerColorIndex = null;
+  closePlayerNameModal();
+  listEl
+    .querySelectorAll(".match-player-color-palette.is-open")
+    .forEach((palette) => palette.classList.remove("is-open"));
+  playerDragState = {
+    fromIndex: index,
+    listEl,
+    overIndex: null,
+    startX: touch.clientX,
+    startY: touch.clientY,
+    moved: false,
+    lastHapticIndex: null,
+    rowEl: null,
+  };
+  const row = listEl.querySelector(`[data-index="${index}"]`);
+  if (row) {
+    playerDragState.rowEl = row;
+  }
+  document.addEventListener("touchmove", handlePlayerTouchMove, { passive: false });
+  document.addEventListener("touchend", handlePlayerTouchEnd, { passive: true, once: true });
+  document.addEventListener("touchcancel", handlePlayerTouchEnd, { passive: true, once: true });
 }
 
 function getDefaultPlayerName(index) {
@@ -1794,6 +1875,10 @@ function renderMatchPlayers() {
     setI18n(dragHandle, "matchPlayerDrag", { attr: "aria-label" });
     dragHandle.addEventListener("pointerdown", (e) =>
       startPlayerPointerDrag(e, index, listEl)
+    );
+    dragHandle.addEventListener("touchstart", (e) =>
+      startPlayerTouchDrag(e, index, listEl),
+      { passive: false }
     );
     if (
       shouldAnimateSwap &&
@@ -7731,8 +7816,30 @@ const VIBRATION_PATTERNS = [
   [60, 40, 60, 40, 120],
 ];
 
+let hapticFallbackEl = null;
+
+function triggerHapticFallback() {
+  try {
+    if (!hapticFallbackEl) {
+      const wrapper = document.createElement("div");
+      const id = `haptic-${Math.random().toString(36).slice(2)}`;
+      wrapper.innerHTML = `<input type="checkbox" id="${id}" switch /><label for="${id}"></label>`;
+      wrapper.setAttribute(
+        "style",
+        "display:none !important;opacity:0 !important;visibility:hidden !important;pointer-events:none !important;"
+      );
+      document.body.appendChild(wrapper);
+      hapticFallbackEl = wrapper;
+    }
+    const label = hapticFallbackEl.querySelector("label");
+    if (label) label.click();
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
 function triggerHapticFeedback(patternOrIndex = 0) {
-  if (!navigator.vibrate) return false;
   try {
     let finalPattern = VIBRATION_PATTERNS[0];
     if (Array.isArray(patternOrIndex)) {
@@ -7748,10 +7855,13 @@ function triggerHapticFeedback(patternOrIndex = 0) {
         finalPattern = patternOrIndex;
       }
     }
-    navigator.vibrate(finalPattern);
-    return true;
+    if (navigator.vibrate) {
+      navigator.vibrate(finalPattern);
+      return true;
+    }
+    return triggerHapticFallback();
   } catch (e) {
-    return false;
+    return triggerHapticFallback();
   }
 }
 
