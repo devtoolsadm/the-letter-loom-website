@@ -4728,6 +4728,7 @@ function renderMatchFromState(matchState) {
   if (pointsRow) pointsRow.classList.toggle("hidden", matchState.mode !== MATCH_MODE_POINTS);
   if (roundsVal) roundsVal.textContent = matchState.roundsTarget ?? DEFAULT_ROUNDS_TARGET;
   if (pointsVal) pointsVal.textContent = matchState.pointsTarget ?? DEFAULT_POINTS_TARGET;
+  updateMatchConfigStepControls(matchState);
   if (scoringToggle) {
     scoringToggle.textContent = "";
     scoringToggle.classList.toggle("active", matchState.scoringEnabled);
@@ -4789,8 +4790,8 @@ function renderMatchFromState(matchState) {
       ? "matchConfigSummaryScoringOn"
       : "matchConfigSummaryScoringOff";
     const template = shellTexts.matchConfigSummaryDetails || "";
-    const strategy = formatPhaseDurationFull(stratTotal);
-    const creation = formatPhaseDurationFull(creationTotal);
+    const strategy = formatPhaseDuration(stratTotal);
+    const creation = formatPhaseDuration(creationTotal);
     const scoring = shellTexts[scoringKey] || "";
     const resolved = template
       .replace("{strategy}", strategy)
@@ -5954,7 +5955,7 @@ function adjustPoints(delta) {
   const st = matchController.getState();
   if (!st || st.phase !== "config") return;
   const current = tempMatchPrefs.pointsTarget ?? DEFAULT_POINTS_TARGET;
-  const next = Math.max(1, current + delta);
+  const next = Math.max(RECORD_MIN_POINTS, current + delta);
   updateMatchPreferences({ pointsTarget: next });
 }
 
@@ -7762,7 +7763,7 @@ function updateSummarySeparators(container) {
     if (offsets[i] !== offsets[i - 1]) continue;
     const sep = document.createElement("span");
     sep.className = "match-summary-sep";
-    sep.textContent = "·";
+    sep.textContent = "•";
     container.insertBefore(sep, items[i]);
   }
 }
@@ -7774,27 +7775,59 @@ const VIBRATION_PATTERNS = [
   [60, 40, 60, 40, 120],
 ];
 
-let hapticFallbackEl = null;
-
 function triggerHapticFallback() {
   try {
-    if (!hapticFallbackEl) {
-      const wrapper = document.createElement("div");
-      const id = `haptic-${Math.random().toString(36).slice(2)}`;
-      wrapper.innerHTML = `<input type="checkbox" id="${id}" switch /><label for="${id}"></label>`;
-      wrapper.setAttribute(
-        "style",
-        "display:none !important;opacity:0 !important;visibility:hidden !important;pointer-events:none !important;"
-      );
-      document.body.appendChild(wrapper);
-      hapticFallbackEl = wrapper;
+    const wrapper = document.createElement("div");
+    const id = `haptic-${Math.random().toString(36).slice(2)}`;
+    wrapper.innerHTML = `<input type="checkbox" id="${id}" switch /><label for="${id}"></label>`;
+    wrapper.setAttribute(
+      "style",
+      "display:none !important;opacity:0 !important;visibility:hidden !important;pointer-events:none !important;"
+    );
+    document.body.appendChild(wrapper);
+    const input = wrapper.querySelector("input");
+    if (input) {
+      input.checked = true;
+      input.checked = false;
+    } else {
+      const label = wrapper.querySelector("label");
+      if (label) label.click();
     }
-    const label = hapticFallbackEl.querySelector("label");
-    if (label) label.click();
+    setTimeout(() => {
+      wrapper.remove();
+    }, 100);
     return true;
   } catch (e) {
     return false;
   }
+}
+
+function updateMatchConfigStepControls(matchState) {
+  if (!matchState || matchState.phase !== "config") return;
+  const playersCount =
+    tempMatchPrefs.playersCount ?? matchState.players?.length ?? DEFAULT_PLAYER_COUNT;
+  const roundsTarget = tempMatchPrefs.roundsTarget ?? DEFAULT_ROUNDS_TARGET;
+  const pointsTarget = tempMatchPrefs.pointsTarget ?? DEFAULT_POINTS_TARGET;
+  const strategySeconds =
+    tempMatchPrefs.strategySeconds ?? DEFAULT_STRATEGY_SECONDS;
+  const creationSeconds =
+    tempMatchPrefs.creationSeconds ?? DEFAULT_CREATION_SECONDS;
+
+  const setDisabled = (id, disabled) => {
+    const btn = document.getElementById(id);
+    if (btn) btn.disabled = !!disabled;
+  };
+
+  setDisabled("matchPlayersMinus", playersCount <= MIN_PLAYERS);
+  setDisabled("matchPlayersPlus", playersCount >= MAX_PLAYERS);
+  setDisabled("matchRoundsMinus", roundsTarget <= 1);
+  setDisabled("matchRoundsPlus", false);
+  setDisabled("matchPointsMinus", pointsTarget <= RECORD_MIN_POINTS);
+  setDisabled("matchPointsPlus", false);
+  setDisabled("matchStrategyMinus", strategySeconds <= MIN_PHASE_SECONDS);
+  setDisabled("matchStrategyPlus", strategySeconds >= MAX_PHASE_SECONDS);
+  setDisabled("matchCreationMinus", creationSeconds <= MIN_PHASE_SECONDS);
+  setDisabled("matchCreationPlus", creationSeconds >= MAX_PHASE_SECONDS);
 }
 
 function triggerHapticFeedback(patternOrIndex = 0) {
