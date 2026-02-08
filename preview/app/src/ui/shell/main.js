@@ -7783,7 +7783,7 @@ function triggerHapticFallback() {
     wrapper.innerHTML = `<input type="checkbox" id="${id}" switch /><label for="${id}"></label>`;
     wrapper.setAttribute(
       "style",
-      "position:fixed !important;left:-1000px !important;top:-1000px !important;width:1px !important;height:1px !important;opacity:0.01 !important;"
+      "display:none !important;opacity:0 !important;visibility:hidden !important;"
     );
     document.body.appendChild(wrapper);
     const label = wrapper.querySelector("label");
