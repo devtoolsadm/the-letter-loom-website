@@ -7409,7 +7409,12 @@ function setupWakeLockActivityTracking() {
       sinceSuccess: now - lastWakeLockSuccessAt,
     });
     resetWakeLockTimer();
-    if (active && now - lastWakeLockSuccessAt < WAKE_LOCK_SUCCESS_DEBOUNCE_MS) {
+    const shouldDebounce =
+      !isIOS() && active && now - lastWakeLockSuccessAt < WAKE_LOCK_SUCCESS_DEBOUNCE_MS;
+    if (shouldDebounce) {
+      logger.debug("wake-lock: debounce skip", {
+        sinceSuccess: now - lastWakeLockSuccessAt,
+      });
       return;
     }
     await ensureWakeLock(true);
