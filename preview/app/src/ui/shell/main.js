@@ -55,6 +55,7 @@ import {
   RECORD_MIN_POINTS,
   RECORD_AVG_PENALTY_K,
   WAKE_LOCK_TIMEOUT_MS,
+  WAKE_LOCK_SUCCESS_DEBOUNCE_MS,
 } from "../../core/constants.js";
 import { matchController, validateWordRemote } from "../../core/matchController.js";
 import { openModal, closeModal, closeTopModal } from "./modal.js";
@@ -167,6 +168,8 @@ let pendingClockStart = false;
 let pendingAudioResume = false;
 let pendingAudioResumeHandler = null;
 let wakeLockTimer = null;
+let wakeLockRequestInFlight = false;
+let lastWakeLockSuccessAt = 0;
 let winnersModalOpen = false;
 let suppressWinnersPrompt = false;
 let lastWinnersIds = [];
@@ -7311,14 +7314,19 @@ function updateLanguageButton() {
 
 async function ensureWakeLock(shouldLock) {
   if (shouldLock) {
-    if (wakeLockActive || isWakeLockActive()) {
-      wakeLockActive = true;
-      resetWakeLockTimer();
-      return;
+    if (wakeLockRequestInFlight) return wakeLockActive || isWakeLockActive();
+    wakeLockRequestInFlight = true;
+    try {
+      const locked = await requestLock();
+      wakeLockActive = locked;
+      if (locked) {
+        resetWakeLockTimer();
+        lastWakeLockSuccessAt = Date.now();
+      }
+      return locked;
+    } finally {
+      wakeLockRequestInFlight = false;
     }
-    const locked = await requestLock();
-    wakeLockActive = locked;
-    if (locked) resetWakeLockTimer();
   } else {
     await releaseLock();
     wakeLockActive = false;
@@ -7380,8 +7388,17 @@ function setupLogoLongPressForDebug(logoEl) {
 }
 
 function setupWakeLockActivityTracking() {
-  const activityHandler = () => {
-    ensureWakeLock(true);
+  const activityHandler = async () => {
+    const now = Date.now();
+    const active = wakeLockActive || isWakeLockActive();
+    if (active && now - lastWakeLockSuccessAt < WAKE_LOCK_SUCCESS_DEBOUNCE_MS) {
+      resetWakeLockTimer();
+      return;
+    }
+    const locked = await ensureWakeLock(true);
+    if (!locked) {
+      resetWakeLockTimer();
+    }
   };
   ["pointerdown", "keydown", "touchstart"].forEach((evt) => {
     document.addEventListener(evt, activityHandler, true);

@@ -62,6 +62,7 @@ export const ROUND_KEYPAD_AUTO_ZERO_ON_NAV = false;
 export const RECORD_MIN_POINTS = 20;
 export const RECORD_AVG_PENALTY_K = 5;
 export const WAKE_LOCK_TIMEOUT_MS = 3 * 60 * 1000;
+export const WAKE_LOCK_SUCCESS_DEBOUNCE_MS = 30 * 1000;
 
 // Apply fixed player name styling when using vivid colors.
 if (USE_VIVID_PLAYER_COLORS && typeof document !== "undefined") {
