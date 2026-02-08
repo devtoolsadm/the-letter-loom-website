@@ -7391,14 +7391,11 @@ function setupWakeLockActivityTracking() {
   const activityHandler = async () => {
     const now = Date.now();
     const active = wakeLockActive || isWakeLockActive();
+    resetWakeLockTimer();
     if (active && now - lastWakeLockSuccessAt < WAKE_LOCK_SUCCESS_DEBOUNCE_MS) {
-      resetWakeLockTimer();
       return;
     }
-    const locked = await ensureWakeLock(true);
-    if (!locked) {
-      resetWakeLockTimer();
-    }
+    await ensureWakeLock(true);
   };
   ["pointerdown", "keydown", "touchstart"].forEach((evt) => {
     document.addEventListener(evt, activityHandler, true);
