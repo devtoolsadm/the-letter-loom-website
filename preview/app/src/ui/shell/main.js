@@ -1491,7 +1491,7 @@ function handlePlayerPointerUp() {
     list.splice(insertIndex, 0, moved);
     tempMatchPlayers = list;
     markPlayerSwap(fromIndex, insertIndex);
-    playClickSfx();
+    playClickFeedback();
   }
   renderMatchPlayers();
 }
@@ -1771,7 +1771,7 @@ function renderPlayerNameModal() {
     selectBtn.className = "player-name-pill-select";
     selectBtn.textContent = name;
     selectBtn.addEventListener("click", () => {
-      playClickSfx();
+      playClickFeedback();
       const nextName = clampPlayerName(name);
       tempMatchPlayers[openPlayerNameIndex] = { ...player, name: nextName };
       closePlayerNameModal();
@@ -1784,7 +1784,7 @@ function renderPlayerNameModal() {
     setI18n(removeBtn, "matchPlayerNameRemove", { attr: "aria-label" });
     removeBtn.addEventListener("click", (e) => {
       e.stopPropagation();
-      playClickSfx();
+      playClickFeedback();
       removeKnownPlayerName(name);
       renderPlayerNameModal();
     });
@@ -1860,7 +1860,7 @@ function renderMatchPlayers() {
     upBtn.disabled = index === 0;
     upBtn.addEventListener("click", () => {
       if (index === 0) return;
-      playClickSfx();
+      playClickFeedback();
       triggerHapticFeedback(1);
       const list = [...tempMatchPlayers];
       const temp = list[index - 1];
@@ -1880,7 +1880,7 @@ function renderMatchPlayers() {
     setI18n(colorBtn, "matchPlayerColor", { attr: "aria-label" });
     colorBtn.addEventListener("click", (e) => {
       e.stopPropagation();
-      playClickSfx();
+      playClickFeedback();
       closePlayerNameModal();
       openPlayerColorIndex = openPlayerColorIndex === index ? null : index;
       renderMatchPlayers();
@@ -1920,7 +1920,7 @@ function renderMatchPlayers() {
       });
       clearBtn.addEventListener("click", (e) => {
         e.stopPropagation();
-        playClickSfx();
+        playClickFeedback();
         nameInput.value = "";
         tempMatchPlayers[index] = { ...player, name: "" };
         clearBtn.classList.add("hidden");
@@ -1938,7 +1938,7 @@ function renderMatchPlayers() {
     }
     nameBtn.addEventListener("click", (e) => {
       e.stopPropagation();
-      playClickSfx();
+      playClickFeedback();
       openPlayerColorIndex = null;
       openPlayerNameModal(index);
     });
@@ -1964,7 +1964,7 @@ function renderMatchPlayers() {
       }
       option.addEventListener("click", () => {
         if (player.color === color) return;
-        playClickSfx();
+        playClickFeedback();
         tempMatchPlayers[index] = { ...player, color };
         openPlayerColorIndex = null;
         closePlayerNameModal();
@@ -1980,7 +1980,7 @@ function renderMatchPlayers() {
     downBtn.disabled = index === tempMatchPlayers.length - 1;
     downBtn.addEventListener("click", () => {
       if (index >= tempMatchPlayers.length - 1) return;
-      playClickSfx();
+      playClickFeedback();
       triggerHapticFeedback(1);
       const list = [...tempMatchPlayers];
       const temp = list[index + 1];
@@ -2652,6 +2652,16 @@ function playClickSfx() {
   if (!soundOn) return;
   if (playSfxBuffer("click")) return;
   loadSfxBuffers();
+}
+let lastClickFeedbackAt = 0;
+function playClickFeedback() {
+  const now = Date.now();
+  if (now - lastClickFeedbackAt < 80) return;
+  lastClickFeedbackAt = now;
+  playClickSfx();
+  if (soundOn) {
+    triggerHapticFeedback(0);
+  }
 }
 // 1x1 transparent GIF to avoid broken-image icons before real sources are assigned
 const PLACEHOLDER_IMG =
@@ -3368,7 +3378,11 @@ function setupNavigation() {
   ];
   map.forEach(([id, handler]) => {
     const el = document.getElementById(id);
-    if (el) el.addEventListener("click", handler);
+    if (el)
+      el.addEventListener("click", () => {
+        playClickFeedback();
+        handler();
+      });
   });
 
   setupDelegatedControls();
@@ -3548,7 +3562,7 @@ function setupNavigation() {
   }
   if (settingsSoundIcon) {
     settingsSoundIcon.addEventListener("click", () => {
-      playClickSfx();
+      playClickFeedback();
       toggleVolumeIcon("sound");
     });
   }
@@ -3564,7 +3578,7 @@ function setupNavigation() {
   }
   if (settingsMusicIcon) {
     settingsMusicIcon.addEventListener("click", () => {
-      playClickSfx();
+      playClickFeedback();
       toggleVolumeIcon("music");
     });
   }
@@ -3572,7 +3586,7 @@ function setupNavigation() {
   const settingsLanguageIcon = document.getElementById("settingsLanguageIcon");
   if (settingsLanguageIcon) {
     settingsLanguageIcon.addEventListener("click", () => {
-      playClickSfx();
+      playClickFeedback();
       cycleLanguage();
     });
   }
@@ -3581,7 +3595,7 @@ function setupNavigation() {
   if (settingsLangBtn && settingsLangControl) {
     settingsLangBtn.addEventListener("click", (e) => {
       e.stopPropagation();
-      playClickSfx();
+      playClickFeedback();
       toggleSettingsLanguageDropdown();
     });
     document.addEventListener("click", (e) => {
@@ -3608,12 +3622,29 @@ function setupNavigation() {
   const matchPhaseHelpBtn = document.getElementById("matchPhaseHelpBtn");
   const matchPhaseStrategyBtn = document.getElementById("matchPhaseStrategyBtn");
   const matchPhaseCreationBtn = document.getElementById("matchPhaseCreationBtn");
-  if (modeRoundsBtn) modeRoundsBtn.addEventListener("click", () => setMatchMode(MATCH_MODE_ROUNDS));
-  if (modePointsBtn) modePointsBtn.addEventListener("click", () => setMatchMode(MATCH_MODE_POINTS));
-  if (scoringToggle) scoringToggle.addEventListener("click", toggleScoring);
-  if (recordValidationToggle) recordValidationToggle.addEventListener("click", toggleRecordValidation);
+  if (modeRoundsBtn)
+    modeRoundsBtn.addEventListener("click", () => {
+      playClickFeedback();
+      setMatchMode(MATCH_MODE_ROUNDS);
+    });
+  if (modePointsBtn)
+    modePointsBtn.addEventListener("click", () => {
+      playClickFeedback();
+      setMatchMode(MATCH_MODE_POINTS);
+    });
+  if (scoringToggle)
+    scoringToggle.addEventListener("click", () => {
+      playClickFeedback();
+      toggleScoring();
+    });
+  if (recordValidationToggle)
+    recordValidationToggle.addEventListener("click", () => {
+      playClickFeedback();
+      toggleRecordValidation();
+    });
   if (matchRulesBtn)
     matchRulesBtn.addEventListener("click", () => {
+      playClickFeedback();
       rulesEditContext = "temp";
       openRulesModal("temp");
     });
@@ -3623,9 +3654,15 @@ function setupNavigation() {
       e.stopPropagation();
     });
   if (matchPhaseStrategyBtn)
-    matchPhaseStrategyBtn.addEventListener("click", () => handlePhaseTabClick("strategy"));
+    matchPhaseStrategyBtn.addEventListener("click", () => {
+      playClickFeedback();
+      handlePhaseTabClick("strategy");
+    });
   if (matchPhaseCreationBtn)
-    matchPhaseCreationBtn.addEventListener("click", () => handlePhaseTabClick("creation"));
+    matchPhaseCreationBtn.addEventListener("click", () => {
+      playClickFeedback();
+      handlePhaseTabClick("creation");
+    });
 }
 
 function setupDelegatedControls() {
@@ -3691,13 +3728,13 @@ function setupDelegatedControls() {
 }
 
 function openManual() {
-  playClickSfx();
+  playClickFeedback();
   const triggerDownload = createDownload();
   triggerDownload(MANUAL_URL, "LetterLoom_Manual.pdf");
 }
 
 function openQuickGuide() {
-  playClickSfx();
+  playClickFeedback();
   if (HELP_QUICK_URL) {
     window.open(HELP_QUICK_URL, "_blank", "noopener");
     return;
@@ -3707,7 +3744,7 @@ function openQuickGuide() {
 }
 
 function openHelpVideo() {
-  playClickSfx();
+  playClickFeedback();
   if (HELP_VIDEO_URL) {
     window.open(HELP_VIDEO_URL, "_blank", "noopener");
   } else {
@@ -3716,7 +3753,7 @@ function openHelpVideo() {
 }
 
 function openSocialLink(kind) {
-  playClickSfx();
+  playClickFeedback();
   if (kind === "instagram" && HELP_INSTAGRAM_URL) {
     window.open(HELP_INSTAGRAM_URL, "_blank", "noopener");
     return;
@@ -5734,7 +5771,7 @@ function showValidationResult(status, message) {
 }
 function openRulesModal(context = "live") {
   rulesEditContext = context === "temp" ? "temp" : "live";
-  playClickSfx();
+  playClickFeedback();
   playModalOpenSound();
   const textarea = document.getElementById("rulesTextarea");
   if (textarea) {
@@ -6048,7 +6085,6 @@ function handlePhaseTabClick(target) {
   const isCreationPhase = st.phase.startsWith("creation") || st.phase === "done";
   if (target === "creation") {
     if (isCreationPhase) return;
-    playClickSfx();
     openConfirm({
       title: "confirmTitlePhaseChange",
       body: "confirmBodyPhaseChange",
@@ -6064,7 +6100,6 @@ function handlePhaseTabClick(target) {
     return;
   }
   if (!isCreationPhase) return;
-  playClickSfx();
   openConfirm({
     title: "confirmTitlePhaseChange",
     body: "confirmBodyPhaseChange",
@@ -6980,7 +7015,7 @@ function resetMatchState() {
 }
 
 function confirmExitToSplash() {
-  playClickSfx();
+  playClickFeedback();
   openConfirm({
     title: "matchEndMatch",
     body: "confirmBodyExit",
@@ -6996,7 +7031,7 @@ function confirmExitToSplash() {
 }
 
 function exitMatchDirect() {
-  playClickSfx();
+  playClickFeedback();
   finalizeMatchSnapshot(matchController.getState(), { status: "finished", exitExplicit: true });
   stopClockLoop(true);
   preserveMatchConfigOnExit = false;
@@ -7474,7 +7509,7 @@ function setupAudio() {
       if (!btn) return;
       ensureAudioContextAvailable();
       loadSfxBuffers();
-      playClickSfx();
+      playClickFeedback();
       if (pendingAudioResume) {
         pendingAudioResume = false;
         resumeMusicForState();
