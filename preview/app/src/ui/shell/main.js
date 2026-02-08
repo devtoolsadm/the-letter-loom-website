@@ -7118,7 +7118,6 @@ function showScreen(name) {
     stopMatchTimer();
     stopClockLoop(true);
   }
-  ensureWakeLock(true);
   checkOrientationOverlay();
 }
 
