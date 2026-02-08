@@ -7779,23 +7779,26 @@ function triggerHapticFallback() {
   try {
     const wrapper = document.createElement("div");
     const id = `haptic-${Math.random().toString(36).slice(2)}`;
-    wrapper.innerHTML = `<input type="checkbox" id="${id}" switch /><label for="${id}"></label>`;
+    wrapper.innerHTML = `<input type="checkbox" id="${id}" role="switch" /><label for="${id}"></label>`;
     wrapper.setAttribute(
       "style",
-      "display:none !important;opacity:0 !important;visibility:hidden !important;pointer-events:none !important;"
+      "position:fixed !important;left:-1000px !important;top:-1000px !important;width:1px !important;height:1px !important;opacity:0.01 !important;pointer-events:none !important;"
     );
     document.body.appendChild(wrapper);
     const input = wrapper.querySelector("input");
     if (input) {
-      input.checked = true;
-      input.checked = false;
+      input.click();
+      setTimeout(() => {
+        input.click();
+        wrapper.remove();
+      }, 20);
     } else {
       const label = wrapper.querySelector("label");
       if (label) label.click();
+      setTimeout(() => {
+        wrapper.remove();
+      }, 20);
     }
-    setTimeout(() => {
-      wrapper.remove();
-    }, 100);
     return true;
   } catch (e) {
     return false;
