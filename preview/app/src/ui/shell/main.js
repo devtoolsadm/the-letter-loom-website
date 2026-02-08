@@ -1457,19 +1457,9 @@ function handlePlayerPointerMove(e) {
   handlePlayerDragMove(e.clientX, e.clientY);
 }
 
-function handlePlayerTouchMove(e) {
-  if (!playerDragState || !e.touches || !e.touches.length) return;
-  e.preventDefault();
-  const touch = e.touches[0];
-  handlePlayerDragMove(touch.clientX, touch.clientY);
-}
-
 function handlePlayerPointerUp() {
   if (!playerDragState) return;
   document.removeEventListener("pointermove", handlePlayerPointerMove);
-  document.removeEventListener("touchmove", handlePlayerTouchMove);
-  document.removeEventListener("touchend", handlePlayerTouchEnd);
-  document.removeEventListener("touchcancel", handlePlayerTouchEnd);
   removePlayerDragGhost();
   const { fromIndex, overIndex, listEl } = playerDragState;
   clearPlayerDropIndicator(listEl);
@@ -1498,13 +1488,14 @@ function handlePlayerPointerUp() {
   renderMatchPlayers();
 }
 
-function handlePlayerTouchEnd() {
-  handlePlayerPointerUp();
-}
-
 function startPlayerPointerDrag(e, index, listEl) {
   e.preventDefault();
-  triggerHapticFeedback(1);
+  const hapticOk = triggerHapticFeedback(1);
+  logger.debug("Player drag haptic", {
+    vibrateSupported: typeof navigator !== "undefined" && !!navigator.vibrate,
+    hapticOk,
+    pointerType: e?.pointerType || "",
+  });
   openPlayerColorIndex = null;
   closePlayerNameModal();
   listEl
@@ -1530,35 +1521,6 @@ function startPlayerPointerDrag(e, index, listEl) {
   document.addEventListener("pointermove", handlePlayerPointerMove);
   document.addEventListener("pointerup", handlePlayerPointerUp, { once: true });
   document.addEventListener("pointercancel", handlePlayerPointerUp, { once: true });
-}
-
-function startPlayerTouchDrag(e, index, listEl) {
-  if (!e.touches || !e.touches.length) return;
-  e.preventDefault();
-  const touch = e.touches[0];
-  triggerHapticFeedback(1);
-  openPlayerColorIndex = null;
-  closePlayerNameModal();
-  listEl
-    .querySelectorAll(".match-player-color-palette.is-open")
-    .forEach((palette) => palette.classList.remove("is-open"));
-  playerDragState = {
-    fromIndex: index,
-    listEl,
-    overIndex: null,
-    startX: touch.clientX,
-    startY: touch.clientY,
-    moved: false,
-    lastHapticIndex: null,
-    rowEl: null,
-  };
-  const row = listEl.querySelector(`[data-index="${index}"]`);
-  if (row) {
-    playerDragState.rowEl = row;
-  }
-  document.addEventListener("touchmove", handlePlayerTouchMove, { passive: false });
-  document.addEventListener("touchend", handlePlayerTouchEnd, { passive: true, once: true });
-  document.addEventListener("touchcancel", handlePlayerTouchEnd, { passive: true, once: true });
 }
 
 function getDefaultPlayerName(index) {
@@ -1875,10 +1837,6 @@ function renderMatchPlayers() {
     setI18n(dragHandle, "matchPlayerDrag", { attr: "aria-label" });
     dragHandle.addEventListener("pointerdown", (e) =>
       startPlayerPointerDrag(e, index, listEl)
-    );
-    dragHandle.addEventListener("touchstart", (e) =>
-      startPlayerTouchDrag(e, index, listEl),
-      { passive: false }
     );
     if (
       shouldAnimateSwap &&

@@ -3124,8 +3124,11 @@ body.splash-ready #splashLoadingBlock {
 .lang-es .match-actions [data-i18n="matchStartMatch"] {
   font-size: 22px;
 }
-.match-actions [data-i18n="matchConfigTitle"] {
-  font-size: 12px;
+.lang-es .match-screen [data-i18n="matchConfigTitle"] {
+  font-size: 22px;
+}
+.lang-en .match-screen [data-i18n="matchConfigTitle"] {
+  font-size: 28px;
 }
 
 
