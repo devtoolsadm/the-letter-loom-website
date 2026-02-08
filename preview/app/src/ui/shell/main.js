@@ -176,7 +176,6 @@ let lastPlayerSwap = null;
 let playerDragState = null;
 let playerDragGhost = null;
 let playerDragOffset = null;
-let lastDragWasTouch = false;
 let lastMatchPhase = null;
 let dealerFocusTimer = null;
 const WAKE_LOCK_TIMEOUT_MS = 5 * 60 * 1000;
@@ -1470,9 +1469,7 @@ function handlePlayerPointerUp() {
   if (!playerDragState) return;
   document.removeEventListener("pointermove", handlePlayerPointerMove);
   removePlayerDragGhost();
-  if (!lastDragWasTouch) {
-    triggerHapticFeedback(2);
-  }
+  triggerHapticFeedback(2);
   const { fromIndex, overIndex, listEl } = playerDragState;
   clearPlayerDropIndicator(listEl);
   listEl.classList.remove("is-dragging");
@@ -1500,7 +1497,6 @@ function handlePlayerPointerUp() {
 }
 
 function startPlayerPointerDrag(e, index, listEl) {
-  lastDragWasTouch = e?.pointerType === "touch";
   const hapticOk = triggerHapticFeedback(1);
   e.preventDefault();
   logger.debug("Player drag haptic", {
@@ -1533,13 +1529,6 @@ function startPlayerPointerDrag(e, index, listEl) {
   document.addEventListener("pointermove", handlePlayerPointerMove);
   document.addEventListener("pointerup", handlePlayerPointerUp, { once: true });
   document.addEventListener("pointercancel", handlePlayerPointerUp, { once: true });
-  if (lastDragWasTouch) {
-    const onTouchEnd = () => {
-      triggerHapticFeedback(2);
-    };
-    document.addEventListener("touchend", onTouchEnd, { once: true, passive: true });
-    document.addEventListener("touchcancel", onTouchEnd, { once: true, passive: true });
-  }
 }
 
 function getDefaultPlayerName(index) {
@@ -1856,13 +1845,6 @@ function renderMatchPlayers() {
     setI18n(dragHandle, "matchPlayerDrag", { attr: "aria-label" });
     dragHandle.addEventListener("pointerdown", (e) =>
       startPlayerPointerDrag(e, index, listEl)
-    );
-    dragHandle.addEventListener(
-      "touchstart",
-      () => {
-        triggerHapticFeedback(1);
-      },
-      { passive: true }
     );
     if (
       shouldAnimateSwap &&
@@ -7815,13 +7797,12 @@ function triggerHapticFallback() {
     if (label) {
       label.click();
       setTimeout(() => {
-        label.click();
         wrapper.remove();
-      }, 20);
+      }, 0);
     } else {
       const input = wrapper.querySelector("input");
       if (input) input.click();
-      setTimeout(() => wrapper.remove(), 20);
+      setTimeout(() => wrapper.remove(), 0);
     }
     return true;
   } catch (e) {
