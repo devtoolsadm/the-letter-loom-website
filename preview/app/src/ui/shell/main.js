@@ -1446,14 +1446,14 @@ function handlePlayerPointerUp() {
     tempMatchPlayers = list;
     markPlayerSwap(fromIndex, insertIndex);
     playClickSfx();
-    triggerHapticFeedback(16);
+    triggerHapticFeedback(2);
   }
   renderMatchPlayers();
 }
 
 function startPlayerPointerDrag(e, index, listEl) {
   e.preventDefault();
-  triggerHapticFeedback(12);
+  triggerHapticFeedback(0);
   openPlayerColorIndex = null;
   closePlayerNameModal();
   listEl
@@ -1810,7 +1810,7 @@ function renderMatchPlayers() {
     upBtn.addEventListener("click", () => {
       if (index === 0) return;
       playClickSfx();
-      triggerHapticFeedback(10);
+      triggerHapticFeedback(1);
       const list = [...tempMatchPlayers];
       const temp = list[index - 1];
       list[index - 1] = list[index];
@@ -1930,7 +1930,7 @@ function renderMatchPlayers() {
     downBtn.addEventListener("click", () => {
       if (index >= tempMatchPlayers.length - 1) return;
       playClickSfx();
-      triggerHapticFeedback(10);
+      triggerHapticFeedback(1);
       const list = [...tempMatchPlayers];
       const temp = list[index + 1];
       list[index + 1] = list[index];
@@ -7724,11 +7724,35 @@ function updateSummarySeparators(container) {
   }
 }
 
-function triggerHapticFeedback(pattern = 12) {
-  if (!navigator.vibrate) return;
+const VIBRATION_PATTERNS = [
+  20,
+  [20, 15, 20],
+  [30, 20, 30, 20, 30],
+  [60, 40, 60, 40, 120],
+];
+
+function triggerHapticFeedback(patternOrIndex = 0) {
+  if (!navigator.vibrate) return false;
   try {
-    navigator.vibrate(pattern);
-  } catch (e) {}
+    let finalPattern = VIBRATION_PATTERNS[0];
+    if (Array.isArray(patternOrIndex)) {
+      finalPattern = patternOrIndex;
+    } else if (typeof patternOrIndex === "number") {
+      if (
+        Number.isInteger(patternOrIndex) &&
+        patternOrIndex >= 0 &&
+        patternOrIndex < VIBRATION_PATTERNS.length
+      ) {
+        finalPattern = VIBRATION_PATTERNS[patternOrIndex];
+      } else {
+        finalPattern = patternOrIndex;
+      }
+    }
+    navigator.vibrate(finalPattern);
+    return true;
+  } catch (e) {
+    return false;
+  }
 }
 
 function triggerTimeUpEffects(kind) {
@@ -7738,11 +7762,7 @@ function triggerTimeUpEffects(kind) {
       playLowTimeTick(true);
     }
   }
-  if (navigator.vibrate) {
-    try {
-      navigator.vibrate(TIMEUP_VIBRATION_MS);
-    } catch (e) {}
-  }
+  triggerHapticFeedback(TIMEUP_VIBRATION_MS);
   stopClockLoop(false);
 }
 
