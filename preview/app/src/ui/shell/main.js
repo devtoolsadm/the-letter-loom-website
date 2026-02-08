@@ -170,6 +170,7 @@ let pendingAudioResumeHandler = null;
 let wakeLockTimer = null;
 let wakeLockRequestInFlight = false;
 let lastWakeLockSuccessAt = 0;
+let lastWakeLockActivityAt = 0;
 let winnersModalOpen = false;
 let suppressWinnersPrompt = false;
 let lastWinnersIds = [];
@@ -7314,6 +7315,10 @@ function updateLanguageButton() {
 
 async function ensureWakeLock(shouldLock) {
   if (shouldLock) {
+    logger.debug("wake-lock: ensure requested", {
+      active: wakeLockActive || isWakeLockActive(),
+      inFlight: wakeLockRequestInFlight,
+    });
     if (wakeLockRequestInFlight) return wakeLockActive || isWakeLockActive();
     wakeLockRequestInFlight = true;
     try {
@@ -7322,12 +7327,16 @@ async function ensureWakeLock(shouldLock) {
       if (locked) {
         resetWakeLockTimer();
         lastWakeLockSuccessAt = Date.now();
+        logger.debug("wake-lock: acquired", { at: lastWakeLockSuccessAt });
+      } else {
+        logger.debug("wake-lock: not acquired");
       }
       return locked;
     } finally {
       wakeLockRequestInFlight = false;
     }
   } else {
+    logger.debug("wake-lock: release requested");
     await releaseLock();
     wakeLockActive = false;
     if (wakeLockTimer) {
@@ -7388,9 +7397,17 @@ function setupLogoLongPressForDebug(logoEl) {
 }
 
 function setupWakeLockActivityTracking() {
-  const activityHandler = async () => {
+  const activityHandler = async (evt) => {
+    if (evt && evt.isTrusted === false) return;
+    lastWakeLockActivityAt = Date.now();
     const now = Date.now();
     const active = wakeLockActive || isWakeLockActive();
+    logger.debug("wake-lock: activity", {
+      type: evt?.type,
+      trusted: evt?.isTrusted,
+      active,
+      sinceSuccess: now - lastWakeLockSuccessAt,
+    });
     resetWakeLockTimer();
     if (active && now - lastWakeLockSuccessAt < WAKE_LOCK_SUCCESS_DEBOUNCE_MS) {
       return;
@@ -8052,6 +8069,9 @@ function resetWakeLockTimer() {
     clearTimeout(wakeLockTimer);
   }
   wakeLockTimer = setTimeout(() => {
+    logger.debug("wake-lock: timeout elapsed", {
+      sinceActivity: Date.now() - lastWakeLockActivityAt,
+    });
     ensureWakeLock(false);
   }, WAKE_LOCK_TIMEOUT_MS);
 }
