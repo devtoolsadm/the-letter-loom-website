@@ -4,7 +4,6 @@ export const BULLET_CHAR = "\u25CF";
 
 export const TEXTS = {
   es: {
-      matchRoundScoresOutOfRange: "Puntuación fuera de rango en {player} (mínimo {min}, máximo {max})",
     languageName: "Español",
     appTitle: "The Letter Loom",
     appShortName: "Letter Loom",
@@ -19,6 +18,131 @@ export const TEXTS = {
     helpQuickGuide: "Guía rápida",
     helpVideo: "Vídeo explicativo",
     helpManual: "Manual de instrucciones",
+    quickGuideTitle: "Guía rápida",
+    quickGuideIndexTitle: "Índice",
+    quickGuideIndexIntro: "Elige una sección y salta directo.",
+    quickGuideIndexButton: "Índice",
+    quickGuideManualNote: "¿Quieres el manual completo? Lo tienes en PDF.",
+    quickGuideManualBtn: "Manual completo",
+    quickGuideManualLink: "Abrir PDF",
+    quickGuideSections: [
+      {
+        id: "intro",
+        title: "Arranque rápido",
+        body: [
+          "Configura la partida (bazas o puntos) y listo.",
+          "La app lleva cronos, orden y marcador."
+        ],
+        bullets: [
+          "De 2 a 8 jugadores.",
+          "Duración típica: 20-40 minutos."
+        ]
+      },
+      {
+        id: "strategy",
+        title: "Fase de estrategia",
+        body: [
+          "Aquí se preparan las jugadas."
+        ],
+        bullets: [
+          "Coloca el Tablero Central con 5 letras boca arriba.",
+          "Reparte 3 letras + 3 cartas de estrategia a cada jugador.",
+          "Activa el cronómetro de estrategia.",
+          "Cada jugador juega una carta de estrategia para cambiar letras, puntos o tablero."
+        ]
+      },
+      {
+        id: "creation",
+        title: "Fase de creación",
+        body: [
+          "Ahora toca formar palabra."
+        ],
+        bullets: [
+          "Activa el cronómetro de creación.",
+          "Forma tu palabra con letras del Tablero Central y tus letras.",
+          "Suma los valores, aplica color y efectos de estrategia.",
+          "Muestra la palabra y tu puntuación."
+        ]
+      },
+      {
+        id: "scoring",
+        title: "Puntuación y siguiente ronda",
+        body: [
+          "Se anotan los puntos y se pasa el reparto."
+        ],
+        bullets: [
+          "Anota las puntuaciones en la app.",
+          "El reparto pasa al jugador de la derecha.",
+          "Repite hasta llegar a la meta de bazas o puntos."
+        ]
+      },
+      {
+        id: "strategy-cards",
+        title: "Cartas de estrategia",
+        body: [
+          "Sirven para cambiar letras o puntuación."
+        ],
+        bullets: [
+          "Intercambia cartas con otros jugadores.",
+          "Roba o devuelve cartas al tablero.",
+          "Multiplica, suma o resta puntos.",
+          "Cambia el Tablero Central."
+        ]
+      },
+      {
+        id: "valid-words",
+        title: "Palabras válidas",
+        body: [
+          "Acordadlo al empezar, o usad el validador."
+        ],
+        bullets: [
+          "Valen palabras del diccionario y nombres propios comunes.",
+          "No valen abreviaturas ni faltas de ortografía.",
+          "Extranjerismos solo si los aceptáis."
+        ]
+      },
+      {
+        id: "records",
+        title: "Récords",
+        body: [
+          "Si una puntuación entra en récord, la app te avisa."
+        ],
+        bullets: [
+          "Si usas extras (x2, comodín, + o - puntos), márcalos.",
+          "La media de partida se calcula al finalizar."
+        ]
+      },
+      {
+        id: "faq",
+        title: "Preguntas frecuentes",
+        faq: [
+          {
+            q: "¿Puedo repetir una palabra?",
+            a: "Se puede, pero suele restar puntos. Acordad la regla antes de jugar."
+          },
+          {
+            q: "¿Qué pasa si no puedo formar palabra?",
+            a: "Puedes pasar y anotar 0, o la penalización que acordéis."
+          },
+          {
+            q: "¿Debo usar letras del Tablero Central?",
+            a: "Sí, al menos una, si jugáis con esa regla."
+          },
+          {
+            q: "¿Cuándo se usan las cartas de estrategia?",
+            a: "Solo en la fase de estrategia, antes de crear palabra."
+          },
+          {
+            q: "¿Los nombres propios valen?",
+            a: "Solo los comunes o los que acordéis."
+          },
+          {
+            q: "¿Cómo funciona el x2?",
+            a: "Si todas las letras son del mismo color, se multiplica la puntuación por 2."
+          }
+        ]
+      }
+    ],
     helpInstagram: "Instagram",
     helpTiktok: "TikTok",
     helpEmail: "Contacto",
@@ -117,6 +241,8 @@ export const TEXTS = {
     matchModePoints: "Puntos",
     matchDealerLabel: "Reparte",
     matchScoreboardTitle: "Marcador",
+    matchScoreboardGoalRounds: "Objetivo: {rounds} bazas",
+    matchScoreboardGoalPoints: "Objetivo: {points} puntos",
     recordsTitle: "Records",
     recordsOpen: "Records",
     recordsTabWords: "Palabras",
@@ -217,6 +343,7 @@ export const TEXTS = {
     matchRoundScoresMissing: "Faltan puntuaciones por registrar",
     matchScoreboardScoresMissing: "Faltan puntuaciones por registrar (ronda {round}, {player})",
     matchScoreboardScoresOutOfRange: "Puntuación fuera de rango en {player} (ronda {round}, mínimo {min}, máximo {max})",
+    matchRoundScoresOutOfRange: "Puntuación fuera de rango en {player} (mínimo {min}, máximo {max})",
     matchRoundScoresOdd: "Puntuación impar en {player}",
     matchWinnerTitleSingle: "Ganador",
     matchWinnerTitleMulti: "Ganadores",
@@ -266,7 +393,6 @@ export const TEXTS = {
     matchEndMatch: "Finalizar partida",
   },
   en: {
-      matchRoundScoresOutOfRange: "Score out of range for {player} (min {min}, max {max})",
     languageName: "English",
     appTitle: "The Letter Loom",
     appShortName: "Letter Loom",
@@ -281,6 +407,131 @@ export const TEXTS = {
     helpQuickGuide: "Quick guide",
     helpVideo: "How-to video",
     helpManual: "Instruction manual",
+    quickGuideTitle: "Quick guide",
+    quickGuideIndexTitle: "Index",
+    quickGuideIndexIntro: "Pick a section and jump right in.",
+    quickGuideIndexButton: "Index",
+    quickGuideManualNote: "Want the full manual? Open the PDF.",
+    quickGuideManualBtn: "Full manual",
+    quickGuideManualLink: "Open PDF",
+    quickGuideSections: [
+      {
+        id: "intro",
+        title: "Quick start",
+        body: [
+          "Set the match (rounds or points) and go.",
+          "The app runs timers, order and scoreboard."
+        ],
+        bullets: [
+          "2 to 8 players.",
+          "Typical length: 20-40 minutes."
+        ]
+      },
+      {
+        id: "strategy",
+        title: "Strategy phase",
+        body: [
+          "This is where you set up your play."
+        ],
+        bullets: [
+          "Place the Central Board with 5 letters face up.",
+          "Deal 3 letters + 3 strategy cards to each player.",
+          "Start the strategy timer.",
+          "Each player plays a strategy card to change letters, points or the board."
+        ]
+      },
+      {
+        id: "creation",
+        title: "Creation phase",
+        body: [
+          "Now build your word."
+        ],
+        bullets: [
+          "Start the creation timer.",
+          "Form a word using the Central Board and your letters.",
+          "Add the values, apply color and strategy effects.",
+          "Show the word and your score."
+        ]
+      },
+      {
+        id: "scoring",
+        title: "Scoring and next round",
+        body: [
+          "Log the points and pass the deal."
+        ],
+        bullets: [
+          "Enter the scores in the app.",
+          "The deal moves to the player on the right.",
+          "Repeat until you reach the rounds/points goal."
+        ]
+      },
+      {
+        id: "strategy-cards",
+        title: "Strategy cards",
+        body: [
+          "They change letters or scoring."
+        ],
+        bullets: [
+          "Swap cards with other players.",
+          "Draw or return cards to the board.",
+          "Multiply, add or subtract points.",
+          "Change the Central Board."
+        ]
+      },
+      {
+        id: "valid-words",
+        title: "Valid words",
+        body: [
+          "Agree the rules up front, or use the validator."
+        ],
+        bullets: [
+          "Dictionary words and common proper nouns are ok.",
+          "No abbreviations or misspellings.",
+          "Loanwords only if everyone accepts them."
+        ]
+      },
+      {
+        id: "records",
+        title: "Records",
+        body: [
+          "If a score is a record, the app will tell you."
+        ],
+        bullets: [
+          "If you used extras (x2, wildcard, + or - points), mark them.",
+          "Match averages are calculated at the end."
+        ]
+      },
+      {
+        id: "faq",
+        title: "FAQ",
+        faq: [
+          {
+            q: "Can I repeat a word?",
+            a: "You can, but it usually costs points. Agree the rule first."
+          },
+          {
+            q: "What if I can’t form a word?",
+            a: "You can pass and score 0, or use your agreed penalty."
+          },
+          {
+            q: "Do I have to use the Central Board?",
+            a: "Yes, at least one letter, if you play with that rule."
+          },
+          {
+            q: "When do I use strategy cards?",
+            a: "Only in the strategy phase, before creating."
+          },
+          {
+            q: "Are proper names allowed?",
+            a: "Only common ones, or whatever you all agree on."
+          },
+          {
+            q: "How does x2 work?",
+            a: "If all letters are the same color, the score is multiplied by 2."
+          }
+        ]
+      }
+    ],
     helpInstagram: "Instagram",
     helpTiktok: "TikTok",
     helpEmail: "Contact",
@@ -379,6 +630,8 @@ export const TEXTS = {
     matchModePoints: "Points",
     matchDealerLabel: "Dealer",
     matchScoreboardTitle: "Scoreboard",
+    matchScoreboardGoalRounds: "Goal: {rounds} rounds",
+    matchScoreboardGoalPoints: "Goal: {points} points",
     recordsTitle: "Records",
     recordsOpen: "Records",
     recordsTabWords: "Words",
@@ -479,6 +732,7 @@ export const TEXTS = {
     matchRoundScoresMissing: "Scores still missing",
     matchScoreboardScoresMissing: "Scores still missing (round {round}, {player})",
     matchScoreboardScoresOutOfRange: "Score out of range for {player} (round {round}, min {min}, max {max})",
+    matchRoundScoresOutOfRange: "Score out of range for {player} (min {min}, max {max})",
     matchRoundScoresOdd: "Odd score in {player}",
     matchWinnerTitleSingle: "Winner",
     matchWinnerTitleMulti: "Winners",
