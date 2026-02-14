@@ -6652,7 +6652,7 @@ function splitWordRows(wordValue) {
   return rows;
 }
 
-function drawWordTiles(ctx, word, centerX, startY, maxWidth) {
+function drawWordTiles(ctx, word, centerX, startY, maxWidth, options = {}) {
   const rows = splitWordRows(word);
   if (!rows.length) return startY;
   const maxRowSize = Math.max(...rows.map((row) => row.length));
@@ -6660,12 +6660,13 @@ function drawWordTiles(ctx, word, centerX, startY, maxWidth) {
   const tileSize = Math.min(90, (maxWidth - gap * (maxRowSize - 1)) / maxRowSize);
   const radius = Math.max(8, tileSize * 0.2);
   const fontSize = Math.floor(tileSize * 0.55);
-  const tileFill = "#fffaf1";
-  const tileStroke = "#d6a357";
-  const tileText = "#6b3c1d";
+  const tileFill = options.tileFill || "#fffaf1";
+  const tileStroke = options.tileStroke || "#d6a357";
+  const tileText = options.tileText || "#6b3c1d";
+  const fontWeight = options.fontWeight || 700;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.font = `700 ${fontSize}px "Fredoka", "Montserrat", sans-serif`;
+  ctx.font = `${fontWeight} ${fontSize}px "Fredoka", "Montserrat", sans-serif`;
   rows.forEach((row, rowIndex) => {
     const rowWidth = row.length * tileSize + (row.length - 1) * gap;
     let x = centerX - rowWidth / 2;
@@ -6716,6 +6717,98 @@ function drawChips(ctx, items, x, y, maxWidth, options = {}) {
     cursorX += chipWidth + gap;
   });
   return cursorY + height;
+}
+
+function drawColorChips(ctx, items, x, y, maxWidth, options = {}) {
+  const gap = options.gap ?? 10;
+  const padX = options.padX ?? 12;
+  const padY = options.padY ?? 6;
+  const fontSize = options.fontSize ?? 24;
+  const height = fontSize + padY * 2;
+  const lineWidth = options.lineWidth ?? 2;
+  ctx.font = `${options.fontWeight ?? 700} ${fontSize}px "Fredoka", "Montserrat", sans-serif`;
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "left";
+  let cursorX = x;
+  let cursorY = y;
+  items.forEach((item) => {
+    const label = String(item?.label || "").trim();
+    if (!label) return;
+    const textWidth = ctx.measureText(label).width;
+    const chipWidth = textWidth + padX * 2;
+    if (cursorX + chipWidth > x + maxWidth) {
+      cursorX = x;
+      cursorY += height + gap;
+    }
+    drawRoundedRect(ctx, cursorX, cursorY, chipWidth, height, height / 2);
+    ctx.fillStyle = item.fill || options.fill || "#fff0cc";
+    ctx.fill();
+    ctx.strokeStyle = item.stroke || options.stroke || "#d6a357";
+    ctx.lineWidth = lineWidth;
+    ctx.stroke();
+    ctx.fillStyle = item.color || options.color || "#6b3c1d";
+    ctx.fillText(label, cursorX + padX, cursorY + height / 2 + 1);
+    cursorX += chipWidth + gap;
+  });
+  return cursorY + height;
+}
+
+function truncateText(ctx, text, maxWidth) {
+  const value = String(text || "");
+  if (!value) return "";
+  if (ctx.measureText(value).width <= maxWidth) return value;
+  let trimmed = value;
+  while (trimmed.length > 1 && ctx.measureText(`${trimmed}…`).width > maxWidth) {
+    trimmed = trimmed.slice(0, -1);
+  }
+  return `${trimmed}…`;
+}
+
+function wrapTextLines(ctx, text, maxWidth) {
+  const words = String(text || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  const lines = [];
+  let line = "";
+  words.forEach((word) => {
+    const test = line ? `${line} ${word}` : word;
+    const width = ctx.measureText(test).width;
+    if (width > maxWidth && line) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = test;
+    }
+  });
+  if (line) lines.push(line);
+  return lines;
+}
+
+function drawWrappedText(ctx, text, x, y, maxWidth, lineHeight, align = "center") {
+  const lines = wrapTextLines(ctx, text, maxWidth);
+  ctx.textAlign = align;
+  lines.forEach((line, index) => {
+    ctx.fillText(line, x, y + index * lineHeight);
+  });
+  return y + lines.length * lineHeight;
+}
+
+function formatShareMessage(template, vars) {
+  if (!template) return "";
+  let text = String(template);
+  Object.entries(vars || {}).forEach(([key, value]) => {
+    text = text.split(`{${key}}`).join(value ?? "");
+  });
+  return text;
+}
+
+function formatShareName(name) {
+  return String(name || "").trim().toUpperCase();
+}
+
+function formatShareWord(word) {
+  return String(word || "").trim().toUpperCase();
 }
 
 function loadImageElement(src) {
@@ -6792,7 +6885,7 @@ function applyShareIcon(el, labelOverride = "") {
   el.setAttribute("title", label);
 }
 
-async function buildRecordShareCanvas(record, kind) {
+async function buildRecordShareCanvas(record, kind, position = null) {
   if (!record) return null;
   if (document?.fonts?.ready) {
     try {
@@ -6800,122 +6893,203 @@ async function buildRecordShareCanvas(record, kind) {
     } catch {}
   }
   const { canvas, ctx } = createShareCanvas(SHARE_CARD_WIDTH, SHARE_CARD_HEIGHT);
-  const bg = "#f7ead1";
-  const cardFill = "#fff8e9";
-  const cardBorder = "#d6a357";
-  const titleColor = "#7b3b21";
-  ctx.fillStyle = bg;
+  const playerName = formatShareName(record.playerName || shellTexts.playerLabel || "");
+  const wordValue = formatShareWord(record.word || "");
+  const pointsText = formatRecordPoints(record.points, { average: kind !== "word" });
+
+  ctx.fillStyle = "#f7ead1";
   ctx.fillRect(0, 0, SHARE_CARD_WIDTH, SHARE_CARD_HEIGHT);
 
   const cardX = 60;
-  const cardY = 70;
+  const cardY = 80;
   const cardW = SHARE_CARD_WIDTH - 120;
   const cardH = SHARE_CARD_HEIGHT - 160;
   drawRoundedRect(ctx, cardX, cardY, cardW, cardH, 40);
-  ctx.fillStyle = cardFill;
+  ctx.fillStyle = "#fff8e9";
   ctx.fill();
   ctx.lineWidth = 6;
-  ctx.strokeStyle = cardBorder;
+  ctx.strokeStyle = "#d6a357";
   ctx.stroke();
 
-  const title =
-    kind === "word"
-      ? shellTexts.recordsShareWordTitle || shellTexts.recordWordTitle || "Record"
-      : shellTexts.recordsShareMatchTitle || shellTexts.recordsTitle || "Record";
-  ctx.fillStyle = titleColor;
-  ctx.font = `900 64px "Bangers", "Fredoka", sans-serif`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "alphabetic";
-  ctx.fillText(String(title).toUpperCase(), cardX + cardW / 2, cardY + 80);
-
-  let cursorY = cardY + 150;
-  const name = record.playerName || "";
-  const pointsText = formatRecordPoints(record.points, { average: kind !== "word" });
-  ctx.font = `700 48px "Fredoka", "Montserrat", sans-serif`;
-  ctx.textAlign = "left";
-  ctx.fillStyle = "#6b3c1d";
-  ctx.fillText(name, cardX + 40, cursorY);
-  ctx.font = `900 52px "Fredoka", "Montserrat", sans-serif`;
-  ctx.textAlign = "right";
-  ctx.fillText(pointsText, cardX + cardW - 40, cursorY);
-  cursorY += 40;
-
-  ctx.font = `700 28px "Fredoka", "Montserrat", sans-serif`;
-  ctx.textAlign = "right";
-  ctx.fillStyle = "#8b5a2b";
-  const pointsLabel = kind === "word" ? shellTexts.recordsPointsHeader || "Puntos" : "AVG";
-  ctx.fillText(pointsLabel.toUpperCase(), cardX + cardW - 40, cursorY + 6);
-  ctx.textAlign = "left";
-
-  cursorY += 30;
-  ctx.strokeStyle = "rgba(0, 0, 0, 0.08)";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(cardX + 30, cursorY);
-  ctx.lineTo(cardX + cardW - 30, cursorY);
-  ctx.stroke();
-  cursorY += 30;
-
-  if (kind === "word") {
-    const wordY = drawWordTiles(ctx, record.word || "", cardX + cardW / 2, cursorY, cardW - 80);
-    cursorY = wordY + 30;
-  } else {
-    ctx.font = `700 36px "Fredoka", "Montserrat", sans-serif`;
-    ctx.fillStyle = "#6b3c1d";
-    ctx.textAlign = "left";
-    ctx.fillText(
-      `${shellTexts.recordsRoundsHeader || "Rondas"}: ${record.rounds || 0}`,
-      cardX + 40,
-      cursorY + 10
-    );
-    cursorY += 50;
+  const logo = await loadImageElement("assets/img/logo-letters.png");
+  let logoBottom = cardY + 20;
+  if (logo) {
+    const logoWidth = 300;
+    const ratio = logo.height ? logo.width / logo.height : 1;
+    const logoHeight = logoWidth / ratio;
+    const logoX = cardX + (cardW - logoWidth) / 2;
+    const logoY = cardY + 18;
+    ctx.drawImage(logo, logoX, logoY, logoWidth, logoHeight);
+    logoBottom = logoY + logoHeight;
   }
 
-  const chips =
-    kind === "word"
-      ? [
-          record.features?.sameColor ? shellTexts.recordsFeatureSameColor : "",
-          record.features?.usedWildcard ? shellTexts.recordsFeatureWildcard : "",
-          record.features?.doubleScore ? shellTexts.recordsFeatureDouble : "",
-          record.features?.plusPoints ? shellTexts.recordsFeaturePlus : "",
-          record.features?.minusPoints ? shellTexts.recordsFeatureMinus : "",
-        ].filter(Boolean)
-      : Array.isArray(record.otherPlayers)
-        ? record.otherPlayers.filter(Boolean)
-        : [];
-  if (chips.length) {
-    cursorY = drawChips(ctx, chips, cardX + 40, cursorY, cardW - 80, {
-      fill: "#fff1d3",
-      stroke: "#d6a357",
-      color: "#6b3c1d",
-      fontSize: 26,
-    });
-    cursorY += 20;
+  const pillX = cardX + 40;
+  const pillW = cardW - 80;
+  const pillY = logoBottom + 20;
+  const pillH = Math.max(420, cardY + cardH - pillY - 30);
+  drawRoundedRect(ctx, pillX, pillY + 4, pillW, pillH, 16);
+  ctx.fillStyle = "rgba(0, 0, 0, 0.12)";
+  ctx.fill();
+  drawRoundedRect(ctx, pillX, pillY, pillW, pillH, 16);
+  ctx.fillStyle = "#ffb65c";
+  ctx.fill();
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = "#d66a16";
+  ctx.stroke();
+
+  const pillPad = 20;
+  const pointsPillH = 44;
+  const topRowY = pillY + pillPad;
+  const rowH = pointsPillH;
+  const topRowCenterY = topRowY + rowH / 2;
+  let nameX = pillX + pillPad;
+
+  if (position != null) {
+    const posText = `#${position}`;
+    ctx.font = `900 26px "Fredoka", "Montserrat", sans-serif`;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = "#f4d058";
+    ctx.strokeStyle = "rgba(0, 0, 0, 0.9)";
+    ctx.lineWidth = 4;
+    ctx.strokeText(posText, nameX, topRowCenterY + 1);
+    ctx.fillText(posText, nameX, topRowCenterY + 1);
+    nameX += ctx.measureText(posText).width + 12;
+  }
+
+  ctx.font = `900 30px "Fredoka", "Montserrat", sans-serif`;
+  const pointsPillW = Math.max(92, ctx.measureText(pointsText).width + 26);
+  const pointsPillX = pillX + pillW - pillPad - pointsPillW;
+  const nameMaxW = Math.max(40, pointsPillX - nameX - 10);
+  const displayName = truncateText(ctx, playerName, nameMaxW);
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.strokeStyle = "rgba(0, 0, 0, 0.9)";
+  ctx.lineWidth = 4;
+  ctx.strokeText(displayName, nameX, topRowCenterY + 1);
+  ctx.fillStyle = "#ffffff";
+  ctx.fillText(displayName, nameX, topRowCenterY + 1);
+
+  drawRoundedRect(ctx, pointsPillX, topRowY, pointsPillW, pointsPillH, 14);
+  const pointsGradient = ctx.createLinearGradient(0, topRowY, 0, topRowY + pointsPillH);
+  pointsGradient.addColorStop(0, "#ffe26f");
+  pointsGradient.addColorStop(1, "#ffc94f");
+  ctx.fillStyle = pointsGradient;
+  ctx.fill();
+  ctx.strokeStyle = "#d6a357";
+  ctx.lineWidth = 3;
+  ctx.stroke();
+  ctx.textAlign = "center";
+  ctx.font = `900 30px "Fredoka", "Montserrat", sans-serif`;
+  ctx.fillStyle = "#6b3c1d";
+  ctx.fillText(pointsText, pointsPillX + pointsPillW / 2, topRowCenterY + 1);
+
+  let cursorY = topRowY + pointsPillH + 18;
+
+  if (kind === "word" && wordValue) {
+    const wordY = drawWordTiles(
+      ctx,
+      wordValue,
+      pillX + pillW / 2,
+      cursorY,
+      pillW - 60,
+      { tileFill: "#fff6de", tileStroke: "#a86a2b", tileText: "#6b3c1d", fontWeight: 900 }
+    );
+    cursorY = wordY + 16;
   }
 
   const tags = [];
   const dateLabel = formatRecordDate(record.when);
-  if (dateLabel) tags.push(buildRecordDateMessage(record.when));
+  if (dateLabel) tags.push(dateLabel);
   if (record.round != null) tags.push(`B${record.round}`);
   if (tags.length) {
-    cursorY = drawChips(ctx, tags, cardX + 40, cursorY, cardW - 80, {
-      fill: "#f6e2b6",
-      stroke: "#d6a357",
-      color: "#6b3c1d",
-      fontSize: 24,
+    const tagChips = tags.map((tag) => ({
+      label: String(tag).toUpperCase(),
+      fill: "rgba(0, 0, 0, 0.35)",
+      stroke: "rgba(255, 255, 255, 0.25)",
+      color: "#ffffff",
+    }));
+    cursorY = drawColorChips(ctx, tagChips, pillX + 12, cursorY, pillW - 24, {
+      fontSize: 20,
       padX: 12,
       padY: 6,
     });
+    cursorY += 8;
   }
 
-  const logo = await loadImageElement("assets/img/logo-letters.png");
-  if (logo) {
-    const logoWidth = 220;
-    const ratio = logo.height ? logo.width / logo.height : 1;
-    const logoHeight = logoWidth / ratio;
-    const logoX = cardX + cardW - logoWidth - 40;
-    const logoY = cardY + cardH - logoHeight - 30;
-    ctx.drawImage(logo, logoX, logoY, logoWidth, logoHeight);
+  if (kind === "word") {
+    const features = record.features || {};
+    const featureChips = [];
+    if (features.sameColor) {
+      featureChips.push({
+        label: shellTexts.recordsFeatureSameColor,
+        fill: "#ffe7a8",
+        stroke: "#d7b882",
+        color: "#7b3b21",
+      });
+    }
+    if (features.usedWildcard) {
+      featureChips.push({
+        label: shellTexts.recordsFeatureWildcard,
+        fill: "#e6e6ff",
+        stroke: "#b7b7f0",
+        color: "#4b3b7b",
+      });
+    }
+    if (features.doubleScore) {
+      featureChips.push({
+        label: shellTexts.recordsFeatureDouble,
+        fill: "#ffe2a8",
+        stroke: "#d7a24a",
+        color: "#7b3b21",
+      });
+    }
+    if (features.plusPoints) {
+      featureChips.push({
+        label: shellTexts.recordsFeaturePlus,
+        fill: "#d8f6d8",
+        stroke: "#7cc47a",
+        color: "#1f6b2c",
+      });
+    }
+    if (features.minusPoints) {
+      featureChips.push({
+        label: shellTexts.recordsFeatureMinus,
+        fill: "#ffd6d6",
+        stroke: "#d16b6b",
+        color: "#7b1f1f",
+      });
+    }
+    if (featureChips.length) {
+      cursorY = drawColorChips(
+        ctx,
+        featureChips,
+        pillX + pillPad,
+        cursorY,
+        pillW - pillPad * 2,
+        { fontSize: 22, padX: 12, padY: 6 }
+      );
+      cursorY += 10;
+    }
+  } else {
+    const others = Array.isArray(record.otherPlayers) ? record.otherPlayers.filter(Boolean) : [];
+    const otherChips = others.map((name) => ({
+      label: formatShareName(name),
+      fill: "rgba(255, 255, 255, 0.55)",
+      stroke: "rgba(107, 60, 29, 0.25)",
+      color: "#6b3c1d",
+    }));
+    if (otherChips.length) {
+      cursorY = drawColorChips(
+        ctx,
+        otherChips,
+        pillX + pillPad,
+        cursorY,
+        pillW - pillPad * 2,
+        { fontSize: 20, padX: 10, padY: 6 }
+      );
+      cursorY += 10;
+    }
   }
 
   return canvas;
@@ -6928,38 +7102,47 @@ async function buildScoreboardShareCanvas(matchState) {
     } catch {}
   }
   const { canvas, ctx } = createShareCanvas(SHARE_CARD_WIDTH, SHARE_CARD_HEIGHT);
-  const bg = "#f7ead1";
-  const cardFill = "#fff8e9";
-  const cardBorder = "#d6a357";
-  ctx.fillStyle = bg;
+  ctx.fillStyle = "#f7ead1";
   ctx.fillRect(0, 0, SHARE_CARD_WIDTH, SHARE_CARD_HEIGHT);
 
   const cardX = 60;
-  const cardY = 70;
+  const cardY = 80;
   const cardW = SHARE_CARD_WIDTH - 120;
   const cardH = SHARE_CARD_HEIGHT - 160;
   drawRoundedRect(ctx, cardX, cardY, cardW, cardH, 40);
-  ctx.fillStyle = cardFill;
+  ctx.fillStyle = "#fff8e9";
   ctx.fill();
   ctx.lineWidth = 6;
-  ctx.strokeStyle = cardBorder;
+  ctx.strokeStyle = "#d6a357";
   ctx.stroke();
 
-  const title = shellTexts.scoreboardShareTitle || "Scoreboard";
-  ctx.fillStyle = "#7b3b21";
-  ctx.font = `900 64px "Bangers", "Fredoka", sans-serif`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "alphabetic";
-  ctx.fillText(String(title).toUpperCase(), cardX + cardW / 2, cardY + 80);
+  const logo = await loadImageElement("assets/img/logo-letters.png");
+  let logoBottom = cardY + 20;
+  if (logo) {
+    const logoWidth = 300;
+    const ratio = logo.height ? logo.width / logo.height : 1;
+    const logoHeight = logoWidth / ratio;
+    const logoX = cardX + (cardW - logoWidth) / 2;
+    const logoY = cardY + 18;
+    ctx.drawImage(logo, logoX, logoY, logoWidth, logoHeight);
+    logoBottom = logoY + logoHeight;
+  }
 
-  let cursorY = cardY + 140;
+  let cursorY = logoBottom + 20;
   const dateLabel = formatRecordDate(Date.now());
   if (dateLabel) {
-    ctx.font = `700 26px "Fredoka", "Montserrat", sans-serif`;
-    ctx.fillStyle = "#8b5a2b";
+    drawRoundedRect(ctx, cardX + 120, cursorY, cardW - 240, 44, 22);
+    ctx.fillStyle = "rgba(0, 0, 0, 0.35)";
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.25)";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.font = `700 24px "Fredoka", "Montserrat", sans-serif`;
+    ctx.fillStyle = "#ffffff";
     ctx.textAlign = "center";
-    ctx.fillText(dateLabel, cardX + cardW / 2, cursorY);
-    cursorY += 30;
+    ctx.textBaseline = "middle";
+    ctx.fillText(dateLabel.toUpperCase(), cardX + cardW / 2, cursorY + 22);
+    cursorY += 60;
   }
 
   const rounds = scoreboardRounds || [];
@@ -6974,74 +7157,95 @@ async function buildScoreboardShareCanvas(matchState) {
     }))
     .sort((a, b) => Number(b.total) - Number(a.total));
 
-  const rowHeight = 64;
+  const rowHeight = 62;
   const rowGap = 12;
+  const cols = Math.min(2, Math.max(1, rows.length));
   const listX = cardX + 40;
   const listW = cardW - 80;
+  const cellW = (listW - rowGap * (cols - 1)) / cols;
   ctx.textBaseline = "middle";
+  const maxRows = Math.floor((cardY + cardH - cursorY - 20) / (rowHeight + rowGap));
+  const maxItems = Math.max(1, maxRows * cols);
 
-  rows.forEach((row, idx) => {
-    const rowY = cursorY + idx * (rowHeight + rowGap);
-    drawRoundedRect(ctx, listX, rowY, listW, rowHeight, rowHeight / 2);
-    ctx.fillStyle = "#fff1d3";
+  rows.slice(0, maxItems).forEach((row, index) => {
+    const col = index % cols;
+    const rowIndex = Math.floor(index / cols);
+    const x = listX + col * (cellW + rowGap);
+    const y = cursorY + rowIndex * (rowHeight + rowGap);
+    const palette = getDealerPalette(row.color || "#d9c79f");
+    drawRoundedRect(ctx, x, y + 3, cellW, rowHeight, 12);
+    ctx.fillStyle = "rgba(0, 0, 0, 0.18)";
     ctx.fill();
-    ctx.strokeStyle = "#d6a357";
-    ctx.lineWidth = 2;
+
+    drawRoundedRect(ctx, x, y, cellW, rowHeight, 12);
+    ctx.fillStyle = row.color || "#d9c79f";
+    ctx.fill();
+    ctx.strokeStyle = palette.border;
+    ctx.lineWidth = 3;
     ctx.stroke();
 
-    ctx.fillStyle = row.color;
-    ctx.beginPath();
-    ctx.arc(listX + 24, rowY + rowHeight / 2, 10, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = "#6b3c1d";
-    ctx.font = `800 26px "Fredoka", "Montserrat", sans-serif`;
+    const name = truncateText(ctx, formatShareName(row.name), cellW - 80);
     ctx.textAlign = "left";
-    ctx.fillText(`#${idx + 1}`, listX + 42, rowY + rowHeight / 2);
+    ctx.font = `800 24px "Fredoka", "Montserrat", sans-serif`;
+    ctx.strokeStyle = "rgba(0, 0, 0, 0.6)";
+    ctx.lineWidth = 3;
+    ctx.strokeText(name, x + 12, y + rowHeight / 2 + 1);
+    ctx.fillStyle = palette.text;
+    ctx.fillText(name, x + 12, y + rowHeight / 2 + 1);
 
-    ctx.font = `700 32px "Fredoka", "Montserrat", sans-serif`;
-    ctx.fillText(row.name, listX + 90, rowY + rowHeight / 2);
-
-    ctx.font = `900 32px "Fredoka", "Montserrat", sans-serif`;
     ctx.textAlign = "right";
-    ctx.fillText(String(row.total), listX + listW - 20, rowY + rowHeight / 2);
+    ctx.font = `900 26px "Fredoka", "Montserrat", sans-serif`;
+    ctx.fillStyle = palette.text;
+    ctx.fillText(String(row.total), x + cellW - 12, y + rowHeight / 2 + 1);
   });
-
-  const logo = await loadImageElement("assets/img/logo-letters.png");
-  if (logo) {
-    const logoWidth = 220;
-    const ratio = logo.height ? logo.width / logo.height : 1;
-    const logoHeight = logoWidth / ratio;
-    const logoX = cardX + cardW - logoWidth - 40;
-    const logoY = cardY + cardH - logoHeight - 30;
-    ctx.drawImage(logo, logoX, logoY, logoWidth, logoHeight);
-  }
 
   return canvas;
 }
 
-async function handleRecordShare(record, kind) {
+async function handleRecordShare(record, kind, position = null) {
   if (!record || recordShareBusy) return;
   recordShareBusy = true;
   try {
-    const canvas = await buildRecordShareCanvas(record, kind);
+    const canvas = await buildRecordShareCanvas(record, kind, position);
     if (!canvas) return;
     const dateLabel = formatRecordDate(record.when);
-    const title =
-      kind === "word"
-        ? shellTexts.recordsShareWordTitle || shellTexts.recordWordTitle || "Record"
-        : shellTexts.recordsShareMatchTitle || shellTexts.recordsTitle || "Record";
+    const appName = shellTexts.appTitle || "The Letter Loom";
+    const playerName = formatShareName(record.playerName || shellTexts.playerLabel || "");
+    const messageTemplate =
+      kind === "word" ? shellTexts.recordsShareWordMessage : shellTexts.recordsShareMatchMessage;
+    const shareMessage = formatShareMessage(messageTemplate, {
+      app: appName,
+      player: playerName,
+    }).trim();
     const filename = buildShareFileName(
       kind === "word" ? "record-word" : "record-match",
       dateLabel,
       record.playerName
     );
-    const text =
-      kind === "word"
-        ? `${record.playerName || ""} · ${record.word || ""} · ${formatRecordPoints(record.points)}`
-        : `${record.playerName || ""} · ${formatRecordPoints(record.points, { average: true })}`;
+    const parts = [shareMessage];
+    if (kind === "word") {
+      const wordText = formatShareWord(record.word || "");
+      if (wordText) parts.push(wordText);
+      const pointsText = formatRecordPoints(record.points);
+      if (pointsText) {
+        const pointsLabel = (shellTexts.recordsPointsHeader || "Puntos").toUpperCase();
+        parts.push(`${pointsText} ${pointsLabel}`);
+      }
+    } else {
+      const avgText = formatRecordPoints(record.points, { average: true });
+      if (avgText) {
+        const avgLabel = (shellTexts.recordsAverageLabel || "Promedio").toUpperCase();
+        parts.push(`${avgLabel} ${avgText}`);
+      }
+      const roundsValue = record.rounds ?? record.round ?? 0;
+      if (roundsValue) {
+        const roundsLabel = (shellTexts.matchModeRounds || shellTexts.recordsRoundsHeader || "Bazas").toUpperCase();
+        parts.push(`${roundsValue} ${roundsLabel}`);
+      }
+    }
+    const text = parts.filter(Boolean).join(" · ");
     const blob = await canvasToBlob(canvas);
-    await shareImageBlob(blob, { filename, title, text });
+    await shareImageBlob(blob, { filename, title: shareMessage, text });
   } catch (err) {
     logger.warn("Share record failed", err);
   } finally {
@@ -7059,9 +7263,29 @@ async function handleScoreboardShare() {
     if (!canvas) return;
     const dateLabel = formatRecordDate(Date.now());
     const filename = buildShareFileName("scoreboard", dateLabel, "match");
-    const title = shellTexts.scoreboardShareTitle || "Scoreboard";
+    const appName = shellTexts.appTitle || "The Letter Loom";
+    const shareMessage = formatShareMessage(shellTexts.scoreboardShareMessage, {
+      app: appName,
+    }).trim();
+    const parts = [shareMessage];
+    if (dateLabel) parts.push(dateLabel);
+    const rounds = scoreboardRounds || [];
+    const players = scoreboardPlayers || [];
+    const values = scoreboardDraft || scoreboardBase || {};
+    const totals = getScoreboardTotals(players, rounds, values);
+    const winner = players
+      .map((player) => ({
+        name: formatShareName(player.name || shellTexts.playerLabel || ""),
+        total: totals.get(String(player.id)) ?? 0,
+      }))
+      .sort((a, b) => Number(b.total) - Number(a.total))[0];
+    if (winner?.name) {
+      const winnerLabel = (shellTexts.scoreboardShareWinnerLabel || "Ganador").toUpperCase();
+      parts.push(`${winnerLabel} ${winner.name}`);
+    }
+    const text = parts.filter(Boolean).join(" · ");
     const blob = await canvasToBlob(canvas);
-    await shareImageBlob(blob, { filename, title, text: title });
+    await shareImageBlob(blob, { filename, title: shareMessage, text });
   } catch (err) {
     logger.warn("Share scoreboard failed", err);
   } finally {
@@ -7340,7 +7564,7 @@ function renderRecordsList({ listId, records, emptyText, showWord = false } = {}
       event.preventDefault();
       event.stopPropagation();
       playClickFeedback();
-      handleRecordShare(record, showWord ? "word" : "match");
+      handleRecordShare(record, showWord ? "word" : "match", idx + 1);
     });
 
     pill.append(top);
