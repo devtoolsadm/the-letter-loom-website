@@ -370,6 +370,11 @@ body.shell-ready #game-root {
   background-size: 74% 74%;
   filter: none;
 }
+.icon-btn-img.icon-share {
+  background-image: var(--share-icon, url("../../assets/img/share.svg"));
+  background-size: 70% 70%;
+  filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.18));
+}
 .icon-btn-img.icon-shop {
   background-image: url("../../assets/img/shop.svg");
   width: 90% !important;
@@ -4445,6 +4450,25 @@ body.splash-ready #splashLoadingBlock {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }
 
+.scoreboard-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.scoreboard-meta-row .scoreboard-edit-hint {
+  margin: 0;
+}
+
+.scoreboard-share-btn {
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 4px 10px rgba(0, 0, 0, 0.18);
+}
+
 .scoreboard-config .scoreboard-actions {
   position: absolute;
   left: 0;
@@ -4620,6 +4644,37 @@ body.splash-ready #splashLoadingBlock {
   flex: 0 0 auto;
 }
 
+.share-icon-btn {
+  --share-icon: url("../../assets/img/share.svg");
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  border: 2px solid #a36500;
+  background-color: #f7b500;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 3px 8px rgba(0, 0, 0, 0.18);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+  text-indent: -9999px;
+  overflow: hidden;
+  position: relative;
+}
+
+.share-icon-img {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 70%;
+  height: 70%;
+  object-fit: contain;
+  pointer-events: none;
+  -webkit-user-select: none;
+  user-select: none;
+  filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.18));
+}
+
 .records-pill {
   --pill-bg-1: #ffb65c;
   --pill-border: #d66a16;
@@ -4663,6 +4718,21 @@ body.splash-ready #splashLoadingBlock {
   white-space: nowrap;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.6);
   flex: 0 0 auto;
+}
+
+.records-pill-share {
+  position: absolute;
+  left: 4px;
+  bottom: -12px;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 4px 10px rgba(0, 0, 0, 0.18);
+}
+
+.records-pill-share::before {
+  width: 68%;
+  height: 68%;
 }
 
 .records-pill-view::before {

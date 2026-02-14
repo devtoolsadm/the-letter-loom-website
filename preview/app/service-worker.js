@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "letter-loom-cache";
-const APP_VERSION = "v0.0.121";
+const APP_VERSION = "v0.0.122";
 let cacheVersion = APP_VERSION;
 let CACHE_NAME = `${CACHE_PREFIX}-${cacheVersion}`;
 const BASE_PATH = self.location.pathname.replace(/\/[^/]*$/, "/");
@@ -43,6 +43,9 @@ const PRECACHE_ASSETS = [
   `${BASE_PATH}assets/img/winner-button.svg`,
   `${BASE_PATH}assets/img/leader.svg`,
   `${BASE_PATH}assets/img/rules.svg`,
+  `${BASE_PATH}assets/img/share.svg`,
+  `${BASE_PATH}assets/img/share-ios.svg`,
+  `${BASE_PATH}assets/img/share-android.svg`,
   `${BASE_PATH}assets/img/instagram.svg`,
   `${BASE_PATH}assets/img/tiktok.svg`,
   `${BASE_PATH}assets/img/www.svg`,

@@ -236,6 +236,8 @@ let scoreboardRecordHighlight = null;
 let scoreboardReturnScreen = "match";
 let recordsReturnScreen = "scoreboard";
 let recordsTab = "words";
+let recordShareBusy = false;
+let scoreboardShareBusy = false;
 let quickGuideReturnScreen = "help";
 let pausedBeforeGuide = null;
 let pausedBeforeScoreboard = null;
@@ -2883,6 +2885,7 @@ function renderShellTexts() {
   setI18nById("scoreboardSettingsBtn", "settingsTitle", { attr: "aria-label" });
   setI18nById("scoreboardSaveBtn", "save");
   setI18nById("scoreboardCancelBtn", "cancel");
+  setI18nById("scoreboardShareBtn", "scoreboardShare", { attr: "aria-label" });
   setI18nById("recordsTitle", "recordsTitle");
   setI18nById("recordsBackBtn", "matchExit", { attr: "aria-label" });
   setI18nById("recordsSettingsBtn", "settingsTitle", { attr: "aria-label" });
@@ -3386,6 +3389,7 @@ function setupNavigation() {
     ["roundEndTieBreakBtn", () => handleRoundEndTieBreak()],
     ["scoreboardBackBtn", () => closeScoreboard()],
     ["scoreboardSettingsBtn", () => openSettingsModal()],
+    ["scoreboardShareBtn", () => handleScoreboardShare()],
     ["scoreboardSaveBtn", () => applyScoreboardChanges()],
     ["scoreboardCancelBtn", () => resetScoreboardDraft()],
     ["recordsSettingsBtn", () => openSettingsModal()],
@@ -4425,6 +4429,7 @@ function renderScoreboardScreen(matchState) {
   const editHint = document.getElementById("scoreboardEditHint");
   const note = document.getElementById("scoreboardNote");
   const actionButtons = document.getElementById("scoreboardActionButtons");
+  const shareBtn = document.getElementById("scoreboardShareBtn");
   if (!table || !tableHeader || !tableLeft || !tableCorner || !tableShell) return;
   let emptyEl = document.getElementById("scoreboardEmpty");
   if (!emptyEl) {
@@ -4456,22 +4461,31 @@ function renderScoreboardScreen(matchState) {
   if (actionButtons) {
     actionButtons.classList.toggle("hidden", scoreboardReadOnly || !scoreboardDirty);
   }
+  const dateText =
+    scoreboardInfoText ||
+    (matchState?.matchOver
+      ? buildRecordDateMessage(matchState.updatedAt || matchState.lastSavedAt || Date.now())
+      : "");
+  const showDateMeta = !!dateText;
   if (editHint) {
-    if (scoreboardReadOnly) {
-      if (scoreboardInfoText) {
-        editHint.textContent = scoreboardInfoText;
-        editHint.classList.remove("hidden");
-      } else {
-        editHint.classList.add("hidden");
-      }
+    if (showDateMeta) {
+      editHint.textContent = dateText;
+      editHint.classList.remove("hidden");
+    } else if (scoreboardReadOnly) {
+      editHint.classList.add("hidden");
     } else {
       editHint.textContent = shellTexts.matchScoreboardEditHint || "";
       editHint.classList.remove("hidden");
     }
   }
+  if (shareBtn) {
+    applyShareIcon(shareBtn, shellTexts.scoreboardShare || "Compartir");
+    shareBtn.classList.toggle("hidden", !showDateMeta);
+  }
 
   if (!rounds.length || !players.length) {
     if (editHint) editHint.classList.add("hidden");
+    if (shareBtn) shareBtn.classList.add("hidden");
     tableCorner.textContent = "";
     tableShell.classList.add("is-empty");
     tableCorner.style.display = "none";
@@ -4482,6 +4496,7 @@ function renderScoreboardScreen(matchState) {
     emptyEl.classList.remove("hidden");
     return;
   }
+  if (shareBtn) shareBtn.classList.remove("hidden");
   tableShell.classList.remove("is-empty");
   tableCorner.style.display = "";
   tableHeader.style.display = "";
@@ -6565,6 +6580,495 @@ function formatRecordPoints(value, { average = false } = {}) {
   return average ? num.toFixed(2) : String(num);
 }
 
+const SHARE_CARD_WIDTH = 1080;
+const SHARE_CARD_HEIGHT = 1350;
+
+function createShareCanvas(width, height) {
+  const canvas = document.createElement("canvas");
+  const scale = Math.min(2, window.devicePixelRatio || 1);
+  canvas.width = Math.round(width * scale);
+  canvas.height = Math.round(height * scale);
+  const ctx = canvas.getContext("2d");
+  ctx.scale(scale, scale);
+  ctx.imageSmoothingEnabled = true;
+  return { canvas, ctx };
+}
+
+function drawRoundedRect(ctx, x, y, width, height, radius) {
+  const r = Math.min(radius, width / 2, height / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + width, y, x + width, y + height, r);
+  ctx.arcTo(x + width, y + height, x, y + height, r);
+  ctx.arcTo(x, y + height, x, y, r);
+  ctx.arcTo(x, y, x + width, y, r);
+  ctx.closePath();
+}
+
+function splitWordRows(wordValue) {
+  const word = String(wordValue || "").trim();
+  if (!word) return [];
+  const letters = [...word];
+  const length = letters.length;
+  let rowsCount = 1;
+  if (length >= 11) {
+    rowsCount = Math.ceil(length / 9);
+    if (rowsCount < 2) rowsCount = 2;
+    if (rowsCount > 3) rowsCount = 3;
+  }
+  let rowSizes = [];
+  if (rowsCount === 1) {
+    rowSizes = [length];
+  } else {
+    let remaining = length;
+    let ok = false;
+    for (let attempt = rowsCount; attempt >= 1 && !ok; attempt -= 1) {
+      remaining = length;
+      rowSizes = [];
+      ok = true;
+      for (let i = 0; i < attempt - 1; i += 1) {
+        const minNeededForRest = 8 * Math.max(0, attempt - 2 - i);
+        const maxForRow = remaining - minNeededForRest;
+        const count = Math.min(9, maxForRow);
+        if (count < 8) {
+          ok = false;
+          break;
+        }
+        rowSizes.push(count);
+        remaining -= count;
+      }
+      if (ok) {
+        rowSizes.push(remaining);
+        rowsCount = attempt;
+      }
+    }
+  }
+  const rows = [];
+  let offset = 0;
+  rowSizes.forEach((size) => {
+    rows.push(letters.slice(offset, offset + size));
+    offset += size;
+  });
+  return rows;
+}
+
+function drawWordTiles(ctx, word, centerX, startY, maxWidth) {
+  const rows = splitWordRows(word);
+  if (!rows.length) return startY;
+  const maxRowSize = Math.max(...rows.map((row) => row.length));
+  const gap = 10;
+  const tileSize = Math.min(90, (maxWidth - gap * (maxRowSize - 1)) / maxRowSize);
+  const radius = Math.max(8, tileSize * 0.2);
+  const fontSize = Math.floor(tileSize * 0.55);
+  const tileFill = "#fffaf1";
+  const tileStroke = "#d6a357";
+  const tileText = "#6b3c1d";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = `700 ${fontSize}px "Fredoka", "Montserrat", sans-serif`;
+  rows.forEach((row, rowIndex) => {
+    const rowWidth = row.length * tileSize + (row.length - 1) * gap;
+    let x = centerX - rowWidth / 2;
+    const y = startY + rowIndex * (tileSize + gap);
+    row.forEach((letter) => {
+      drawRoundedRect(ctx, x, y, tileSize, tileSize, radius);
+      ctx.fillStyle = tileFill;
+      ctx.fill();
+      ctx.strokeStyle = tileStroke;
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      ctx.fillStyle = tileText;
+      ctx.fillText(String(letter).toUpperCase(), x + tileSize / 2, y + tileSize / 2 + 1);
+      x += tileSize + gap;
+    });
+  });
+  return startY + rows.length * tileSize + (rows.length - 1) * gap;
+}
+
+function drawChips(ctx, items, x, y, maxWidth, options = {}) {
+  const gap = options.gap ?? 10;
+  const padX = options.padX ?? 14;
+  const padY = options.padY ?? 8;
+  const fontSize = options.fontSize ?? 28;
+  const height = fontSize + padY * 2;
+  ctx.font = `${options.fontWeight ?? 700} ${fontSize}px "Fredoka", "Montserrat", sans-serif`;
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "left";
+  let cursorX = x;
+  let cursorY = y;
+  items.forEach((label) => {
+    const text = String(label || "").trim();
+    if (!text) return;
+    const textWidth = ctx.measureText(text).width;
+    const chipWidth = textWidth + padX * 2;
+    if (cursorX + chipWidth > x + maxWidth) {
+      cursorX = x;
+      cursorY += height + gap;
+    }
+    drawRoundedRect(ctx, cursorX, cursorY, chipWidth, height, height / 2);
+    ctx.fillStyle = options.fill || "#fff0cc";
+    ctx.fill();
+    ctx.strokeStyle = options.stroke || "#d6a357";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = options.color || "#6b3c1d";
+    ctx.fillText(text, cursorX + padX, cursorY + height / 2 + 1);
+    cursorX += chipWidth + gap;
+  });
+  return cursorY + height;
+}
+
+function loadImageElement(src) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.decoding = "async";
+    img.crossOrigin = "anonymous";
+    img.src = src;
+  });
+}
+
+async function canvasToBlob(canvas) {
+  const blob = await new Promise((resolve) => {
+    canvas.toBlob((result) => resolve(result), "image/png", 0.92);
+  });
+  if (blob) return blob;
+  const dataUrl = canvas.toDataURL("image/png");
+  const res = await fetch(dataUrl);
+  return res.blob();
+}
+
+async function shareImageBlob(blob, { filename, title, text } = {}) {
+  if (!blob) return false;
+  const safeName = filename || "letter-loom-share.png";
+  const file = new File([blob], safeName, { type: blob.type || "image/png" });
+  if (navigator.share && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
+    await navigator.share({ files: [file], title, text });
+    return true;
+  }
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = safeName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  return false;
+}
+
+function buildShareFileName(prefix, recordDate, name) {
+  const dateLabel = recordDate ? String(recordDate).replace(/[^\d-]/g, "-") : "";
+  const safeName = String(name || "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-zA-Z0-9_-]/g, "");
+  const parts = [prefix, safeName, dateLabel].filter(Boolean);
+  return `${parts.join("-")}.png`;
+}
+
+function getShareIconSrc() {
+  if (isIOS()) return "assets/img/share-ios.svg";
+  if (/Android/i.test(navigator.userAgent)) return "assets/img/share-android.svg";
+  return "assets/img/share.svg";
+}
+
+function applyShareIcon(el, labelOverride = "") {
+  if (!el) return;
+  const src = getShareIconSrc();
+  el.style.setProperty("--share-icon", `url("${src}")`);
+  const img = el.querySelector?.(".share-icon-img");
+  if (img) {
+    img.setAttribute("src", src);
+    img.setAttribute("alt", "");
+  }
+  const label =
+    labelOverride ||
+    shellTexts.scoreboardShare ||
+    shellTexts.recordsShare ||
+    "Compartir";
+  el.setAttribute("aria-label", label);
+  el.setAttribute("title", label);
+}
+
+async function buildRecordShareCanvas(record, kind) {
+  if (!record) return null;
+  if (document?.fonts?.ready) {
+    try {
+      await document.fonts.ready;
+    } catch {}
+  }
+  const { canvas, ctx } = createShareCanvas(SHARE_CARD_WIDTH, SHARE_CARD_HEIGHT);
+  const bg = "#f7ead1";
+  const cardFill = "#fff8e9";
+  const cardBorder = "#d6a357";
+  const titleColor = "#7b3b21";
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, SHARE_CARD_WIDTH, SHARE_CARD_HEIGHT);
+
+  const cardX = 60;
+  const cardY = 70;
+  const cardW = SHARE_CARD_WIDTH - 120;
+  const cardH = SHARE_CARD_HEIGHT - 160;
+  drawRoundedRect(ctx, cardX, cardY, cardW, cardH, 40);
+  ctx.fillStyle = cardFill;
+  ctx.fill();
+  ctx.lineWidth = 6;
+  ctx.strokeStyle = cardBorder;
+  ctx.stroke();
+
+  const title =
+    kind === "word"
+      ? shellTexts.recordsShareWordTitle || shellTexts.recordWordTitle || "Record"
+      : shellTexts.recordsShareMatchTitle || shellTexts.recordsTitle || "Record";
+  ctx.fillStyle = titleColor;
+  ctx.font = `900 64px "Bangers", "Fredoka", sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillText(String(title).toUpperCase(), cardX + cardW / 2, cardY + 80);
+
+  let cursorY = cardY + 150;
+  const name = record.playerName || "";
+  const pointsText = formatRecordPoints(record.points, { average: kind !== "word" });
+  ctx.font = `700 48px "Fredoka", "Montserrat", sans-serif`;
+  ctx.textAlign = "left";
+  ctx.fillStyle = "#6b3c1d";
+  ctx.fillText(name, cardX + 40, cursorY);
+  ctx.font = `900 52px "Fredoka", "Montserrat", sans-serif`;
+  ctx.textAlign = "right";
+  ctx.fillText(pointsText, cardX + cardW - 40, cursorY);
+  cursorY += 40;
+
+  ctx.font = `700 28px "Fredoka", "Montserrat", sans-serif`;
+  ctx.textAlign = "right";
+  ctx.fillStyle = "#8b5a2b";
+  const pointsLabel = kind === "word" ? shellTexts.recordsPointsHeader || "Puntos" : "AVG";
+  ctx.fillText(pointsLabel.toUpperCase(), cardX + cardW - 40, cursorY + 6);
+  ctx.textAlign = "left";
+
+  cursorY += 30;
+  ctx.strokeStyle = "rgba(0, 0, 0, 0.08)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(cardX + 30, cursorY);
+  ctx.lineTo(cardX + cardW - 30, cursorY);
+  ctx.stroke();
+  cursorY += 30;
+
+  if (kind === "word") {
+    const wordY = drawWordTiles(ctx, record.word || "", cardX + cardW / 2, cursorY, cardW - 80);
+    cursorY = wordY + 30;
+  } else {
+    ctx.font = `700 36px "Fredoka", "Montserrat", sans-serif`;
+    ctx.fillStyle = "#6b3c1d";
+    ctx.textAlign = "left";
+    ctx.fillText(
+      `${shellTexts.recordsRoundsHeader || "Rondas"}: ${record.rounds || 0}`,
+      cardX + 40,
+      cursorY + 10
+    );
+    cursorY += 50;
+  }
+
+  const chips =
+    kind === "word"
+      ? [
+          record.features?.sameColor ? shellTexts.recordsFeatureSameColor : "",
+          record.features?.usedWildcard ? shellTexts.recordsFeatureWildcard : "",
+          record.features?.doubleScore ? shellTexts.recordsFeatureDouble : "",
+          record.features?.plusPoints ? shellTexts.recordsFeaturePlus : "",
+          record.features?.minusPoints ? shellTexts.recordsFeatureMinus : "",
+        ].filter(Boolean)
+      : Array.isArray(record.otherPlayers)
+        ? record.otherPlayers.filter(Boolean)
+        : [];
+  if (chips.length) {
+    cursorY = drawChips(ctx, chips, cardX + 40, cursorY, cardW - 80, {
+      fill: "#fff1d3",
+      stroke: "#d6a357",
+      color: "#6b3c1d",
+      fontSize: 26,
+    });
+    cursorY += 20;
+  }
+
+  const tags = [];
+  const dateLabel = formatRecordDate(record.when);
+  if (dateLabel) tags.push(buildRecordDateMessage(record.when));
+  if (record.round != null) tags.push(`B${record.round}`);
+  if (tags.length) {
+    cursorY = drawChips(ctx, tags, cardX + 40, cursorY, cardW - 80, {
+      fill: "#f6e2b6",
+      stroke: "#d6a357",
+      color: "#6b3c1d",
+      fontSize: 24,
+      padX: 12,
+      padY: 6,
+    });
+  }
+
+  const logo = await loadImageElement("assets/img/logo-letters.png");
+  if (logo) {
+    const logoWidth = 220;
+    const ratio = logo.height ? logo.width / logo.height : 1;
+    const logoHeight = logoWidth / ratio;
+    const logoX = cardX + cardW - logoWidth - 40;
+    const logoY = cardY + cardH - logoHeight - 30;
+    ctx.drawImage(logo, logoX, logoY, logoWidth, logoHeight);
+  }
+
+  return canvas;
+}
+
+async function buildScoreboardShareCanvas(matchState) {
+  if (document?.fonts?.ready) {
+    try {
+      await document.fonts.ready;
+    } catch {}
+  }
+  const { canvas, ctx } = createShareCanvas(SHARE_CARD_WIDTH, SHARE_CARD_HEIGHT);
+  const bg = "#f7ead1";
+  const cardFill = "#fff8e9";
+  const cardBorder = "#d6a357";
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, SHARE_CARD_WIDTH, SHARE_CARD_HEIGHT);
+
+  const cardX = 60;
+  const cardY = 70;
+  const cardW = SHARE_CARD_WIDTH - 120;
+  const cardH = SHARE_CARD_HEIGHT - 160;
+  drawRoundedRect(ctx, cardX, cardY, cardW, cardH, 40);
+  ctx.fillStyle = cardFill;
+  ctx.fill();
+  ctx.lineWidth = 6;
+  ctx.strokeStyle = cardBorder;
+  ctx.stroke();
+
+  const title = shellTexts.scoreboardShareTitle || "Scoreboard";
+  ctx.fillStyle = "#7b3b21";
+  ctx.font = `900 64px "Bangers", "Fredoka", sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillText(String(title).toUpperCase(), cardX + cardW / 2, cardY + 80);
+
+  let cursorY = cardY + 140;
+  const dateLabel = formatRecordDate(Date.now());
+  if (dateLabel) {
+    ctx.font = `700 26px "Fredoka", "Montserrat", sans-serif`;
+    ctx.fillStyle = "#8b5a2b";
+    ctx.textAlign = "center";
+    ctx.fillText(dateLabel, cardX + cardW / 2, cursorY);
+    cursorY += 30;
+  }
+
+  const rounds = scoreboardRounds || [];
+  const players = scoreboardPlayers || [];
+  const values = scoreboardDraft || scoreboardBase || {};
+  const totals = getScoreboardTotals(players, rounds, values);
+  const rows = players
+    .map((player) => ({
+      name: player.name || shellTexts.playerLabel,
+      total: totals.get(String(player.id)) ?? 0,
+      color: player.color || "#d9c79f",
+    }))
+    .sort((a, b) => Number(b.total) - Number(a.total));
+
+  const rowHeight = 64;
+  const rowGap = 12;
+  const listX = cardX + 40;
+  const listW = cardW - 80;
+  ctx.textBaseline = "middle";
+
+  rows.forEach((row, idx) => {
+    const rowY = cursorY + idx * (rowHeight + rowGap);
+    drawRoundedRect(ctx, listX, rowY, listW, rowHeight, rowHeight / 2);
+    ctx.fillStyle = "#fff1d3";
+    ctx.fill();
+    ctx.strokeStyle = "#d6a357";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.fillStyle = row.color;
+    ctx.beginPath();
+    ctx.arc(listX + 24, rowY + rowHeight / 2, 10, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "#6b3c1d";
+    ctx.font = `800 26px "Fredoka", "Montserrat", sans-serif`;
+    ctx.textAlign = "left";
+    ctx.fillText(`#${idx + 1}`, listX + 42, rowY + rowHeight / 2);
+
+    ctx.font = `700 32px "Fredoka", "Montserrat", sans-serif`;
+    ctx.fillText(row.name, listX + 90, rowY + rowHeight / 2);
+
+    ctx.font = `900 32px "Fredoka", "Montserrat", sans-serif`;
+    ctx.textAlign = "right";
+    ctx.fillText(String(row.total), listX + listW - 20, rowY + rowHeight / 2);
+  });
+
+  const logo = await loadImageElement("assets/img/logo-letters.png");
+  if (logo) {
+    const logoWidth = 220;
+    const ratio = logo.height ? logo.width / logo.height : 1;
+    const logoHeight = logoWidth / ratio;
+    const logoX = cardX + cardW - logoWidth - 40;
+    const logoY = cardY + cardH - logoHeight - 30;
+    ctx.drawImage(logo, logoX, logoY, logoWidth, logoHeight);
+  }
+
+  return canvas;
+}
+
+async function handleRecordShare(record, kind) {
+  if (!record || recordShareBusy) return;
+  recordShareBusy = true;
+  try {
+    const canvas = await buildRecordShareCanvas(record, kind);
+    if (!canvas) return;
+    const dateLabel = formatRecordDate(record.when);
+    const title =
+      kind === "word"
+        ? shellTexts.recordsShareWordTitle || shellTexts.recordWordTitle || "Record"
+        : shellTexts.recordsShareMatchTitle || shellTexts.recordsTitle || "Record";
+    const filename = buildShareFileName(
+      kind === "word" ? "record-word" : "record-match",
+      dateLabel,
+      record.playerName
+    );
+    const text =
+      kind === "word"
+        ? `${record.playerName || ""} · ${record.word || ""} · ${formatRecordPoints(record.points)}`
+        : `${record.playerName || ""} · ${formatRecordPoints(record.points, { average: true })}`;
+    const blob = await canvasToBlob(canvas);
+    await shareImageBlob(blob, { filename, title, text });
+  } catch (err) {
+    logger.warn("Share record failed", err);
+  } finally {
+    recordShareBusy = false;
+  }
+}
+
+async function handleScoreboardShare() {
+  if (scoreboardShareBusy) return;
+  const matchState = matchController.getState();
+  if (!scoreboardRounds?.length || !scoreboardPlayers?.length) return;
+  scoreboardShareBusy = true;
+  try {
+    const canvas = await buildScoreboardShareCanvas(matchState);
+    if (!canvas) return;
+    const dateLabel = formatRecordDate(Date.now());
+    const filename = buildShareFileName("scoreboard", dateLabel, "match");
+    const title = shellTexts.scoreboardShareTitle || "Scoreboard";
+    const blob = await canvasToBlob(canvas);
+    await shareImageBlob(blob, { filename, title, text: title });
+  } catch (err) {
+    logger.warn("Share scoreboard failed", err);
+  } finally {
+    scoreboardShareBusy = false;
+  }
+}
+
 function buildRecordDateMessage(dateValue) {
   const date = formatRecordDate(dateValue);
   const template = shellTexts.scoreboardRecordDate || "Partida del {date}";
@@ -6817,9 +7321,32 @@ function renderRecordsList({ listId, records, emptyText, showWord = false } = {}
     view.setAttribute("aria-hidden", "true");
     view.textContent = shellTexts.recordsViewMatch || "Ver partida";
 
+    const share = document.createElement("button");
+    share.type = "button";
+    share.className = "records-pill-share share-icon-btn";
+    share.textContent = shellTexts.recordsShare || "Compartir";
+    const shareImg = document.createElement("img");
+    shareImg.className = "share-icon-img";
+    shareImg.alt = "";
+    share.appendChild(shareImg);
+    applyShareIcon(share, share.textContent);
+    share.addEventListener("pointerdown", (event) => {
+      event.stopPropagation();
+    });
+    share.addEventListener("pointerup", (event) => {
+      event.stopPropagation();
+    });
+    share.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      playClickFeedback();
+      handleRecordShare(record, showWord ? "word" : "match");
+    });
+
     pill.append(top);
     if (wordRow) pill.appendChild(wordRow);
     pill.append(mid, playersRow, view);
+    pill.appendChild(share);
     list.appendChild(pill);
   });
 }
@@ -8384,6 +8911,9 @@ function loadSplashAssets() {
     "assets/img/exit.svg",
     "assets/img/help.svg",
     "assets/img/previous.svg",
+    "assets/img/share.svg",
+    "assets/img/share-ios.svg",
+    "assets/img/share-android.svg",
   ];
 
   const soundAssets = [
