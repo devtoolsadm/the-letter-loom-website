@@ -6652,18 +6652,31 @@ function splitWordRows(wordValue) {
   return rows;
 }
 
-function drawWordTiles(ctx, word, centerX, startY, maxWidth, options = {}) {
+function measureWordTilesLayout(word, maxWidth, options = {}) {
   const rows = splitWordRows(word);
-  if (!rows.length) return startY;
+  if (!rows.length) {
+    return { rows, tileSize: 0, gap: 0, height: 0 };
+  }
   const maxRowSize = Math.max(...rows.map((row) => row.length));
-  const gap = 10;
-  const tileSize = Math.min(90, (maxWidth - gap * (maxRowSize - 1)) / maxRowSize);
+  const gap = options.gap ?? 10;
+  const tileMax = options.tileSizeMax ?? 90;
+  const tileSize = Math.min(tileMax, (maxWidth - gap * (maxRowSize - 1)) / maxRowSize);
+  const height = rows.length * tileSize + (rows.length - 1) * gap;
+  return { rows, tileSize, gap, height };
+}
+
+function drawWordTiles(ctx, word, centerX, startY, maxWidth, options = {}) {
+  const { rows, tileSize, gap } = measureWordTilesLayout(word, maxWidth, options);
+  if (!rows.length) return startY;
   const radius = Math.max(8, tileSize * 0.2);
-  const fontSize = Math.floor(tileSize * 0.55);
+  const fontSize = Math.floor(tileSize * (options.fontScale ?? 0.55));
   const tileFill = options.tileFill || "#fffaf1";
   const tileStroke = options.tileStroke || "#d6a357";
   const tileText = options.tileText || "#6b3c1d";
   const fontWeight = options.fontWeight || 700;
+  const lineWidth = options.tileLineWidth || 3;
+  const shadow = options.tileShadow || null;
+  const useGradient = options.tileGradient || false;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.font = `${fontWeight} ${fontSize}px "Fredoka", "Montserrat", sans-serif`;
@@ -6672,12 +6685,32 @@ function drawWordTiles(ctx, word, centerX, startY, maxWidth, options = {}) {
     let x = centerX - rowWidth / 2;
     const y = startY + rowIndex * (tileSize + gap);
     row.forEach((letter) => {
+      if (shadow) {
+        ctx.save();
+        ctx.shadowColor = shadow.color || "rgba(0, 0, 0, 0.2)";
+        ctx.shadowBlur = shadow.blur ?? 0;
+        ctx.shadowOffsetX = shadow.offsetX ?? 0;
+        ctx.shadowOffsetY = shadow.offsetY ?? 0;
+      }
       drawRoundedRect(ctx, x, y, tileSize, tileSize, radius);
-      ctx.fillStyle = tileFill;
+      if (useGradient) {
+        const gradient = ctx.createLinearGradient(0, y, 0, y + tileSize);
+        gradient.addColorStop(0, options.tileGradientFrom || tileFill);
+        gradient.addColorStop(1, options.tileGradientTo || tileFill);
+        ctx.fillStyle = gradient;
+      } else {
+        ctx.fillStyle = tileFill;
+      }
       ctx.fill();
       ctx.strokeStyle = tileStroke;
-      ctx.lineWidth = 3;
+      ctx.lineWidth = lineWidth;
       ctx.stroke();
+      if (shadow) ctx.restore();
+      if (options.textStroke) {
+        ctx.strokeStyle = options.textStroke;
+        ctx.lineWidth = options.textStrokeWidth ?? 2;
+        ctx.strokeText(String(letter).toUpperCase(), x + tileSize / 2, y + tileSize / 2 + 1);
+      }
       ctx.fillStyle = tileText;
       ctx.fillText(String(letter).toUpperCase(), x + tileSize / 2, y + tileSize / 2 + 1);
       x += tileSize + gap;
@@ -6686,7 +6719,7 @@ function drawWordTiles(ctx, word, centerX, startY, maxWidth, options = {}) {
   return startY + rows.length * tileSize + (rows.length - 1) * gap;
 }
 
-function drawChips(ctx, items, x, y, maxWidth, options = {}) {
+function layoutChips(ctx, items, maxWidth, options = {}) {
   const gap = options.gap ?? 10;
   const padX = options.padX ?? 14;
   const padY = options.padY ?? 8;
@@ -6695,62 +6728,102 @@ function drawChips(ctx, items, x, y, maxWidth, options = {}) {
   ctx.font = `${options.fontWeight ?? 700} ${fontSize}px "Fredoka", "Montserrat", sans-serif`;
   ctx.textBaseline = "middle";
   ctx.textAlign = "left";
-  let cursorX = x;
-  let cursorY = y;
-  items.forEach((label) => {
-    const text = String(label || "").trim();
-    if (!text) return;
+  let cursorX = 0;
+  let cursorY = 0;
+  const labels = items
+    .map((item) => String(item?.label ?? item ?? "").trim())
+    .filter(Boolean);
+  const lines = [];
+  let lineWidth = 0;
+  let lineItems = [];
+  labels.forEach((text, index) => {
     const textWidth = ctx.measureText(text).width;
     const chipWidth = textWidth + padX * 2;
-    if (cursorX + chipWidth > x + maxWidth) {
-      cursorX = x;
+    if (cursorX + chipWidth > maxWidth && cursorX > 0) {
+      lines.push({ width: lineWidth - gap, items: lineItems });
+      cursorX = 0;
       cursorY += height + gap;
+      lineWidth = 0;
+      lineItems = [];
     }
-    drawRoundedRect(ctx, cursorX, cursorY, chipWidth, height, height / 2);
-    ctx.fillStyle = options.fill || "#fff0cc";
-    ctx.fill();
-    ctx.strokeStyle = options.stroke || "#d6a357";
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    ctx.fillStyle = options.color || "#6b3c1d";
-    ctx.fillText(text, cursorX + padX, cursorY + height / 2 + 1);
     cursorX += chipWidth + gap;
+    lineWidth += chipWidth + gap;
+    lineItems.push({ label: text, width: chipWidth, index });
   });
-  return cursorY + height;
+  if (lineItems.length) {
+    lines.push({ width: lineWidth - gap, items: lineItems });
+  }
+  if (!labels.length) return { height: 0, lineHeight: height, lines: [] };
+  return { height: cursorY + height, lineHeight: height, lines };
+}
+
+function measureChipsLayout(ctx, items, maxWidth, options = {}) {
+  const layout = layoutChips(ctx, items, maxWidth, options);
+  return { height: layout.height, lineHeight: layout.lineHeight };
+}
+
+function drawChips(ctx, items, x, y, maxWidth, options = {}) {
+  const layout = layoutChips(ctx, items, maxWidth, options);
+  if (!layout.height) return y;
+  const gap = options.gap ?? 10;
+  const padX = options.padX ?? 14;
+  const padY = options.padY ?? 8;
+  const fontSize = options.fontSize ?? 28;
+  const chipH = fontSize + padY * 2;
+  ctx.font = `${options.fontWeight ?? 700} ${fontSize}px "Fredoka", "Montserrat", sans-serif`;
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "left";
+  let cursorY = y;
+  layout.lines.forEach((line) => {
+    let cursorX = x;
+    line.items.forEach((item) => {
+      drawRoundedRect(ctx, cursorX, cursorY, item.width, chipH, chipH / 2);
+      ctx.fillStyle = options.fill || "#fff0cc";
+      ctx.fill();
+      ctx.strokeStyle = options.stroke || "#d6a357";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.fillStyle = options.color || "#6b3c1d";
+      ctx.fillText(item.label, cursorX + padX, cursorY + chipH / 2 + 1);
+      cursorX += item.width + gap;
+    });
+    cursorY += chipH + gap;
+  });
+  return cursorY - gap;
 }
 
 function drawColorChips(ctx, items, x, y, maxWidth, options = {}) {
+  const layout = layoutChips(ctx, items, maxWidth, options);
+  if (!layout.height) return y;
   const gap = options.gap ?? 10;
   const padX = options.padX ?? 12;
   const padY = options.padY ?? 6;
   const fontSize = options.fontSize ?? 24;
-  const height = fontSize + padY * 2;
+  const chipH = fontSize + padY * 2;
   const lineWidth = options.lineWidth ?? 2;
   ctx.font = `${options.fontWeight ?? 700} ${fontSize}px "Fredoka", "Montserrat", sans-serif`;
   ctx.textBaseline = "middle";
   ctx.textAlign = "left";
-  let cursorX = x;
   let cursorY = y;
-  items.forEach((item) => {
-    const label = String(item?.label || "").trim();
-    if (!label) return;
-    const textWidth = ctx.measureText(label).width;
-    const chipWidth = textWidth + padX * 2;
-    if (cursorX + chipWidth > x + maxWidth) {
-      cursorX = x;
-      cursorY += height + gap;
-    }
-    drawRoundedRect(ctx, cursorX, cursorY, chipWidth, height, height / 2);
-    ctx.fillStyle = item.fill || options.fill || "#fff0cc";
-    ctx.fill();
-    ctx.strokeStyle = item.stroke || options.stroke || "#d6a357";
-    ctx.lineWidth = lineWidth;
-    ctx.stroke();
-    ctx.fillStyle = item.color || options.color || "#6b3c1d";
-    ctx.fillText(label, cursorX + padX, cursorY + height / 2 + 1);
-    cursorX += chipWidth + gap;
+  layout.lines.forEach((line) => {
+    const lineStartX =
+      options.align === "center" ? x + (maxWidth - line.width) / 2 : x;
+    let cursorX = lineStartX;
+    line.items.forEach((lineItem) => {
+      const item = items[lineItem.index];
+      drawRoundedRect(ctx, cursorX, cursorY, lineItem.width, chipH, chipH / 2);
+      ctx.fillStyle = item?.fill || options.fill || "#fff0cc";
+      ctx.fill();
+      ctx.strokeStyle = item?.stroke || options.stroke || "#d6a357";
+      ctx.lineWidth = lineWidth;
+      ctx.stroke();
+      ctx.fillStyle = item?.color || options.color || "#6b3c1d";
+      ctx.fillText(lineItem.label, cursorX + padX, cursorY + chipH / 2 + 1);
+      cursorX += lineItem.width + gap;
+    });
+    cursorY += chipH + gap;
   });
-  return cursorY + height;
+  return cursorY - gap;
 }
 
 function truncateText(ctx, text, maxWidth) {
@@ -6892,134 +6965,68 @@ async function buildRecordShareCanvas(record, kind, position = null) {
       await document.fonts.ready;
     } catch {}
   }
-  const { canvas, ctx } = createShareCanvas(SHARE_CARD_WIDTH, SHARE_CARD_HEIGHT);
+  let { canvas, ctx } = createShareCanvas(SHARE_CARD_WIDTH, SHARE_CARD_HEIGHT);
   const playerName = formatShareName(record.playerName || shellTexts.playerLabel || "");
   const wordValue = formatShareWord(record.word || "");
   const pointsText = formatRecordPoints(record.points, { average: kind !== "word" });
 
-  ctx.fillStyle = "#f7ead1";
-  ctx.fillRect(0, 0, SHARE_CARD_WIDTH, SHARE_CARD_HEIGHT);
-
   const cardX = 60;
-  const cardY = 80;
+  const cardY = 60;
   const cardW = SHARE_CARD_WIDTH - 120;
-  const cardH = SHARE_CARD_HEIGHT - 160;
-  drawRoundedRect(ctx, cardX, cardY, cardW, cardH, 40);
-  ctx.fillStyle = "#fff8e9";
-  ctx.fill();
-  ctx.lineWidth = 6;
-  ctx.strokeStyle = "#d6a357";
-  ctx.stroke();
+  let cardH = SHARE_CARD_HEIGHT - 160;
 
   const logo = await loadImageElement("assets/img/logo-letters.png");
-  let logoBottom = cardY + 20;
-  if (logo) {
-    const logoWidth = 300;
-    const ratio = logo.height ? logo.width / logo.height : 1;
-    const logoHeight = logoWidth / ratio;
-    const logoX = cardX + (cardW - logoWidth) / 2;
-    const logoY = cardY + 18;
-    ctx.drawImage(logo, logoX, logoY, logoWidth, logoHeight);
-    logoBottom = logoY + logoHeight;
-  }
+  const logoWidth = 300;
+  const logoRatio = logo?.height ? logo.width / logo.height : 1;
+  const logoHeight = logoWidth / logoRatio;
+  const logoX = cardX + (cardW - logoWidth) / 2;
+  const logoY = cardY + 18;
+  const logoBottom = logoY + logoHeight;
 
   const pillX = cardX + 40;
   const pillW = cardW - 80;
   const pillY = logoBottom + 20;
-  const pillH = Math.max(420, cardY + cardH - pillY - 30);
-  drawRoundedRect(ctx, pillX, pillY + 4, pillW, pillH, 16);
-  ctx.fillStyle = "rgba(0, 0, 0, 0.12)";
-  ctx.fill();
-  drawRoundedRect(ctx, pillX, pillY, pillW, pillH, 16);
-  ctx.fillStyle = "#ffb65c";
-  ctx.fill();
-  ctx.lineWidth = 4;
-  ctx.strokeStyle = "#d66a16";
-  ctx.stroke();
+  const baseColor =
+    position != null
+      ? PLAYER_COLORS[(position - 1 + PLAYER_COLORS.length) % PLAYER_COLORS.length]
+      : record.color || PLAYER_COLORS[0];
+  const palette = getDealerPalette(baseColor);
 
-  const pillPad = 20;
-  const pointsPillH = 44;
-  const topRowY = pillY + pillPad;
-  const rowH = pointsPillH;
-  const topRowCenterY = topRowY + rowH / 2;
-  let nameX = pillX + pillPad;
+  const pillPad = 22;
+  const pointsPillH = 72;
+  const topRowH = pointsPillH;
+  const wordOptions = {
+    tileSizeMax: 84,
+    gap: 10,
+    fontScale: 0.62,
+    tileGradient: true,
+    tileGradientFrom: "#fff6de",
+    tileGradientTo: "#f7d9a4",
+    tileStroke: "rgba(131, 79, 30, 0.6)",
+    tileLineWidth: 3,
+    tileText: "#6b3c1d",
+    fontWeight: 900,
+    tileShadow: { color: "rgba(0, 0, 0, 0.18)", blur: 0, offsetX: 0, offsetY: 2 },
+  };
 
-  if (position != null) {
-    const posText = `#${position}`;
-    ctx.font = `900 26px "Fredoka", "Montserrat", sans-serif`;
-    ctx.textAlign = "left";
-    ctx.textBaseline = "middle";
-    ctx.fillStyle = "#f4d058";
-    ctx.strokeStyle = "rgba(0, 0, 0, 0.9)";
-    ctx.lineWidth = 4;
-    ctx.strokeText(posText, nameX, topRowCenterY + 1);
-    ctx.fillText(posText, nameX, topRowCenterY + 1);
-    nameX += ctx.measureText(posText).width + 12;
-  }
-
-  ctx.font = `900 30px "Fredoka", "Montserrat", sans-serif`;
-  const pointsPillW = Math.max(92, ctx.measureText(pointsText).width + 26);
-  const pointsPillX = pillX + pillW - pillPad - pointsPillW;
-  const nameMaxW = Math.max(40, pointsPillX - nameX - 10);
-  const displayName = truncateText(ctx, playerName, nameMaxW);
-  ctx.textAlign = "left";
-  ctx.textBaseline = "middle";
-  ctx.strokeStyle = "rgba(0, 0, 0, 0.9)";
-  ctx.lineWidth = 4;
-  ctx.strokeText(displayName, nameX, topRowCenterY + 1);
-  ctx.fillStyle = "#ffffff";
-  ctx.fillText(displayName, nameX, topRowCenterY + 1);
-
-  drawRoundedRect(ctx, pointsPillX, topRowY, pointsPillW, pointsPillH, 14);
-  const pointsGradient = ctx.createLinearGradient(0, topRowY, 0, topRowY + pointsPillH);
-  pointsGradient.addColorStop(0, "#ffe26f");
-  pointsGradient.addColorStop(1, "#ffc94f");
-  ctx.fillStyle = pointsGradient;
-  ctx.fill();
-  ctx.strokeStyle = "#d6a357";
-  ctx.lineWidth = 3;
-  ctx.stroke();
-  ctx.textAlign = "center";
-  ctx.font = `900 30px "Fredoka", "Montserrat", sans-serif`;
-  ctx.fillStyle = "#6b3c1d";
-  ctx.fillText(pointsText, pointsPillX + pointsPillW / 2, topRowCenterY + 1);
-
-  let cursorY = topRowY + pointsPillH + 18;
-
-  if (kind === "word" && wordValue) {
-    const wordY = drawWordTiles(
-      ctx,
-      wordValue,
-      pillX + pillW / 2,
-      cursorY,
-      pillW - 60,
-      { tileFill: "#fff6de", tileStroke: "#a86a2b", tileText: "#6b3c1d", fontWeight: 900 }
-    );
-    cursorY = wordY + 16;
-  }
+  const wordLayout =
+    kind === "word" && wordValue
+      ? measureWordTilesLayout(wordValue, pillW - 60, wordOptions)
+      : { height: 0 };
 
   const tags = [];
   const dateLabel = formatRecordDate(record.when);
   if (dateLabel) tags.push(dateLabel);
   if (record.round != null) tags.push(`B${record.round}`);
-  if (tags.length) {
-    const tagChips = tags.map((tag) => ({
-      label: String(tag).toUpperCase(),
-      fill: "rgba(0, 0, 0, 0.35)",
-      stroke: "rgba(255, 255, 255, 0.25)",
-      color: "#ffffff",
-    }));
-    cursorY = drawColorChips(ctx, tagChips, pillX + 12, cursorY, pillW - 24, {
-      fontSize: 20,
-      padX: 12,
-      padY: 6,
-    });
-    cursorY += 8;
-  }
-
+  const tagChips = tags.map((tag) => ({
+    label: String(tag).toUpperCase(),
+    fill: "rgba(0, 0, 0, 0.35)",
+    stroke: "rgba(255, 255, 255, 0.25)",
+    color: "#ffffff",
+  }));
+  const featureChips = [];
   if (kind === "word") {
     const features = record.features || {};
-    const featureChips = [];
     if (features.sameColor) {
       featureChips.push({
         label: shellTexts.recordsFeatureSameColor,
@@ -7060,6 +7067,124 @@ async function buildRecordShareCanvas(record, kind, position = null) {
         color: "#7b1f1f",
       });
     }
+  }
+  const featureLayout = featureChips.length
+    ? measureChipsLayout(ctx, featureChips, pillW - pillPad * 2, {
+        fontSize: 44,
+        padX: 20,
+        padY: 10,
+        gap: 12,
+      })
+    : { height: 0 };
+
+  let contentHeight = topRowH;
+  if (wordLayout.height) contentHeight += 14 + wordLayout.height;
+  if (featureLayout.height) contentHeight += 8 + featureLayout.height;
+
+  const dateChips = [];
+  if (dateLabel) dateChips.push(dateLabel);
+  if (record.round != null) {
+    dateChips.push(`Baza ${record.round}`);
+  } else if (kind !== "word") {
+    const roundsValue = record.rounds ?? record.round ?? 0;
+    if (roundsValue) {
+      const roundsLabel =
+        shellTexts.matchModeRounds || shellTexts.recordsRoundsHeader || "Bazas";
+      dateChips.push(`${roundsLabel} ${roundsValue}`);
+    }
+  }
+  const dateTextParts = dateChips;
+  const dateFontSize = 46;
+  const dateLineHeight = dateFontSize + 6;
+  const dateLayout = dateTextParts.length
+    ? { height: dateLineHeight }
+    : { height: 0 };
+
+  const pillH = Math.max(260, contentHeight + pillPad * 2);
+  const bottomContentHeight = dateLayout.height ? dateLayout.height + 18 : 0;
+  cardH = pillY - cardY + pillH + bottomContentHeight + 24;
+  const desiredHeight = cardY + cardH + 40;
+
+  const finalHeight = Math.min(SHARE_CARD_HEIGHT, desiredHeight);
+  if (finalHeight !== SHARE_CARD_HEIGHT) {
+    ({ canvas, ctx } = createShareCanvas(SHARE_CARD_WIDTH, finalHeight));
+  }
+
+  ctx.fillStyle = "#f7ead1";
+  ctx.fillRect(0, 0, SHARE_CARD_WIDTH, finalHeight);
+
+  drawRoundedRect(ctx, cardX, cardY, cardW, cardH, 40);
+  ctx.fillStyle = "#fff8e9";
+  ctx.fill();
+  ctx.lineWidth = 6;
+  ctx.strokeStyle = "#d6a357";
+  ctx.stroke();
+
+  if (logo) {
+    ctx.drawImage(logo, logoX, logoY, logoWidth, logoHeight);
+  }
+
+  drawRoundedRect(ctx, pillX, pillY + 4, pillW, pillH, 16);
+  ctx.fillStyle = "rgba(0, 0, 0, 0.12)";
+  ctx.fill();
+  drawRoundedRect(ctx, pillX, pillY, pillW, pillH, 16);
+  ctx.fillStyle = palette.bg;
+  ctx.fill();
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = palette.border;
+  ctx.stroke();
+  drawRoundedRect(ctx, pillX + 2, pillY + 2, pillW - 4, pillH - 4, 14);
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.55)";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  const topRowY = pillY + pillPad;
+  const rowH = pointsPillH;
+  const topRowCenterY = topRowY + rowH / 2;
+  let nameX = pillX + pillPad;
+
+  ctx.font = `800 60px "Fredoka", "Montserrat", sans-serif`;
+  const pointsPillW = Math.max(92, ctx.measureText(pointsText).width + 26);
+  const pointsPillX = pillX + pillW - pillPad - pointsPillW;
+  const nameMaxW = Math.max(40, pointsPillX - nameX - 10);
+  const displayName = truncateText(ctx, playerName, nameMaxW);
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.strokeStyle = "rgba(0, 0, 0, 0.9)";
+  ctx.lineWidth = 4;
+  ctx.strokeText(displayName, nameX, topRowCenterY + 1);
+  ctx.fillStyle = "#ffffff";
+  ctx.fillText(displayName, nameX, topRowCenterY + 1);
+
+  drawRoundedRect(ctx, pointsPillX, topRowY, pointsPillW, pointsPillH, 14);
+  const pointsGradient = ctx.createLinearGradient(0, topRowY, 0, topRowY + pointsPillH);
+  pointsGradient.addColorStop(0, "#ffe26f");
+  pointsGradient.addColorStop(1, "#ffc94f");
+  ctx.fillStyle = pointsGradient;
+  ctx.fill();
+  ctx.strokeStyle = palette.border;
+  ctx.lineWidth = 3;
+  ctx.stroke();
+  ctx.textAlign = "center";
+  ctx.font = `900 52px "Fredoka", "Montserrat", sans-serif`;
+  ctx.fillStyle = "#6b3c1d";
+  ctx.fillText(pointsText, pointsPillX + pointsPillW / 2, topRowCenterY + 1);
+
+  let cursorY = topRowY + pointsPillH + 14;
+
+  if (kind === "word" && wordValue) {
+    const wordY = drawWordTiles(
+      ctx,
+      wordValue,
+      pillX + pillW / 2,
+      cursorY,
+      pillW - 60,
+      wordOptions
+    );
+    cursorY = wordY + 16;
+  }
+
+  if (kind === "word") {
     if (featureChips.length) {
       cursorY = drawColorChips(
         ctx,
@@ -7067,7 +7192,7 @@ async function buildRecordShareCanvas(record, kind, position = null) {
         pillX + pillPad,
         cursorY,
         pillW - pillPad * 2,
-        { fontSize: 22, padX: 12, padY: 6 }
+        { fontSize: 44, padX: 20, padY: 10, gap: 12, align: "center" }
       );
       cursorY += 10;
     }
@@ -7086,10 +7211,22 @@ async function buildRecordShareCanvas(record, kind, position = null) {
         pillX + pillPad,
         cursorY,
         pillW - pillPad * 2,
-        { fontSize: 20, padX: 10, padY: 6 }
+        { fontSize: 26, padX: 12, padY: 7, align: "center" }
       );
       cursorY += 10;
     }
+  }
+
+  let bottomContentY = pillY + pillH;
+  if (dateTextParts.length) {
+    const dateLine = dateTextParts.join(" · ");
+    ctx.font = `800 ${dateFontSize}px "Fredoka", "Montserrat", sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = "#c9a56c";
+    const textY = bottomContentY + 18 + dateLineHeight / 2;
+    ctx.fillText(dateLine, pillX + pillW / 2, textY);
+    bottomContentY = textY + dateLineHeight / 2;
   }
 
   return canvas;
@@ -7129,21 +7266,6 @@ async function buildScoreboardShareCanvas(matchState) {
   }
 
   let cursorY = logoBottom + 20;
-  const dateLabel = formatRecordDate(Date.now());
-  if (dateLabel) {
-    drawRoundedRect(ctx, cardX + 120, cursorY, cardW - 240, 44, 22);
-    ctx.fillStyle = "rgba(0, 0, 0, 0.35)";
-    ctx.fill();
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.25)";
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    ctx.font = `700 24px "Fredoka", "Montserrat", sans-serif`;
-    ctx.fillStyle = "#ffffff";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(dateLabel.toUpperCase(), cardX + cardW / 2, cursorY + 22);
-    cursorY += 60;
-  }
 
   const rounds = scoreboardRounds || [];
   const players = scoreboardPlayers || [];
@@ -7157,21 +7279,28 @@ async function buildScoreboardShareCanvas(matchState) {
     }))
     .sort((a, b) => Number(b.total) - Number(a.total));
 
-  const rowHeight = 62;
-  const rowGap = 12;
-  const cols = Math.min(2, Math.max(1, rows.length));
-  const listX = cardX + 40;
-  const listW = cardW - 80;
-  const cellW = (listW - rowGap * (cols - 1)) / cols;
+  const rowHeight = 92;
+  const rowGap = 14;
+  const listX = cardX + 50;
+  const listW = cardW - 100;
+  const cellW = Math.round(listW * 0.75);
+  const cellX = listX + (listW - cellW) / 2;
   ctx.textBaseline = "middle";
   const maxRows = Math.floor((cardY + cardH - cursorY - 20) / (rowHeight + rowGap));
-  const maxItems = Math.max(1, maxRows * cols);
+  const maxItems = Math.max(1, maxRows);
 
+  const listH =
+    Math.min(rows.length, maxItems) * rowHeight +
+    Math.max(0, Math.min(rows.length, maxItems) - 1) * rowGap +
+    24;
+  drawRoundedRect(ctx, listX - 12, cursorY - 8, listW + 24, listH, 18);
+  ctx.fillStyle = "rgba(255, 248, 233, 0.55)";
+  ctx.fill();
+
+  const winnerIcon = await loadImageElement("assets/img/leader.svg");
   rows.slice(0, maxItems).forEach((row, index) => {
-    const col = index % cols;
-    const rowIndex = Math.floor(index / cols);
-    const x = listX + col * (cellW + rowGap);
-    const y = cursorY + rowIndex * (rowHeight + rowGap);
+    const x = cellX;
+    const y = cursorY + index * (rowHeight + rowGap);
     const palette = getDealerPalette(row.color || "#d9c79f");
     drawRoundedRect(ctx, x, y + 3, cellW, rowHeight, 12);
     ctx.fillStyle = "rgba(0, 0, 0, 0.18)";
@@ -7184,20 +7313,63 @@ async function buildScoreboardShareCanvas(matchState) {
     ctx.lineWidth = 3;
     ctx.stroke();
 
-    const name = truncateText(ctx, formatShareName(row.name), cellW - 80);
+    const posText = `#${index + 1}`;
     ctx.textAlign = "left";
-    ctx.font = `800 24px "Fredoka", "Montserrat", sans-serif`;
+    ctx.font = `900 52px "Fredoka", "Montserrat", sans-serif`;
     ctx.strokeStyle = "rgba(0, 0, 0, 0.6)";
     ctx.lineWidth = 3;
-    ctx.strokeText(name, x + 12, y + rowHeight / 2 + 1);
-    ctx.fillStyle = palette.text;
-    ctx.fillText(name, x + 12, y + rowHeight / 2 + 1);
+    ctx.strokeText(posText, x + 12, y + rowHeight / 2 + 1);
+    ctx.fillStyle = "#ffe26f";
+    ctx.fillText(posText, x + 12, y + rowHeight / 2 + 1);
 
     ctx.textAlign = "right";
-    ctx.font = `900 26px "Fredoka", "Montserrat", sans-serif`;
+    ctx.font = `900 56px "Fredoka", "Montserrat", sans-serif`;
     ctx.fillStyle = palette.text;
-    ctx.fillText(String(row.total), x + cellW - 12, y + rowHeight / 2 + 1);
+    const pointsText = String(row.total);
+    const pointsWidth = ctx.measureText(pointsText).width;
+    const pointsShift = 16;
+    const pointsX = x + cellW - 12 - pointsShift;
+    ctx.strokeStyle = "rgba(0, 0, 0, 0.6)";
+    ctx.lineWidth = 3;
+    ctx.strokeText(pointsText, pointsX, y + rowHeight / 2 + 3);
+    ctx.fillText(pointsText, pointsX, y + rowHeight / 2 + 3);
+
+    const nameMaxW = Math.max(40, pointsX - (x + 90) - 16);
+    ctx.textAlign = "left";
+    ctx.font = `800 56px "Fredoka", "Montserrat", sans-serif`;
+    const name = truncateText(ctx, formatShareName(row.name), nameMaxW);
+    ctx.strokeStyle = "rgba(0, 0, 0, 0.6)";
+    ctx.lineWidth = 3;
+    ctx.strokeText(name, x + 90, y + rowHeight / 2 + 3);
+    ctx.fillStyle = palette.text;
+    ctx.fillText(name, x + 90, y + rowHeight / 2 + 3);
+
+    if (index === 0 && winnerIcon) {
+      const iconSize = 80;
+      ctx.save();
+      ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
+      ctx.shadowBlur = 6;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
+      ctx.drawImage(winnerIcon, x + 90, y - iconSize / 2, iconSize, iconSize);
+      ctx.restore();
+      ctx.drawImage(winnerIcon, x + 90, y - iconSize / 2, iconSize, iconSize);
+    }
   });
+
+  const dateLabel = formatRecordDate(Date.now());
+  const roundsCount = Array.isArray(scoreboardRounds) ? scoreboardRounds.length : 0;
+  if (dateLabel) {
+    const roundsLabel =
+      shellTexts.matchModeRounds || shellTexts.recordsRoundsHeader || "Bazas";
+    const dateLine = roundsCount ? `${dateLabel} · ${roundsCount} ${roundsLabel}` : dateLabel;
+    ctx.font = `800 40px "Fredoka", "Montserrat", sans-serif`;
+    ctx.fillStyle = "#c9a56c";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    const dateY = cursorY + listH + 18 + 20;
+    ctx.fillText(dateLine, cardX + cardW / 2, dateY);
+  }
 
   return canvas;
 }
