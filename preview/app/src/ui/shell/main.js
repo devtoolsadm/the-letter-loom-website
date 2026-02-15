@@ -4225,6 +4225,16 @@ function getDealerPalette(color) {
   return { bg: color, border, text };
 }
 
+function darkenHexColor(color, factor = 0.75) {
+  const rgb = parseHexColor(color);
+  if (!rgb) return color;
+  return toHex({
+    r: rgb.r * factor,
+    g: rgb.g * factor,
+    b: rgb.b * factor,
+  });
+}
+
 function getDealerInfo(matchState) {
   const players = getActivePlayers(matchState);
   if (!players.length) {
@@ -4530,6 +4540,11 @@ function renderScoreboardScreen(matchState) {
     playerCell.style.setProperty("--player-color", player.color || "#d9c79f");
     playerCell.style.setProperty("--player-border", palette.border);
     playerCell.style.setProperty("--player-text", palette.text);
+    playerCell.style.setProperty("--points-pill-bg", darkenHexColor(player.color || "#d9c79f", 0.92));
+    playerCell.style.setProperty(
+      "--points-pill-border",
+      darkenHexColor(player.color || "#d9c79f", 0.8)
+    );
     playerCell.classList.toggle(
       "is-leader",
       maxTotal > 0 && totals.get(id) === maxTotal && maxTotal > 0
@@ -4684,6 +4699,8 @@ function renderMatchScoreboard(matchState) {
     item.style.setProperty("--chip-bg", color);
     item.style.setProperty("--chip-border", palette.border);
     item.style.setProperty("--chip-text", palette.text);
+    item.style.setProperty("--points-pill-bg", darkenHexColor(color, 0.92));
+    item.style.setProperty("--points-pill-border", darkenHexColor(color, 0.8));
     if (isDealer) {
       item.style.setProperty("--dealer-bg", palette.bg);
       item.style.setProperty("--dealer-border", palette.border);
@@ -4710,6 +4727,7 @@ function renderMatchScoreboard(matchState) {
     if (matchState.scoringEnabled) {
       const pointsEl = document.createElement("span");
       pointsEl.className = "match-score-points";
+      if (isLeader) pointsEl.classList.add("is-leader");
       pointsEl.textContent = String(score);
       pointsEl.classList.toggle("is-negative", score < 0);
       meta.appendChild(pointsEl);
@@ -4821,6 +4839,11 @@ function renderRoundEndScreen() {
     row.style.setProperty("--player-color", player.color || "#d9c79f");
     row.style.setProperty("--player-border", palette.border);
     row.style.setProperty("--player-text", palette.text);
+    row.style.setProperty("--points-pill-bg", darkenHexColor(player.color || "#d9c79f", 0.92));
+    row.style.setProperty(
+      "--points-pill-border",
+      darkenHexColor(player.color || "#d9c79f", 0.8)
+    );
     if (id === dealerId) {
       row.style.setProperty("--dealer-bg", palette.bg);
       row.style.setProperty("--dealer-border", palette.border);
@@ -6582,6 +6605,7 @@ function formatRecordPoints(value, { average = false } = {}) {
 
 const SHARE_CARD_WIDTH = 1080;
 const SHARE_CARD_HEIGHT = 1350;
+const SHARE_CARD_MARGIN = 60;
 
 function createShareCanvas(width, height) {
   const canvas = document.createElement("canvas");
@@ -6867,6 +6891,139 @@ function drawWrappedText(ctx, text, x, y, maxWidth, lineHeight, align = "center"
   return y + lines.length * lineHeight;
 }
 
+function drawShareCardFrame(ctx, x, y, w, h) {
+  drawRoundedRect(ctx, x, y, w, h, 40);
+  ctx.fillStyle = "#fff8e9";
+  ctx.fill();
+  ctx.lineWidth = 6;
+  ctx.strokeStyle = "#d6a357";
+  ctx.stroke();
+  drawRoundedRect(ctx, x + 6, y + 6, w - 12, h - 12, 34);
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = "#fff3dc";
+  ctx.stroke();
+  drawRoundedRect(ctx, x + 12, y + 12, w - 24, h - 24, 30);
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = "#e3c38a";
+  ctx.stroke();
+}
+
+const iconOffsetCache = new Map();
+
+function getIconContentOffset(img, size) {
+  if (!img) return { dx: 0, dy: 0 };
+  const key = `${img.src || "img"}:${size}`;
+  if (iconOffsetCache.has(key)) return iconOffsetCache.get(key);
+  const tmp = document.createElement("canvas");
+  tmp.width = size;
+  tmp.height = size;
+  const tctx = tmp.getContext("2d");
+  tctx.drawImage(img, 0, 0, size, size);
+  const { data, width, height } = tctx.getImageData(0, 0, size, size);
+  let minX = width;
+  let minY = height;
+  let maxX = -1;
+  let maxY = -1;
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const idx = (y * width + x) * 4 + 3;
+      if (data[idx] > 0) {
+        if (x < minX) minX = x;
+        if (y < minY) minY = y;
+        if (x > maxX) maxX = x;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+  let offset = { dx: 0, dy: 0 };
+  if (maxX >= minX && maxY >= minY) {
+    const contentW = maxX - minX + 1;
+    const contentH = maxY - minY + 1;
+    const dx = (width - contentW) / 2 - minX;
+    const dy = (height - contentH) / 2 - minY;
+    offset = { dx, dy };
+  }
+  iconOffsetCache.set(key, offset);
+  return offset;
+}
+
+function drawShareCardTitle(ctx, cardX, cardW, topY, iconImg, label) {
+  const iconSize = 70;
+  const iconPillSize = 90;
+  const text = String(label || "");
+  ctx.font = `800 68px "Fredoka", "Montserrat", sans-serif`;
+  const textWidth = ctx.measureText(text).width;
+  const textX = cardX + (cardW - textWidth) / 2;
+  const textY = topY + 36;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#6b3c1d";
+  ctx.fillText(text, textX, textY);
+  const nextY = topY + 84;
+  if (iconImg) {
+    const pillX = cardX + (cardW - iconPillSize) / 2;
+    const pillY = nextY;
+    drawRoundedRect(ctx, pillX, pillY, iconPillSize, iconPillSize, iconPillSize / 2);
+    ctx.fillStyle = "#fff3dc";
+    ctx.fill();
+    ctx.strokeStyle = "#d6a357";
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    const iconX = pillX + (iconPillSize - iconSize) / 2;
+    const iconY = pillY + (iconPillSize - iconSize) / 2;
+    const { dx, dy } = getIconContentOffset(iconImg, iconSize);
+    ctx.drawImage(iconImg, iconX + dx, iconY + dy, iconSize, iconSize);
+    return pillY + iconPillSize + 8;
+  }
+  return nextY;
+}
+
+function drawIconWithOutline(ctx, img, x, y, size, color = "#000000") {
+  if (!img) return;
+  const tmp = document.createElement("canvas");
+  tmp.width = size;
+  tmp.height = size;
+  const tctx = tmp.getContext("2d");
+  tctx.drawImage(img, 0, 0, size, size);
+  tctx.globalCompositeOperation = "source-in";
+  tctx.fillStyle = color;
+  tctx.fillRect(0, 0, size, size);
+  tctx.globalCompositeOperation = "source-over";
+
+  const offsets = [
+    [-2, 0],
+    [2, 0],
+    [0, -2],
+    [0, 2],
+    [-2, -2],
+    [2, -2],
+    [-2, 2],
+    [2, 2],
+    [-3, 0],
+    [3, 0],
+    [0, -3],
+    [0, 3],
+  ];
+  offsets.forEach(([dx, dy]) => {
+    ctx.drawImage(tmp, x + dx, y + dy, size, size);
+  });
+  ctx.drawImage(img, x, y, size, size);
+}
+
+function getCenteredTextBaseline(ctx, y, height, sample = "Ag") {
+  const metrics = ctx.measureText(sample);
+  if (
+    typeof metrics.actualBoundingBoxAscent === "number" &&
+    typeof metrics.actualBoundingBoxDescent === "number"
+  ) {
+    const textHeight = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
+    return y + (height - textHeight) / 2 + metrics.actualBoundingBoxAscent;
+  }
+  const sizeMatch = String(ctx.font).match(/(\d+(?:\.\d+)?)px/);
+  const fontSize = sizeMatch ? Number(sizeMatch[1]) : 0;
+  return y + height / 2 + fontSize * 0.35;
+}
+
 function formatShareMessage(template, vars) {
   if (!template) return "";
   let text = String(template);
@@ -6970,22 +7127,29 @@ async function buildRecordShareCanvas(record, kind, position = null) {
   const wordValue = formatShareWord(record.word || "");
   const pointsText = formatRecordPoints(record.points, { average: kind !== "word" });
 
-  const cardX = 60;
-  const cardY = 60;
-  const cardW = SHARE_CARD_WIDTH - 120;
+  const cardX = SHARE_CARD_MARGIN;
+  const cardY = SHARE_CARD_MARGIN;
+  const cardW = SHARE_CARD_WIDTH - SHARE_CARD_MARGIN * 2;
   let cardH = SHARE_CARD_HEIGHT - 160;
 
   const logo = await loadImageElement("assets/img/logo-letters.png");
-  const logoWidth = 300;
+  const headerIcon = await loadImageElement(
+    kind === "word" ? "assets/img/record.svg" : "assets/img/winner.svg"
+  );
+  const logoWidth = 340;
   const logoRatio = logo?.height ? logo.width / logo.height : 1;
   const logoHeight = logoWidth / logoRatio;
   const logoX = cardX + (cardW - logoWidth) / 2;
   const logoY = cardY + 18;
   const logoBottom = logoY + logoHeight;
+  const headerLabel =
+    kind === "word" ? shellTexts.recordsShareWordTitle : shellTexts.recordsShareMatchTitle;
+  const headerTop = logoBottom + 36;
+  const headerBottom = drawShareCardTitle(ctx, cardX, cardW, headerTop, headerIcon, headerLabel);
 
   const pillX = cardX + 40;
   const pillW = cardW - 80;
-  const pillY = logoBottom + 20;
+  const pillY = headerBottom + 22;
   const baseColor =
     position != null
       ? PLAYER_COLORS[(position - 1 + PLAYER_COLORS.length) % PLAYER_COLORS.length]
@@ -7103,7 +7267,7 @@ async function buildRecordShareCanvas(record, kind, position = null) {
   const pillH = Math.max(260, contentHeight + pillPad * 2);
   const bottomContentHeight = dateLayout.height ? dateLayout.height + 18 : 0;
   cardH = pillY - cardY + pillH + bottomContentHeight + 24;
-  const desiredHeight = cardY + cardH + 40;
+  const desiredHeight = cardY + cardH + SHARE_CARD_MARGIN;
 
   const finalHeight = Math.min(SHARE_CARD_HEIGHT, desiredHeight);
   if (finalHeight !== SHARE_CARD_HEIGHT) {
@@ -7113,16 +7277,12 @@ async function buildRecordShareCanvas(record, kind, position = null) {
   ctx.fillStyle = "#f7ead1";
   ctx.fillRect(0, 0, SHARE_CARD_WIDTH, finalHeight);
 
-  drawRoundedRect(ctx, cardX, cardY, cardW, cardH, 40);
-  ctx.fillStyle = "#fff8e9";
-  ctx.fill();
-  ctx.lineWidth = 6;
-  ctx.strokeStyle = "#d6a357";
-  ctx.stroke();
+  drawShareCardFrame(ctx, cardX, cardY, cardW, cardH);
 
   if (logo) {
     ctx.drawImage(logo, logoX, logoY, logoWidth, logoHeight);
   }
+  drawShareCardTitle(ctx, cardX, cardW, headerTop, headerIcon, headerLabel);
 
   drawRoundedRect(ctx, pillX, pillY + 4, pillW, pillH, 16);
   ctx.fillStyle = "rgba(0, 0, 0, 0.12)";
@@ -7238,34 +7398,37 @@ async function buildScoreboardShareCanvas(matchState) {
       await document.fonts.ready;
     } catch {}
   }
-  const { canvas, ctx } = createShareCanvas(SHARE_CARD_WIDTH, SHARE_CARD_HEIGHT);
-  ctx.fillStyle = "#f7ead1";
-  ctx.fillRect(0, 0, SHARE_CARD_WIDTH, SHARE_CARD_HEIGHT);
+  let { canvas, ctx } = createShareCanvas(SHARE_CARD_WIDTH, SHARE_CARD_HEIGHT);
 
-  const cardX = 60;
-  const cardY = 80;
-  const cardW = SHARE_CARD_WIDTH - 120;
-  const cardH = SHARE_CARD_HEIGHT - 160;
-  drawRoundedRect(ctx, cardX, cardY, cardW, cardH, 40);
-  ctx.fillStyle = "#fff8e9";
-  ctx.fill();
-  ctx.lineWidth = 6;
-  ctx.strokeStyle = "#d6a357";
-  ctx.stroke();
+  const cardX = SHARE_CARD_MARGIN;
+  const cardY = SHARE_CARD_MARGIN;
+  const cardW = SHARE_CARD_WIDTH - SHARE_CARD_MARGIN * 2;
+  let cardH = SHARE_CARD_HEIGHT - 160;
 
   const logo = await loadImageElement("assets/img/logo-letters.png");
+  const headerIcon = await loadImageElement("assets/img/podium.svg");
+  const logoWidth = 340;
+  const ratio = logo?.height ? logo.width / logo.height : 1;
+  const logoHeight = logoWidth / ratio;
+  const logoX = cardX + (cardW - logoWidth) / 2;
+  const logoY = cardY + 18;
   let logoBottom = cardY + 20;
   if (logo) {
-    const logoWidth = 300;
-    const ratio = logo.height ? logo.width / logo.height : 1;
-    const logoHeight = logoWidth / ratio;
-    const logoX = cardX + (cardW - logoWidth) / 2;
-    const logoY = cardY + 18;
     ctx.drawImage(logo, logoX, logoY, logoWidth, logoHeight);
     logoBottom = logoY + logoHeight;
   }
 
-  let cursorY = logoBottom + 20;
+  const headerTop = logoBottom + 36;
+  const headerLabel = shellTexts.scoreboardShareTitle;
+  const headerBottom = drawShareCardTitle(
+    ctx,
+    cardX,
+    cardW,
+    headerTop,
+    headerIcon,
+    headerLabel
+  );
+  let cursorY = headerBottom + 22;
 
   const rounds = scoreboardRounds || [];
   const players = scoreboardPlayers || [];
@@ -7289,16 +7452,51 @@ async function buildScoreboardShareCanvas(matchState) {
   const maxRows = Math.floor((cardY + cardH - cursorY - 20) / (rowHeight + rowGap));
   const maxItems = Math.max(1, maxRows);
 
-  const listH =
-    Math.min(rows.length, maxItems) * rowHeight +
-    Math.max(0, Math.min(rows.length, maxItems) - 1) * rowGap +
-    24;
+  const visibleCount = Math.min(rows.length, maxItems);
+  const listH = visibleCount * rowHeight + Math.max(0, visibleCount - 1) * rowGap + 24;
+
+  const dateLabel = formatRecordDate(Date.now());
+  const roundsCount = Array.isArray(scoreboardRounds) ? scoreboardRounds.length : 0;
+  const roundsLabel =
+    shellTexts.matchModeRounds || shellTexts.recordsRoundsHeader || "Bazas";
+  const dateLine = dateLabel
+    ? roundsCount
+      ? `${dateLabel} · ${roundsCount} ${roundsLabel}`
+      : dateLabel
+    : "";
+  const dateBlockH = dateLine ? 48 : 0;
+
+  cardH = (cursorY - cardY) + listH + (dateBlockH ? dateBlockH + 18 : 0) + 24;
+  const desiredHeight = cardY + cardH + SHARE_CARD_MARGIN;
+  const finalHeight = Math.min(SHARE_CARD_HEIGHT, desiredHeight);
+  if (finalHeight !== SHARE_CARD_HEIGHT) {
+    ({ canvas, ctx } = createShareCanvas(SHARE_CARD_WIDTH, finalHeight));
+  }
+  ctx.fillStyle = "#f7ead1";
+  ctx.fillRect(0, 0, SHARE_CARD_WIDTH, finalHeight);
+  drawShareCardFrame(ctx, cardX, cardY, cardW, cardH);
+  if (logo) {
+    ctx.drawImage(logo, logoX, logoY, logoWidth, logoHeight);
+  }
+  drawShareCardTitle(ctx, cardX, cardW, headerTop, headerIcon, headerLabel);
+
   drawRoundedRect(ctx, listX - 12, cursorY - 8, listW + 24, listH, 18);
   ctx.fillStyle = "rgba(255, 248, 233, 0.55)";
   ctx.fill();
 
   const winnerIcon = await loadImageElement("assets/img/leader.svg");
-  rows.slice(0, maxItems).forEach((row, index) => {
+  const maxTotal = rows.length ? rows[0].total : null;
+  const visibleRows = rows.slice(0, maxItems);
+  const pointsPadX = 16;
+  const pointsPillH = 52;
+  ctx.font = `900 52px "Fredoka", "Montserrat", sans-serif`;
+  const maxPointsWidth = visibleRows.reduce((acc, row) => {
+    const w = ctx.measureText(String(row.total)).width;
+    return Math.max(acc, w);
+  }, 0);
+  const pointsPillWFixed = Math.max(maxPointsWidth + pointsPadX * 2, 90);
+
+  visibleRows.forEach((row, index) => {
     const x = cellX;
     const y = cursorY + index * (rowHeight + rowGap);
     const palette = getDealerPalette(row.color || "#d9c79f");
@@ -7318,51 +7516,73 @@ async function buildScoreboardShareCanvas(matchState) {
     ctx.font = `900 52px "Fredoka", "Montserrat", sans-serif`;
     ctx.strokeStyle = "rgba(0, 0, 0, 0.6)";
     ctx.lineWidth = 3;
-    ctx.strokeText(posText, x + 12, y + rowHeight / 2 + 1);
+    ctx.textBaseline = "alphabetic";
+    const posBaseline = getCenteredTextBaseline(ctx, y, rowHeight, posText);
+    ctx.strokeText(posText, x + 12, posBaseline);
     ctx.fillStyle = "#ffe26f";
-    ctx.fillText(posText, x + 12, y + rowHeight / 2 + 1);
+    ctx.fillText(posText, x + 12, posBaseline);
 
-    ctx.textAlign = "right";
-    ctx.font = `900 56px "Fredoka", "Montserrat", sans-serif`;
-    ctx.fillStyle = palette.text;
+    ctx.textAlign = "center";
+    ctx.font = `900 52px "Fredoka", "Montserrat", sans-serif`;
     const pointsText = String(row.total);
-    const pointsWidth = ctx.measureText(pointsText).width;
-    const pointsShift = 16;
-    const pointsX = x + cellW - 12 - pointsShift;
-    ctx.strokeStyle = "rgba(0, 0, 0, 0.6)";
-    ctx.lineWidth = 3;
-    ctx.strokeText(pointsText, pointsX, y + rowHeight / 2 + 3);
-    ctx.fillText(pointsText, pointsX, y + rowHeight / 2 + 3);
+    const pointsPillW = pointsPillWFixed;
+    const pointsPillX = x + cellW - 12 - pointsPillW;
+    const pointsPillY = y + (rowHeight - pointsPillH) / 2;
+    const isWinner = maxTotal != null && row.total === maxTotal;
+    drawRoundedRect(ctx, pointsPillX, pointsPillY, pointsPillW, pointsPillH, 14);
+    if (isWinner) {
+      const pointsGradient = ctx.createLinearGradient(
+        0,
+        pointsPillY,
+        0,
+        pointsPillY + pointsPillH
+      );
+      pointsGradient.addColorStop(0, "#ffe26f");
+      pointsGradient.addColorStop(1, "#ffc94f");
+      ctx.fillStyle = pointsGradient;
+      ctx.fill();
+      ctx.strokeStyle = "rgba(107, 60, 29, 0.45)";
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      ctx.fillStyle = "#6b3c1d";
+    } else {
+      const darker = darkenHexColor(row.color || "#d9c79f", 0.92);
+      ctx.fillStyle = darker;
+      ctx.fill();
+      ctx.strokeStyle = darkenHexColor(row.color || "#d9c79f", 0.78);
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      ctx.fillStyle = "#ffffff";
+      ctx.strokeStyle = "rgba(0, 0, 0, 0.7)";
+      ctx.lineWidth = 3;
+    }
+    ctx.textBaseline = "alphabetic";
+    const pointsBaseline = getCenteredTextBaseline(ctx, pointsPillY, pointsPillH, pointsText);
+    if (!isWinner) {
+      ctx.strokeText(pointsText, pointsPillX + pointsPillW / 2, pointsBaseline);
+    }
+    ctx.fillText(pointsText, pointsPillX + pointsPillW / 2, pointsBaseline);
 
-    const nameMaxW = Math.max(40, pointsX - (x + 90) - 16);
+    const nameMaxW = Math.max(40, pointsPillX - (x + 90) - 16);
     ctx.textAlign = "left";
     ctx.font = `800 56px "Fredoka", "Montserrat", sans-serif`;
     const name = truncateText(ctx, formatShareName(row.name), nameMaxW);
     ctx.strokeStyle = "rgba(0, 0, 0, 0.6)";
     ctx.lineWidth = 3;
-    ctx.strokeText(name, x + 90, y + rowHeight / 2 + 3);
+    const nameBaseline = getCenteredTextBaseline(ctx, y, rowHeight, name);
+    ctx.strokeText(name, x + 90, nameBaseline);
     ctx.fillStyle = palette.text;
-    ctx.fillText(name, x + 90, y + rowHeight / 2 + 3);
+    ctx.fillText(name, x + 90, nameBaseline);
 
-    if (index === 0 && winnerIcon) {
+    if (winnerIcon && maxTotal != null && row.total === maxTotal) {
       const iconSize = 80;
-      ctx.save();
-      ctx.shadowColor = "rgba(0, 0, 0, 0.8)";
-      ctx.shadowBlur = 6;
-      ctx.shadowOffsetX = 0;
-      ctx.shadowOffsetY = 0;
-      ctx.drawImage(winnerIcon, x + 90, y - iconSize / 2, iconSize, iconSize);
-      ctx.restore();
-      ctx.drawImage(winnerIcon, x + 90, y - iconSize / 2, iconSize, iconSize);
+      const iconX = x + 90;
+      const iconY = y - iconSize / 2;
+      drawIconWithOutline(ctx, winnerIcon, iconX, iconY, iconSize, "#111111");
     }
   });
 
-  const dateLabel = formatRecordDate(Date.now());
-  const roundsCount = Array.isArray(scoreboardRounds) ? scoreboardRounds.length : 0;
-  if (dateLabel) {
-    const roundsLabel =
-      shellTexts.matchModeRounds || shellTexts.recordsRoundsHeader || "Bazas";
-    const dateLine = roundsCount ? `${dateLabel} · ${roundsCount} ${roundsLabel}` : dateLabel;
+  if (dateLine) {
     ctx.font = `800 40px "Fredoka", "Montserrat", sans-serif`;
     ctx.fillStyle = "#c9a56c";
     ctx.textAlign = "center";
