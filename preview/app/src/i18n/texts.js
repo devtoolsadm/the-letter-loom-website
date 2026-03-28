@@ -39,14 +39,23 @@ export const TEXTS = {
         ]
       },
       {
+        id: "round-setup",
+        title: "Preparación de la baza",
+        body: [
+          "Deja todo listo antes de la estrategia."
+        ],
+        bullets: [
+          "Coloca el Tablero Central con 5 letras boca arriba.",
+          "Reparte 3 letras + 3 cartas de estrategia a cada jugador."
+        ]
+      },
+      {
         id: "strategy",
         title: "Fase de estrategia",
         body: [
           "Aquí se preparan las jugadas."
         ],
         bullets: [
-          "Coloca el Tablero Central con 5 letras boca arriba.",
-          "Reparte 3 letras + 3 cartas de estrategia a cada jugador.",
           "Activa el cronómetro de estrategia.",
           "Cada jugador juega una carta de estrategia para cambiar letras, puntos o tablero."
         ]
@@ -438,14 +447,23 @@ export const TEXTS = {
         ]
       },
       {
+        id: "round-setup",
+        title: "Trick setup",
+        body: [
+          "Get everything ready before strategy."
+        ],
+        bullets: [
+          "Place the Central Board with 5 letters face up.",
+          "Deal 3 letters + 3 strategy cards to each player."
+        ]
+      },
+      {
         id: "strategy",
         title: "Strategy phase",
         body: [
           "This is where you set up your play."
         ],
         bullets: [
-          "Place the Central Board with 5 letters face up.",
-          "Deal 3 letters + 3 strategy cards to each player.",
           "Start the strategy timer.",
           "Each player plays a strategy card to change letters, points or the board."
         ]

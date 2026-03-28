@@ -55,7 +55,9 @@ import {
   SIMULATED_MATCH_SEEDS,
   buildSimulatedMatchState,
   RECORD_MIN_POINTS,
-  RECORD_AVG_PENALTY_K,
+  RECORD_AVG_PENALTY_THRESHOLD,
+  RECORD_AVG_PENALTY_DECAY,
+  RECORD_AVG_PENALTY_MAX,
   WAKE_LOCK_TIMEOUT_MS,
   WAKE_LOCK_SUCCESS_DEBOUNCE_MS,
 } from "../../core/constants.js";
@@ -10088,7 +10090,14 @@ function recordMatchAverages(matchState) {
     const played = Array.isArray(player.rounds) ? player.rounds.length : rounds;
     if (!played) return;
     const avg = total / played;
-    const adjusted = avg * (played / (played + RECORD_AVG_PENALTY_K));
+    const threshold = RECORD_AVG_PENALTY_THRESHOLD;
+    const decay = RECORD_AVG_PENALTY_DECAY;
+    const maxPenalty = RECORD_AVG_PENALTY_MAX;
+    const factor =
+      played < threshold
+        ? played / threshold
+        : 1 - maxPenalty * Math.exp(-(played - threshold) / decay);
+    const adjusted = avg * Math.max(0, Math.min(1, factor));
     const entry = {
       matchId: matchState.matchId,
       playerId: player.id,

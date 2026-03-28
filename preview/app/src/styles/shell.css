@@ -381,7 +381,7 @@ body.shell-ready #game-root {
   height: 90% !important;
 }
 .icon-btn-img.icon-play {
-  background-image: url("../../assets/ui-pack/Icons/SVG/Icon_Small_Blank_Arrow.svg");
+  background-image: url("../../assets/img//play.svg");
 }
 .icon-btn-img.icon-pause {
   background-image: url("../../assets/ui-pack/Icons/SVG/Icon_Small_Blank_Pause.svg");
@@ -390,7 +390,7 @@ body.shell-ready #game-root {
   background-image: url("../../assets/ui-pack/Icons/SVG/Icon_Small_Blank_Return.svg");
 }
 .icon-btn-img.icon-finish {
-  background-image: url("../../assets/ui-pack/Icons/SVG/Icon_Small_Blank_Check.svg");
+  background-image: url("../../assets/img/stop.svg");
 }
 
 /* Icon button glossy variant (uses primary button skin) */

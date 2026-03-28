@@ -60,7 +60,9 @@ export const PLAYER_COLORS = USE_VIVID_PLAYER_COLORS
 export const DEFAULT_PLAYER_COUNT = 2;
 export const ROUND_KEYPAD_AUTO_ZERO_ON_NAV = false;
 export const RECORD_MIN_POINTS = 20;
-export const RECORD_AVG_PENALTY_K = 5;
+export const RECORD_AVG_PENALTY_THRESHOLD = 5;
+export const RECORD_AVG_PENALTY_DECAY = 6;
+export const RECORD_AVG_PENALTY_MAX = 0.1;
 export const WAKE_LOCK_TIMEOUT_MS = 5 * 60 * 1000;
 export const WAKE_LOCK_SUCCESS_DEBOUNCE_MS = 30 * 1000;
 
