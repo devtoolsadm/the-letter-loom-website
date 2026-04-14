@@ -27,14 +27,10 @@
           <div class="logo-stage">
             <span class="logo-aura logo-aura-a" aria-hidden="true"></span>
             <span class="logo-aura logo-aura-b" aria-hidden="true"></span>
-            <span class="logo-spark logo-spark-a" aria-hidden="true"></span>
-            <span class="logo-spark logo-spark-b" aria-hidden="true"></span>
-            <span class="logo-particle logo-particle-a" aria-hidden="true"></span>
-            <span class="logo-particle logo-particle-b" aria-hidden="true"></span>
-            <span class="logo-particle logo-particle-c" aria-hidden="true"></span>
-            <span class="logo-particle logo-particle-d" aria-hidden="true"></span>
-            <span class="logo-glint" aria-hidden="true"></span>
-            <img class="hero-logo" src="./assets/logo-the-letter-loom.png" alt="Letter Loom" />
+            <div class="logo-mask">
+              <span class="logo-glint" aria-hidden="true"></span>
+              <img class="hero-logo" src="./assets/logo-the-letter-loom.png" alt="Letter Loom" />
+            </div>
           </div>
           <div class="hero-copy">
             <h1 class="slogan" data-i18n="slogan">
@@ -153,7 +149,36 @@
           </div>
         </section>
       </main>
+
+      <footer class="legal-footer" aria-label="Informacion legal">
+        <div class="legal-footer-inner">
+          <span class="legal-meta">© <span id="legalYear"></span> Letter Loom</span>
+          <nav class="legal-links" aria-label="Enlaces legales">
+            <button class="legal-link" type="button" data-legal-open="privacy">Privacidad</button>
+            <button class="legal-link" type="button" data-legal-open="cookies">Cookies</button>
+            <button class="legal-link" type="button" data-legal-open="legal">Aviso legal</button>
+          </nav>
+        </div>
+      </footer>
     </div>
+
+    <section class="legal-drawer" id="legalDrawer" hidden aria-hidden="true">
+      <div class="legal-drawer-backdrop" data-legal-close></div>
+      <div
+        class="legal-drawer-panel"
+        role="dialog"
+        aria-modal="false"
+        aria-labelledby="legalDrawerTitle"
+      >
+        <div class="legal-drawer-head">
+          <h2 id="legalDrawerTitle" class="legal-drawer-title">Privacidad</h2>
+          <button class="legal-close" type="button" data-legal-close aria-label="Cerrar">
+            ×
+          </button>
+        </div>
+        <div class="legal-drawer-body" id="legalDrawerBody"></div>
+      </div>
+    </section>
 
     <script type="module" src="landing.js"></script>
   </body>
