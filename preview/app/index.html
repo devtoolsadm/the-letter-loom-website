@@ -205,11 +205,16 @@
 
         <div class="screen match-screen" id="screen-match">
 
-          <div class="screen-topbar match-top-row">
+          <div class="screen-topbar match-top-row match-topbar-help">
             <button class="icon-btn glossy btn-yellow match-back-btn" type="button" id="matchBackBtn" aria-label="Back">
               <span class="icon-btn-img icon-prev" aria-hidden="true"></span>
             </button>
-            <div class="modal-ribbon topbar-title title-primary" id="matchConfigTitle"></div>
+            <div class="modal-ribbon topbar-title title-primary" id="matchConfigTitle">
+              <button class="icon-btn glossy btn-yellow topbar-help-btn" type="button" id="matchTopbarHelpBtn"
+                aria-label="">
+                <span class="icon-btn-img icon-help" aria-hidden="true"></span>
+              </button>
+            </div>
             <button class="icon-btn glossy btn-yellow" type="button" id="matchExitBtn" aria-label="Exit">
               <span class="icon-btn-img icon-exit" aria-hidden="true"></span>
             </button>
@@ -221,6 +226,10 @@
             <div class="round-intro-inner">
               <div class="round-intro-title" id="roundIntroTitle"></div>
               <div class="round-intro-dealer" id="roundIntroDealer"></div>
+              <button class="icon-btn glossy btn-yellow round-intro-help" type="button" id="roundIntroHelpBtn"
+                aria-label="">
+                <span class="icon-btn-img icon-help" aria-hidden="true"></span>
+              </button>
             </div>
           </div>
           <div class="match-phase-indicator hidden" id="matchPhaseIndicator">
@@ -454,6 +463,12 @@
               <div class="scroll-hint-chevron scroll-hint-down"></div>
             </div>
             <div class="match-config-scroll round-end-content">
+              <div class="round-end-help-row">
+                <button class="icon-btn glossy btn-yellow round-end-help" type="button" id="roundEndHelpBtn"
+                  aria-label="">
+                  <span class="icon-btn-img icon-help" aria-hidden="true"></span>
+                </button>
+              </div>
               <div class="round-end-section match-section match-validation-section">
                 <div id="roundEndValidationMount"></div>
               </div>

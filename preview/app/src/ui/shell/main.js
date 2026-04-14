@@ -2799,6 +2799,7 @@ function renderShellTexts() {
   setI18nById("scoreboardEditHint", "matchScoreboardEditHint");
   setI18nById("matchScoreboardOpenBtn", "matchScoreboardEdit", { attr: "aria-label" });
   setI18nById("matchScoreboardOpenBtn", "matchScoreboardEdit");
+  setI18nById("matchTopbarHelpBtn", "helpQuickGuide", { attr: "aria-label" });
 
   setI18nById("setupTitle", "setupTitle");
   setI18nById("setupSubtitle", "setupSubtitle");
@@ -2878,6 +2879,8 @@ function renderShellTexts() {
   setI18nById("roundEndTieBreakBtn", "matchRoundTieBreak");
   setI18nById("roundEndBackBtn", "matchExit", { attr: "aria-label" });
   setI18nById("roundEndSettingsBtn", "settingsTitle", { attr: "aria-label" });
+  setI18nById("roundEndHelpBtn", "helpQuickGuide", { attr: "aria-label" });
+  setI18nById("roundIntroHelpBtn", "helpQuickGuide", { attr: "aria-label" });
   setI18nById("roundEndKeypadPrevBtn", "matchRoundKeypadPrev");
   setI18nById("roundEndKeypadNextBtn", "matchRoundKeypadNext");
   setI18nById("scoreboardKeypadCancelBtn", "cancel");
@@ -3370,6 +3373,7 @@ function setupNavigation() {
       const scrollEl = document.querySelector(".match-config-scroll");
       if (scrollEl) scrollEl.scrollTop = 0;
     }],
+    ["matchTopbarHelpBtn", () => openQuickGuide("start")],
     ["matchStartMatchBtn", () => startMatchPlay()],
     ["matchStartStrategyBtn", () => startMatchPhase("strategy")],
     ["matchStrategyResetBtn", () => resetMatchPhase("strategy")],
@@ -3386,9 +3390,14 @@ function setupNavigation() {
       showScreen("match");
     }],
     ["roundEndSettingsBtn", () => openSettingsModal()],
+    ["roundEndHelpBtn", () => openQuickGuide("scoring")],
     ["roundEndContinueBtn", () => handleRoundEndContinue()],
     ["roundEndAllWinBtn", () => handleRoundEndAllWin()],
     ["roundEndTieBreakBtn", () => handleRoundEndTieBreak()],
+    ["roundIntroHelpBtn", () => {
+      dismissRoundIntro();
+      openQuickGuide("round-setup");
+    }],
     ["scoreboardBackBtn", () => closeScoreboard()],
     ["scoreboardSettingsBtn", () => openSettingsModal()],
     ["scoreboardShareBtn", () => handleScoreboardShare()],
@@ -3820,6 +3829,40 @@ function scrollQuickGuideTo(targetId, { behavior = "smooth" } = {}) {
   highlightQuickGuideSection(sectionEl);
 }
 
+function renderQuickGuideRichText(targetEl, text) {
+  if (!text) return;
+  const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+  let lastIndex = 0;
+  let match;
+  while ((match = linkRegex.exec(text))) {
+    const [full, label, href] = match;
+    const before = text.slice(lastIndex, match.index);
+    if (before) targetEl.appendChild(document.createTextNode(before));
+    const linkBtn = document.createElement("button");
+    linkBtn.type = "button";
+    linkBtn.className = "quick-guide-inline-link";
+    linkBtn.textContent = label;
+    linkBtn.addEventListener("click", () => {
+      playClickFeedback();
+      if (href.startsWith("#")) {
+        scrollQuickGuideTo(href.slice(1));
+      } else if (href.startsWith("action:buy")) {
+        const buyBtn = document.getElementById("buyBtn");
+        if (buyBtn) {
+          buyBtn.click();
+        } else {
+          openModal("support");
+        }
+      }
+    });
+    targetEl.appendChild(linkBtn);
+    lastIndex = match.index + full.length;
+  }
+  const after = text.slice(lastIndex);
+  if (after) targetEl.appendChild(document.createTextNode(after));
+  if (lastIndex === 0) targetEl.textContent = text;
+}
+
 function renderQuickGuide() {
   const indexList = document.getElementById("quickGuideIndexList");
   const sectionsWrap = document.getElementById("quickGuideSections");
@@ -3856,18 +3899,53 @@ function renderQuickGuide() {
         if (!text) return;
         const p = document.createElement("p");
         p.className = "quick-guide-text";
-        p.textContent = text;
+        renderQuickGuideRichText(p, text);
         sectionEl.appendChild(p);
       });
     }
 
-    if (Array.isArray(section.bullets) && section.bullets.length) {
+    let skipBullets = false;
+    if (Array.isArray(section.images) && section.images.length) {
+      const imagesWrap = document.createElement("div");
+      imagesWrap.className = "quick-guide-images";
+      const captionsFromBullets =
+        Array.isArray(section.imageCaptions) && section.imageCaptions.length
+          ? section.imageCaptions
+          : Array.isArray(section.bullets)
+            ? section.bullets
+            : [];
+      if (captionsFromBullets.length && captionsFromBullets === section.bullets) {
+        skipBullets = true;
+      }
+      section.images.forEach((img, index) => {
+        if (!img?.src) return;
+        const figure = document.createElement("figure");
+        figure.className = "quick-guide-image-card";
+        const imageEl = document.createElement("img");
+        imageEl.className = "quick-guide-image";
+        imageEl.src = img.src;
+        imageEl.alt = img.alt || "";
+        imageEl.loading = "lazy";
+        figure.appendChild(imageEl);
+        const captionText = captionsFromBullets[index];
+        if (captionText) {
+          const caption = document.createElement("figcaption");
+          caption.className = "quick-guide-image-caption";
+          renderQuickGuideRichText(caption, captionText);
+          figure.appendChild(caption);
+        }
+        imagesWrap.appendChild(figure);
+      });
+      if (imagesWrap.children.length) sectionEl.appendChild(imagesWrap);
+    }
+
+    if (!skipBullets && Array.isArray(section.bullets) && section.bullets.length) {
       const ul = document.createElement("ul");
       ul.className = "quick-guide-list";
       section.bullets.forEach((item) => {
         if (!item) return;
         const li = document.createElement("li");
-        li.textContent = item;
+        renderQuickGuideRichText(li, item);
         ul.appendChild(li);
       });
       sectionEl.appendChild(ul);
@@ -5942,14 +6020,10 @@ function showRoundIntro(matchState) {
   }, durationMs);
 }
 
-function dismissRoundIntro() {
-  if (roundIntroTimer) {
-    clearTimeout(roundIntroTimer);
-    roundIntroTimer = null;
-  }
-  const intro = document.getElementById("roundIntro");
+function finishRoundIntroDismiss(intro) {
   if (!intro) return;
   intro.classList.remove("show");
+  intro.classList.remove("is-dismissing");
   intro.classList.add("hidden");
   intro.setAttribute("aria-hidden", "true");
   roundIntroActive = false;
@@ -5957,6 +6031,31 @@ function dismissRoundIntro() {
     const st = pendingDealerFocusState;
     pendingDealerFocusState = null;
     triggerDealerFocus(st);
+  }
+}
+
+function dismissRoundIntro({ animate = true } = {}) {
+  if (roundIntroTimer) {
+    clearTimeout(roundIntroTimer);
+    roundIntroTimer = null;
+  }
+  const intro = document.getElementById("roundIntro");
+  if (!intro) return;
+  if (intro.classList.contains("is-dismissing")) return;
+  if (!animate) {
+    finishRoundIntroDismiss(intro);
+    return;
+  }
+  intro.classList.add("is-dismissing");
+  const inner = intro.querySelector(".round-intro-inner");
+  if (inner) {
+    inner.addEventListener(
+      "animationend",
+      () => finishRoundIntroDismiss(intro),
+      { once: true }
+    );
+  } else {
+    setTimeout(() => finishRoundIntroDismiss(intro), 350);
   }
 }
 

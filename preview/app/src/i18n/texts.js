@@ -28,36 +28,52 @@ export const TEXTS = {
     quickGuideSections: [
       {
         id: "intro",
-        title: "Arranque rápido",
+        title: "The Letter Loom",
         body: [
-          "Configura la partida (bazas o puntos) y listo.",
-          "La app lleva cronos, orden y marcador."
+          "Juego de cartas y estrategia para crear palabras y sumar puntos.",
+          "Crea palabras con la mayor puntuación posible.",
+          "Usa cartas de estrategia para ayudarte o para fastidiar.",
+          "Gana quien llegue antes a la meta.",
+          "Esta app solo ayuda: jugadores, cronos, marcador y totales."
         ],
         bullets: [
-          "De 2 a 8 jugadores.",
-          "Duración típica: 20-40 minutos."
+          "Vocales y consonantes: letras con valor.",
+          "Estrategia: ¡18 cartas distintas! [Ver cartas](#strategy-cards-all)."
+        ]
+      },
+      {
+        id: "start",
+        title: "Iniciar partida",
+        body: [
+          "Ojo: aquí no se juega. Se juega con el juego físico.",
+          "La app solo acompaña la partida.",
+          "¿No lo tienes? [Comprar el juego](action:buy)."
         ]
       },
       {
         id: "round-setup",
         title: "Preparación de la baza",
         body: [
-          "Deja todo listo antes de la estrategia."
+          "Deja todo listo."
+        ],
+        images: [
+          { src: "assets/img/quick-guide-round1.png", alt: "Preparación de la ronda 1" },
+          { src: "assets/img/quick-guide-round2.png", alt: "Preparación de la ronda 2" }
         ],
         bullets: [
-          "Coloca el Tablero Central con 5 letras boca arriba.",
-          "Reparte 3 letras + 3 cartas de estrategia a cada jugador."
+          "Tablero Central: 5 letras boca arriba.",
+          "A cada jugador: 3 letras + 3 cartas de estrategia."
         ]
       },
       {
         id: "strategy",
         title: "Fase de estrategia",
         body: [
-          "Aquí se preparan las jugadas."
+          "Prepara tu jugada."
         ],
         bullets: [
-          "Activa el cronómetro de estrategia.",
-          "Cada jugador juega una carta de estrategia para cambiar letras, puntos o tablero."
+          "Activa el crono de estrategia.",
+          "Juega una carta de estrategia. [Ver cartas](#strategy-cards-all)."
         ]
       },
       {
@@ -89,13 +105,37 @@ export const TEXTS = {
         id: "strategy-cards",
         title: "Cartas de estrategia",
         body: [
-          "Sirven para cambiar letras o puntuación."
+          "Lío bueno: cambian letras y puntos."
         ],
         bullets: [
-          "Intercambia cartas con otros jugadores.",
-          "Roba o devuelve cartas al tablero.",
-          "Multiplica, suma o resta puntos.",
+          "Cambia cartas con otros.",
+          "Roba o devuelve al tablero.",
+          "Suma, resta o multiplica puntos.",
           "Cambia el Tablero Central."
+        ]
+      },
+      {
+        id: "strategy-cards-all",
+        title: "Cartas de estrategia (todas)",
+        bullets: [
+          "¡Intercambio! Cambia una carta con otro jugador.",
+          "Carta extra: roba una letra del mazo.",
+          "Escudo total: te protege de cartas rivales.",
+          "Robo del siglo: roba una carta a cada rival.",
+          "Deshazte de una: descarta una carta.",
+          "Con la que yo diga: eliges qué letra se usa.",
+          "En inglés: esta baza va en inglés.",
+          "Comodín: una letra vale por cualquiera.",
+          "Cambia una de tus cartas: cambia 1 carta del mazo.",
+          "Cambia todo el Tablero Central: resetea las 5 letras.",
+          "Subidón total (+4): suma 4 puntos.",
+          "¡Fuera una!: todos descartan una carta.",
+          "Intercambio total: cambias toda tu mano.",
+          "Roba una carta: roba 1 carta a un rival.",
+          "Con esta jugamos todos: todos juegan con una carta.",
+          "Explosión de puntos (-4): resta 4 puntos a un rival.",
+          "Todos al Centro: todos aportan una carta al tablero.",
+          "¡Solo mía!: solo tú puedes usar esa carta."
         ]
       },
       {
