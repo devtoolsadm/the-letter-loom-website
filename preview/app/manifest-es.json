@@ -1,7 +1,7 @@
 {
   "name": "The Letter Loom [PREVIEW]",
   "short_name": "Letter Loom [PREVIEW]",
-  "description": "El juego de cartas mas divertido de todos los tiempos!",
+  "description": "El juego de letras que te dejará sin palabras",
   "start_url": "./?fromPWA=1",
   "scope": "./",
   "display": "fullscreen",

@@ -1,180 +1,159 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
     <title>Letter Loom</title>
+    <meta
+      name="description"
+      content="Letter Loom, el juego de letras que te dejara sin palabras."
+    />
+    <meta name="theme-color" content="#22385a" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Bangers&family=Fredoka:wght@400;500;600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="landing.css" />
-    <meta name="description" content="Letter Loom — wordplay for every table." />
-    <meta name="theme-color" content="#1b1f3b" />
   </head>
   <body>
-    <header class="nav">
-      <div class="brand">
-        <div class="logo">LL</div>
-        <div class="brand-text">
-          <div class="brand-name">Letter Loom</div>
-          <div class="brand-tag" data-i18n="tagline">Wordplay for every table.</div>
-        </div>
-      </div>
-      <div class="nav-actions">
-        <select id="langSelect" class="lang-select"></select>
-        <a class="btn accent" href="../app/" data-i18n="ctaPlay">Play online</a>
-      </div>
-    </header>
-
-    <main class="page">
-      <section class="hero">
-        <div class="hero-copy">
-          <p class="eyebrow" data-i18n="heroEyebrow">The cooperative word game</p>
-          <h1 data-i18n="heroTitle">Letter Loom</h1>
-          <p class="lede" data-i18n="heroSubtitle">
-            Build words together, keep the momentum, and bring everyone to the same table.
-          </p>
-          <div class="cta-row">
-            <a
-              class="btn primary"
-              id="supportCta"
-              href="https://www.kickstarter.com/"
-              target="_blank"
-              rel="noopener"
-              data-i18n="ctaSupport"
-            >
-              Support on Kickstarter
-            </a>
+    <div class="landing-shell">
+      <header class="topbar">
+        <div class="hero-header">
+          <div class="logo-stage">
+            <span class="logo-aura logo-aura-a" aria-hidden="true"></span>
+            <span class="logo-aura logo-aura-b" aria-hidden="true"></span>
+            <span class="logo-spark logo-spark-a" aria-hidden="true"></span>
+            <span class="logo-spark logo-spark-b" aria-hidden="true"></span>
+            <span class="logo-particle logo-particle-a" aria-hidden="true"></span>
+            <span class="logo-particle logo-particle-b" aria-hidden="true"></span>
+            <span class="logo-particle logo-particle-c" aria-hidden="true"></span>
+            <span class="logo-particle logo-particle-d" aria-hidden="true"></span>
+            <span class="logo-glint" aria-hidden="true"></span>
+            <img class="hero-logo" src="./assets/logo-the-letter-loom.png" alt="Letter Loom" />
+          </div>
+          <div class="hero-copy">
+            <h1 class="slogan" data-i18n="slogan">
+              El juego de letras que te dejara sin palabras
+            </h1>
           </div>
         </div>
-        <div class="hero-card">
-          <div class="hero-card__title" data-i18n="heroCardTitle">Everything you need to play</div>
-          <ul class="hero-list">
-            <li data-i18n="heroPoint1">Play online without installing.</li>
-            <li data-i18n="heroPoint2">Install the PWA for offline nights.</li>
-            <li data-i18n="heroPoint3">Share the QR so friends install fast.</li>
-          </ul>
-        </div>
-      </section>
 
-      <div class="section-row">
-        <section id="app" class="section grid">
-          <div class="section-header">
-            <p class="eyebrow" data-i18n="appEyebrow">Support app</p>
-            <h2 data-i18n="appTitle">Play, install, share</h2>
-            <p class="lede" data-i18n="appSubtitle">
-              Choose how you want to start: jump in online, install here, or send the QR to another device.
-            </p>
-          </div>
-          <div class="cards">
-            <article class="card">
-              <div class="card-header">
-                <div class="card-icon">🌐</div>
-                <h3 data-i18n="appCardPlayTitle">Play online</h3>
-              </div>
-              <p data-i18n="appCardPlayCopy">Open the game in your browser. No install required.</p>
-              <a class="btn ghost" href="../app/" data-i18n="appCardPlayCta">Open game</a>
-            </article>
-            <article class="card">
-              <div class="card-header">
-                <div class="card-icon">📲</div>
-                <h3 data-i18n="appCardInstallTitle">Install on this device</h3>
-              </div>
-              <p data-i18n="appCardInstallCopy">Add Letter Loom to your home screen in one tap.</p>
-              <a class="btn ghost" href="../app/?fromInstall=1" data-i18n="appCardInstallCta">Install now</a>
-            </article>
-            <article class="card">
-              <div class="card-header">
-                <div class="card-icon">🔗</div>
-                <h3 data-i18n="appCardQrTitle">Install on another device</h3>
-              </div>
-              <p data-i18n="appCardQrCopy">Scan the QR with any phone to install there.</p>
-              <div class="qr">
-              <img
-                  id="installQr"
-                  src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=https%3A%2F%2Fyour-domain%2Fapp%2F%3FfromInstall%3D1"
-                  alt="QR to open the app install flow on another device"
+        <div class="topbar-actions">
+          <select id="langSelect" class="lang-select" aria-label="Language selector"></select>
+          <a
+            class="top-cta"
+            href="https://www.kickstarter.com/"
+            target="_blank"
+            rel="noopener"
+          >
+            <img src="./assets/icon-cart.svg" alt="" aria-hidden="true" />
+            <span data-i18n="buyCta">Comprar</span>
+          </a>
+        </div>
+      </header>
+
+      <main class="stage" id="stage">
+        <section class="hero-panel">
+          <div class="hero-depth" id="heroDepth">
+            <div class="hero-glow" data-depth="2" aria-hidden="true"></div>
+            <div class="hero-ring" data-depth="4" aria-hidden="true"></div>
+            <div class="hero-card hero-card-a" data-depth="10" aria-hidden="true"></div>
+            <div class="hero-card hero-card-b" data-depth="13" aria-hidden="true"></div>
+            <div class="hero-card hero-card-c" data-depth="8" aria-hidden="true"></div>
+
+            <div class="hero-carousel" id="heroCarousel" data-depth="5">
+              <article class="hero-slide is-active" data-slide="0">
+                <img src="./assets/hero-table.svg" alt="Mesa con cartas y fichas de Letter Loom" />
+              </article>
+              <article class="hero-slide" data-slide="1">
+                <img
+                  src="./assets/hero-cards.svg"
+                  alt="Cartas de Letter Loom en composicion promocional"
                 />
-                <small data-i18n="appCardQrHint">Replace with your production domain.</small>
+              </article>
+              <article class="hero-slide" data-slide="2">
+                <img
+                  src="./assets/hero-box.svg"
+                  alt="Caja y componentes de Letter Loom"
+                />
+              </article>
+            </div>
+
+            <div class="hero-bottom">
+              <div class="hero-actions">
+                <a class="hero-btn hero-btn-primary" href="../app/" data-i18n="howCta">
+                  Como se juega
+                </a>
+                <a
+                  class="hero-btn hero-btn-secondary"
+                  href="https://www.kickstarter.com/"
+                  target="_blank"
+                  rel="noopener"
+                >
+                  <img src="./assets/icon-cart.svg" alt="" aria-hidden="true" />
+                  <span data-i18n="buyGameCta">Comprar el juego</span>
+                </a>
               </div>
-            </article>
+
+              <div class="social-cluster">
+                <span class="social-cluster-label">Redes</span>
+                <div class="hero-socials" aria-label="Redes sociales">
+                <a
+                  class="social-link social-link-tiktok"
+                  href="https://www.tiktok.com/@TheLetterLoom"
+                  target="_blank"
+                  rel="noopener"
+                  aria-label="TikTok"
+                  title="TikTok"
+                >
+                  <img src="./assets/icon-tiktok.svg" alt="" aria-hidden="true" />
+                </a>
+                <a
+                  class="social-link social-link-instagram"
+                  href="https://www.instagram.com/The.Letter.Loom"
+                  target="_blank"
+                  rel="noopener"
+                  aria-label="Instagram"
+                  title="Instagram"
+                >
+                  <img src="./assets/icon-instagram.svg" alt="" aria-hidden="true" />
+                </a>
+                <a
+                  class="social-link social-link-x"
+                  href="https://x.com/TheLetterLoom"
+                  target="_blank"
+                  rel="noopener"
+                  aria-label="X"
+                  title="X"
+                >
+                  <img src="./assets/icon-x.svg" alt="" aria-hidden="true" />
+                </a>
+                <a
+                  class="social-link social-link-email"
+                  href="mailto:info@theletterloom.com"
+                  aria-label="Email"
+                  title="Email"
+                >
+                  <img src="./assets/icon-email.svg" alt="" aria-hidden="true" />
+                </a>
+                </div>
+              </div>
+            </div>
+
+            <div class="hero-dots hero-dots-inline" id="heroDots" aria-label="Hero slides">
+              <button class="hero-dot is-active" type="button" data-slide-target="0" aria-label="Slide 1"></button>
+              <button class="hero-dot" type="button" data-slide-target="1" aria-label="Slide 2"></button>
+              <button class="hero-dot" type="button" data-slide-target="2" aria-label="Slide 3"></button>
+            </div>
           </div>
         </section>
-
-        <section class="section grid">
-          <div class="section-header">
-            <p class="eyebrow" data-i18n="helpEyebrow">Help</p>
-            <h2 data-i18n="helpTitle">Learn the game fast</h2>
-          </div>
-          <div class="cards">
-            <article class="card">
-              <div class="card-header">
-                <div class="card-icon">⚡</div>
-                <h3 data-i18n="helpQuickTitle">Quick guide</h3>
-              </div>
-              <p data-i18n="helpQuickCopy">Start playing in minutes with a condensed overview.</p>
-              <a class="btn ghost" href="../install/" data-i18n="helpQuickCta">Open quick guide</a>
-            </article>
-            <article class="card">
-              <div class="card-header">
-                <div class="card-icon">📘</div>
-                <h3 data-i18n="helpManualTitle">Full manual</h3>
-              </div>
-              <p data-i18n="helpManualCopy">All rules, variants, and scoring in one place.</p>
-              <a class="btn ghost" href="#" data-i18n="helpManualCta">Download manual (soon)</a>
-            </article>
-            <article class="card">
-              <div class="card-header">
-                <div class="card-icon">🎬</div>
-                <h3 data-i18n="helpVideoTitle">Video walkthrough</h3>
-              </div>
-              <p data-i18n="helpVideoCopy">Watch a short explainer to learn the flow.</p>
-              <a class="btn ghost" href="#" data-i18n="helpVideoCta">Watch video (soon)</a>
-            </article>
-          </div>
-        </section>
-      </div>
-
-      <section class="section grid">
-        <div class="section-header">
-          <p class="eyebrow" data-i18n="socialEyebrow">Connect</p>
-          <h2 data-i18n="socialTitle">Follow the journey</h2>
-        </div>
-        <div class="cards socials">
-          <a class="card card-link" href="https://www.instagram.com/" target="_blank" rel="noopener">
-            <div class="card-header">
-              <div class="card-icon">📸</div>
-              <h3>Instagram</h3>
-            </div>
-            <p data-i18n="socialInstagram">Sneak peeks and community highlights.</p>
-          </a>
-          <a class="card card-link" href="https://www.tiktok.com/" target="_blank" rel="noopener">
-            <div class="card-header">
-              <div class="card-icon">🎵</div>
-              <h3>TikTok</h3>
-            </div>
-            <p data-i18n="socialTikTok">Short clips with tips and plays.</p>
-          </a>
-          <a class="card card-link" href="mailto:hello@letterloom.game">
-            <div class="card-header">
-              <div class="card-icon">✉️</div>
-              <h3 data-i18n="contactTitle">Contact</h3>
-            </div>
-            <p data-i18n="contactCopy">hello@letterloom.game</p>
-          </a>
-        </div>
-      </section>
-    </main>
-
-    <footer class="footer">
-      <div class="footer-copy">
-        <span>&copy; <span id="year"></span> Letter Loom</span>
-        <span data-i18n="footerTag">Built for every game night.</span>
-      </div>
-    </footer>
+      </main>
+    </div>
 
     <script type="module" src="landing.js"></script>
   </body>

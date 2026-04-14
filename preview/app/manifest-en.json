@@ -1,7 +1,7 @@
 {
   "name": "The Letter Loom [PREVIEW]",
   "short_name": "Letter Loom [PREVIEW]",
-  "description": "The most fun card game of all time!",
+  "description": "The word game that will leave you speechless",
   "start_url": "./?fromPWA=1",
   "scope": "./",
   "display": "fullscreen",
