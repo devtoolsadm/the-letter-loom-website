@@ -1,207 +1,191 @@
 const LANDING_TEXTS = {
-  en: {
-    tagline: "Wordplay for every table.",
-    heroEyebrow: "The cooperative word game",
-    heroTitle: "Letter Loom",
-    heroSubtitle: "Build words together, keep the momentum, and bring everyone to the same table.",
-    ctaSupport: "Support on Kickstarter",
-    ctaPlay: "Play online",
-    heroCardTitle: "Everything you need to play",
-    heroPoint1: "Play online without installing.",
-    heroPoint2: "Install the PWA for offline nights.",
-    heroPoint3: "Share the QR so friends install fast.",
-    appEyebrow: "Support app",
-    appTitle: "Play, install, share",
-    appSubtitle: "Choose how you want to start: jump in online, install here, or send the QR to another device.",
-    appCardPlayTitle: "Play online",
-    appCardPlayCopy: "Open the game in your browser. No install required.",
-    appCardPlayCta: "Open game",
-    appCardInstallTitle: "Install on this device",
-    appCardInstallCopy: "Add Letter Loom to your home screen in one tap.",
-    appCardInstallCta: "Install now",
-    appCardQrTitle: "Install on another device",
-    appCardQrCopy: "Scan the QR with any phone to install there.",
-    appCardQrHint: "Replace with your production domain.",
-    helpEyebrow: "Help",
-    helpTitle: "Learn the game fast",
-    helpQuickTitle: "Quick guide",
-    helpQuickCopy: "Start playing in minutes with a condensed overview.",
-    helpQuickCta: "Open quick guide",
-    helpManualTitle: "Full manual",
-    helpManualCopy: "All rules, variants, and scoring in one place.",
-    helpManualCta: "Download manual (soon)",
-    helpVideoTitle: "Video walkthrough",
-    helpVideoCopy: "Watch a short explainer to learn the flow.",
-    helpVideoCta: "Watch video (soon)",
-    socialEyebrow: "Connect",
-    socialTitle: "Follow the journey",
-    socialInstagram: "Sneak peeks and community highlights.",
-    socialTikTok: "Short clips with tips and plays.",
-    contactTitle: "Contact",
-    contactCopy: "hello@letterloom.game",
-    footerTag: "Built for every game night.",
-  },
   es: {
-    tagline: "Palabras para todas las mesas.",
-    heroEyebrow: "El juego cooperativo de palabras",
-    heroTitle: "Letter Loom",
-    heroSubtitle: "Construid palabras juntos, mantened el ritmo y traed a todos a la misma mesa.",
-    ctaSupport: "Apóyanos en Kickstarter",
-    ctaPlay: "Jugar online",
-    heroCardTitle: "Todo lo que necesitas para jugar",
-    heroPoint1: "Juega online sin instalar.",
-    heroPoint2: "Instala la PWA para jugar sin conexión.",
-    heroPoint3: "Comparte el QR para que otros instalen rápido.",
-    appEyebrow: "App de apoyo",
-    appTitle: "Juega, instala, comparte",
-    appSubtitle: "Elige cómo empezar: juega online, instala aquí o envía el QR a otro dispositivo.",
-    appCardPlayTitle: "Jugar online",
-    appCardPlayCopy: "Abre el juego en tu navegador. No hace falta instalar.",
-    appCardPlayCta: "Abrir juego",
-    appCardInstallTitle: "Instalar en este dispositivo",
-    appCardInstallCopy: "Añade Letter Loom a tu pantalla de inicio con un toque.",
-    appCardInstallCta: "Instalar ahora",
-    appCardQrTitle: "Instalar en otro dispositivo",
-    appCardQrCopy: "Escanea el QR con cualquier móvil para instalar allí.",
-    appCardQrHint: "Sustituye con tu dominio de producción.",
-    helpEyebrow: "Ayuda",
-    helpTitle: "Aprende el juego rápido",
-    helpQuickTitle: "Guía rápida",
-    helpQuickCopy: "Empieza a jugar en minutos con un resumen condensado.",
-    helpQuickCta: "Abrir guía rápida",
-    helpManualTitle: "Manual completo",
-    helpManualCopy: "Todas las reglas, variantes y puntuación en un solo lugar.",
-    helpManualCta: "Descargar manual (pronto)",
-    helpVideoTitle: "Vídeo explicativo",
-    helpVideoCopy: "Mira un corto para aprender el flujo.",
-    helpVideoCta: "Ver vídeo (pronto)",
-    socialEyebrow: "Conecta",
-    socialTitle: "Sigue el viaje",
-    socialInstagram: "Avances y momentos de la comunidad.",
-    socialTikTok: "Clips cortos con trucos y jugadas.",
-    contactTitle: "Contacto",
-    contactCopy: "hello@letterloom.game",
-    footerTag: "Creado para cada noche de juego.",
+    pageTitle: "Letter Loom",
+    metaDescription: "Letter Loom, el juego de letras que te dejará sin palabras.",
+    slogan: "El juego de letras que te dejará sin palabras",
+    buyCta: "Comprar",
+    howCta: "Cómo se juega",
+    buyGameCta: "Comprar el juego",
+    emailLabel: "Email",
+  },
+  en: {
+    pageTitle: "Letter Loom",
+    metaDescription: "Letter Loom, the letter game that will leave you speechless.",
+    slogan: "The letter game that will leave you speechless",
+    buyCta: "Buy now",
+    howCta: "How to play",
+    buyGameCta: "Buy the game",
+    emailLabel: "Email",
   },
 };
 
 const STORAGE_KEY = "letterloom_landing_lang";
+const SLIDE_INTERVAL_MS = 4500;
+const MAX_PARALLAX_X = 10;
+const MAX_PARALLAX_Y = 8;
 
 function normalizeLang(lang) {
   if (!lang) return null;
-  const clean = lang.toLowerCase();
+  const clean = String(lang).toLowerCase();
   if (LANDING_TEXTS[clean]) return clean;
   const short = clean.split("-")[0];
-  if (LANDING_TEXTS[short]) return short;
-  return null;
+  return LANDING_TEXTS[short] ? short : null;
 }
 
 function detectLanguage() {
-  const fromStorage = normalizeLang(localStorage.getItem(STORAGE_KEY));
-  if (fromStorage) return fromStorage;
+  try {
+    const stored = normalizeLang(localStorage.getItem(STORAGE_KEY));
+    if (stored) return stored;
+  } catch (err) {
+    console.warn("Language storage unavailable", err);
+  }
+
   const candidates = [
     ...(Array.isArray(navigator.languages) ? navigator.languages : []),
     navigator.language,
   ];
-  const detected = candidates.map(normalizeLang).find(Boolean);
-  return detected || "en";
+  return candidates.map(normalizeLang).find(Boolean) || "es";
 }
 
 let currentLang = detectLanguage();
-
-function setLanguage(lang) {
-  const normalized = normalizeLang(lang);
-  if (!normalized || normalized === currentLang) return;
-  currentLang = normalized;
-  localStorage.setItem(STORAGE_KEY, currentLang);
-  render();
-}
+let activeSlide = 0;
+let slideTimer = null;
 
 function populateLangSelect() {
   const select = document.getElementById("langSelect");
   if (!select) return;
+
   select.innerHTML = "";
-  Object.keys(LANDING_TEXTS).forEach((code) => {
-    const opt = document.createElement("option");
-    opt.value = code;
-    opt.textContent = code === "en" ? "English" : code === "es" ? "Español" : code;
-    select.appendChild(opt);
+  Object.keys(LANDING_TEXTS).forEach((lang) => {
+    const option = document.createElement("option");
+    option.value = lang;
+    option.textContent = lang === "es" ? "ES" : "EN";
+    select.appendChild(option);
   });
+
   select.value = currentLang;
-  select.addEventListener("change", (e) => setLanguage(e.target.value));
+  select.addEventListener("change", (event) => {
+    setLanguage(event.target.value);
+  });
 }
 
 function renderTextNodes() {
   const dict = LANDING_TEXTS[currentLang];
   document.documentElement.lang = currentLang;
+  document.title = dict.pageTitle;
+
+  const metaDescription = document.querySelector('meta[name="description"]');
+  if (metaDescription) {
+    metaDescription.setAttribute("content", dict.metaDescription);
+  }
+
   document.querySelectorAll("[data-i18n]").forEach((node) => {
     const key = node.getAttribute("data-i18n");
-    if (dict[key]) node.textContent = dict[key];
+    if (key && dict[key]) {
+      node.textContent = dict[key];
+    }
   });
 }
 
-function renderYear() {
-  const yearEl = document.getElementById("year");
-  if (yearEl) yearEl.textContent = new Date().getFullYear();
-}
+function setLanguage(lang) {
+  const normalized = normalizeLang(lang);
+  if (!normalized || normalized === currentLang) return;
 
-function render() {
+  currentLang = normalized;
+  try {
+    localStorage.setItem(STORAGE_KEY, currentLang);
+  } catch (err) {
+    console.warn("Language storage unavailable", err);
+  }
   renderTextNodes();
-  renderYear();
 }
 
-async function hideInstallIfAlreadyInstalled() {
-  const manifestUrl = new URL("../app/manifest.json", window.location.href).toString();
-  const installBtn = document.querySelector('[data-i18n="appCardInstallCta"]');
-  if (!installBtn) return;
+function setSlide(index) {
+  const slides = Array.from(document.querySelectorAll(".hero-slide"));
+  const dots = Array.from(document.querySelectorAll(".hero-dot"));
+  if (!slides.length) return;
 
-  const setHidden = () => {
-    const card = installBtn.closest(".card");
-    if (card) card.style.display = "none";
-    else installBtn.style.display = "none";
-  };
+  const normalized = ((index % slides.length) + slides.length) % slides.length;
+  activeSlide = normalized;
 
-  const standalone =
-    (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) ||
-    window.navigator.standalone === true;
-  if (standalone) {
-    setHidden();
+  slides.forEach((slide, slideIndex) => {
+    slide.classList.toggle("is-active", slideIndex === normalized);
+  });
+  dots.forEach((dot, dotIndex) => {
+    dot.classList.toggle("is-active", dotIndex === normalized);
+    dot.setAttribute("aria-pressed", dotIndex === normalized ? "true" : "false");
+  });
+}
+
+function startCarousel() {
+  const dots = Array.from(document.querySelectorAll(".hero-dot"));
+  dots.forEach((dot) => {
+    dot.addEventListener("click", () => {
+      const target = Number(dot.getAttribute("data-slide-target"));
+      setSlide(target);
+      resetCarousel();
+    });
+  });
+
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
     return;
   }
 
-  if (navigator.getInstalledRelatedApps) {
-    try {
-      const related = await navigator.getInstalledRelatedApps();
-      const match = related.some(
-        (app) =>
-          app.manifestUrl === manifestUrl ||
-          (app.manifestUrl && app.manifestUrl.endsWith("/app/manifest.json"))
-      );
-      if (match) {
-        setHidden();
-      }
-    } catch (err) {
-      console.warn("getInstalledRelatedApps failed", err);
-    }
-  }
+  slideTimer = window.setInterval(() => {
+    setSlide(activeSlide + 1);
+  }, SLIDE_INTERVAL_MS);
 }
 
-function updateInstallQr() {
-  const installBtn = document.querySelector('[data-i18n="appCardInstallCta"]');
-  const qrImg = document.getElementById("installQr");
-  if (!installBtn || !qrImg) return;
-  const target = new URL(
-    installBtn.getAttribute("href") || "../app/?fromInstall=1",
-    window.location.href
-  );
-  qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(
-    target.toString()
-  )}`;
+function resetCarousel() {
+  if (!slideTimer) return;
+  window.clearInterval(slideTimer);
+  slideTimer = window.setInterval(() => {
+    setSlide(activeSlide + 1);
+  }, SLIDE_INTERVAL_MS);
+}
+
+function initParallax() {
+  const stage = document.getElementById("stage");
+  const depthRoot = document.getElementById("heroDepth");
+  if (!stage || !depthRoot) return;
+
+  const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+  if (prefersReducedMotion.matches) {
+    document.body.classList.add("reduced-motion");
+    return;
+  }
+
+  const layered = Array.from(document.querySelectorAll("[data-depth]"));
+  const setTransforms = (ratioX, ratioY) => {
+    layered.forEach((node) => {
+      const depth = Number(node.getAttribute("data-depth")) || 0;
+      const moveX = (ratioX * depth * MAX_PARALLAX_X) / 20;
+      const moveY = (ratioY * depth * MAX_PARALLAX_Y) / 20;
+      node.style.setProperty("--tx", `${moveX.toFixed(2)}px`);
+      node.style.setProperty("--ty", `${moveY.toFixed(2)}px`);
+    });
+
+    depthRoot.style.transform = `rotateX(${(-ratioY * 2.2).toFixed(2)}deg) rotateY(${(
+      ratioX * 2.8
+    ).toFixed(2)}deg)`;
+  };
+
+  stage.addEventListener("pointermove", (event) => {
+    const rect = stage.getBoundingClientRect();
+    const ratioX = (event.clientX - rect.left) / rect.width - 0.5;
+    const ratioY = (event.clientY - rect.top) / rect.height - 0.5;
+    setTransforms(ratioX, ratioY);
+  });
+
+  stage.addEventListener("pointerleave", () => {
+    setTransforms(0, 0);
+  });
 }
 
 document.addEventListener("DOMContentLoaded", () => {
   populateLangSelect();
-  render();
-  hideInstallIfAlreadyInstalled();
-  updateInstallQr();
+  renderTextNodes();
+  setSlide(0);
+  startCarousel();
+  initParallax();
 });
