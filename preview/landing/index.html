@@ -6,10 +6,10 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
     />
-    <title>Letter Loom</title>
+    <title>The Letter Loom</title>
     <meta
       name="description"
-      content="Letter Loom, el juego de letras que te dejara sin palabras."
+      content="The Letter Loom, el juego de letras que te dejara sin palabras."
     />
     <meta name="theme-color" content="#22385a" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -29,7 +29,7 @@
             <span class="logo-aura logo-aura-b" aria-hidden="true"></span>
             <div class="logo-mask">
               <span class="logo-glint" aria-hidden="true"></span>
-              <img class="hero-logo" src="./assets/logo-the-letter-loom.png" alt="Letter Loom" />
+              <img class="hero-logo" src="./assets/logo-the-letter-loom.png" alt="The Letter Loom" />
             </div>
           </div>
           <div class="hero-copy">
@@ -41,15 +41,14 @@
 
         <div class="topbar-actions">
           <select id="langSelect" class="lang-select" aria-label="Language selector"></select>
-          <a
+          <button
+            type="button"
             class="top-cta"
-            href="https://www.kickstarter.com/"
-            target="_blank"
-            rel="noopener"
+            data-buy-open
           >
             <img src="./assets/icon-cart.svg" alt="" aria-hidden="true" />
             <span data-i18n="buyCta">Comprar</span>
-          </a>
+          </button>
         </div>
       </header>
 
@@ -64,20 +63,26 @@
 
             <div class="hero-carousel" id="heroCarousel" data-depth="5">
               <article class="hero-slide is-active" data-slide="0">
-                <img src="./assets/hero-table.svg" alt="Mesa con cartas y fichas de Letter Loom" />
+                <img src="./assets/hero-table.svg" alt="Mesa con cartas y fichas de The Letter Loom" />
               </article>
               <article class="hero-slide" data-slide="1">
                 <img
                   src="./assets/hero-cards.svg"
-                  alt="Cartas de Letter Loom en composicion promocional"
+                  alt="Cartas de The Letter Loom en composicion promocional"
                 />
               </article>
               <article class="hero-slide" data-slide="2">
                 <img
                   src="./assets/hero-box.svg"
-                  alt="Caja y componentes de Letter Loom"
+                  alt="Caja y componentes de The Letter Loom"
                 />
               </article>
+            </div>
+
+            <div class="hero-dots hero-dots-inline" id="heroDots" aria-label="Hero slides">
+              <button class="hero-dot is-active" type="button" data-slide-target="0" aria-label="Slide 1"></button>
+              <button class="hero-dot" type="button" data-slide-target="1" aria-label="Slide 2"></button>
+              <button class="hero-dot" type="button" data-slide-target="2" aria-label="Slide 3"></button>
             </div>
 
             <div class="hero-bottom">
@@ -85,15 +90,14 @@
                 <a class="hero-btn hero-btn-primary" href="../app/" data-i18n="howCta">
                   Como se juega
                 </a>
-                <a
+                <button
+                  type="button"
                   class="hero-btn hero-btn-secondary"
-                  href="https://www.kickstarter.com/"
-                  target="_blank"
-                  rel="noopener"
+                  data-buy-open
                 >
                   <img src="./assets/icon-cart.svg" alt="" aria-hidden="true" />
                   <span data-i18n="buyGameCta">Comprar el juego</span>
-                </a>
+                </button>
               </div>
 
               <div class="social-cluster">
@@ -140,23 +144,17 @@
                 </div>
               </div>
             </div>
-
-            <div class="hero-dots hero-dots-inline" id="heroDots" aria-label="Hero slides">
-              <button class="hero-dot is-active" type="button" data-slide-target="0" aria-label="Slide 1"></button>
-              <button class="hero-dot" type="button" data-slide-target="1" aria-label="Slide 2"></button>
-              <button class="hero-dot" type="button" data-slide-target="2" aria-label="Slide 3"></button>
-            </div>
           </div>
         </section>
       </main>
 
       <footer class="legal-footer" aria-label="Informacion legal">
         <div class="legal-footer-inner">
-          <span class="legal-meta">© <span id="legalYear"></span> Letter Loom</span>
+          <span class="legal-meta">© <span id="legalYear"></span> The Letter Loom</span>
           <nav class="legal-links" aria-label="Enlaces legales">
-            <button class="legal-link" type="button" data-legal-open="privacy">Privacidad</button>
-            <button class="legal-link" type="button" data-legal-open="cookies">Cookies</button>
-            <button class="legal-link" type="button" data-legal-open="legal">Aviso legal</button>
+            <a class="legal-link" href="#privacidad" data-legal-open="privacy">Privacidad</a>
+            <a class="legal-link" href="#cookies" data-legal-open="cookies">Cookies</a>
+            <a class="legal-link" href="#aviso-legal" data-legal-open="legal">Aviso legal</a>
           </nav>
         </div>
       </footer>
@@ -177,6 +175,51 @@
           </button>
         </div>
         <div class="legal-drawer-body" id="legalDrawerBody"></div>
+      </div>
+    </section>
+
+    <section class="buy-modal" id="buyModal" hidden aria-hidden="true">
+      <div class="buy-modal-backdrop" data-buy-close></div>
+      <div
+        class="buy-modal-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="buyModalTitle"
+      >
+        <button class="buy-modal-close" type="button" data-buy-close aria-label="Cerrar">
+          ×
+        </button>
+        <div class="buy-modal-icon" aria-hidden="true">
+          <img src="./assets/icon-brake-cart.svg" alt="" />
+        </div>
+        <h2 class="buy-modal-title" id="buyModalTitle" data-i18n="buyModalTitle">
+          Demasiado pronto para sacar la cartera.
+        </h2>
+        <p class="buy-modal-copy" data-i18n="buyModalLine1">
+          The Letter Loom aún está en fase prototipo.
+        </p>
+        <p class="buy-modal-copy buy-modal-copy-last" data-i18n="buyModalLine2">
+          Si quieres, te avisamos cuando haya novedades.
+        </p>
+        <div class="buy-modal-actions">
+          <a
+            class="buy-modal-cta"
+            href="https://1d9de069.sibforms.com/serve/MUIFAAIrDqstI-hPr3cgdMqYPGzym5zvEY3i8uwQPTJbK75JnRzSQpAjoV379OsBAtuQI7OM-iY-OsTrPckLKEQAIcsG0bS2N260sQBQdkD8IqcwdOu2nRCx59XomZBBC7TRcS70KpZOWlc29-gSdzJk92tjv-BgGsfIlRPhdYy-de9tL6m1CPmMJJ8KUmmMomlfRilmknzBNod6Jw=="
+            target="_blank"
+            rel="noopener"
+            data-i18n="buyModalCta"
+          >
+            Quiero enterarme
+          </a>
+          <button
+            class="buy-modal-secondary"
+            type="button"
+            data-buy-close
+            data-i18n="buyModalSecondary"
+          >
+            Seguir explorando
+          </button>
+        </div>
       </div>
     </section>
 

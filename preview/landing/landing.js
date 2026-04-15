@@ -1,25 +1,35 @@
 const LANDING_TEXTS = {
   es: {
-    pageTitle: "Letter Loom",
-    metaDescription: "Letter Loom, el juego de letras que te dejará sin palabras.",
+    pageTitle: "The Letter Loom",
+    metaDescription: "The Letter Loom, el juego de letras que te dejará sin palabras.",
     slogan: "El juego de letras que te dejará sin palabras",
     buyCta: "Comprar",
     howCta: "Cómo se juega",
     buyGameCta: "Comprar el juego",
     emailLabel: "Email",
+    buyModalTitle: "Demasiado pronto para sacar la cartera",
+    buyModalLine1: "The Letter Loom aún está en fase prototipo.",
+    buyModalLine2: "Si quieres, te avisamos cuando haya novedades.",
+    buyModalCta: "Sí, quiero enterarme",
+    buyModalSecondary: "Seguir explorando",
     legalPrivacy: "Privacidad",
     legalCookies: "Cookies",
     legalNotice: "Aviso legal",
     legalDrawerClose: "Cerrar",
   },
   en: {
-    pageTitle: "Letter Loom",
-    metaDescription: "Letter Loom, the letter game that will leave you speechless.",
+    pageTitle: "The Letter Loom",
+    metaDescription: "The Letter Loom, the letter game that will leave you speechless.",
     slogan: "The letter game that will leave you speechless",
     buyCta: "Buy now",
     howCta: "How to play",
     buyGameCta: "Buy the game",
     emailLabel: "Email",
+    buyModalTitle: "Too early to reach for your wallet",
+    buyModalLine1: "The Letter Loom is still in its prototype stage.",
+    buyModalLine2: "If you want, we can let you know when there are updates.",
+    buyModalCta: "Yes, keep me posted",
+    buyModalSecondary: "Keep exploring",
     legalPrivacy: "Privacy",
     legalCookies: "Cookies",
     legalNotice: "Legal notice",
@@ -32,10 +42,12 @@ const LEGAL_CONTENT = {
     privacy: {
       title: "Política de privacidad",
       body: [
-        "Esta landing de Letter Loom tiene carácter informativo y promocional. En esta fase no se realiza venta directa del juego desde esta página.",
-        "El responsable de esta web es su titular como persona física. Si contactas por correo o por redes sociales, los datos que facilites se utilizarán únicamente para responderte o gestionar tu interés en el proyecto.",
-        "No se cederán datos a terceros salvo obligación legal o cuando el propio contacto se produzca a través de plataformas externas como Instagram, TikTok, X o servicios de correo, que tienen sus propias políticas.",
-        "Puedes ejercer tus derechos de acceso, rectificación o supresión escribiendo a <strong>info@theletterloom.com</strong>."
+        "Esta política se aplica al sitio web y al proyecto <strong>The Letter Loom</strong>, actualmente en fase de prototipo y validación de interés.",
+        "El responsable del tratamiento es el titular del proyecto, como persona física. Si te apuntas a la lista de interés, contactas por correo o escribes a través de redes sociales, los datos que facilites se utilizarán para gestionar tu inscripción, responderte y enviarte información sobre The Letter Loom, su prototipo, su evolución, posibles pruebas, lanzamiento o campaña y, en su caso, novedades directamente relacionadas con este juego o con proyectos afines del mismo responsable dentro del ámbito de los juegos de mesa, letras o propuestas similares.",
+        "La base jurídica del tratamiento, cuando te inscribes voluntariamente en una lista o formulario, es tu consentimiento. Puedes retirarlo en cualquier momento.",
+        "Para la gestión de formularios o envíos informativos podrán utilizarse proveedores externos, como plataformas de email o automatización, que actuarán como encargados del tratamiento conforme a sus propias condiciones de servicio.",
+        "No se cederán tus datos a terceros ajenos a la prestación de estos servicios salvo obligación legal. Las plataformas externas enlazadas desde este sitio, como Instagram, TikTok, X o servicios de correo, aplican además sus propias políticas.",
+        "Puedes ejercer tus derechos de acceso, rectificación, supresión y demás derechos aplicables escribiendo a <strong>info@theletterloom.com</strong>."
       ],
     },
     cookies: {
@@ -49,8 +61,8 @@ const LEGAL_CONTENT = {
     legal: {
       title: "Aviso legal",
       body: [
-        "Esta web es una landing informativa de <strong>Letter Loom</strong>, un proyecto actualmente en fase de difusión y validación de interés.",
-        "El contenido mostrado tiene carácter promocional y puede cambiar durante el desarrollo del juego, su campaña o su futura comercialización.",
+        "Este sitio web corresponde a <strong>The Letter Loom</strong>, un proyecto actualmente en fase de prototipo, difusión y validación de interés.",
+        "El contenido mostrado tiene carácter informativo y promocional y puede cambiar durante el desarrollo del juego, sus pruebas, su futura campaña o su eventual comercialización.",
         "Para cualquier consulta relacionada con la web o el proyecto puedes escribir a <strong>info@theletterloom.com</strong>.",
         "Si el proyecto evoluciona a una actividad comercial formal, esta información legal se ampliará con los datos identificativos y regulatorios que correspondan."
       ],
@@ -60,10 +72,12 @@ const LEGAL_CONTENT = {
     privacy: {
       title: "Privacy policy",
       body: [
-        "This Letter Loom landing page is informational and promotional. At this stage, the game is not sold directly through this website.",
-        "The website is currently managed by its owner as an individual. If you contact us by email or through social media, the data you provide will only be used to reply or manage your interest in the project.",
-        "No personal data will be shared with third parties unless required by law or when the contact itself takes place through external platforms such as Instagram, TikTok, X or email services, which have their own policies.",
-        "You can request access, correction or deletion of your data by writing to <strong>info@theletterloom.com</strong>."
+        "This policy applies to the website and the <strong>The Letter Loom</strong> project, currently in its prototype and interest-validation stage.",
+        "The data controller is the project owner as an individual. If you join the interest list, contact us by email or send messages through social media, the data you provide may be used to manage your registration, reply to you and send you information about The Letter Loom, its prototype, development, possible playtests, launch or campaign and, where applicable, updates directly related to this game or to closely related projects by the same owner within the area of board games, letters or similar concepts.",
+        "When you voluntarily subscribe to a list or form, the legal basis for processing is your consent. You may withdraw that consent at any time.",
+        "External providers, such as email or automation platforms, may be used to manage forms or informational mailings, acting as data processors under their own service terms.",
+        "Your data will not be disclosed to unrelated third parties unless required by law. External platforms linked from this site, such as Instagram, TikTok, X or email services, also apply their own policies.",
+        "You can exercise your rights of access, rectification, erasure and other applicable rights by writing to <strong>info@theletterloom.com</strong>."
       ],
     },
     cookies: {
@@ -77,14 +91,28 @@ const LEGAL_CONTENT = {
     legal: {
       title: "Legal notice",
       body: [
-        "This website is an informational landing page for <strong>Letter Loom</strong>, a project currently in its promotion and interest-validation phase.",
-        "The content displayed is promotional in nature and may change as the game, its campaign or its future commercialization evolves.",
+        "This website relates to <strong>The Letter Loom</strong>, a project currently in its prototype, promotion and interest-validation phase.",
+        "The content displayed is informational and promotional in nature and may change as the game, its playtests, future campaign or possible commercialization evolve.",
         "For any questions about the website or the project, you can write to <strong>info@theletterloom.com</strong>.",
         "If the project later becomes a formal commercial activity, this legal information will be expanded with the applicable identification and regulatory details."
       ],
     },
   },
 };
+
+const LEGAL_HASH_TO_KEY = {
+  "#privacidad": "privacy",
+  "#cookies": "cookies",
+  "#aviso-legal": "legal",
+};
+
+const LEGAL_KEY_TO_HASH = {
+  privacy: "#privacidad",
+  cookies: "#cookies",
+  legal: "#aviso-legal",
+};
+
+const BUY_HASHES = new Set(["#comprar", "#buy"]);
 
 const STORAGE_KEY = "letterloom_landing_lang";
 const SLIDE_INTERVAL_MS = 4500;
@@ -118,6 +146,34 @@ let currentLang = detectLanguage();
 let activeSlide = 0;
 let slideTimer = null;
 let openLegalKey = null;
+
+function openBuyModal() {
+  const modal = document.getElementById("buyModal");
+  if (!modal) return;
+  modal.hidden = false;
+  modal.setAttribute("aria-hidden", "false");
+  document.body.classList.add("reduced-motion");
+}
+
+function closeBuyModal(clearHash = true) {
+  const modal = document.getElementById("buyModal");
+  if (!modal) return;
+  modal.hidden = true;
+  modal.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("reduced-motion");
+  if (clearHash && BUY_HASHES.has(window.location.hash)) {
+    const url = `${window.location.pathname}${window.location.search}`;
+    window.history.replaceState(null, "", url);
+  }
+}
+
+function syncBuyModalWithHash() {
+  if (BUY_HASHES.has(window.location.hash)) {
+    openBuyModal();
+    return;
+  }
+  closeBuyModal(false);
+}
 
 function populateLangSelect() {
   const select = document.getElementById("langSelect");
@@ -204,21 +260,39 @@ function openLegalDrawer(key) {
   renderLegalDrawer();
 }
 
-function closeLegalDrawer() {
+function closeLegalDrawer(clearHash = true) {
   openLegalKey = null;
   renderLegalDrawer();
+  if (clearHash && LEGAL_HASH_TO_KEY[window.location.hash]) {
+    const url = `${window.location.pathname}${window.location.search}`;
+    window.history.replaceState(null, "", url);
+  }
+}
+
+function syncLegalDrawerWithHash() {
+  const key = LEGAL_HASH_TO_KEY[window.location.hash];
+  if (key) {
+    openLegalDrawer(key);
+    return;
+  }
+  closeLegalDrawer(false);
 }
 
 function initLegalDrawer() {
   document.querySelectorAll("[data-legal-open]").forEach((button) => {
-    button.addEventListener("click", () => {
+    button.addEventListener("click", (event) => {
       const key = button.getAttribute("data-legal-open");
       if (!key) return;
       if (openLegalKey === key) {
+        event.preventDefault();
         closeLegalDrawer();
         return;
       }
-      openLegalDrawer(key);
+      const hash = LEGAL_KEY_TO_HASH[key];
+      if (hash) {
+        event.preventDefault();
+        window.location.hash = hash;
+      }
     });
   });
 
@@ -231,6 +305,31 @@ function initLegalDrawer() {
       closeLegalDrawer();
     }
   });
+
+  window.addEventListener("hashchange", syncLegalDrawerWithHash);
+  syncLegalDrawerWithHash();
+}
+
+function initBuyModal() {
+  document.querySelectorAll("[data-buy-open]").forEach((node) => {
+    node.addEventListener("click", () => {
+      const hash = currentLang === "en" ? "#buy" : "#comprar";
+      window.location.hash = hash;
+    });
+  });
+
+  document.querySelectorAll("[data-buy-close]").forEach((node) => {
+    node.addEventListener("click", closeBuyModal);
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      closeBuyModal();
+    }
+  });
+
+  window.addEventListener("hashchange", syncBuyModalWithHash);
+  syncBuyModalWithHash();
 }
 
 function setLanguage(lang) {
@@ -332,6 +431,7 @@ document.addEventListener("DOMContentLoaded", () => {
   populateLangSelect();
   renderTextNodes();
   initLegalDrawer();
+  initBuyModal();
   setSlide(0);
   startCarousel();
   initParallax();
