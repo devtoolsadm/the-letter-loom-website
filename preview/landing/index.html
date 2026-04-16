@@ -65,20 +65,38 @@
             <div class="hero-card hero-card-c" data-depth="8" aria-hidden="true"></div>
 
             <div class="hero-carousel" id="heroCarousel" data-depth="5">
-              <article class="hero-slide is-active" data-slide="0">
-                <img src="./assets/hero-table.svg" alt="Mesa con cartas y fichas de The Letter Loom" />
+              <article class="hero-slide hero-slide-photo hero-slide-photo-a is-active" data-slide="0">
+                <img src="./assets/hero-1.png" alt="Foto real de The Letter Loom sobre la mesa" />
+                <div class="hero-words" aria-hidden="true">
+                  <span class="hero-word hero-word-a" data-i18n="hero1Word1">palabras</span>
+                  <span class="hero-word hero-word-b" data-i18n="hero1Word2">estrategia</span>
+                  <span class="hero-word hero-word-c" data-i18n="hero1Word3">pique</span>
+                  <span class="hero-word hero-word-d" data-i18n="hero1Word4">diversión</span>
+                </div>
               </article>
-              <article class="hero-slide" data-slide="1">
+              <article class="hero-slide hero-slide-photo hero-slide-photo-b" data-slide="1">
                 <img
-                  src="./assets/hero-cards.svg"
-                  alt="Cartas de The Letter Loom en composicion promocional"
+                  src="./assets/hero-2.png"
+                  alt="Componentes reales de The Letter Loom en una partida"
                 />
+                <div class="hero-words" aria-hidden="true">
+                  <span class="hero-word hero-word-a" data-i18n="hero2Word1">cartas de ataque</span>
+                  <span class="hero-word hero-word-b" data-i18n="hero2Word2">cartas de defensa</span>
+                  <span class="hero-word hero-word-c" data-i18n="hero2Word3">cartas colaborativas</span>
+                  <span class="hero-word hero-word-d" data-i18n="hero2Word4">estrategia y pique</span>
+                </div>
               </article>
-              <article class="hero-slide" data-slide="2">
+              <article class="hero-slide hero-slide-photo hero-slide-photo-c" data-slide="2">
                 <img
-                  src="./assets/hero-box.svg"
-                  alt="Caja y componentes de The Letter Loom"
+                  src="./assets/hero-3.png"
+                  alt="Detalle real de cartas y piezas de The Letter Loom"
                 />
+                <div class="hero-words" aria-hidden="true">
+                  <span class="hero-word hero-word-a" data-i18n="hero3Word1">app móvil</span>
+                  <span class="hero-word hero-word-b" data-i18n="hero3Word2">cronómetros</span>
+                  <span class="hero-word hero-word-c" data-i18n="hero3Word3">validador de palabras</span>
+                  <span class="hero-word hero-word-d" data-i18n="hero3Word4">compartir récords</span>
+                </div>
               </article>
             </div>
 
@@ -243,11 +261,11 @@
         <div class="guide-modal-body">
           <section class="guide-block guide-block-intro">
             <p class="guide-intro" data-i18n="guideModalIntro">
-              The Letter Loom es un juego de letras con estrategia, ritmo y bastante pique. Tú
-              montas palabras, juegas cartas para ayudarte o fastidiar y ganas si llegas antes a
-              la meta.
-            </p>
-          </section>
+                The Letter Loom es un juego de letras con estrategia, ritmo y bastante pique.
+                Montas palabras, juegas cartas para ayudarte o fastidiar y ganas si llegas antes a
+                la meta.
+              </p>
+            </section>
 
           <section class="guide-steps">
             <article class="guide-step">
@@ -266,36 +284,48 @@
               />
             </article>
 
-            <article class="guide-step">
-              <div class="guide-step-num">2</div>
-              <div class="guide-step-copy">
-                <h3 data-i18n="guideStep2Title">Jugad con cabeza</h3>
-                <p data-i18n="guideStep2Body">
-                  Primero va la fase de estrategia: cambias letras, robas, proteges o alteras
-                  puntos. Luego toca correr para formar tu palabra.
-                </p>
-              </div>
-              <img
-                class="guide-step-image"
-                src="./assets/quick-guide-round2.png"
-                alt="Preparación de jugadores y cartas"
-              />
-            </article>
+              <article class="guide-step">
+                <div class="guide-step-num">2</div>
+                <div class="guide-step-copy">
+                  <h3 data-i18n="guideStep2Title">Jugad con cabeza</h3>
+                  <p data-i18n="guideStep2Body">
+                    Primero va la fase de estrategia: cambias letras, robas, proteges o alteras
+                    puntos. Luego toca correr para formar tu palabra.
+                  </p>
+                </div>
+                <div class="guide-step-note" data-i18n="guideStep2Note">
+                  Aquí empieza el juego sucio: ayudarte está bien, fastidiar también.
+                </div>
+              </article>
 
-            <article class="guide-step">
-              <div class="guide-step-num">3</div>
-              <div class="guide-step-copy">
-                <h3 data-i18n="guideStep3Title">Puntúa y sigue</h3>
-                <p data-i18n="guideStep3Body">
-                  Enseñad las palabras, sumad puntos, aplicad efectos y pasad el reparto. Repetid
-                  hasta llegar a la meta de bazas o de puntos.
-                </p>
-              </div>
-              <div class="guide-step-note" data-i18n="guideStep3Note">
-                Letras, estrategia, ritmo y un poco de maldad sana.
-              </div>
-            </article>
-          </section>
+              <article class="guide-step">
+                <div class="guide-step-num">3</div>
+                <div class="guide-step-copy">
+                  <h3 data-i18n="guideStep3Title">Forma la palabra</h3>
+                  <p data-i18n="guideStep3Body">
+                    Ahora toca correr: usa tus letras y las del centro para montar la mejor palabra
+                    posible antes de que se acabe el tiempo.
+                  </p>
+                </div>
+                <div class="guide-step-note" data-i18n="guideStep3Note">
+                  Aquí no gana la palabra más larga: gana la que mejor puntúa.
+                </div>
+              </article>
+
+              <article class="guide-step">
+                <div class="guide-step-num">4</div>
+                <div class="guide-step-copy">
+                  <h3 data-i18n="guideStep4Title">Puntúa y sigue</h3>
+                  <p data-i18n="guideStep4Body">
+                    Enseñad las palabras, sumad puntos, aplicad efectos y pasad el reparto. Repetid
+                    hasta llegar a la meta de bazas o de puntos.
+                  </p>
+                </div>
+                <div class="guide-step-note" data-i18n="guideStep4Note">
+                  Letras, estrategia, ritmo y un poco de maldad sana.
+                </div>
+              </article>
+            </section>
 
           <section class="guide-manual">
             <div class="guide-manual-copy">
