@@ -12,6 +12,24 @@ const LANDING_TEXTS = {
     buyModalLine2: "Si quieres, te avisamos cuando haya novedades.",
     buyModalCta: "Sí, quiero enterarme",
     buyModalSecondary: "Seguir explorando",
+    guideModalTitle: "Cómo se juega",
+    guideModalSubtitle: "Rápido de aprender. Bastante más difícil de soltar.",
+    guideModalIntro:
+      "The Letter Loom es un juego de letras con estrategia, ritmo y bastante pique. Montas palabras, juegas cartas para ayudarte o fastidiar y ganas si llegas antes a la meta.",
+    guideStep1Title: "Preparad la baza",
+    guideStep1Body:
+      "Pon 5 letras boca arriba en el centro. Cada jugador recibe 3 letras y 3 cartas de estrategia.",
+    guideStep2Title: "Jugad con cabeza",
+    guideStep2Body:
+      "Primero va la fase de estrategia: cambias letras, robas, proteges o alteras puntos. Luego toca correr para formar tu palabra.",
+    guideStep3Title: "Puntúa y sigue",
+    guideStep3Body:
+      "Enseñad las palabras, sumad puntos, aplicad efectos y pasad el reparto. Repetid hasta llegar a la meta de bazas o de puntos.",
+    guideStep3Note: "Letras, estrategia, ritmo y un poco de maldad sana.",
+    guideManualTitle: "¿Quieres conocer The Letter Loom a fondo?",
+    guideManualBody:
+      "Aquí tienes el manual completo, con todas las reglas, giros y cartas para cambiar la partida a tu favor o fastidiar a tus rivales.",
+    guideManualCta: "Abrir manual",
     legalPrivacy: "Privacidad",
     legalCookies: "Cookies",
     legalNotice: "Aviso legal",
@@ -30,6 +48,24 @@ const LANDING_TEXTS = {
     buyModalLine2: "If you want, we can let you know when there are updates.",
     buyModalCta: "Yes, keep me posted",
     buyModalSecondary: "Keep exploring",
+    guideModalTitle: "How to play",
+    guideModalSubtitle: "Quick to learn. Much harder to put down.",
+    guideModalIntro:
+      "The Letter Loom is a word game with strategy, tempo and a fair bit of playful sabotage. You build words, play cards to help yourself or annoy others, and win by reaching the goal first.",
+    guideStep1Title: "Set up the trick",
+    guideStep1Body:
+      "Place 5 letters face up in the center. Each player gets 3 letters and 3 strategy cards.",
+    guideStep2Title: "Play smart first",
+    guideStep2Body:
+      "Strategy comes first: swap letters, draw, protect yourself or change the score. Then race to build your word.",
+    guideStep3Title: "Score and keep going",
+    guideStep3Body:
+      "Reveal your words, add points, apply effects and pass the deal. Repeat until you hit the rounds or score goal.",
+    guideStep3Note: "Letters, strategy, tempo and just enough friendly chaos.",
+    guideManualTitle: "Want the full manual?",
+    guideManualBody:
+      "Here is the PDF copied from the app, so this landing does not depend on anything external.",
+    guideManualCta: "Open manual",
     legalPrivacy: "Privacy",
     legalCookies: "Cookies",
     legalNotice: "Legal notice",
@@ -113,6 +149,7 @@ const LEGAL_KEY_TO_HASH = {
 };
 
 const BUY_HASHES = new Set(["#comprar", "#buy"]);
+const APP_HASHES = new Set(["#app"]);
 
 const STORAGE_KEY = "letterloom_landing_lang";
 const SLIDE_INTERVAL_MS = 4500;
@@ -167,12 +204,36 @@ function closeBuyModal(clearHash = true) {
   }
 }
 
+function openGuideModal() {
+  const modal = document.getElementById("guideModal");
+  if (!modal) return;
+  modal.hidden = false;
+  modal.setAttribute("aria-hidden", "false");
+}
+
+function closeGuideModal() {
+  const modal = document.getElementById("guideModal");
+  if (!modal) return;
+  modal.hidden = true;
+  modal.setAttribute("aria-hidden", "true");
+}
+
 function syncBuyModalWithHash() {
   if (BUY_HASHES.has(window.location.hash)) {
     openBuyModal();
     return;
   }
   closeBuyModal(false);
+}
+
+function openAppFromHash() {
+  window.location.href = "../app/";
+}
+
+function syncAppHash() {
+  if (APP_HASHES.has(window.location.hash)) {
+    openAppFromHash();
+  }
 }
 
 function populateLangSelect() {
@@ -332,6 +393,27 @@ function initBuyModal() {
   syncBuyModalWithHash();
 }
 
+function initAppHash() {
+  window.addEventListener("hashchange", syncAppHash);
+  syncAppHash();
+}
+
+function initGuideModal() {
+  document.querySelectorAll("[data-guide-open]").forEach((node) => {
+    node.addEventListener("click", openGuideModal);
+  });
+
+  document.querySelectorAll("[data-guide-close]").forEach((node) => {
+    node.addEventListener("click", closeGuideModal);
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      closeGuideModal();
+    }
+  });
+}
+
 function setLanguage(lang) {
   const normalized = normalizeLang(lang);
   if (!normalized || normalized === currentLang) return;
@@ -432,6 +514,8 @@ document.addEventListener("DOMContentLoaded", () => {
   renderTextNodes();
   initLegalDrawer();
   initBuyModal();
+  initGuideModal();
+  initAppHash();
   setSlide(0);
   startCarousel();
   initParallax();

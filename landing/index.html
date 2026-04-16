@@ -12,6 +12,9 @@
       content="The Letter Loom, el juego de letras que te dejara sin palabras."
     />
     <meta name="theme-color" content="#22385a" />
+    <link rel="icon" type="image/png" href="./assets/logo-the-letter-loom-solo-letras.png" />
+    <link rel="icon" type="image/svg+xml" href="./assets/logo-mark.svg" />
+    <link rel="apple-touch-icon" href="./assets/logo-the-letter-loom-solo-letras.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -87,16 +90,8 @@
 
             <div class="hero-bottom">
               <div class="hero-actions">
-                <a class="hero-btn hero-btn-primary" href="../app/" data-i18n="howCta">
+                <button type="button" class="hero-btn hero-btn-primary" data-guide-open>
                   Como se juega
-                </a>
-                <button
-                  type="button"
-                  class="hero-btn hero-btn-secondary"
-                  data-buy-open
-                >
-                  <img src="./assets/icon-cart.svg" alt="" aria-hidden="true" />
-                  <span data-i18n="buyGameCta">Comprar el juego</span>
                 </button>
               </div>
 
@@ -219,6 +214,107 @@
           >
             Seguir explorando
           </button>
+        </div>
+      </div>
+    </section>
+
+    <section class="guide-modal" id="guideModal" hidden aria-hidden="true">
+      <div class="guide-modal-backdrop" data-guide-close></div>
+      <div
+        class="guide-modal-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="guideModalTitle"
+      >
+        <div class="guide-modal-head">
+          <div>
+            <h2 class="guide-modal-title" id="guideModalTitle" data-i18n="guideModalTitle">
+              Cómo se juega
+            </h2>
+            <p class="guide-modal-subtitle" data-i18n="guideModalSubtitle">
+              Rápido de aprender. Bastante más difícil de soltar.
+            </p>
+          </div>
+          <button class="guide-modal-close" type="button" data-guide-close aria-label="Cerrar">
+            ×
+          </button>
+        </div>
+
+        <div class="guide-modal-body">
+          <section class="guide-block guide-block-intro">
+            <p class="guide-intro" data-i18n="guideModalIntro">
+              The Letter Loom es un juego de letras con estrategia, ritmo y bastante pique. Tú
+              montas palabras, juegas cartas para ayudarte o fastidiar y ganas si llegas antes a
+              la meta.
+            </p>
+          </section>
+
+          <section class="guide-steps">
+            <article class="guide-step">
+              <div class="guide-step-num">1</div>
+              <div class="guide-step-copy">
+                <h3 data-i18n="guideStep1Title">Preparad la baza</h3>
+                <p data-i18n="guideStep1Body">
+                  Pon 5 letras boca arriba en el centro. Cada jugador recibe 3 letras y 3 cartas
+                  de estrategia.
+                </p>
+              </div>
+              <img
+                class="guide-step-image"
+                src="./assets/quick-guide-round1.png"
+                alt="Preparación inicial de la baza"
+              />
+            </article>
+
+            <article class="guide-step">
+              <div class="guide-step-num">2</div>
+              <div class="guide-step-copy">
+                <h3 data-i18n="guideStep2Title">Jugad con cabeza</h3>
+                <p data-i18n="guideStep2Body">
+                  Primero va la fase de estrategia: cambias letras, robas, proteges o alteras
+                  puntos. Luego toca correr para formar tu palabra.
+                </p>
+              </div>
+              <img
+                class="guide-step-image"
+                src="./assets/quick-guide-round2.png"
+                alt="Preparación de jugadores y cartas"
+              />
+            </article>
+
+            <article class="guide-step">
+              <div class="guide-step-num">3</div>
+              <div class="guide-step-copy">
+                <h3 data-i18n="guideStep3Title">Puntúa y sigue</h3>
+                <p data-i18n="guideStep3Body">
+                  Enseñad las palabras, sumad puntos, aplicad efectos y pasad el reparto. Repetid
+                  hasta llegar a la meta de bazas o de puntos.
+                </p>
+              </div>
+              <div class="guide-step-note" data-i18n="guideStep3Note">
+                Letras, estrategia, ritmo y un poco de maldad sana.
+              </div>
+            </article>
+          </section>
+
+          <section class="guide-manual">
+            <div class="guide-manual-copy">
+              <h3 data-i18n="guideManualTitle">¿Quieres el manual completo?</h3>
+              <p data-i18n="guideManualBody">
+                Aquí tienes la versión en PDF copiada desde la app, para que esta landing no
+                dependa de nada externo.
+              </p>
+            </div>
+            <a
+              class="guide-manual-cta"
+              href="./assets/doc/manual.pdf"
+              target="_blank"
+              rel="noopener"
+              data-i18n="guideManualCta"
+            >
+              Abrir manual
+            </a>
+          </section>
         </div>
       </div>
     </section>
