@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>The Letter Loom</title>
+    <meta
+      name="description"
+      content="The Letter Loom, el juego de letras que te dejara sin palabras."
+    />
+    <meta name="theme-color" content="#22385a" />
+    <link rel="icon" type="image/png" href="./assets/logo-the-letter-loom-solo-letras.png" />
+    <link rel="icon" type="image/svg+xml" href="./assets/logo-mark.svg" />
+    <link rel="apple-touch-icon" href="./assets/logo-the-letter-loom-solo-letras.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="landing.css" />
+  </head>
+  <body>
+    <div class="landing-shell">
+      <header class="topbar">
+        <div class="hero-header">
+          <div class="logo-stage">
+            <span class="logo-aura logo-aura-a" aria-hidden="true"></span>
+            <span class="logo-aura logo-aura-b" aria-hidden="true"></span>
+            <div class="logo-mask">
+              <span class="logo-glint" aria-hidden="true"></span>
+              <img class="hero-logo" src="./assets/logo-the-letter-loom.png" alt="The Letter Loom" />
+            </div>
+          </div>
+          <div class="hero-copy">
+            <h1 class="slogan" data-i18n="slogan">
+              El juego de letras que te dejara sin palabras
+            </h1>
+          </div>
+        </div>
+
+        <div class="topbar-actions">
+          <select id="langSelect" class="lang-select" aria-label="Language selector"></select>
+          <button
+            type="button"
+            class="top-cta"
+            data-buy-open
+          >
+            <img src="./assets/icon-cart.svg" alt="" aria-hidden="true" />
+            <span data-i18n="buyCta">Comprar</span>
+          </button>
+        </div>
+      </header>
+
+      <main class="stage" id="stage">
+        <section class="hero-panel">
+          <div class="hero-depth" id="heroDepth">
+            <div class="hero-glow" data-depth="2" aria-hidden="true"></div>
+            <div class="hero-ring" data-depth="4" aria-hidden="true"></div>
+            <div class="hero-card hero-card-a" data-depth="10" aria-hidden="true"></div>
+            <div class="hero-card hero-card-b" data-depth="13" aria-hidden="true"></div>
+            <div class="hero-card hero-card-c" data-depth="8" aria-hidden="true"></div>
+
+            <div class="hero-carousel" id="heroCarousel" data-depth="5">
+              <article class="hero-slide is-active" data-slide="0">
+                <img src="./assets/hero-table.svg" alt="Mesa con cartas y fichas de The Letter Loom" />
+              </article>
+              <article class="hero-slide" data-slide="1">
+                <img
+                  src="./assets/hero-cards.svg"
+                  alt="Cartas de The Letter Loom en composicion promocional"
+                />
+              </article>
+              <article class="hero-slide" data-slide="2">
+                <img
+                  src="./assets/hero-box.svg"
+                  alt="Caja y componentes de The Letter Loom"
+                />
+              </article>
+            </div>
+
+            <div class="hero-dots hero-dots-inline" id="heroDots" aria-label="Hero slides">
+              <button class="hero-dot is-active" type="button" data-slide-target="0" aria-label="Slide 1"></button>
+              <button class="hero-dot" type="button" data-slide-target="1" aria-label="Slide 2"></button>
+              <button class="hero-dot" type="button" data-slide-target="2" aria-label="Slide 3"></button>
+            </div>
+
+            <div class="hero-bottom">
+              <div class="hero-actions">
+                <button type="button" class="hero-btn hero-btn-primary" data-guide-open>
+                  Como se juega
+                </button>
+              </div>
+
+              <div class="social-cluster">
+                <span class="social-cluster-label">Redes</span>
+                <div class="hero-socials" aria-label="Redes sociales">
+                <a
+                  class="social-link social-link-tiktok"
+                  href="https://www.tiktok.com/@TheLetterLoom"
+                  target="_blank"
+                  rel="noopener"
+                  aria-label="TikTok"
+                  title="TikTok"
+                >
+                  <img src="./assets/icon-tiktok.svg" alt="" aria-hidden="true" />
+                </a>
+                <a
+                  class="social-link social-link-instagram"
+                  href="https://www.instagram.com/The.Letter.Loom"
+                  target="_blank"
+                  rel="noopener"
+                  aria-label="Instagram"
+                  title="Instagram"
+                >
+                  <img src="./assets/icon-instagram.svg" alt="" aria-hidden="true" />
+                </a>
+                <a
+                  class="social-link social-link-x"
+                  href="https://x.com/TheLetterLoom"
+                  target="_blank"
+                  rel="noopener"
+                  aria-label="X"
+                  title="X"
+                >
+                  <img src="./assets/icon-x.svg" alt="" aria-hidden="true" />
+                </a>
+                <a
+                  class="social-link social-link-email"
+                  href="mailto:info@theletterloom.com"
+                  aria-label="Email"
+                  title="Email"
+                >
+                  <img src="./assets/icon-email.svg" alt="" aria-hidden="true" />
+                </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="legal-footer" aria-label="Informacion legal">
+        <div class="legal-footer-inner">
+          <span class="legal-meta">© <span id="legalYear"></span> The Letter Loom</span>
+          <nav class="legal-links" aria-label="Enlaces legales">
+            <a class="legal-link" href="#privacidad" data-legal-open="privacy">Privacidad</a>
+            <a class="legal-link" href="#cookies" data-legal-open="cookies">Cookies</a>
+            <a class="legal-link" href="#aviso-legal" data-legal-open="legal">Aviso legal</a>
+          </nav>
+        </div>
+      </footer>
+    </div>
+
+    <section class="legal-drawer" id="legalDrawer" hidden aria-hidden="true">
+      <div class="legal-drawer-backdrop" data-legal-close></div>
+      <div
+        class="legal-drawer-panel"
+        role="dialog"
+        aria-modal="false"
+        aria-labelledby="legalDrawerTitle"
+      >
+        <div class="legal-drawer-head">
+          <h2 id="legalDrawerTitle" class="legal-drawer-title">Privacidad</h2>
+          <button class="legal-close" type="button" data-legal-close aria-label="Cerrar">
+            ×
+          </button>
+        </div>
+        <div class="legal-drawer-body" id="legalDrawerBody"></div>
+      </div>
+    </section>
+
+    <section class="buy-modal" id="buyModal" hidden aria-hidden="true">
+      <div class="buy-modal-backdrop" data-buy-close></div>
+      <div
+        class="buy-modal-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="buyModalTitle"
+      >
+        <button class="buy-modal-close" type="button" data-buy-close aria-label="Cerrar">
+          ×
+        </button>
+        <div class="buy-modal-icon" aria-hidden="true">
+          <img src="./assets/icon-brake-cart.svg" alt="" />
+        </div>
+        <h2 class="buy-modal-title" id="buyModalTitle" data-i18n="buyModalTitle">
+          Demasiado pronto para sacar la cartera.
+        </h2>
+        <p class="buy-modal-copy" data-i18n="buyModalLine1">
+          The Letter Loom aún está en fase prototipo.
+        </p>
+        <p class="buy-modal-copy buy-modal-copy-last" data-i18n="buyModalLine2">
+          Si quieres, te avisamos cuando haya novedades.
+        </p>
+        <div class="buy-modal-actions">
+          <a
+            class="buy-modal-cta"
+            href="https://1d9de069.sibforms.com/serve/MUIFAAIrDqstI-hPr3cgdMqYPGzym5zvEY3i8uwQPTJbK75JnRzSQpAjoV379OsBAtuQI7OM-iY-OsTrPckLKEQAIcsG0bS2N260sQBQdkD8IqcwdOu2nRCx59XomZBBC7TRcS70KpZOWlc29-gSdzJk92tjv-BgGsfIlRPhdYy-de9tL6m1CPmMJJ8KUmmMomlfRilmknzBNod6Jw=="
+            target="_blank"
+            rel="noopener"
+            data-i18n="buyModalCta"
+          >
+            Quiero enterarme
+          </a>
+          <button
+            class="buy-modal-secondary"
+            type="button"
+            data-buy-close
+            data-i18n="buyModalSecondary"
+          >
+            Seguir explorando
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section class="guide-modal" id="guideModal" hidden aria-hidden="true">
+      <div class="guide-modal-backdrop" data-guide-close></div>
+      <div
+        class="guide-modal-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="guideModalTitle"
+      >
+        <div class="guide-modal-head">
+          <div>
+            <h2 class="guide-modal-title" id="guideModalTitle" data-i18n="guideModalTitle">
+              Cómo se juega
+            </h2>
+            <p class="guide-modal-subtitle" data-i18n="guideModalSubtitle">
+              Rápido de aprender. Bastante más difícil de soltar.
+            </p>
+          </div>
+          <button class="guide-modal-close" type="button" data-guide-close aria-label="Cerrar">
+            ×
+          </button>
+        </div>
+
+        <div class="guide-modal-body">
+          <section class="guide-block guide-block-intro">
+            <p class="guide-intro" data-i18n="guideModalIntro">
+              The Letter Loom es un juego de letras con estrategia, ritmo y bastante pique. Tú
+              montas palabras, juegas cartas para ayudarte o fastidiar y ganas si llegas antes a
+              la meta.
+            </p>
+          </section>
+
+          <section class="guide-steps">
+            <article class="guide-step">
+              <div class="guide-step-num">1</div>
+              <div class="guide-step-copy">
+                <h3 data-i18n="guideStep1Title">Preparad la baza</h3>
+                <p data-i18n="guideStep1Body">
+                  Pon 5 letras boca arriba en el centro. Cada jugador recibe 3 letras y 3 cartas
+                  de estrategia.
+                </p>
+              </div>
+              <img
+                class="guide-step-image"
+                src="./assets/quick-guide-round1.png"
+                alt="Preparación inicial de la baza"
+              />
+            </article>
+
+            <article class="guide-step">
+              <div class="guide-step-num">2</div>
+              <div class="guide-step-copy">
+                <h3 data-i18n="guideStep2Title">Jugad con cabeza</h3>
+                <p data-i18n="guideStep2Body">
+                  Primero va la fase de estrategia: cambias letras, robas, proteges o alteras
+                  puntos. Luego toca correr para formar tu palabra.
+                </p>
+              </div>
+              <img
+                class="guide-step-image"
+                src="./assets/quick-guide-round2.png"
+                alt="Preparación de jugadores y cartas"
+              />
+            </article>
+
+            <article class="guide-step">
+              <div class="guide-step-num">3</div>
+              <div class="guide-step-copy">
+                <h3 data-i18n="guideStep3Title">Puntúa y sigue</h3>
+                <p data-i18n="guideStep3Body">
+                  Enseñad las palabras, sumad puntos, aplicad efectos y pasad el reparto. Repetid
+                  hasta llegar a la meta de bazas o de puntos.
+                </p>
+              </div>
+              <div class="guide-step-note" data-i18n="guideStep3Note">
+                Letras, estrategia, ritmo y un poco de maldad sana.
+              </div>
+            </article>
+          </section>
+
+          <section class="guide-manual">
+            <div class="guide-manual-copy">
+              <h3 data-i18n="guideManualTitle">¿Quieres el manual completo?</h3>
+              <p data-i18n="guideManualBody">
+                Aquí tienes la versión en PDF copiada desde la app, para que esta landing no
+                dependa de nada externo.
+              </p>
+            </div>
+            <a
+              class="guide-manual-cta"
+              href="./assets/doc/manual.pdf"
+              target="_blank"
+              rel="noopener"
+              data-i18n="guideManualCta"
+            >
+              Abrir manual
+            </a>
+          </section>
+        </div>
+      </div>
+    </section>
+
+    <script type="module" src="landing.js"></script>
+  </body>
+</html>
