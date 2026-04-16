@@ -903,6 +903,11 @@ select {
 .hero-slide-photo-c .hero-word-c { bottom: 20%; left: 8%; }
 .hero-slide-photo-c .hero-word-d { bottom: 10%; right: 8%; }
 
+.hero-slide-photo-d .hero-word-a { top: 10%; left: 7%; }
+.hero-slide-photo-d .hero-word-b { top: 18%; right: 8%; }
+.hero-slide-photo-d .hero-word-c { bottom: 18%; left: 7%; }
+.hero-slide-photo-d .hero-word-d { bottom: 10%; right: 8%; }
+
 .hero-slide.is-active .hero-word-a {
   animation: heroWordLeft 9s ease both;
 }
@@ -942,6 +947,10 @@ select {
   object-position: 50% 50%;
 }
 
+.hero-slide-photo-d img {
+  object-position: 50% 48%;
+}
+
 .hero-slide.is-active.hero-slide-photo-a img {
   animation: heroPanA 9.5s ease-in-out both;
 }
@@ -952,6 +961,10 @@ select {
 
 .hero-slide.is-active.hero-slide-photo-c img {
   animation: heroPanC 9.5s ease-in-out both;
+}
+
+.hero-slide.is-active.hero-slide-photo-d img {
+  animation: heroPanD 9.5s ease-in-out both;
 }
 
 .hero-bottom {
@@ -1293,6 +1306,15 @@ select {
   }
   100% {
     transform: scale(1.11) translate3d(0%, -1.4%, 0);
+  }
+}
+
+@keyframes heroPanD {
+  0% {
+    transform: scale(1.05) translate3d(-1.2%, 1.4%, 0);
+  }
+  100% {
+    transform: scale(1.12) translate3d(1.4%, -1.6%, 0);
   }
 }
 
