@@ -907,7 +907,6 @@ select {
 .hero-slide-photo-d .hero-word-b { top: 18%; right: 8%; }
 .hero-slide-photo-d .hero-word-c { bottom: 18%; left: 7%; }
 .hero-slide-photo-d .hero-word-d { bottom: 10%; right: 8%; }
-
 .hero-slide.is-active .hero-word-a {
   animation: heroWordLeft 9s ease both;
 }
@@ -950,7 +949,6 @@ select {
 .hero-slide-photo-d img {
   object-position: 50% 48%;
 }
-
 .hero-slide.is-active.hero-slide-photo-a img {
   animation: heroPanA 9.5s ease-in-out both;
 }
@@ -1317,7 +1315,6 @@ select {
     transform: scale(1.12) translate3d(1.4%, -1.6%, 0);
   }
 }
-
 @keyframes heroWordLeft {
   0%, 10% {
     opacity: 0;
