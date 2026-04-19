@@ -2,7 +2,8 @@ const LANDING_TEXTS = {
   es: {
     pageTitle: "The Letter Loom",
     metaDescription: "The Letter Loom, el juego de letras que te dejará sin palabras.",
-    slogan: "El juego de letras que te dejará sin palabras",
+    slogan1: "El juego de letras",
+    slogan2: "que te dejará sin palabras",
     buyCta: "Quiero el juego",
     howCta: "Cómo se juega",
     buyGameCta: "Quiero el juego",
@@ -51,6 +52,7 @@ const LANDING_TEXTS = {
     hero4Word2: "compártelo",
     hero4Word3: "últimas noticias",
     hero4Word4: "redes sociales",
+    newsTitle: "Últimas noticias",
     legalPrivacy: "Privacidad",
     legalCookies: "Cookies",
     legalNotice: "Aviso legal",
@@ -59,7 +61,8 @@ const LANDING_TEXTS = {
   en: {
     pageTitle: "The Letter Loom",
     metaDescription: "The Letter Loom, the letter game that will leave you speechless.",
-    slogan: "The letter game that will leave you speechless",
+    slogan1: "The letter game",
+    slogan2: "that will leave you speechless",
     buyCta: "I want the game",
     howCta: "How to play",
     buyGameCta: "I want the game",
@@ -108,6 +111,7 @@ const LANDING_TEXTS = {
     hero4Word2: "share it",
     hero4Word3: "latest news",
     hero4Word4: "social media",
+    newsTitle: "Latest news",
     legalPrivacy: "Privacy",
     legalCookies: "Cookies",
     legalNotice: "Legal notice",
@@ -228,6 +232,9 @@ let currentLang = detectLanguage();
 let activeSlide = 0;
 let slideTimer = null;
 let openLegalKey = null;
+let feedwindRawBuffer = null;
+
+document.addEventListener("feedwind-raw", (e) => { feedwindRawBuffer = e.detail; });
 
 function openBuyModal() {
   const modal = document.getElementById("buyModal");
@@ -330,7 +337,11 @@ function renderTextNodes() {
 
   document.querySelectorAll("[data-i18n]").forEach((node) => {
     const key = node.getAttribute("data-i18n");
-    if (key && dict[key]) {
+    if (key === "slogan1" && dict.slogan1) {
+      node.textContent = dict.slogan1;
+    } else if (key === "slogan2" && dict.slogan2) {
+      node.textContent = dict.slogan2;
+    } else if (key && dict[key]) {
       node.textContent = dict[key];
     }
   });
@@ -585,6 +596,145 @@ function initParallax() {
   });
 }
 
+const MONTHS = {
+  es: ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"],
+  en: ["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"],
+};
+
+function formatFeedDate(raw, lang) {
+  // raw format from FeedWind: "DD.MM.YYYY"
+  const parts = raw.split(".");
+  if (parts.length < 3) return raw;
+  const day = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10) - 1;
+  const year = parseInt(parts[2], 10);
+  const months = MONTHS[lang] || MONTHS.es;
+  const now = new Date();
+  const tweetDate = new Date(year, month, day);
+  const oneYearAgo = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+  const aged = tweetDate < oneYearAgo;
+  const de = lang === "en" ? " " : " de ";
+  return `${day} ${months[month]}${aged ? `${de}${year}` : ""}`;
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function renderFeedItems(items) {
+  const list = document.querySelector(".hero-news-list");
+  if (!list) return;
+  list.innerHTML = items.map((item) => {
+    const imgHtml = item.image
+      ? `<img class="hero-news-img" src="${escapeHtml(item.image)}" alt="" loading="lazy" onerror="this.style.display='none'" />`
+      : "";
+    const formattedDate = item.date ? formatFeedDate(item.date, currentLang) : null;
+    const dateHtml = formattedDate ? `<time class="hero-news-date">${escapeHtml(formattedDate)}</time>` : "";
+    const titleTag = item.link
+      ? `<a class="hero-news-title-inferred" href="${escapeHtml(item.link)}" target="_blank" rel="noopener">${escapeHtml(item.title)}</a>`
+      : `<strong class="hero-news-title-inferred">${escapeHtml(item.title)}</strong>`;
+    const headHtml = item.title
+      ? `<div class="hero-news-head">${titleTag}${dateHtml}</div>`
+      : dateHtml;
+    const inner = `${imgHtml}${headHtml}<p class="hero-news-text">${item.textHtml}</p>`;
+    return `<li class="hero-news-item">${inner}</li>`;
+  }).join("");
+}
+
+function inferTitle(plainText) {
+  // First sentence + any immediately following emoji/symbol chars (non-letter, non-digit)
+  const m = plainText.match(/^(.{8,80}[.!?])(\s*[^\p{L}\p{N}\s!?.,:;\-"'«»¡¿(){}[\]]+)?/u);
+  if (m) {
+    const title = (m[1] + (m[2] || "")).trim();
+    return { title, consumed: m[0].length };
+  }
+  const n = Math.min(60, plainText.length);
+  return { title: plainText.slice(0, n).trimEnd() + (plainText.length > n ? "…" : ""), consumed: n };
+}
+
+// Walk html string consuming numChars of plain text, skipping tags
+function stripHtmlPrefix(html, numChars) {
+  let h = 0, p = 0;
+  while (h < html.length && p < numChars) {
+    if (html[h] === "<") {
+      const end = html.indexOf(">", h);
+      h = end < 0 ? html.length : end + 1;
+    } else {
+      const cp = html.codePointAt(h);
+      const w = cp > 0xFFFF ? 2 : 1;
+      h += w; p += w;
+    }
+  }
+  while (h < html.length && html[h] !== "<" && /\s/.test(html[h])) h++;
+  return html.slice(h);
+}
+
+function extractFromShadow(root) {
+  const items = [];
+  root.querySelectorAll(".fw-tw-feed-item").forEach((el) => {
+    const descEl = el.querySelector(".fw-tw-feed-item-description");
+    const plainText = descEl ? descEl.textContent.trim() : "";
+    if (!plainText) return;
+    const { title, consumed } = inferTitle(plainText);
+
+    const imgEl = el.querySelector(".fw-tw-feed-item-image img");
+    const image = imgEl?.getAttribute("data-fw-img-src") || null;
+
+    const dateEl = el.querySelector(".fw-tw-feed-item-date");
+    const date = dateEl ? dateEl.textContent.trim().split(/\s+/)[0] : null;
+    const link = dateEl?.closest("a")?.href || el.querySelector(".fw-tw-feed-item-user-info > a")?.href || null;
+
+    // Strip title from body and remove any links whose text is a URL (self-references)
+    let bodyHtml = stripHtmlPrefix(descEl.innerHTML, consumed);
+    if (link) {
+      const tmp = new DOMParser().parseFromString(`<div>${bodyHtml}</div>`, "text/html");
+      tmp.querySelectorAll("a").forEach((a) => {
+        if (a.textContent.trim().match(/^https?:\/\//)) a.remove();
+      });
+      bodyHtml = tmp.querySelector("div").innerHTML.trim();
+    }
+
+    items.push({ title, textHtml: bodyHtml, image, link, date });
+  });
+  return items.slice(0, 8);
+}
+
+function parseFeedWindHtml(html) {
+  return new DOMParser().parseFromString(html, "text/html");
+}
+
+function processFeedWindData(detail, aside) {
+  try {
+    const json = JSON.parse(detail.text);
+    const html = json?.response?.widget;
+    if (!html) return;
+    const doc = parseFeedWindHtml(html);
+    const items = extractFromShadow(doc.body);
+    if (items.length) {
+      const host = aside.querySelector(".fw-block");
+      if (host) host.style.display = "none";
+      renderFeedItems(items);
+    }
+  } catch (err) {
+    console.error("[FeedWind] Error parseando respuesta:", err);
+  }
+}
+
+function initFeedWind() {
+  const aside = document.querySelector(".hero-news");
+  if (!aside) return;
+
+  if (feedwindRawBuffer) {
+    processFeedWindData(feedwindRawBuffer, aside);
+  } else {
+    document.addEventListener("feedwind-raw", (e) => processFeedWindData(e.detail, aside), { once: true });
+  }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   populateLangSelect();
   renderTextNodes();
@@ -596,4 +746,5 @@ document.addEventListener("DOMContentLoaded", () => {
   setSlide(0);
   startCarousel();
   initParallax();
+  initFeedWind();
 });
