@@ -29,6 +29,8 @@ html,
 body {
   margin: 0;
   min-height: 100%;
+  width: 100%;
+  overflow: hidden;
 }
 
 body {
@@ -169,7 +171,7 @@ select {
 .logo-mask {
   position: relative;
   z-index: 1;
-  width: clamp(190px, 19vw, 320px);
+  width: clamp(70px, min(19vw, 28dvh), 300px);
   overflow: hidden;
 }
 
@@ -219,7 +221,7 @@ select {
     linear-gradient(180deg, rgba(44, 70, 114, 0.98), rgba(33, 56, 92, 0.86)),
     radial-gradient(circle at top left, rgba(255, 217, 94, 0.26), transparent 42%);
   border: 2px solid rgba(255, 246, 220, 0.3);
-  font-size: clamp(1.08rem, 2.22vw, 2.45rem);
+  font-size: clamp(1.08rem, 2.9vw, 2.45rem);
   line-height: 1;
   font-weight: 900;
   white-space: nowrap;
@@ -1586,6 +1588,10 @@ select {
 }
 
 @media (max-width: 980px) {
+  .landing-shell {
+    padding: 0 8px 8px;
+  }
+
   .topbar {
     flex-direction: column;
     align-items: stretch;
@@ -1651,15 +1657,7 @@ select {
     align-items: center;
     gap: 0;
     text-align: center;
-    margin-top: -52px;
-  }
-
-  .hero-logo {
-    width: 100%;
-  }
-
-  .logo-mask {
-    width: min(100%, 286px);
+    margin-top: -20px;
   }
 
   .slogan {
@@ -1673,12 +1671,12 @@ select {
     box-shadow:
       0 10px 18px rgba(13, 22, 38, 0.14),
       inset 0 1px 0 rgba(255, 248, 226, 0.22);
-    font-size: clamp(1.3rem, 5.5vw, 1.56rem);
+    font-size: clamp(1.3rem, 2.9vw, 1.56rem);
     line-height: 0.84;
     letter-spacing: -0.034em;
     white-space: normal;
     animation: headerRise 0.8s ease both;
-    margin-top: -28px;
+    margin-top: -20px;
     position: relative;
     z-index: 2;
   }
@@ -1958,5 +1956,140 @@ select {
     width: 100%;
     min-height: 44px;
     font-size: 0.92rem;
+  }
+}
+
+/* Portrait screens: stack news below carousel, full-width card */
+@media (max-aspect-ratio: 13/10) {
+  .landing-shell {
+    padding: 0;
+    width: 100%;
+  }
+
+  .hero-panel {
+    width: 100%;
+    grid-template-columns: 1fr;
+  }
+
+  .topbar {
+    padding: 4px 8px 0;
+  }
+
+  .hero-depth {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr auto auto;
+    padding: 8px;
+    gap: 6px;
+    border-radius: 0;
+  }
+
+  .hero-carousel {
+    position: relative;
+    inset: auto;
+    grid-column: 1;
+    grid-row: 1;
+    width: 100%;
+    min-height: 0;
+    overflow: hidden;
+    border-radius: 16px;
+  }
+
+  .hero-dots-inline {
+    position: relative;
+    inset: auto;
+    grid-column: 1;
+    grid-row: 1;
+    align-self: end;
+    justify-self: center;
+    margin-bottom: 10px;
+    z-index: 3;
+  }
+
+  .hero-news {
+    position: relative;
+    inset: auto;
+    grid-column: 1;
+    grid-row: 2;
+    width: 100%;
+    max-height: clamp(110px, 28dvh, 230px);
+    border-radius: 16px;
+  }
+
+  /* Multi-column news grid when wide */
+  .hero-news-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    overflow-y: auto;
+    flex: 1;
+    gap: 6px;
+  }
+
+  /* Image + text side-by-side within each item */
+  .hero-news-item {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-rows: auto 1fr;
+    column-gap: 8px;
+    row-gap: 2px;
+    align-items: start;
+  }
+
+  .hero-news-img {
+    grid-column: 1;
+    grid-row: 1 / 3;
+    width: 72px;
+    aspect-ratio: 1;
+    border-radius: 6px;
+    align-self: start;
+  }
+
+  .hero-news-head {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .hero-news-text {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .hero-bottom {
+    position: relative;
+    inset: auto;
+    grid-column: 1;
+    grid-row: 3;
+    width: 100%;
+  }
+
+  .legal-footer-inner {
+    padding: 4px 8px;
+  }
+
+  /* Logo: dvh-based so it's bigger on tall phones, not capped by narrow vw */
+  .logo-mask {
+    width: clamp(80px, 18dvh, 175px);
+  }
+
+  /* News: slightly shorter to give more space to carousel/logo */
+  .hero-news {
+    max-height: clamp(90px, 20dvh, 180px);
+  }
+
+  /* Bottom bar: smaller icons + uncap button so it fits at 375px */
+  .hero-socials a {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+  }
+  .hero-socials img {
+    width: 32px;
+    height: 32px;
+  }
+  .hero-socials {
+    gap: 4px;
+  }
+  .hero-actions .hero-btn:only-child {
+    min-width: 0;
   }
 }
