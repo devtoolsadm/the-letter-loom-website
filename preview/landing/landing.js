@@ -241,6 +241,9 @@ let openLegalKey = null;
 let feedwindRawBuffer = null;
 
 document.addEventListener("feedwind-raw", (e) => { feedwindRawBuffer = e.detail; });
+let feedwindRawBuffer = null;
+
+document.addEventListener("feedwind-raw", (e) => { feedwindRawBuffer = e.detail; });
 
 function openBuyModal() {
   const modal = document.getElementById("buyModal");
@@ -343,6 +346,11 @@ function renderTextNodes() {
 
   document.querySelectorAll("[data-i18n]").forEach((node) => {
     const key = node.getAttribute("data-i18n");
+    if (key === "slogan1" && dict.slogan1) {
+      node.textContent = dict.slogan1;
+    } else if (key === "slogan2" && dict.slogan2) {
+      node.textContent = dict.slogan2;
+    } else if (key && dict[key]) {
     if (key === "slogan1" && dict.slogan1) {
       node.textContent = dict.slogan1;
     } else if (key === "slogan2" && dict.slogan2) {
