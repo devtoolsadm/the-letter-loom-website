@@ -892,29 +892,25 @@ select {
   font-size: 0.66rem;
   font-weight: 900;
   color: var(--gold);
-  order: -1;
   opacity: 0.82;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   white-space: nowrap;
-  flex: 0 0 auto;
+  display: inline;
+  margin-right: 4px;
 }
 
 .hero-news-head {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  flex-wrap: wrap;
+  display: block;
 }
 
 .hero-news-title-inferred {
   font-size: 0.82rem;
   font-weight: 900;
   color: var(--ink);
-  flex: 1 1 0;
   line-height: 1.28;
   text-decoration: none;
-  flex: 1 1 auto;
+  display: inline;
 }
 
 .hero-news-title-inferred:hover {
