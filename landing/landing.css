@@ -2077,7 +2077,7 @@ select {
   .hero-depth {
     display: grid;
     grid-template-columns: 1fr;
-    grid-template-rows: 1fr auto auto;
+    grid-template-rows: minmax(0, 42dvh) auto auto;
     padding: 8px;
     gap: 6px;
     border-radius: 0;
@@ -2185,9 +2185,17 @@ select {
     border-radius: 10px;
   }
 
-  /* News: más corta para ceder espacio al logo */
+  /* News: más alta al reducir el carrusel */
   .hero-news {
-    max-height: clamp(90px, 16dvh, 150px);
+    max-height: clamp(140px, 32dvh, 260px);
+  }
+
+  /* News text slightly larger in portrait */
+  .hero-news-date {
+    font-size: 0.72rem;
+  }
+  .hero-news-title-inferred {
+    font-size: 0.9rem;
   }
 
   /* Dots: reset transform heredado del base que los descentraba */

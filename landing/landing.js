@@ -559,6 +559,10 @@ function startCarousel() {
         scheduleCarousel();
       }
     }, { passive: true });
+    carousel.addEventListener("click", () => {
+      setSlide(activeSlide + 1);
+      scheduleCarousel();
+    });
   }
 
   scheduleCarousel();
