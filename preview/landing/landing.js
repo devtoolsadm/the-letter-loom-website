@@ -546,6 +546,21 @@ function startCarousel() {
     });
   });
 
+  const carousel = document.querySelector(".hero-carousel");
+  if (carousel) {
+    let swipeStartX = 0;
+    carousel.addEventListener("touchstart", (e) => {
+      swipeStartX = e.touches[0].clientX;
+    }, { passive: true });
+    carousel.addEventListener("touchend", (e) => {
+      const delta = e.changedTouches[0].clientX - swipeStartX;
+      if (Math.abs(delta) > 50) {
+        setSlide(activeSlide + (delta < 0 ? 1 : -1));
+        scheduleCarousel();
+      }
+    }, { passive: true });
+  }
+
   scheduleCarousel();
 }
 
