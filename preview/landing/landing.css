@@ -8,6 +8,16 @@
     height: 0.2em;
   }
 }
+.slogan-break {
+  display: inline;
+}
+
+@media (max-width: 720px) {
+  .slogan-break {
+    display: block;
+    height: 0.2em;
+  }
+}
 :root {
   --ink: #fff6dc;
   --ink-soft: rgba(255, 246, 220, 0.88);
@@ -80,6 +90,7 @@ select {
   position: relative;
   min-height: 100dvh;
   padding: 0 14px 14px 14px;
+  padding: 0 14px 14px 14px;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 6px;
@@ -96,6 +107,7 @@ select {
 .hero-header {
   grid-column: 2;
   grid-row: 1;
+  grid-row: 1;
   justify-self: center;
   width: max-content;
   max-width: calc(100% - 280px);
@@ -106,12 +118,15 @@ select {
   animation: headerRise 0.9s cubic-bezier(0.2, 0.9, 0.2, 1) both;
   padding-top: 0;
   margin-top: -32px;
+  padding-top: 0;
+  margin-top: -32px;
 }
 
 .logo-stage {
   position: relative;
   display: grid;
   place-items: center;
+  padding: 0 30px 0 0;
   padding: 0 30px 0 0;
   isolation: isolate;
   overflow: visible;
@@ -265,15 +280,28 @@ select {
   animation: headerRise 0.9s cubic-bezier(0.2, 0.9, 0.2, 1) 0.18s both;
 }
 
+.topbar-lang {
+  grid-column: 1;
+  grid-row: 1;
+  justify-self: start;
+  align-self: start;
+  position: relative;
+  z-index: 2;
+  animation: headerRise 0.9s cubic-bezier(0.2, 0.9, 0.2, 1) 0.18s both;
+}
+
 .topbar-actions {
   grid-column: 3;
   grid-row: 1;
+  grid-row: 1;
   justify-self: end;
+  align-self: start;
   align-self: start;
   position: relative;
   z-index: 2;
   display: flex;
   align-items: center;
+  gap: 0;
   gap: 0;
   animation: headerRise 0.9s cubic-bezier(0.2, 0.9, 0.2, 1) 0.18s both;
 }
@@ -302,6 +330,7 @@ select {
   justify-content: center;
   gap: 10px;
   background: linear-gradient(180deg, #ff9100 0%, #ff4e00 100%);
+  background: linear-gradient(180deg, #ff9100 0%, #ff4e00 100%);
   color: #fff8ed;
   font-size: 1rem;
   font-weight: 900;
@@ -309,8 +338,12 @@ select {
     0 0 0 4px rgba(255, 145, 0, 0.12),
     0 12px 28px rgba(255, 78, 0, 0.32),
     inset 0 1px 0 rgba(255, 237, 227, 0.44);
+    0 0 0 4px rgba(255, 145, 0, 0.12),
+    0 12px 28px rgba(255, 78, 0, 0.32),
+    inset 0 1px 0 rgba(255, 237, 227, 0.44);
   position: relative;
   overflow: hidden;
+  transition: background 0.18s, box-shadow 0.18s;
   transition: background 0.18s, box-shadow 0.18s;
 }
 
@@ -361,6 +394,7 @@ select {
 
 .legal-meta {
   color: rgba(18, 24, 34, 0.9);
+  color: rgba(18, 24, 34, 0.9);
   opacity: 1;
 }
 
@@ -375,9 +409,11 @@ select {
   border: 0;
   background: none;
   color: rgba(18, 24, 34, 0.9);
+  color: rgba(18, 24, 34, 0.9);
   font-size: 0.74rem;
   font-weight: 700;
   cursor: pointer;
+  opacity: 1;
   opacity: 1;
   transition: opacity 0.16s ease, color 0.16s ease;
 }
@@ -856,6 +892,7 @@ select {
   font-size: 0.66rem;
   font-weight: 900;
   color: var(--gold);
+  order: -1;
   opacity: 0.82;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -874,6 +911,7 @@ select {
   font-size: 0.82rem;
   font-weight: 900;
   color: var(--ink);
+  flex: 1 1 0;
   line-height: 1.28;
   text-decoration: none;
   flex: 1 1 auto;
@@ -951,6 +989,10 @@ select {
   margin-top: -24px;
 }
 
+.hero-header .slogan {
+  margin-top: -24px;
+}
+
 .hero-glow,
 .hero-ring,
 .hero-card {
@@ -1008,6 +1050,7 @@ select {
 
 .hero-carousel {
   position: absolute;
+  inset: 14px calc(25% + 8px) 90px 14px;
   inset: 14px calc(25% + 8px) 90px 14px;
   border-radius: 32px;
   overflow: hidden;
@@ -1178,6 +1221,7 @@ select {
 .hero-dots-inline {
   position: absolute;
   left: calc(37.5% + 3px);
+  left: calc(37.5% + 3px);
   bottom: 84px;
   transform: translateX(-50%);
   z-index: 2;
@@ -1185,8 +1229,10 @@ select {
 
 .hero-actions {
   flex: 1;
+  flex: 1;
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   justify-content: center;
   gap: 8px;
 }
@@ -1206,6 +1252,7 @@ select {
   border: 2px solid rgba(255, 246, 220, 0.2);
   backdrop-filter: blur(12px);
   font-weight: 900;
+  white-space: nowrap;
   white-space: nowrap;
   box-shadow:
     0 10px 0 rgba(22, 33, 53, 0.22),
@@ -1611,6 +1658,7 @@ select {
 
 
 
+
   .legal-footer-inner {
     flex-wrap: wrap;
     gap: 8px 12px;
@@ -1635,10 +1683,20 @@ select {
   .topbar {
     display: grid;
     grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr 1fr;
     grid-template-areas:
       "lang actions"
       "brand brand";
+      "lang actions"
+      "brand brand";
     gap: 0;
+  }
+
+  .topbar-lang {
+    grid-area: lang;
+    justify-self: start;
+    align-self: center;
+    margin-bottom: -18px;
   }
 
   .topbar-lang {
@@ -1684,9 +1742,15 @@ select {
   .slogan .slogan-break {
     display: block;
   }
+  /* Fuerza salto de línea en mobile para el slogan */
+  .slogan .slogan-break {
+    display: block;
+  }
 
   .topbar-actions {
     grid-area: actions;
+    justify-self: end;
+    align-self: center;
     justify-self: end;
     align-self: center;
     gap: 8px;
@@ -1759,15 +1823,54 @@ select {
   .hero-news-text {
     font-size: 0.68rem;
     line-height: 1.3;
+    right: calc(33% + 6px);
+  }
+
+  .hero-dots-inline {
+    left: calc(33.5% + 4px);
+  }
+
+  .hero-news {
+    width: calc(33% - 20px);
+    border-radius: 16px;
+    padding: 10px 8px 10px;
+    gap: 6px;
+  }
+
+  .hero-news-list {
+    gap: 4px;
+  }
+
+  .hero-news-item {
+    padding: 6px 8px;
+    border-radius: 10px;
+  }
+
+  .hero-news-title {
+    font-size: 0.7rem;
+    padding-bottom: 6px;
+  }
+
+  .hero-news-date {
+    font-size: 0.58rem;
+  }
+
+  .hero-news-text {
+    font-size: 0.68rem;
+    line-height: 1.3;
   }
 
   .hero-bottom {
     gap: 7px;
     padding: 6px 8px;
+    padding: 6px 8px;
     min-height: 54px;
     border-radius: 18px;
   }
 
+  .hero-actions {
+    flex: 1;
+    justify-content: flex-start;
   .hero-actions {
     flex: 1;
     justify-content: flex-start;
@@ -2066,14 +2169,34 @@ select {
     padding: 4px 8px;
   }
 
-  /* Logo: dvh-based so it's bigger on tall phones, not capped by narrow vw */
+  /* Logo: más grande en portrait, dvh para que escale con la altura */
   .logo-mask {
-    width: clamp(80px, 18dvh, 175px);
+    width: clamp(80px, 22dvh, 195px);
   }
 
-  /* News: slightly shorter to give more space to carousel/logo */
+  /* Separación visual entre logo y slogan */
+  .hero-header {
+    margin-top: 0;
+    gap: 12px;
+  }
+  .slogan {
+    margin-top: 0;
+  }
+
+  /* Imágenes del carrusel con margen interior para parecer más pequeñas */
+  .hero-slide {
+    inset: 8px;
+    border-radius: 10px;
+  }
+
+  /* News: más corta para ceder espacio al logo */
   .hero-news {
-    max-height: clamp(90px, 20dvh, 180px);
+    max-height: clamp(90px, 16dvh, 150px);
+  }
+
+  /* Dots: reset transform heredado del base que los descentraba */
+  .hero-dots-inline {
+    transform: none;
   }
 
   /* Bottom bar: smaller icons + uncap button so it fits at 375px */

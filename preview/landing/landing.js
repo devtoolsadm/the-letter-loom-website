@@ -4,6 +4,8 @@ const LANDING_TEXTS = {
     metaDescription: "The Letter Loom, el juego de letras que te dejará sin palabras.",
     slogan1: "El juego de letras",
     slogan2: "que te dejará sin palabras",
+    slogan1: "El juego de letras",
+    slogan2: "que te dejará sin palabras",
     buyCta: "Quiero el juego",
     howCta: "Cómo se juega",
     buyGameCta: "Quiero el juego",
@@ -53,6 +55,7 @@ const LANDING_TEXTS = {
     hero4Word3: "últimas noticias",
     hero4Word4: "redes sociales",
     newsTitle: "Últimas noticias",
+    newsTitle: "Últimas noticias",
     legalPrivacy: "Privacidad",
     legalCookies: "Cookies",
     legalNotice: "Aviso legal",
@@ -61,6 +64,8 @@ const LANDING_TEXTS = {
   en: {
     pageTitle: "The Letter Loom",
     metaDescription: "The Letter Loom, the letter game that will leave you speechless.",
+    slogan1: "The letter game",
+    slogan2: "that will leave you speechless",
     slogan1: "The letter game",
     slogan2: "that will leave you speechless",
     buyCta: "I want the game",
@@ -111,6 +116,7 @@ const LANDING_TEXTS = {
     hero4Word2: "share it",
     hero4Word3: "latest news",
     hero4Word4: "social media",
+    newsTitle: "Latest news",
     newsTitle: "Latest news",
     legalPrivacy: "Privacy",
     legalCookies: "Cookies",
@@ -235,6 +241,9 @@ let openLegalKey = null;
 let feedwindRawBuffer = null;
 
 document.addEventListener("feedwind-raw", (e) => { feedwindRawBuffer = e.detail; });
+let feedwindRawBuffer = null;
+
+document.addEventListener("feedwind-raw", (e) => { feedwindRawBuffer = e.detail; });
 
 function openBuyModal() {
   const modal = document.getElementById("buyModal");
@@ -337,6 +346,11 @@ function renderTextNodes() {
 
   document.querySelectorAll("[data-i18n]").forEach((node) => {
     const key = node.getAttribute("data-i18n");
+    if (key === "slogan1" && dict.slogan1) {
+      node.textContent = dict.slogan1;
+    } else if (key === "slogan2" && dict.slogan2) {
+      node.textContent = dict.slogan2;
+    } else if (key && dict[key]) {
     if (key === "slogan1" && dict.slogan1) {
       node.textContent = dict.slogan1;
     } else if (key === "slogan2" && dict.slogan2) {
@@ -638,7 +652,7 @@ function renderFeedItems(items) {
       ? `<a class="hero-news-title-inferred" href="${escapeHtml(item.link)}" target="_blank" rel="noopener">${escapeHtml(item.title)}</a>`
       : `<strong class="hero-news-title-inferred">${escapeHtml(item.title)}</strong>`;
     const headHtml = item.title
-      ? `<div class="hero-news-head">${titleTag}${dateHtml}</div>`
+      ? `<div class="hero-news-head">${dateHtml}${titleTag}</div>`
       : dateHtml;
     const inner = `${imgHtml}${headHtml}<p class="hero-news-text">${item.textHtml}</p>`;
     return `<li class="hero-news-item">${inner}</li>`;
@@ -746,5 +760,6 @@ document.addEventListener("DOMContentLoaded", () => {
   setSlide(0);
   startCarousel();
   initParallax();
+  initFeedWind();
   initFeedWind();
 });
