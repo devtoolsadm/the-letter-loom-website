@@ -8,6 +8,15 @@ const LANDING_TEXTS = {
     slogan2: "que te dejará sin palabras",
     buyCta: "Quiero el juego",
     howCta: "Cómo se juega",
+    appInstallCta: "Instalar app",
+    appModalTitle: "Instala la app",
+    appFeaturesCopy: "Cronómetro, marcador, validador de palabras, guardado de partidas y récords para acompañar tus partidas.",
+    appInstallHelpDesktop: "Instálala en este dispositivo o escanea el QR para abrirla en móvil o tablet.",
+    appInstallHelpMobile: "Instálala directamente en este dispositivo.",
+    appDeviceTitle: "Instalar en este dispositivo",
+    appDeviceCopy: "Pulsa el botón y sigue las instrucciones que aparezcan en pantalla.",
+    appDeviceCta: "Instalar aquí",
+    appQrLabel: "Escanear con el móvil o tablet",
     buyGameCta: "Quiero el juego",
     emailLabel: "Email",
     buyModalTitle: "Demasiado pronto para sacar la cartera",
@@ -70,6 +79,15 @@ const LANDING_TEXTS = {
     slogan2: "that will leave you speechless",
     buyCta: "I want the game",
     howCta: "How to play",
+    appInstallCta: "Install app",
+    appModalTitle: "Install the app",
+    appFeaturesCopy: "Timers, scoreboard, word validation, saved matches and records for your game sessions.",
+    appInstallHelpDesktop: "Install it on this device or scan the QR code to open it on your phone or tablet.",
+    appInstallHelpMobile: "Install it directly on this device.",
+    appDeviceTitle: "Install on this device",
+    appDeviceCopy: "Tap the button and follow the on-screen instructions.",
+    appDeviceCta: "Install here",
+    appQrLabel: "Scan with your phone or tablet",
     buyGameCta: "I want the game",
     emailLabel: "Email",
     buyModalTitle: "Too early to reach for your wallet",
@@ -130,59 +148,128 @@ const LEGAL_CONTENT = {
     privacy: {
       title: "Política de privacidad",
       body: [
-        "Esta política se aplica al sitio web y al proyecto <strong>The Letter Loom</strong>, actualmente en fase de prototipo y validación de interés.",
-        "El responsable del tratamiento es el titular del proyecto, como persona física. Si te apuntas a la lista de interés, contactas por correo o escribes a través de redes sociales, los datos que facilites se utilizarán para gestionar tu inscripción, responderte y enviarte información sobre The Letter Loom, su prototipo, su evolución, posibles pruebas, lanzamiento o campaña y, en su caso, novedades directamente relacionadas con este juego o con proyectos afines del mismo responsable dentro del ámbito de los juegos de mesa, letras o propuestas similares.",
-        "La base jurídica del tratamiento, cuando te inscribes voluntariamente en una lista o formulario, es tu consentimiento. Puedes retirarlo en cualquier momento.",
-        "Para la gestión de formularios o envíos informativos podrán utilizarse proveedores externos, como plataformas de email o automatización, que actuarán como encargados del tratamiento conforme a sus propias condiciones de servicio.",
-        "No se cederán tus datos a terceros ajenos a la prestación de estos servicios salvo obligación legal. Las plataformas externas enlazadas desde este sitio, como Instagram, TikTok, X o servicios de correo, aplican además sus propias políticas.",
-        "Puedes ejercer tus derechos de acceso, rectificación, supresión y demás derechos aplicables escribiendo a <strong>info@theletterloom.com</strong>."
+        "Esta política se aplica al sitio web, a la aplicación móvil y al formulario de novedades de The Letter Loom, un proyecto actualmente en fase de prototipo y validación de interés.",
+        "<strong>Quién es el responsable</strong>",
+        "El responsable del tratamiento es el titular del proyecto, como persona física. Para cualquier asunto relacionado con tus datos puedes escribir a <strong>info@theletterloom.com</strong>.",
+        "<strong>Qué datos tratamos y para qué</strong>",
+        "Lista de novedades y formulario de interés. Si te apuntas a la lista, contactas por correo o escribes por redes sociales, usaremos los datos que facilites (normalmente solo tu correo electrónico, y el contenido de tu mensaje si nos escribes) para responderte, gestionar tu inscripción y enviarte información sobre The Letter Loom: prototipo, evolución, pruebas, lanzamiento, campaña y, en su caso, novedades sobre proyectos afines del mismo responsable dentro del ámbito de juegos de mesa, juegos de letras o propuestas similares.",
+        "Registro en la aplicación. Para usar la aplicación pedimos un correo electrónico. Su finalidad principal es permitir recuperar tu actividad si cambias o pierdes el dispositivo. Adicionalmente, podemos utilizarlo para avisarte de novedades del juego, del prototipo o de la propia aplicación, salvo que indiques que prefieres no recibir esos avisos. Las novedades también pueden mostrarse dentro de la propia aplicación sin necesidad de envío externo.",
+        "Actividad de juego. La aplicación registra información sobre cómo se utiliza el juego: duración de partidas, número de jugadores, puntuaciones, palabras formadas, uso de cartas y datos similares. Esta información se utiliza únicamente para entender cómo se juega y mejorar el diseño y el equilibrio del juego. No nos interesa quién juega, nos interesa cómo se juega. No se utiliza para perfilarte comercialmente, no se cruza con datos de terceros y no se vende. Esta información queda asociada a tu cuenta para que puedas recuperar tu progreso si cambias de dispositivo. Su análisis se realiza habitualmente de forma agregada, aunque puntualmente podemos revisar datos asociados a una cuenta concreta cuando sea necesario para resolver una incidencia, depurar un problema técnico o entender un comportamiento anómalo del juego.",
+        "<strong>Base jurídica</strong>",
+        "Para la lista de interés y los formularios voluntarios: tu consentimiento, que puedes retirar en cualquier momento.",
+        "Para el registro en la aplicación y el tratamiento de la actividad de juego asociada: la ejecución del servicio que te prestamos a través de la aplicación y nuestro interés legítimo en mejorar el juego.",
+        "Para envíos informativos o promocionales por correo: tu consentimiento, separado y revocable en cualquier momento.",
+        "<strong>Conservación</strong>",
+        "Conservamos tus datos mientras mantengas activa tu inscripción o tu cuenta en la aplicación, y mientras no solicites su supresión. Si el proyecto se discontinúa, los datos serán eliminados o anonimizados en un plazo razonable.",
+        "<strong>Dónde se guardan tus datos</strong>",
+        "Los datos se almacenan en infraestructura de proveedores externos (servicios de hosting, base de datos, autenticación o envío de correo) ubicados preferentemente en el Espacio Económico Europeo. Si en algún momento un proveedor implicara transferencia de datos fuera del EEE, se aplicarán las garantías que exija la normativa vigente (cláusulas contractuales tipo, países con nivel de protección adecuado, etc.).",
+        "<strong>Encargados y terceros</strong>",
+        "Para gestionar formularios, la lista de novedades, la cuenta en la aplicación o los envíos informativos podemos utilizar proveedores externos (plataformas de email, autenticación, almacenamiento, hosting, analítica o automatización). Estos proveedores actúan como encargados del tratamiento conforme a sus propias condiciones de servicio.",
+        "No cedemos tus datos a terceros ajenos a la prestación de estos servicios salvo obligación legal. En caso de cesión, transmisión, fusión, venta del proyecto o cambio de titularidad, los datos podrán transferirse al nuevo responsable, que quedará obligado a respetar esta política o a comunicarte una nueva.",
+        "Las plataformas externas enlazadas desde el sitio o la aplicación (Instagram, TikTok, X, servicios de correo, tiendas de aplicaciones, etc.) aplican además sus propias políticas, sobre las que no tenemos control.",
+        "<strong>Tus derechos</strong>",
+        "Puedes ejercer en cualquier momento los derechos de acceso, rectificación, supresión, oposición, limitación y portabilidad escribiendo a <strong>info@theletterloom.com</strong>. También puedes darte de baja de la lista de novedades cuando quieras. Si consideras que tus derechos no se han atendido correctamente, puedes presentar una reclamación ante la Agencia Española de Protección de Datos (www.aepd.es).",
+        "<strong>Seguridad</strong>",
+        "Aplicamos medidas razonables para proteger tus datos. Ningún sistema es infalible, así que si detectas algo raro, escríbenos.",
+        "<strong>Cambios</strong>",
+        "Esta política puede actualizarse a medida que el proyecto evolucione. Si los cambios son relevantes, lo comunicaremos por los canales habituales del proyecto."
       ],
     },
     cookies: {
       title: "Política de cookies",
       body: [
         "Esta página no está orientada actualmente a la venta ni al perfilado comercial de usuarios.",
-        "En la versión actual se pretende limitar el uso de cookies a las estrictamente técnicas o necesarias para el funcionamiento básico del sitio. Si más adelante se incorporan analítica, medición o servicios de terceros que requieran consentimiento, esta política se actualizará.",
-        "Las plataformas externas enlazadas desde esta landing, como redes sociales o futuras páginas de reserva, pueden aplicar sus propias cookies cuando navegues fuera de este sitio."
+        "En la web. En la versión actual se pretende limitar el uso de cookies a las estrictamente técnicas o necesarias para el funcionamiento básico del sitio. Si más adelante se incorporan cookies de analítica, medición o servicios de terceros que requieran consentimiento, esta política se actualizará y, cuando corresponda, se mostrará el correspondiente aviso de cookies para que puedas aceptarlas, rechazarlas o configurarlas.",
+        "En la aplicación. La aplicación puede utilizar almacenamiento local del dispositivo y tecnologías equivalentes a cookies con fines técnicos: mantener tu sesión, guardar tu progreso o registrar la actividad de juego en los términos descritos en la política de privacidad.",
+        "Plataformas externas. Las plataformas enlazadas desde este sitio o desde la aplicación (redes sociales, tiendas de aplicaciones, futuras páginas de reserva o campaña) pueden aplicar sus propias cookies y tecnologías cuando navegues fuera de este sitio o de la aplicación."
       ],
     },
     legal: {
       title: "Aviso legal",
       body: [
-        "Este sitio web corresponde a <strong>The Letter Loom</strong>, un proyecto actualmente en fase de prototipo, difusión y validación de interés.",
+        "Este sitio web y la aplicación móvil corresponden a The Letter Loom, un proyecto actualmente en fase de prototipo, difusión y validación de interés.",
+        "<strong>Responsable del proyecto</strong>",
+        "El responsable del proyecto es el titular del mismo, como persona física. Para cualquier consulta puedes escribir a <strong>info@theletterloom.com</strong>.",
+        "<strong>Contenido</strong>",
         "El contenido mostrado tiene carácter informativo y promocional y puede cambiar durante el desarrollo del juego, sus pruebas, su futura campaña o su eventual comercialización.",
-        "Para cualquier consulta relacionada con la web o el proyecto puedes escribir a <strong>info@theletterloom.com</strong>.",
-        "Si el proyecto evoluciona a una actividad comercial formal, esta información legal se ampliará con los datos identificativos y regulatorios que correspondan."
+        "<strong>Sobre el juego y la aplicación</strong>",
+        "The Letter Loom es un juego de cartas que se juega de forma física. La aplicación móvil es una herramienta de apoyo opcional (cronómetros, validador de palabras, registro de partidas, compartir récords y similares). No es imprescindible para jugar: el juego puede jugarse perfectamente con sus componentes físicos y, llegado el caso, con boli y papel.",
+        "Mientras el proyecto se encuentre en fase de prototipo o validación, la aplicación se ofrece como herramienta gratuita y exploratoria. Su disponibilidad, sus funcionalidades y la persistencia de los datos de cuenta pueden modificarse, suspenderse o discontinuarse en cualquier momento, total o parcialmente, sin que ello genere derecho a indemnización. Cuando sea razonablemente posible, los cambios o cierres se comunicarán con antelación a través de la propia aplicación o de los canales habituales del proyecto.",
+        "Si en el futuro el juego pasa a comercializarse y la aplicación se ofrece como complemento de un producto adquirido por consumidores, las condiciones aplicables se detallarán en el documento específico que se publique en ese momento, que prevalecerá sobre lo dispuesto en este apartado en lo relativo a esa relación comercial.",
+        "<strong>Propiedad intelectual</strong>",
+        "El nombre, los textos, las imágenes, el diseño del juego y los demás elementos de The Letter Loom pertenecen a su titular o se utilizan con autorización. No se permite su reproducción, distribución o transformación sin permiso, salvo los usos permitidos por la ley.",
+        "<strong>Responsabilidad</strong>",
+        "El responsable del proyecto procura que la información y los servicios sean correctos y estén disponibles, pero no garantiza que la web o la aplicación estén libres de errores, interrupciones o incidencias técnicas. En la medida que permita la ley, no se asume responsabilidad por daños derivados del uso o la imposibilidad de uso de la web, la aplicación o sus contenidos, ni por el contenido de páginas o servicios de terceros enlazados.",
+        "<strong>Cambio de titularidad</strong>",
+        "El responsable del proyecto puede transmitirlo total o parcialmente a terceros (por ejemplo, mediante venta, cesión o licencia a una editorial, sociedad u otra entidad). En tal caso, el nuevo titular asumirá las obligaciones derivadas de este aviso legal y de la política de privacidad, o publicará nuevas condiciones que serán comunicadas por los canales habituales del proyecto.",
+        "<strong>Cambios</strong>",
+        "Este aviso legal puede actualizarse a medida que el proyecto evolucione. Si los cambios son relevantes, se comunicarán por los canales habituales."
       ],
     },
   },
   en: {
     privacy: {
-      title: "Privacy policy",
+      title: "Privacy Policy",
       body: [
-        "This policy applies to the website and the <strong>The Letter Loom</strong> project, currently in its prototype and interest-validation stage.",
-        "The data controller is the project owner as an individual. If you join the interest list, contact us by email or send messages through social media, the data you provide may be used to manage your registration, reply to you and send you information about The Letter Loom, its prototype, development, possible playtests, launch or campaign and, where applicable, updates directly related to this game or to closely related projects by the same owner within the area of board games, letters or similar concepts.",
-        "When you voluntarily subscribe to a list or form, the legal basis for processing is your consent. You may withdraw that consent at any time.",
-        "External providers, such as email or automation platforms, may be used to manage forms or informational mailings, acting as data processors under their own service terms.",
-        "Your data will not be disclosed to unrelated third parties unless required by law. External platforms linked from this site, such as Instagram, TikTok, X or email services, also apply their own policies.",
-        "You can exercise your rights of access, rectification, erasure and other applicable rights by writing to <strong>info@theletterloom.com</strong>."
+        "This policy applies to the website, mobile application and news sign-up form of The Letter Loom, a project currently in prototype and interest-validation stage.",
+        "<strong>Who is responsible</strong>",
+        "The data controller is the owner of the project, as a natural person. For any matter related to your data, you can write to <strong>info@theletterloom.com</strong>.",
+        "<strong>What data we process and why</strong>",
+        "News list and interest form. If you sign up for the list, contact us by email or write to us through social media, we will use the data you provide (usually just your email address, plus the content of your message if you write to us) to reply to you, manage your sign-up, and send you information about The Letter Loom: prototype, evolution, playtests, launch, campaign and, where applicable, news about related projects of the same owner within the field of board games, word games or similar.",
+        "Sign-up in the application. To use the application, we ask for an email address. Its main purpose is to allow you to recover your activity if you change or lose your device. Additionally, we may use it to notify you of news about the game, the prototype or the application itself, unless you tell us you would rather not receive those notifications. News may also be shown inside the application itself, without need for external delivery.",
+        "Gameplay activity. The application records information about how the game is being used: match duration, number of players, scores, words formed, card usage and similar data. This information is used solely to understand how the game is played and to improve its design and balance. We're not interested in who plays, we're interested in how it's played. It is not used for commercial profiling, it is not cross-referenced with third-party data, and it is not sold. This information is linked to your account so that you can recover your progress if you change devices. It is generally analysed in aggregate form, although on specific occasions we may review data linked to a particular account when this is necessary to resolve an incident, debug a technical issue or understand anomalous game behaviour.",
+        "<strong>Legal basis</strong>",
+        "For the news list and voluntary forms: your consent, which you can withdraw at any time.",
+        "For sign-up in the application and the processing of associated gameplay activity: the performance of the service we provide through the application, and our legitimate interest in improving the game.",
+        "For informational or promotional emails: your consent, given separately and revocable at any time.",
+        "<strong>Retention</strong>",
+        "We keep your data while your sign-up or your account in the application remains active, and as long as you have not requested its deletion. If the project is discontinued, the data will be deleted or anonymised within a reasonable timeframe.",
+        "<strong>Where your data is stored</strong>",
+        "Data is stored on the infrastructure of external providers (hosting, database, authentication or email delivery services) located preferably within the European Economic Area. If at any point a provider involves a transfer of data outside the EEA, the safeguards required by applicable law will be put in place (standard contractual clauses, countries with an adequate level of protection, etc.).",
+        "<strong>Processors and third parties</strong>",
+        "To manage forms, the news list, the application account or informational mailings, we may use external providers (email platforms, authentication, storage, hosting, analytics or automation). These providers act as data processors under their own service terms.",
+        "We do not share your data with third parties outside the provision of these services, except where required by law. In the event of assignment, transfer, merger, sale of the project or change of ownership, the data may be transferred to the new owner, who will be bound to respect this policy or to communicate a new one to you.",
+        "External platforms linked from the site or the application (Instagram, TikTok, X, email services, app stores, etc.) apply their own policies in addition, over which we have no control.",
+        "<strong>Your rights</strong>",
+        "You can exercise your rights of access, rectification, erasure, objection, restriction and portability at any time by writing to <strong>info@theletterloom.com</strong>. You can also unsubscribe from the news list whenever you want. If you believe your rights have not been properly addressed, you can lodge a complaint with the Spanish Data Protection Agency (Agencia Española de Protección de Datos, www.aepd.es).",
+        "<strong>Security</strong>",
+        "We apply reasonable measures to protect your data. No system is foolproof, so if you notice anything off, please write to us.",
+        "<strong>Changes</strong>",
+        "This policy may be updated as the project evolves. If the changes are significant, we will communicate them through the project's usual channels.",
+        "This is a courtesy translation. In case of discrepancy, the Spanish version prevails."
       ],
     },
     cookies: {
-      title: "Cookies policy",
+      title: "Cookie Policy",
       body: [
-        "This page is not currently focused on direct sales or commercial user profiling.",
-        "At this stage, cookies are intended to be limited to strictly technical or necessary ones for the basic operation of the site. If analytics, tracking or third-party services requiring consent are added later, this policy will be updated.",
-        "External platforms linked from this landing page, such as social media or future reservation pages, may apply their own cookies once you leave this site."
+        "This site and the application of The Letter Loom are not currently aimed at sales or at commercial profiling of users.",
+        "On the website. In the current version, cookie use is intended to be limited to those strictly technical or necessary for the basic functioning of the site. If analytics, measurement or third-party cookies that require consent are added later on, this policy will be updated and, where appropriate, a cookie notice will be displayed so that you can accept, reject or configure them.",
+        "In the application. The application may use local device storage and technologies equivalent to cookies for technical purposes: keeping you signed in, saving your progress, or recording gameplay activity under the terms described in the privacy policy.",
+        "External platforms. Platforms linked from this site or from the application (social media, app stores, future booking or campaign pages) may apply their own cookies and technologies when you browse outside this site or this application.",
+        "This is a courtesy translation. In case of discrepancy, the Spanish version prevails."
       ],
     },
     legal: {
-      title: "Legal notice",
+      title: "Legal Notice",
       body: [
-        "This website relates to <strong>The Letter Loom</strong>, a project currently in its prototype, promotion and interest-validation phase.",
-        "The content displayed is informational and promotional in nature and may change as the game, its playtests, future campaign or possible commercialization evolve.",
-        "For any questions about the website or the project, you can write to <strong>info@theletterloom.com</strong>.",
-        "If the project later becomes a formal commercial activity, this legal information will be expanded with the applicable identification and regulatory details."
+        "This website and mobile application correspond to The Letter Loom, a project currently in prototype, outreach and interest-validation stage.",
+        "<strong>Project owner</strong>",
+        "The project is owned by its holder, as a natural person. For any enquiry, you can write to <strong>info@theletterloom.com</strong>.",
+        "<strong>Content</strong>",
+        "The content shown is informational and promotional in nature and may change throughout the development of the game, its playtesting, its future campaign or its eventual commercialisation.",
+        "<strong>About the game and the application</strong>",
+        "The Letter Loom is a card game played physically. The mobile application is an optional supporting tool (timers, word validator, match logging, sharing records and similar). It is not essential for play: the game can be played perfectly well with its physical components and, if needed, with pen and paper.",
+        "While the project is in prototype or validation stage, the application is offered as a free, exploratory tool. Its availability, its features and the persistence of account data may be modified, suspended or discontinued at any time, in whole or in part, without giving rise to any right to compensation. Where reasonably possible, changes or shutdowns will be communicated in advance through the application itself or the project's usual channels.",
+        "If in the future the game becomes commercialised and the application is offered as a complement to a product purchased by consumers, the applicable conditions will be detailed in the specific document published at that time, which will prevail over the provisions of this section as regards that commercial relationship.",
+        "<strong>Intellectual property</strong>",
+        "The name, texts, images, game design and other elements of The Letter Loom belong to its owner or are used with permission. Their reproduction, distribution or transformation is not permitted without consent, save for uses allowed by law.",
+        "<strong>Liability</strong>",
+        "The project owner endeavours to ensure that information and services are correct and available, but does not guarantee that the website or the application will be free of errors, interruptions or technical incidents. To the extent permitted by law, no liability is accepted for damages arising from the use or impossibility of use of the website, the application or their content, nor for the content of third-party pages or services linked from them.",
+        "<strong>Change of ownership</strong>",
+        "The project owner may transfer it, in whole or in part, to third parties (for example, by sale, assignment or licence to a publisher, company or other entity). In such case, the new owner will assume the obligations under this legal notice and the privacy policy, or will publish new terms which will be communicated through the project's usual channels.",
+        "<strong>Changes</strong>",
+        "This legal notice may be updated as the project evolves. If the changes are significant, they will be communicated through the usual channels.",
+        "This is a courtesy translation. In case of discrepancy, the Spanish version prevails."
       ],
     },
   },
@@ -276,6 +363,20 @@ function closeGuideModal() {
   modal.setAttribute("aria-hidden", "true");
 }
 
+function openAppModal() {
+  const modal = document.getElementById("appModal");
+  if (!modal) return;
+  modal.hidden = false;
+  modal.setAttribute("aria-hidden", "false");
+}
+
+function closeAppModal() {
+  const modal = document.getElementById("appModal");
+  if (!modal) return;
+  modal.hidden = true;
+  modal.setAttribute("aria-hidden", "true");
+}
+
 function syncBuyModalWithHash() {
   if (BUY_HASHES.has(window.location.hash)) {
     openBuyModal();
@@ -311,6 +412,46 @@ function syncAppHash() {
   if (APP_HASHES.has(window.location.hash)) {
     openAppFromHash();
   }
+}
+
+function getAppInstallUrl() {
+  return new URL("../app/?fromInstall=1", window.location.href).toString();
+}
+
+function initAppInstallPanel() {
+  const appUrl = getAppInstallUrl();
+  document.querySelectorAll("[data-app-install-link]").forEach((link) => {
+    link.setAttribute("href", appUrl);
+  });
+
+  const qr = document.getElementById("appInstallQr");
+  if (qr) {
+    const qrUrl = new URL("https://api.qrserver.com/v1/create-qr-code/");
+    qrUrl.searchParams.set("size", "160x160");
+    qrUrl.searchParams.set("margin", "1");
+    qrUrl.searchParams.set("data", appUrl);
+    qr.setAttribute("src", qrUrl.toString());
+  }
+}
+
+function isMobileOrTabletDevice() {
+  const ua = navigator.userAgent || "";
+  const mobileOrTabletUa =
+    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Windows Phone|Kindle|Silk|PlayBook|Tablet/i.test(
+      ua
+    );
+  const iPadDesktopUa = ua.includes("Mac") && navigator.maxTouchPoints > 1;
+  const finePointer = window.matchMedia?.("(hover: hover) and (pointer: fine)").matches;
+  const coarsePointer = window.matchMedia?.("(pointer: coarse)").matches;
+  const uaDataMobile = navigator.userAgentData?.mobile === true;
+
+  return uaDataMobile || mobileOrTabletUa || iPadDesktopUa || (coarsePointer && !finePointer);
+}
+
+function initInstallContextClass() {
+  const currentDeviceInstall = isMobileOrTabletDevice();
+  document.body.classList.toggle("install-context-current-device", currentDeviceInstall);
+  document.body.classList.toggle("install-context-desktop", !currentDeviceInstall);
 }
 
 function populateLangSelect() {
@@ -352,8 +493,19 @@ function renderTextNodes() {
     }
   });
 
+  // Renderizar textos del modal de instalación de la app
+  renderAppInstallModalText();
+
   renderLegalLinks();
   renderLegalDrawer();
+}
+
+function renderAppInstallModalText() {
+  const dict = LANDING_TEXTS[currentLang];
+  const isMobile = isMobileOrTabletDevice();
+  const helpText = isMobile ? dict.appInstallHelpMobile : dict.appInstallHelpDesktop;
+  const helpNode = document.getElementById("appInstallHelp");
+  if (helpNode) helpNode.textContent = helpText;
 }
 
 function renderLegalLinks() {
@@ -393,6 +545,7 @@ function renderLegalDrawer() {
 
   title.textContent = section.title;
   body.innerHTML = section.body.map((paragraph) => `<p>${paragraph}</p>`).join("");
+  body.scrollTop = 0;
   drawer.hidden = false;
   drawer.setAttribute("aria-hidden", "false");
 }
@@ -502,6 +655,27 @@ function initGuideModal() {
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
       closeGuideModal();
+    }
+  });
+}
+
+function initAppModal() {
+  // Delegación para soportar elementos dinámicos y múltiples nodos con data-app-open
+  document.body.addEventListener("click", function (event) {
+    const target = event.target.closest('[data-app-open]');
+    if (target) {
+      event.preventDefault();
+      openAppModal();
+    }
+  });
+
+  document.querySelectorAll("[data-app-close]").forEach((node) => {
+    node.addEventListener("click", closeAppModal);
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      closeAppModal();
     }
   });
 }
@@ -761,16 +935,18 @@ function initFeedWind() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  initInstallContextClass();
+  initAppInstallPanel();
   populateLangSelect();
   renderTextNodes();
   initLegalDrawer();
   initBuyModal();
   initNewsletter();
   initGuideModal();
+  initAppModal();
   initAppHash();
   setSlide(0);
   startCarousel();
   initParallax();
-  initFeedWind();
   initFeedWind();
 });

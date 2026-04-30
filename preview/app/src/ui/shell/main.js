@@ -2774,6 +2774,8 @@ function renderShellTexts() {
   setI18nById("splashContinueBtn", "splashContinue");
   setI18nById("resumeMatchBtn", "splashResume");
   setI18nById("installAppBtn", "installButtonText");
+  setI18nById("installRequiredTitle", "installRequiredTitle");
+  setI18nById("installRequiredDescription", "installRequiredDescription");
   setI18nById("splashHelpBtn", "splashHelp");
   setI18nById("splashLoaderLabel", "splashLoadingLabel");
   setI18nById("helpTitle", "helpTitle");
@@ -3110,6 +3112,33 @@ function getViewportZoom() {
 function isStandaloneApp() {
   const mode = getDisplayMode();
   return mode === "fullscreen" || mode === "standalone" || window.navigator.standalone === true;
+}
+
+function isAppInstalled() {
+  return isStandaloneApp() || fromPWA;
+}
+
+function applyInstallGate() {
+  const installed = isAppInstalled();
+  const continueBtn = document.getElementById("splashContinueBtn");
+  const resumeBtn = document.getElementById("resumeMatchBtn");
+  const actions = document.querySelector(".splash-actions");
+  const required = document.getElementById("installRequired");
+  if (continueBtn) continueBtn.classList.toggle("hidden", !installed);
+  if (resumeBtn && !installed) resumeBtn.classList.add("hidden");
+  if (required) required.classList.toggle("hidden", installed);
+  if (actions) {
+    actions.classList.toggle("install-gate-only-settings", !installed);
+    Array.from(actions.children).forEach((btn) => {
+      if (installed) {
+        btn.classList.remove("hidden");
+      } else if (btn.id !== "settingsBtn") {
+        btn.classList.add("hidden");
+      } else {
+        btn.classList.remove("hidden");
+      }
+    });
+  }
 }
 
 function getDisplayMode() {
@@ -8974,6 +9003,7 @@ function startSplashLoader() {
       document.body.classList.add("splash-ready");
       if (loadingBlock) loadingBlock.classList.add("hidden");
       if (mainBlock) mainBlock.classList.remove("hidden");
+      applyInstallGate();
       const logoWrap = document.querySelector(".splash-logo-wrap");
       if (logoWrap) logoWrap.classList.add("logo-animated");
       if (logoEl) logoEl.classList.add("logo-animated");
@@ -10477,11 +10507,17 @@ function setupInstallFlow() {
       updateInstallCopy();
       updateInstallButtonVisibility();
 
-      window.addEventListener("appinstalled", () => updateInstallButtonVisibility());
+      window.addEventListener("appinstalled", () => {
+        updateInstallButtonVisibility();
+        applyInstallGate();
+      });
       window.matchMedia &&
         window
           .matchMedia("(display-mode: standalone)")
-          .addEventListener("change", updateInstallButtonVisibility);
+          .addEventListener("change", () => {
+            updateInstallButtonVisibility();
+            applyInstallGate();
+          });
 
       if (fromInstall) {
         triggerPwaInstall(pwaEl, true);
