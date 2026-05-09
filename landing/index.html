@@ -36,11 +36,7 @@
             </div>
           </div>
           <div class="hero-copy">
-            <h1 class="slogan">
-              <span data-i18n="slogan1"></span>
-              <span class="slogan-break"> </span>
-              <span data-i18n="slogan2"></span>
-            </h1>
+            <h1 class="slogan"><span data-i18n="slogan1"></span> <span data-i18n="slogan2"></span></h1>
           </div>
         </div>
 
@@ -51,7 +47,7 @@
         <div class="topbar-actions">
           <button
             type="button"
-            class="top-cta"
+            class="top-cta hero-btn hero-btn-secondary"
             data-buy-open
           >
             <span data-i18n="buyCta">Comprar</span>
@@ -122,49 +118,31 @@
 
             <aside class="hero-news">
               <h2 class="hero-news-title" data-i18n="newsTitle">Últimas noticias</h2>
-              <script>
-              (function () {
-                function capture(url, text) {
-                  document.dispatchEvent(new CustomEvent("feedwind-raw", { detail: { url, text } }));
-                }
-                const _fetch = window.fetch;
-                window.fetch = function (input, init) {
-                  const url = typeof input === "string" ? input : (input && input.url) || "";
-                  return _fetch.apply(this, arguments).then(function (res) {
-                    if (url.includes("mikle.com")) {
-                      res.clone().text().then(function (t) { capture(url, t); });
-                    }
-                    return res;
-                  });
-                };
-                const _XHR = window.XMLHttpRequest;
-                function PatchedXHR() {
-                  const xhr = new _XHR();
-                  const _open = xhr.open.bind(xhr);
-                  xhr.open = function (m, url) { xhr._url = url; return _open.apply(xhr, arguments); };
-                  const _send = xhr.send.bind(xhr);
-                  xhr.send = function () {
-                    xhr.addEventListener("load", function () {
-                      if (xhr._url && xhr._url.includes("mikle.com")) capture(xhr._url, xhr.responseText);
-                    });
-                    return _send.apply(xhr, arguments);
-                  };
-                  return xhr;
-                }
-                PatchedXHR.prototype = _XHR.prototype;
-                window.XMLHttpRequest = PatchedXHR;
-              })();
-              </script>
-              <!-- start feedwind code -->
-              <script type="text/javascript" src="https://feed.mikle.com/js/fw-loader.js" preloader-text="Loading" data-fw-shadowdom="true" data-fw-param="177968/"></script>
-              <!-- end feedwind code -->
               <ul class="hero-news-list"></ul>
             </aside>
 
             <div class="hero-bottom">
+
               <div class="hero-actions">
                 <button type="button" class="hero-btn hero-btn-primary" data-guide-open>
                   <span data-i18n="howCta">Cómo se juega</span>
+                </button>
+                <button type="button" class="hero-btn hero-btn-app" data-app-open>
+                  <span>Instalar</span>
+                  <span class="store-badges-inside-btn-horizontal">
+                    <img
+                      src="assets/store-google.svg"
+                      alt="Get it on Google Play"
+                      class="store-badge-inside"
+                      draggable="false"
+                    />
+                    <img
+                      src="assets/store-apple.svg"
+                      alt="Download on the App Store"
+                      class="store-badge-inside"
+                      draggable="false"
+                    />
+                  </span>
                 </button>
               </div>
 
@@ -290,6 +268,68 @@
       </div>
     </section>
 
+    <section class="app-modal" id="appModal" hidden aria-hidden="true">
+      <div class="app-modal-backdrop" data-app-close></div>
+      <div
+        class="app-modal-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="appModalTitle"
+      >
+        <button class="app-modal-close" type="button" data-app-close aria-label="Cerrar">
+          ×
+        </button>
+        <div class="app-modal-head">
+          <h2 class="app-modal-title" id="appModalTitle" data-i18n="appModalTitle">
+            Instala la app de apoyo
+          </h2>
+          <p class="app-modal-copy" data-i18n="appFeaturesCopy">
+            Cronómetro, marcador, validador de palabras y récords para tus partidas.
+          </p>
+        </div>
+        <div class="app-modal-body">
+          <div class="app-device-card">
+            <h3 data-i18n="appDeviceTitle">Este dispositivo</h3>
+            <p id="appInstallHelp" class="app-modal-copy"></p>
+            <p class="app-device-copy" data-i18n="appDeviceCopy">
+              Pulsa el botón y sigue las instrucciones que aparezcan en pantalla.
+            </p>
+            <a
+              class="app-device-cta"
+              href="../app/?fromInstall=1"
+              data-app-install-link
+              data-i18n="appDeviceCta"
+            >
+              Instalar aquí
+            </a>
+            <div class="store-badges-modal-inline">
+              <a href="../app/?fromInstall=1" data-app-install-link class="store-badge-modal-link" aria-label="Get it on Google Play">
+                <img src="./assets/store-google.svg" alt="Get it on Google Play" class="store-badge-modal" />
+              </a>
+              <a href="../app/?fromInstall=1" data-app-install-link class="store-badge-modal-link" aria-label="Download on the App Store">
+                <img src="./assets/store-apple.svg" alt="Download on the App Store" class="store-badge-modal" />
+              </a>
+            </div>
+          </div>
+          <a
+            class="app-qr-card"
+            href="../app/?fromInstall=1"
+            data-app-install-link
+            aria-label="Abrir The Letter Loom en otro dispositivo"
+          >
+            <img
+              class="app-qr-img"
+              id="appInstallQr"
+              width="150"
+              height="150"
+              alt="QR para instalar The Letter Loom"
+            />
+            <span data-i18n="appQrLabel">Escanear con el móvil</span>
+          </a>
+        </div>
+      </div>
+    </section>
+
     <section class="guide-modal" id="guideModal" hidden aria-hidden="true">
       <div class="guide-modal-backdrop" data-guide-close></div>
       <div
@@ -403,6 +443,7 @@
       </div>
     </section>
 
+    <script src="news-data.js"></script>
     <script type="module" src="landing.js"></script>
   </body>
 </html>

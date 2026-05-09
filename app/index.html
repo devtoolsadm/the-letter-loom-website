@@ -112,11 +112,16 @@
           </div>
 
           <div class="splash-main hidden" id="splashMainContent">
+            <div class="install-required hidden" id="installRequired">
+              <div class="install-required-title" id="installRequiredTitle"></div>
+              <div class="install-required-desc" id="installRequiredDescription"></div>
+            </div>
             <div class="cta-stack">
               <button class="game-btn primary" id="splashContinueBtn"></button>
               <button class="game-btn ghost hidden" id="resumeMatchBtn"></button>
               <button class="game-btn btn-blue" id="installAppBtn"></button>
             </div>
+            <div id="installLangToggle" class="install-lang-toggle hidden"></div>
             <div class="splash-actions">
               <button class="icon-btn glossy btn-yellow" type="button" id="settingsBtn" aria-label="Settings"
                 data-modal-open="settings">
@@ -828,7 +833,7 @@
             <div class="rules-editor">
               <div class="rules-info-pill" id="rulesInfoPill" data-i18n="matchRulesInfo"></div>
               <textarea id="rulesTextarea" class="rules-textarea" rows="14" spellcheck="false" autocomplete="off"
-                autocorrect="off" autocapitalize="off"></textarea>
+                autocorrect="off" autocapitalize="off" maxlength="1000"></textarea>
               <button class="rules-restore-pill game-btn ghost hidden" type="button" id="rulesRestoreBtn"></button>
             </div>
             <div class="rules-actions inline">
