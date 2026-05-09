@@ -824,12 +824,22 @@ function escapeHtml(str) {
     .replace(/"/g, "&quot;");
 }
 
+function autoLink(text) {
+  return escapeHtml(text)
+    .replace(/https?:\/\/[^\s<>"]+/g, url => `<a href="${url}" target="_blank" rel="noopener">${url}</a>`)
+    .replace(/#([\wÀ-ɏ]+)/g, (_, tag) => `<a href="https://www.instagram.com/explore/tags/${tag.toLowerCase()}/" target="_blank" rel="noopener">#${tag}</a>`)
+    .replace(/@([\w.]+)/g, (_, handle) => `<a href="https://www.instagram.com/${handle}/" target="_blank" rel="noopener">@${handle}</a>`)
+    .replace(/\n/g, "<br>");
+}
+
 function renderFeedItems(items) {
   const list = document.querySelector(".hero-news-list");
   if (!list) return;
   list.innerHTML = items.map((item) => {
     const imgHtml = item.image
-      ? `<img class="hero-news-img" src="${escapeHtml(item.image)}" alt="" loading="lazy" onerror="this.style.display='none'" />`
+      ? (item.link
+          ? `<a href="${escapeHtml(item.link)}" target="_blank" rel="noopener"><img class="hero-news-img" src="${escapeHtml(item.image)}" alt="" loading="lazy" onerror="this.style.display='none'" /></a>`
+          : `<img class="hero-news-img" src="${escapeHtml(item.image)}" alt="" loading="lazy" onerror="this.style.display='none'" />`)
       : "";
     const formattedDate = item.date ? formatFeedDate(item.date, currentLang) : null;
     const dateHtml = formattedDate ? `<time class="hero-news-date">${escapeHtml(formattedDate)}</time>` : "";
@@ -839,7 +849,8 @@ function renderFeedItems(items) {
     const headHtml = item.title
       ? `<div class="hero-news-head">${dateHtml}${titleTag}</div>`
       : dateHtml;
-    const inner = `${imgHtml}${headHtml}<p class="hero-news-text">${item.textHtml}</p>`;
+    const bodyHtml = item.text ? autoLink(item.text) : (item.textHtml || "");
+    const inner = `${imgHtml}${headHtml}<p class="hero-news-text">${bodyHtml}</p>`;
     return `<li class="hero-news-item">${inner}</li>`;
   }).join("");
 }
@@ -948,5 +959,5 @@ document.addEventListener("DOMContentLoaded", () => {
   setSlide(0);
   startCarousel();
   initParallax();
-  initFeedWind();
+  if (typeof LETTER_LOOM_NEWS !== "undefined") renderFeedItems(LETTER_LOOM_NEWS);
 });

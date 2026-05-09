@@ -118,42 +118,6 @@
 
             <aside class="hero-news">
               <h2 class="hero-news-title" data-i18n="newsTitle">Últimas noticias</h2>
-              <script>
-              (function () {
-                function capture(url, text) {
-                  document.dispatchEvent(new CustomEvent("feedwind-raw", { detail: { url, text } }));
-                }
-                const _fetch = window.fetch;
-                window.fetch = function (input, init) {
-                  const url = typeof input === "string" ? input : (input && input.url) || "";
-                  return _fetch.apply(this, arguments).then(function (res) {
-                    if (url.includes("mikle.com")) {
-                      res.clone().text().then(function (t) { capture(url, t); });
-                    }
-                    return res;
-                  });
-                };
-                const _XHR = window.XMLHttpRequest;
-                function PatchedXHR() {
-                  const xhr = new _XHR();
-                  const _open = xhr.open.bind(xhr);
-                  xhr.open = function (m, url) { xhr._url = url; return _open.apply(xhr, arguments); };
-                  const _send = xhr.send.bind(xhr);
-                  xhr.send = function () {
-                    xhr.addEventListener("load", function () {
-                      if (xhr._url && xhr._url.includes("mikle.com")) capture(xhr._url, xhr.responseText);
-                    });
-                    return _send.apply(xhr, arguments);
-                  };
-                  return xhr;
-                }
-                PatchedXHR.prototype = _XHR.prototype;
-                window.XMLHttpRequest = PatchedXHR;
-              })();
-              </script>
-              <!-- start feedwind code -->
-              <script type="text/javascript" src="https://feed.mikle.com/js/fw-loader.js" preloader-text="Loading" data-fw-shadowdom="true" data-fw-param="177968/"></script>
-              <!-- end feedwind code -->
               <ul class="hero-news-list"></ul>
             </aside>
 
@@ -479,6 +443,7 @@
       </div>
     </section>
 
+    <script src="news-data.js"></script>
     <script type="module" src="landing.js"></script>
   </body>
 </html>

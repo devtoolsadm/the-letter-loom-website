@@ -72,6 +72,7 @@ import {
 import { loadState, updateState } from "../../core/stateStore.js";
 import { APP_VERSION } from "../../core/version.js";
 import { logger, onLog, getLogs } from "../../core/logger.js";
+import { capture, flush } from "../../lib/analytics.js";
 import {
   loadActiveMatch,
   saveActiveMatch,
@@ -97,6 +98,15 @@ const HELP_EMAIL = "info@theletterloom.com";
 const HELP_WEB_URL = "https://theletterloom.com";
 
 const appState = loadState();
+
+let _analyticsMatchStartTime = null
+let _analyticsRoundStartTime = null
+let _analyticsStrategyStartTime = null
+let _analyticsCreationStartTime = null
+let _analyticsStrategyDuration = null
+let _analyticsCreationDuration = null
+let _analyticsValidationCount = 0
+let _analyticsIsRematch = false
 const BASE_GAME_WIDTH =
   parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--game-width")) || 360;
 const BASE_GAME_HEIGHT =
@@ -6501,6 +6511,21 @@ function startMatchPlay({ skipResumePrompt = false } = {}) {
     matchController.setPlayers(finalPlayers);
   }
   matchController.startMatch();
+  _analyticsMatchStartTime = Date.now()
+  _analyticsRoundStartTime = null
+  _analyticsValidationCount = 0
+  _analyticsIsRematch = false
+  const _st = matchController.getState()
+  capture('match_started', {
+    mode: _st.mode,
+    player_count: _st.players.length,
+    rounds_target: _st.roundsTarget,
+    points_target: _st.pointsTarget,
+    strategy_seconds_configured: _st.strategySeconds,
+    creation_seconds_configured: _st.creationSeconds,
+    scoring_enabled: _st.scoringEnabled,
+    word_record_validation_enabled: _st.validateRecordWords,
+  })
   persistActiveMatchSnapshot(matchController.getState());
   renderMatch();
 }
@@ -7768,6 +7793,8 @@ async function handleRecordShare(record, kind, position = null) {
     const text = parts.filter(Boolean).join(" · ");
     const blob = await canvasToBlob(canvas);
     await shareImageBlob(blob, { filename, title: shareMessage, text });
+    capture('record_shared', { kind })
+    flush()
   } catch (err) {
     logger.warn("Share record failed", err);
   } finally {
@@ -7808,6 +7835,8 @@ async function handleScoreboardShare() {
     const text = parts.filter(Boolean).join(" · ");
     const blob = await canvasToBlob(canvas);
     await shareImageBlob(blob, { filename, title: shareMessage, text });
+    capture('scoreboard_shared', { player_count: (scoreboardPlayers || []).length })
+    flush()
   } catch (err) {
     logger.warn("Share scoreboard failed", err);
   } finally {
@@ -8236,6 +8265,7 @@ function handleRoundEndContinue() {
       showScreen("match");
       renderMatch();
       showMatchWinners(nextState.winnerIds || []);
+      flush()
       return;
     }
     if (nextState?.tieBreakPending?.players?.length) {
@@ -8346,6 +8376,22 @@ function restartMatchWithSameSettings() {
     matchController.setPlayers(players);
   }
   matchController.startMatch();
+  _analyticsMatchStartTime = Date.now()
+  _analyticsRoundStartTime = null
+  _analyticsValidationCount = 0
+  _analyticsIsRematch = true
+  const _rst = matchController.getState()
+  capture('match_started', {
+    mode: _rst.mode,
+    player_count: _rst.players.length,
+    rounds_target: _rst.roundsTarget,
+    points_target: _rst.pointsTarget,
+    strategy_seconds_configured: _rst.strategySeconds,
+    creation_seconds_configured: _rst.creationSeconds,
+    scoring_enabled: _rst.scoringEnabled,
+    word_record_validation_enabled: _rst.validateRecordWords,
+    is_rematch: true,
+  })
   roundEndScores = {};
   roundEndUnlocked = new Set();
   roundEndSelectedWinners = new Set();
@@ -8556,6 +8602,20 @@ function confirmExitToSplash() {
     acceptText: "confirmAccept",
     cancelText: "cancel",
     onConfirm: () => {
+      const _ast = matchController.getState()
+      if (_ast?.isActive) {
+        capture('match_abandoned', {
+          mode: _ast.mode,
+          player_count: _ast.players.length,
+          round_number: _ast.round,
+          phase_at_abandon: _ast.phase,
+          rounds_completed_pct: (_ast.roundsTarget ?? 0) > 0
+            ? Math.round((_ast.round / _ast.roundsTarget) * 100) : null,
+          match_duration_min: _analyticsMatchStartTime
+            ? Math.round((Date.now() - _analyticsMatchStartTime) / 60000) : null,
+        })
+        flush()
+      }
       finalizeMatchSnapshot(matchController.getState(), { status: "finished", exitExplicit: true });
       stopClockLoop(true);
       resetMatchState();
@@ -9511,6 +9571,18 @@ function setupMatchControllerEvents() {
       clockLowTimeMode = false;
       playClockLoop();
     }
+    const now = Date.now()
+    if (phase === 'strategy-run') {
+      _analyticsStrategyStartTime = now
+      _analyticsStrategyDuration = null
+      if (!_analyticsRoundStartTime) _analyticsRoundStartTime = now
+    } else if (phase === 'creation-run') {
+      if (_analyticsStrategyStartTime) {
+        _analyticsStrategyDuration = Math.round((now - _analyticsStrategyStartTime) / 1000)
+      }
+      _analyticsCreationStartTime = now
+      _analyticsCreationDuration = null
+    }
   });
   matchController.on("paused", () => {
     clockLowTimeMode = false;
@@ -9537,7 +9609,65 @@ function setupMatchControllerEvents() {
     const kind = phase?.startsWith("strategy") ? "strategy" : "creation";
     triggerTimeUpEffects(kind);
     renderMatch();
+    const now = Date.now()
+    if (kind === 'creation' && _analyticsCreationStartTime) {
+      _analyticsCreationDuration = Math.round((now - _analyticsCreationStartTime) / 1000)
+    }
   });
+  matchController.on("validationResult", () => {
+    _analyticsValidationCount++
+  })
+
+  matchController.on("roundFinished", () => {
+    const st = matchController.getState()
+    if (!st) return
+    const now = Date.now()
+    const players = st.players || []
+    const n = players.length
+    if (n === 0) return
+
+    const roundScores = players.map(p => {
+      const last = Array.isArray(p.rounds) && p.rounds.length > 0
+        ? p.rounds[p.rounds.length - 1].points : 0
+      return last
+    })
+    const accScores = players.map(p => p.score)
+    const maxRound = Math.max(...roundScores)
+    const maxAcc = Math.max(...accScores)
+    const accThreshold = Math.max(10, maxAcc * 0.1)
+
+    capture('round_finished', {
+      round_number: st.round,
+      mode: st.mode,
+      player_count: n,
+      is_tie_break: st.tieBreak !== null,
+      strategy_seconds_configured: st.strategySeconds,
+      creation_seconds_configured: st.creationSeconds,
+      strategy_duration_seconds: _analyticsStrategyDuration,
+      creation_duration_seconds: _analyticsCreationDuration,
+      round_duration_min: _analyticsRoundStartTime
+        ? parseFloat(((now - _analyticsRoundStartTime) / 60000).toFixed(1)) : null,
+      avg_score: Math.round(roundScores.reduce((a, b) => a + b, 0) / n),
+      max_score: maxRound,
+      min_score: Math.min(...roundScores),
+      score_range: maxRound - Math.min(...roundScores),
+      zero_rounds_total: roundScores.filter(s => s === 0).length,
+      avg_score_accumulated: Math.round(accScores.reduce((a, b) => a + b, 0) / n),
+      max_score_accumulated: maxAcc,
+      min_score_accumulated: Math.min(...accScores),
+      score_range_accumulated: maxAcc - Math.min(...accScores),
+      close_finish_pct: Math.round(
+        (accScores.filter(s => maxAcc - s <= accThreshold).length / n) * 100
+      ),
+    })
+
+    _analyticsRoundStartTime = null
+    _analyticsStrategyStartTime = null
+    _analyticsCreationStartTime = null
+    _analyticsStrategyDuration = null
+    _analyticsCreationDuration = null
+  })
+
   matchController.on("matchFinished", ({ winners }) => {
     stopClockLoop(false);
     const finalState = matchController.getState();
@@ -9792,6 +9922,8 @@ function assignSrcToNodes(nodes, src) {
 
   function bootstrapShell() {
     logger.info(`App version ${APP_VERSION}`);
+    capture('app_opened', { has_session: false });
+    flush()
     requestServiceWorkerVersion();
     const textErrors = validateTexts(TEXTS);
   if (textErrors.length) {
@@ -9895,10 +10027,94 @@ function assignSrcToNodes(nodes, src) {
   registerServiceWorker();
 }
 
+function renderInstallHints() {
+  const descEl = document.getElementById("installRequiredDescription");
+  if (!descEl) return;
+  const lines = descEl.textContent.split("\n").filter(Boolean);
+  if (lines.length < 2) return;
+  descEl.innerHTML = lines.map(l =>
+    `<span class="install-hint-line">${l}</span>`
+  ).join("");
+}
+
+function renderInstallLangToggle() {
+  const container = document.getElementById("installLangToggle");
+  if (!container) return;
+  container.classList.remove("hidden");
+  container.innerHTML = "";
+  getAvailableLanguages().forEach((code) => {
+    const btn = document.createElement("button");
+    btn.className = "install-lang-btn" + (code === shellLanguage ? " active" : "");
+    btn.textContent = code.toUpperCase();
+    btn.type = "button";
+    btn.addEventListener("click", () => switchLanguage(code));
+    container.appendChild(btn);
+  });
+}
+
+function bootstrapInstallMode() {
+  updateBodyLanguageClass(shellLanguage);
+  renderShellTexts();
+  applyI18n(document);
+
+  if (!unsubscribeLanguage) {
+    unsubscribeLanguage = onShellLanguageChange((lang) => {
+      if (!TEXTS[lang]) return;
+      shellLanguage = lang;
+      shellTexts = TEXTS[shellLanguage];
+      updateBodyLanguageClass(shellLanguage);
+      renderShellTexts();
+      applyI18n(document);
+      renderInstallHints();
+      renderInstallLangToggle();
+    });
+    window.addEventListener("beforeunload", () => {
+      if (unsubscribeLanguage) unsubscribeLanguage();
+      unsubscribeLanguage = null;
+    });
+  }
+
+  // Show splash immediately — skip loading screen
+  showScreen("splash");
+  document.body.classList.add("splash-ready");
+  const loadingBlock = document.getElementById("splashLoadingBlock");
+  const mainBlock = document.getElementById("splashMainContent");
+  const logoEl = document.getElementById("splashLogo");
+  const logoWrap = document.querySelector(".splash-logo-wrap");
+  if (loadingBlock) loadingBlock.classList.add("hidden");
+  if (mainBlock) mainBlock.classList.remove("hidden");
+  if (logoEl) logoEl.classList.add("logo-animated");
+  if (logoWrap) logoWrap.classList.add("logo-animated");
+
+  const splashAssets = loadSplashAssets();
+  if (splashAssets.logoLoader) splashAssets.logoLoader().catch(() => {});
+  if (splashAssets.backgroundLoader) splashAssets.backgroundLoader().catch(() => {});
+
+  // Only show install button + help message; hide play/resume/actions
+  document.getElementById("splashContinueBtn")?.classList.add("hidden");
+  document.getElementById("resumeMatchBtn")?.classList.add("hidden");
+  document.getElementById("installRequired")?.classList.remove("hidden");
+  const actions = document.querySelector(".splash-actions");
+  if (actions) actions.classList.add("hidden");
+
+  renderInstallHints();
+  renderInstallLangToggle();
+  setupInstallFlow();
+  preventMobileZoom();
+  registerServiceWorker();
+  scaleGame();
+  window.addEventListener("resize", scaleGame);
+  window.addEventListener("orientationchange", scaleGame);
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", scaleGame);
+    window.visualViewport.addEventListener("scroll", scaleGame);
+  }
+}
+
 if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", bootstrapShell);
+  document.addEventListener("DOMContentLoaded", isAppInstalled() ? bootstrapShell : bootstrapInstallMode);
 } else {
-  bootstrapShell();
+  (isAppInstalled() ? bootstrapShell : bootstrapInstallMode)();
 }
 
 let swReloading = false;

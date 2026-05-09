@@ -914,12 +914,13 @@ select {
   letter-spacing: 0.04em;
   text-transform: uppercase;
   white-space: nowrap;
-  display: inline;
-  margin-right: 4px;
+  display: block;
 }
 
 .hero-news-head {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .hero-news-title-inferred {
@@ -928,7 +929,7 @@ select {
   color: var(--ink);
   line-height: 1.28;
   text-decoration: none;
-  display: inline;
+  display: block;
 }
 
 .hero-news-title-inferred:hover {
