@@ -2083,9 +2083,9 @@ body.shell-ready #game-root {
 .install-lang-btn {
   padding: 6px 18px;
   border-radius: 99px;
-  border: 2px solid rgba(255, 246, 220, 0.3);
-  background: rgba(18, 32, 56, 0.5);
-  color: rgba(255, 246, 220, 0.6);
+  border: 2px solid rgba(255, 246, 220, 0.25);
+  background: rgba(12, 24, 48, 0.78);
+  color: rgba(255, 246, 220, 0.55);
   font-size: 0.82rem;
   font-weight: 900;
   letter-spacing: 0.08em;
@@ -2094,14 +2094,15 @@ body.shell-ready #game-root {
 }
 
 .install-lang-btn.active {
-  background: rgba(255, 210, 74, 0.18);
+  background: rgba(12, 24, 48, 0.9);
   border-color: var(--gold, #ffd24a);
   color: var(--gold, #ffd24a);
 }
 
 .install-lang-btn:hover:not(.active) {
-  border-color: rgba(255, 246, 220, 0.55);
-  color: rgba(255, 246, 220, 0.9);
+  background: rgba(12, 24, 48, 0.88);
+  border-color: rgba(255, 246, 220, 0.5);
+  color: rgba(255, 246, 220, 0.85);
 }
 
 .install-required {
