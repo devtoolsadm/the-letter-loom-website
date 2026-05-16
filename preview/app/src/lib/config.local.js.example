@@ -1,0 +1,7 @@
+// Copia este fichero como config.local.js y rellena los valores de dev.
+// config.local.js está en .gitignore — nunca se commitea.
+
+export const WORKER_BASE        = 'https://the-letter-loom-dev.the-letter-loom.workers.dev'
+export const SUPABASE_URL       = 'https://lpcdbabpccihzszpfaoe.supabase.co'
+export const SUPABASE_ANON_KEY  = ''   // Supabase → the-letter-loom-dev → Settings → API → anon public
+export const TURNSTILE_SITE_KEY = ''   // Cloudflare → Turnstile → widget dev → Site Key
