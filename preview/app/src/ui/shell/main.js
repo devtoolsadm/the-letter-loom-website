@@ -18,7 +18,9 @@ function validateScores(players, scores) {
   }
   return { missing, oddPlayer, outOfRangePlayer };
 }
-import { IS_LOCAL, IS_PREVIEW } from "../../lib/env.js";
+import { IS_LOCAL, IS_PREVIEW, IS_PROD } from "../../lib/env.js";
+import { getSession, requestOtp, verifyOtp, onAuthStateChange, signOut, getStoredEmail, saveStoredEmail } from "../../lib/auth.js";
+import { TURNSTILE_SITE_KEY } from "../../lib/config.js";
 import {
   TEXTS,
   BULLET_CHAR,
@@ -96,7 +98,7 @@ const HELP_VIDEO_URL = null;
 const HELP_INSTAGRAM_URL = "https://www.instagram.com/the.letter.loom";
 const HELP_TIKTOK_URL = "https://www.tiktok.com/@the.letter.loom";
 const HELP_EMAIL = "info@theletterloom.com";
-const HELP_WEB_URL = "https://theletterloom.com";
+const HELP_WEB_URL = IS_LOCAL ? window.location.origin : IS_PREVIEW ? "https://theletterloom.com/preview" : "https://theletterloom.com";
 
 const appState = loadState();
 
@@ -9911,8 +9913,10 @@ function assignSrcToNodes(nodes, src) {
   });
 }
 
-  function bootstrapShell() {
+  async function bootstrapShell() {
     logger.info(`App version ${APP_VERSION}`);
+    const bgSrc = document.documentElement.getAttribute("data-bg-image");
+    if (bgSrc) applyBodyBackground(bgSrc);
     capture('app_opened', { has_session: false });
     flush()
     requestServiceWorkerVersion();
@@ -10005,9 +10009,6 @@ function assignSrcToNodes(nodes, src) {
   setupInstallFlow();
   requestPersistentStorage();
   setupServiceWorkerMessaging();
-  showScreen(simulatedStartActive || restoredMatchActive ? "match" : "splash");
-  startSplashLoader();
-  detectInstalledApp().finally(() => updateInstallButtonVisibility());
   scaleGame();
   window.addEventListener("resize", scaleGame);
   window.addEventListener("orientationchange", scaleGame);
@@ -10016,6 +10017,246 @@ function assignSrcToNodes(nodes, src) {
     window.visualViewport.addEventListener("scroll", scaleGame);
   }
   registerServiceWorker();
+
+  setupAuthScreen();
+  if (fromInstall) {
+    _proceedToApp();
+    return;
+  }
+  const session = await getSession().catch(() => null);
+  if (session) {
+    _proceedToApp();
+  } else {
+    const savedEmail = getStoredEmail();
+    if (!navigator.onLine && savedEmail) {
+      _proceedToApp();
+    } else {
+      _showAuthEmailStep(savedEmail ? 'expired' : 'fresh', savedEmail);
+      showScreen("auth");
+    }
+  }
+}
+
+function _proceedToApp() {
+  showScreen(simulatedStartActive || restoredMatchActive ? "match" : "splash");
+  startSplashLoader();
+  detectInstalledApp().finally(() => updateInstallButtonVisibility());
+}
+
+// ── Auth screen ───────────────────────────────────────────────
+
+let _turnstileWidgetId = null
+let _turnstileResolve = null
+let _turnstileReject = null
+let _pendingEmail = null
+let _authMode = 'fresh' // 'fresh' | 'expired'
+
+function _loadTurnstile() {
+  if (document.getElementById('turnstile-script')) return
+  const url = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'
+  const s = document.createElement('script')
+  s.id = 'turnstile-script'
+  s.async = true
+  s.defer = true
+  try {
+    s.src = url
+  } catch {
+    try {
+      const policy = window.trustedTypes?.createPolicy?.('turnstile-loader', { createScriptURL: (u) => u })
+      if (policy) s.src = policy.createScriptURL(url)
+    } catch {}
+  }
+  document.head.appendChild(s)
+}
+
+function setupAuthScreen() {
+  _loadTurnstile()
+  const continueBtn  = document.getElementById('authContinueBtn')
+  const verifyBtn    = document.getElementById('authVerifyBtn')
+  const resendBtn    = document.getElementById('authResendBtn')
+  const emailInput   = document.getElementById('authEmailInput')
+  const codeInput    = document.getElementById('authCodeInput')
+  const notYouBtn    = document.getElementById('authNotYouBtn')
+
+  _setAuthText()
+  renderLangToggle("authLangToggle")
+
+  continueBtn?.addEventListener('click', _handleAuthContinue)
+  verifyBtn?.addEventListener('click', _handleAuthVerify)
+  resendBtn?.addEventListener('click', _handleAuthResend)
+  notYouBtn?.addEventListener('click', _handleNotYou)
+  emailInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter') _handleAuthContinue() })
+  codeInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter') _handleAuthVerify() })
+}
+
+function _setAuthText() {
+  const t = shellTexts
+  const subtitle = _authMode === 'expired' ? (t.authSubtitleExpired ?? '') : (t.authSubtitleFresh ?? '')
+  document.getElementById('authSubtitle')?.replaceChildren(document.createTextNode(subtitle))
+  document.getElementById('authBadge')?.replaceChildren(document.createTextNode(t.authBadgeExpired ?? ''))
+  document.getElementById('authNotYouBtn')?.replaceChildren(document.createTextNode(t.authNotYou ?? ''))
+  document.getElementById('authEmailInput')?.setAttribute('placeholder', t.authEmailPlaceholder ?? '')
+  document.getElementById('authContinueBtn')?.replaceChildren(document.createTextNode(t.authContinueBtn ?? ''))
+  document.getElementById('authCodeInput')?.setAttribute('placeholder', t.authCodePlaceholder ?? '')
+  document.getElementById('authVerifyBtn')?.replaceChildren(document.createTextNode(t.authVerifyBtn ?? ''))
+  document.getElementById('authResendBtn')?.replaceChildren(document.createTextNode(t.authResendBtn ?? ''))
+  const legalEl = document.getElementById('authLegal')
+  if (legalEl && t.authLegalText) {
+    const base = HELP_WEB_URL + '/landing'
+    const privacy = `<a href="${base}/#privacidad" target="_blank" rel="noopener">${t.authLegalPrivacy ?? ''}</a>`
+    const legal = `<a href="${base}/#aviso-legal" target="_blank" rel="noopener">${t.authLegalNotice ?? ''}</a>`
+    legalEl.innerHTML = t.authLegalText.replace('{privacy}', privacy).replace('{legal}', legal)
+  }
+}
+
+function _showAuthEmailStep(mode, prefillEmail = null) {
+  _authMode = mode
+  _setAuthText()
+  const badge    = document.getElementById('authBadge')
+  const notYou   = document.getElementById('authNotYouBtn')
+  const emailEl  = document.getElementById('authEmailInput')
+  const isExpired = mode === 'expired'
+  badge?.classList.toggle('hidden', !isExpired)
+  notYou?.classList.toggle('hidden', !isExpired)
+  if (isExpired && prefillEmail) {
+    if (emailEl) emailEl.value = prefillEmail
+  }
+}
+
+function _handleNotYou() {
+  const emailEl = document.getElementById('authEmailInput')
+  if (emailEl) emailEl.value = ''
+  document.getElementById('authEmailError')?.classList.add('hidden')
+  _showAuthEmailStep('fresh')
+  document.getElementById('authEmailInput')?.focus()
+}
+
+
+function _getTurnstileToken() {
+  return new Promise((resolve, reject) => {
+    let settled = false
+    const timeout = setTimeout(() => {
+      if (settled) return
+      settled = true
+      _turnstileResolve = null
+      _turnstileReject = null
+      reject(new Error('turnstile_timeout'))
+    }, 15000)
+
+    _turnstileResolve = (token) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timeout)
+      _turnstileResolve = null
+      _turnstileReject = null
+      resolve(token)
+    }
+    _turnstileReject = (code) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timeout)
+      _turnstileResolve = null
+      _turnstileReject = null
+      reject(new Error('turnstile_error_' + code))
+    }
+
+    const run = () => {
+      if (!window.turnstile) { setTimeout(run, 100); return }
+      if (_turnstileWidgetId === null) {
+        _turnstileWidgetId = window.turnstile.render('#authTurnstile', {
+          sitekey: TURNSTILE_SITE_KEY,
+          size: 'invisible',
+          callback: (t) => _turnstileResolve?.(t),
+          'error-callback': (c) => _turnstileReject?.(c),
+        })
+      } else {
+        window.turnstile.reset(_turnstileWidgetId)
+      }
+    }
+    run()
+  })
+}
+
+async function _handleAuthContinue() {
+  const t = shellTexts
+  const emailInput  = document.getElementById('authEmailInput')
+  const continueBtn = document.getElementById('authContinueBtn')
+  const errorEl     = document.getElementById('authEmailError')
+
+  const email = emailInput?.value?.trim()
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    if (errorEl) errorEl.textContent = shellTexts.authErrorInvalidEmail ?? 'Correo no válido'
+    errorEl?.classList.remove('hidden')
+    emailInput?.focus()
+    return
+  }
+
+  if (!navigator.onLine) {
+    if (errorEl) errorEl.textContent = shellTexts.authErrorNetwork ?? 'Sin conexión'
+    errorEl?.classList.remove('hidden')
+    return
+  }
+
+  errorEl?.classList.add('hidden')
+  continueBtn.textContent = t.authSending ?? '...'
+  continueBtn.disabled = true
+
+  try {
+    const token = await _getTurnstileToken()
+    const { error } = await requestOtp(email, token)
+    if (error) throw error
+    _pendingEmail = email
+    _showAuthCodeStep(email)
+  } catch (err) {
+    const msg = !navigator.onLine
+      ? (t.authErrorNetwork ?? 'Sin conexión')
+      : (t.authErrorGeneric ?? 'Error')
+    errorEl.textContent = msg
+    errorEl.classList.remove('hidden')
+  } finally {
+    continueBtn.textContent = t.authContinueBtn ?? 'Continuar'
+    continueBtn.disabled = false
+  }
+}
+
+async function _handleAuthVerify() {
+  const t = shellTexts
+  const codeInput = document.getElementById('authCodeInput')
+  const verifyBtn = document.getElementById('authVerifyBtn')
+  const errorEl   = document.getElementById('authCodeError')
+
+  const code = codeInput?.value?.trim()
+  if (!code || !_pendingEmail) return
+
+  errorEl?.classList.add('hidden')
+  verifyBtn.textContent = t.authVerifying ?? '...'
+  verifyBtn.disabled = true
+
+  try {
+    const { session, error } = await verifyOtp(_pendingEmail, code)
+    if (error || !session) throw error ?? new Error('no_session')
+    saveStoredEmail(_pendingEmail)
+    _proceedToApp()
+  } catch {
+    errorEl.textContent = t.authErrorInvalidCode ?? 'Código incorrecto'
+    errorEl.classList.remove('hidden')
+    verifyBtn.textContent = t.authVerifyBtn ?? 'Verificar'
+    verifyBtn.disabled = false
+  }
+}
+
+async function _handleAuthResend() {
+  _pendingEmail && _handleAuthContinue()
+}
+
+function _showAuthCodeStep(email) {
+  const t = shellTexts
+  document.getElementById('authEmailStep')?.classList.add('hidden')
+  const codeStep = document.getElementById('authCodeStep')
+  codeStep?.classList.remove('hidden')
+  const hint = document.getElementById('authCodeHint')
+  if (hint) hint.textContent = `${t.authCodeHint ?? 'Código enviado a'} ${email}`
+  document.getElementById('authCodeInput')?.focus()
 }
 
 function renderInstallHints() {
@@ -10028,8 +10269,8 @@ function renderInstallHints() {
   ).join("");
 }
 
-function renderInstallLangToggle() {
-  const container = document.getElementById("installLangToggle");
+function renderLangToggle(containerId) {
+  const container = document.getElementById(containerId);
   if (!container) return;
   container.classList.remove("hidden");
   container.innerHTML = "";
@@ -10041,6 +10282,10 @@ function renderInstallLangToggle() {
     btn.addEventListener("click", () => switchLanguage(code));
     container.appendChild(btn);
   });
+}
+
+function renderInstallLangToggle() {
+  renderLangToggle("installLangToggle");
 }
 
 function bootstrapInstallMode() {
@@ -10530,6 +10775,8 @@ function handleLanguageChange(lang) {
   updateBodyLanguageClass(shellLanguage);
   renderShellTexts();
   applyI18n(document);
+  _showAuthEmailStep(_authMode, document.getElementById('authEmailInput')?.value || null);
+  renderLangToggle("authLangToggle");
   const st = matchController.getState();
   if (st) renderMatchFromState(st);
 }

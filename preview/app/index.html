@@ -90,6 +90,38 @@
     <div class="game-content">
       <header class="game-header" id="gameHeader"></header>
       <main class="game-main" id="gameMain">
+        <div class="screen auth-screen" id="screen-auth">
+          <div class="auth-wrap">
+            <div class="auth-logo-wrap">
+              <img class="auth-logo" src="assets/img/logo-letters.png" alt="The Letter Loom" draggable="false" />
+            </div>
+            <div class="auth-card">
+              <div class="auth-panel" id="authEmailStep">
+                <div class="auth-badge hidden" id="authBadge"></div>
+                <p class="auth-subtitle" id="authSubtitle"></p>
+                <div class="auth-field">
+                  <input type="email" id="authEmailInput" autocomplete="email" inputmode="email" spellcheck="false" aria-label="Email" placeholder="tu@email.com" />
+                </div>
+                <button class="auth-not-you hidden" type="button" id="authNotYouBtn"></button>
+                <p class="auth-error hidden" id="authEmailError"></p>
+                <button class="game-btn primary" id="authContinueBtn"></button>
+              </div>
+              <div class="auth-panel hidden" id="authCodeStep">
+                <p class="auth-code-hint" id="authCodeHint"></p>
+                <div class="auth-field">
+                  <input type="text" id="authCodeInput" inputmode="numeric" maxlength="6" autocomplete="one-time-code" pattern="[0-9]*" aria-label="Código OTP" placeholder="000000" />
+                </div>
+                <p class="auth-error hidden" id="authCodeError"></p>
+                <button class="game-btn primary" id="authVerifyBtn"></button>
+                <button class="game-btn ghost" id="authResendBtn"></button>
+              </div>
+            </div>
+            <div id="authTurnstile"></div>
+            <div id="authLangToggle" class="install-lang-toggle"></div>
+            <p class="auth-legal" id="authLegal"></p>
+          </div>
+        </div>
+
         <div class="screen splash-screen" id="screen-splash">
           <div class="splash-hero">
             <div class="splash-logo-wrap">

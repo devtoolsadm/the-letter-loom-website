@@ -13,6 +13,6 @@ if (IS_LOCAL) {
 }
 
 export const WORKER_BASE        = _local.WORKER_BASE        ?? 'https://the-letter-loom-dev.the-letter-loom.workers.dev'
-export const SUPABASE_URL       = _local.SUPABASE_URL       ?? ''
-export const SUPABASE_ANON_KEY  = _local.SUPABASE_ANON_KEY  ?? ''
-export const TURNSTILE_SITE_KEY = _local.TURNSTILE_SITE_KEY ?? ''
+export const SUPABASE_URL       = _local.SUPABASE_URL       ?? 'https://lpcdbabpccihzszpfaoe.supabase.co'
+export const SUPABASE_ANON_KEY  = _local.SUPABASE_ANON_KEY  ?? 'sb_publishable_FMAJjgFS_NGsyEVNoBV0TQ_8L9ueLVc'
+export const TURNSTILE_SITE_KEY = _local.TURNSTILE_SITE_KEY ?? '0x4AAAAAADIVEizrkAj6-i31'

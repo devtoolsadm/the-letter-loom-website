@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "letter-loom-cache";
-const APP_VERSION = "v0.0.165";
+const APP_VERSION = "v0.0.166";
 let cacheVersion = APP_VERSION;
 let CACHE_NAME = `${CACHE_PREFIX}-${cacheVersion}`;
 const BASE_PATH = self.location.pathname.replace(/\/[^/]*$/, "/");
@@ -23,6 +23,11 @@ const PRECACHE_ASSETS = [
   `${BASE_PATH}src/styles/modal.css`,
   `${BASE_PATH}src/i18n/texts.js`,
   `${BASE_PATH}src/core/version.js`,
+  `${BASE_PATH}src/lib/env.js`,
+  `${BASE_PATH}src/lib/config.js`,
+  `${BASE_PATH}src/lib/analytics.js`,
+  `${BASE_PATH}src/lib/auth.js`,
+  `${BASE_PATH}assets/js/supabase.min.js`,
   `${BASE_PATH}assets/img/background.png`,
   `${BASE_PATH}assets/img/logo-letters.png`,
   `${BASE_PATH}assets/img/rotate-device-icon.png`,
@@ -86,6 +91,10 @@ const CRITICAL_ASSETS = [
   `${BASE_PATH}src/ui/shell/modal.js`,
   `${BASE_PATH}src/styles/modal.css`,
   `${BASE_PATH}src/i18n/texts.js`,
+  `${BASE_PATH}src/lib/env.js`,
+  `${BASE_PATH}src/lib/config.js`,
+  `${BASE_PATH}src/lib/auth.js`,
+  `${BASE_PATH}assets/js/supabase.min.js`,
 ];
 
 async function precacheAssets(cache, { skipVersion = false } = {}) {
@@ -189,11 +198,16 @@ self.addEventListener("message", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (IS_LOCAL && DEV_BYPASS_CACHE) {
+    const reqUrl = new URL(event.request.url);
+    if (reqUrl.origin !== self.location.origin) return;
     event.respondWith(fetch(event.request, { cache: "no-store" }));
     return;
   }
 
   const url = new URL(event.request.url);
+
+  // Never intercept cross-origin requests
+  if (url.origin !== self.location.origin) return;
 
   // App shell fallback for navigations
   if (event.request.mode === "navigate" || event.request.destination === "document") {
