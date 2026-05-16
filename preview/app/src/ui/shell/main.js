@@ -18,6 +18,7 @@ function validateScores(players, scores) {
   }
   return { missing, oddPlayer, outOfRangePlayer };
 }
+import { IS_LOCAL, IS_PREVIEW } from "../../lib/env.js";
 import {
   TEXTS,
   BULLET_CHAR,
@@ -3165,17 +3166,7 @@ function isIOS() {
 }
 
 function isLocalHost() {
-  const host = window.location.hostname;
-  if (host === "localhost" || host === "127.0.0.1" || host === "0.0.0.0") return true;
-  if (host.endsWith(".local")) return true;
-  if (/^10\./.test(host)) return true;
-  if (/^192\.168\./.test(host)) return true;
-  const m = host.match(/^172\.(\d+)\./);
-  if (m) {
-    const n = Number(m[1]);
-    return n >= 16 && n <= 31;
-  }
-  return false;
+  return IS_LOCAL
 }
 
 function isOfflineStandaloneIOS() {
@@ -10157,17 +10148,9 @@ function registerServiceWorker() {
 function updatePreviewBadge() {
   const badge = document.getElementById("previewLogoBadge");
   if (!badge) return;
-  const host = window.location.hostname || "";
-  const href = window.location.href || "";
-  const isLocal =
-    host === "localhost" ||
-    host === "127.0.0.1" ||
-    host === "::1" ||
-    host.endsWith(".local");
-  const isPreview = /preview/i.test(host) || /preview/i.test(href);
-  const shouldShow = isPreview || isLocal;
+  const shouldShow = IS_PREVIEW || IS_LOCAL;
   badge.classList.toggle("hidden", !shouldShow);
-  badge.textContent = isLocal && !isPreview ? "LOCAL" : "PREVIEW";
+  badge.textContent = IS_LOCAL && !IS_PREVIEW ? "LOCAL" : "PREVIEW";
   badge.classList.remove("is-active");
   void badge.offsetWidth;
   if (shouldShow) badge.classList.add("is-active");
