@@ -153,7 +153,7 @@ const LEGAL_CONTENT = {
         "El responsable del tratamiento es el titular del proyecto, como persona física. Para cualquier asunto relacionado con tus datos puedes escribir a <strong>info@theletterloom.com</strong>.",
         "<strong>Qué datos tratamos y para qué</strong>",
         "Lista de novedades y formulario de interés. Si te apuntas a la lista, contactas por correo o escribes por redes sociales, usaremos los datos que facilites (normalmente solo tu correo electrónico, y el contenido de tu mensaje si nos escribes) para responderte, gestionar tu inscripción y enviarte información sobre The Letter Loom: prototipo, evolución, pruebas, lanzamiento, campaña y, en su caso, novedades sobre proyectos afines del mismo responsable dentro del ámbito de juegos de mesa, juegos de letras o propuestas similares.",
-        "Registro en la aplicación. Para usar la aplicación pedimos un correo electrónico. Su finalidad principal es permitir recuperar tu actividad si cambias o pierdes el dispositivo. Adicionalmente, podemos utilizarlo para avisarte de novedades del juego, del prototipo o de la propia aplicación, salvo que indiques que prefieres no recibir esos avisos. Las novedades también pueden mostrarse dentro de la propia aplicación sin necesidad de envío externo.",
+        "Registro en la aplicación. Para usar la aplicación pedimos un correo electrónico y un nombre para el marcador. Puede ser tu nombre, un apodo o algo completamente inventado — tú decides. El correo nos permite recuperar tu actividad si cambias o pierdes el dispositivo. Adicionalmente, podemos utilizarlo para avisarte de novedades del juego, del prototipo o de la propia aplicación, salvo que indiques que prefieres no recibir esos avisos. Las novedades también pueden mostrarse dentro de la propia aplicación sin necesidad de envío externo.",
         "Actividad de juego. La aplicación registra información sobre cómo se utiliza el juego: duración de partidas, número de jugadores, puntuaciones, palabras formadas, uso de cartas y datos similares. Esta información se utiliza únicamente para entender cómo se juega y mejorar el diseño y el equilibrio del juego. No nos interesa quién juega, nos interesa cómo se juega. No se utiliza para perfilarte comercialmente, no se cruza con datos de terceros y no se vende. Esta información queda asociada a tu cuenta para que puedas recuperar tu progreso si cambias de dispositivo. Su análisis se realiza habitualmente de forma agregada, aunque puntualmente podemos revisar datos asociados a una cuenta concreta cuando sea necesario para resolver una incidencia, depurar un problema técnico o entender un comportamiento anómalo del juego.",
         "<strong>Base jurídica</strong>",
         "Para la lista de interés y los formularios voluntarios: tu consentimiento, que puedes retirar en cualquier momento.",
@@ -216,7 +216,7 @@ const LEGAL_CONTENT = {
         "The data controller is the owner of the project, as a natural person. For any matter related to your data, you can write to <strong>info@theletterloom.com</strong>.",
         "<strong>What data we process and why</strong>",
         "News list and interest form. If you sign up for the list, contact us by email or write to us through social media, we will use the data you provide (usually just your email address, plus the content of your message if you write to us) to reply to you, manage your sign-up, and send you information about The Letter Loom: prototype, evolution, playtests, launch, campaign and, where applicable, news about related projects of the same owner within the field of board games, word games or similar.",
-        "Sign-up in the application. To use the application, we ask for an email address. Its main purpose is to allow you to recover your activity if you change or lose your device. Additionally, we may use it to notify you of news about the game, the prototype or the application itself, unless you tell us you would rather not receive those notifications. News may also be shown inside the application itself, without need for external delivery.",
+        "Sign-up in the application. To use the application, we ask for an email address and a name for the scoreboard. It can be your real name, a nickname, or something completely made up — you decide. The email allows us to recover your activity if you change or lose your device. Additionally, we may use it to notify you of news about the game, the prototype or the application itself, unless you tell us you would rather not receive those notifications. News may also be shown inside the application itself, without need for external delivery.",
         "Gameplay activity. The application records information about how the game is being used: match duration, number of players, scores, words formed, card usage and similar data. This information is used solely to understand how the game is played and to improve its design and balance. We're not interested in who plays, we're interested in how it's played. It is not used for commercial profiling, it is not cross-referenced with third-party data, and it is not sold. This information is linked to your account so that you can recover your progress if you change devices. It is generally analysed in aggregate form, although on specific occasions we may review data linked to a particular account when this is necessary to resolve an incident, debug a technical issue or understand anomalous game behaviour.",
         "<strong>Legal basis</strong>",
         "For the news list and voluntary forms: your consent, which you can withdraw at any time.",
@@ -277,8 +277,10 @@ const LEGAL_CONTENT = {
 
 const LEGAL_HASH_TO_KEY = {
   "#privacidad": "privacy",
+  "#privacy": "privacy",
   "#cookies": "cookies",
   "#aviso-legal": "legal",
+  "#legal-notice": "legal",
 };
 
 const LEGAL_KEY_TO_HASH = {
@@ -307,6 +309,11 @@ function normalizeLang(lang) {
 }
 
 function detectLanguage() {
+  try {
+    const urlLang = normalizeLang(new URLSearchParams(window.location.search).get("lang"));
+    if (urlLang) return urlLang;
+  } catch {}
+
   try {
     const stored = normalizeLang(localStorage.getItem(STORAGE_KEY));
     if (stored) return stored;

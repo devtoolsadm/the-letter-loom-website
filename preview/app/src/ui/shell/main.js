@@ -19,7 +19,7 @@ function validateScores(players, scores) {
   return { missing, oddPlayer, outOfRangePlayer };
 }
 import { IS_LOCAL, IS_PREVIEW, IS_PROD } from "../../lib/env.js";
-import { getSession, requestOtp, verifyOtp, onAuthStateChange, signOut, getStoredEmail, saveStoredEmail } from "../../lib/auth.js";
+import { getSession, requestOtp, verifyOtp, onAuthStateChange, signOut, getStoredEmail, saveStoredEmail, checkFirstSignup, saveOnboarding } from "../../lib/auth.js";
 import { TURNSTILE_SITE_KEY } from "../../lib/config.js";
 import {
   TEXTS,
@@ -3232,7 +3232,7 @@ function downloadWithBlob(link, filename) {
 
 function switchLanguage(nextLang) {
   if (!TEXTS[nextLang] || nextLang === shellLanguage) return;
-  shellLanguage = setShellLanguage(nextLang);
+  setShellLanguage(nextLang);
 }
 
 function renderLanguageSelector() {
@@ -9211,7 +9211,7 @@ function loadIntroBuffer() {
 }
 
 function startIntroLoop() {
-  if (!audioCtx || !musicOn || !introBuffer || currentScreen === "match") return;
+  if (!audioCtx || !musicOn || !introBuffer || currentScreen === "match" || currentScreen === "auth") return;
   if (audioCtx.state === "suspended") {
     audioCtx.resume().catch(() => {});
   }
@@ -9386,7 +9386,7 @@ function resumeMusicForState() {
     }
     return;
   }
-  if (currentScreen !== "match") {
+  if (currentScreen !== "match" && currentScreen !== "auth") {
     attemptPlayIntro();
   }
 }
@@ -10025,7 +10025,20 @@ function assignSrcToNodes(nodes, src) {
   }
   const session = await getSession().catch(() => null);
   if (session) {
-    _proceedToApp();
+    try {
+      const { isFirstSignup } = await checkFirstSignup()
+      if (isFirstSignup) {
+        _showAuthEmailStep('fresh', null)
+        showScreen("auth")
+        _showOnboardingIfNeeded(true, _proceedToApp)
+      } else {
+        _proceedToApp()
+      }
+    } catch {
+      try { await signOut() } catch {}
+      _showAuthEmailStep('fresh', getStoredEmail())
+      showScreen("auth")
+    }
   } else {
     const savedEmail = getStoredEmail();
     if (!navigator.onLine && savedEmail) {
@@ -10041,6 +10054,7 @@ function _proceedToApp() {
   showScreen(simulatedStartActive || restoredMatchActive ? "match" : "splash");
   startSplashLoader();
   detectInstalledApp().finally(() => updateInstallButtonVisibility());
+  if (audioReady) resumeMusicForState();
 }
 
 // ── Auth screen ───────────────────────────────────────────────
@@ -10071,22 +10085,40 @@ function _loadTurnstile() {
 
 function setupAuthScreen() {
   _loadTurnstile()
-  const continueBtn  = document.getElementById('authContinueBtn')
-  const verifyBtn    = document.getElementById('authVerifyBtn')
-  const resendBtn    = document.getElementById('authResendBtn')
-  const emailInput   = document.getElementById('authEmailInput')
-  const codeInput    = document.getElementById('authCodeInput')
-  const notYouBtn    = document.getElementById('authNotYouBtn')
+  const authForm        = document.getElementById('authForm')
+  const resendBtn       = document.getElementById('authResendBtn')
+  const notYouBtn       = document.getElementById('authNotYouBtn')
+  const changeEmailBtn  = document.getElementById('authChangeEmailBtn')
 
   _setAuthText()
   renderLangToggle("authLangToggle")
 
-  continueBtn?.addEventListener('click', _handleAuthContinue)
-  verifyBtn?.addEventListener('click', _handleAuthVerify)
+  authForm?.addEventListener('submit', _handleAuthSubmit)
   resendBtn?.addEventListener('click', _handleAuthResend)
   notYouBtn?.addEventListener('click', _handleNotYou)
-  emailInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter') _handleAuthContinue() })
-  codeInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter') _handleAuthVerify() })
+  changeEmailBtn?.addEventListener('click', _handleChangeEmail)
+
+  document.getElementById('onboardingBtn')?.addEventListener('click', _handleOnboardingSave)
+  document.getElementById('onboardingSkipBtn')?.addEventListener('click', _handleOnboardingCancel)
+  document.getElementById('profileCancelYesBtn')?.addEventListener('click', _handleProfileCancelConfirm)
+  document.getElementById('profileCancelNoBtn')?.addEventListener('click', () => closeModal('profile-cancel', { reason: 'close' }))
+  document.getElementById('onboardingInput')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') _handleOnboardingSave()
+  })
+}
+
+function _handleAuthSubmit(event) {
+  event?.preventDefault()
+  if (!document.getElementById('authProfileStep')?.classList.contains('hidden')) {
+    _handleOnboardingSave()
+    return
+  }
+  const codeStepVisible = !document.getElementById('authCodeStep')?.classList.contains('hidden')
+  if (codeStepVisible) {
+    _handleAuthVerify()
+  } else {
+    _handleAuthContinue()
+  }
 }
 
 function _setAuthText() {
@@ -10100,11 +10132,25 @@ function _setAuthText() {
   document.getElementById('authCodeInput')?.setAttribute('placeholder', t.authCodePlaceholder ?? '')
   document.getElementById('authVerifyBtn')?.replaceChildren(document.createTextNode(t.authVerifyBtn ?? ''))
   document.getElementById('authResendBtn')?.replaceChildren(document.createTextNode(t.authResendBtn ?? ''))
+  const changeEmailEl = document.getElementById('authChangeEmailBtn')
+  if (changeEmailEl) {
+    const arrowSpan = document.createElement('span')
+    arrowSpan.className = 'auth-arrow'
+    arrowSpan.setAttribute('aria-hidden', 'true')
+    arrowSpan.textContent = '🠄'
+    const labelSpan = document.createElement('span')
+    labelSpan.className = 'auth-text'
+    labelSpan.textContent = t.authChangeEmail ?? 'Change email'
+    changeEmailEl.replaceChildren(arrowSpan, labelSpan)
+    changeEmailEl.setAttribute('aria-label', t.authChangeEmail ?? 'Change email')
+  }
   const legalEl = document.getElementById('authLegal')
   if (legalEl && t.authLegalText) {
-    const base = HELP_WEB_URL + '/landing'
-    const privacy = `<a href="${base}/#privacidad" target="_blank" rel="noopener">${t.authLegalPrivacy ?? ''}</a>`
-    const legal = `<a href="${base}/#aviso-legal" target="_blank" rel="noopener">${t.authLegalNotice ?? ''}</a>`
+    const base = `${HELP_WEB_URL}/landing/?lang=${shellLanguage}`
+    const privacyAnchor = t.authLegalPrivacyAnchor ?? 'privacidad'
+    const legalAnchor = t.authLegalNoticeAnchor ?? 'aviso-legal'
+    const privacy = `<a href="${base}#${privacyAnchor}" target="_blank" rel="noopener">${t.authLegalPrivacy ?? ''}</a>`
+    const legal = `<a href="${base}#${legalAnchor}" target="_blank" rel="noopener">${t.authLegalNotice ?? ''}</a>`
     legalEl.innerHTML = t.authLegalText.replace('{privacy}', privacy).replace('{legal}', legal)
   }
 }
@@ -10131,6 +10177,17 @@ function _handleNotYou() {
   document.getElementById('authEmailInput')?.focus()
 }
 
+function _handleChangeEmail() {
+  _pendingEmail = null
+  const codeInput = document.getElementById('authCodeInput')
+  if (codeInput) codeInput.value = ''
+  document.getElementById('authCodeError')?.classList.add('hidden')
+  document.getElementById('authCodeStep')?.classList.add('hidden')
+  document.getElementById('authEmailStep')?.classList.remove('hidden')
+  const emailInput = document.getElementById('authEmailInput')
+  emailInput?.focus()
+  emailInput?.select()
+}
 
 function _getTurnstileToken() {
   return new Promise((resolve, reject) => {
@@ -10203,14 +10260,17 @@ async function _handleAuthContinue() {
 
   try {
     const token = await _getTurnstileToken()
-    const { error } = await requestOtp(email, token)
+    const { error } = await requestOtp(email, token, shellLanguage)
     if (error) throw error
     _pendingEmail = email
     _showAuthCodeStep(email)
   } catch (err) {
-    const msg = !navigator.onLine
+    let msg = !navigator.onLine
       ? (t.authErrorNetwork ?? 'Sin conexión')
       : (t.authErrorGeneric ?? 'Error')
+    if (IS_LOCAL && err?.message?.includes('turnstile_error_600010') && /iphone|ipad|ipod/i.test(navigator.userAgent)) {
+      msg = '⚠️ Dev: Turnstile falla simulando iOS. Desactiva la simulación, autentícate, y luego vuelve a activar iOS.'
+    }
     errorEl.textContent = msg
     errorEl.classList.remove('hidden')
   } finally {
@@ -10236,7 +10296,8 @@ async function _handleAuthVerify() {
     const { session, error } = await verifyOtp(_pendingEmail, code)
     if (error || !session) throw error ?? new Error('no_session')
     saveStoredEmail(_pendingEmail)
-    _proceedToApp()
+    const { isFirstSignup } = await checkFirstSignup().catch(() => ({ isFirstSignup: false }))
+    _showOnboardingIfNeeded(isFirstSignup, _proceedToApp)
   } catch {
     errorEl.textContent = t.authErrorInvalidCode ?? 'Código incorrecto'
     errorEl.classList.remove('hidden')
@@ -10247,6 +10308,87 @@ async function _handleAuthVerify() {
 
 async function _handleAuthResend() {
   _pendingEmail && _handleAuthContinue()
+}
+
+// ── Profile step (primer alta) ────────────────────────────────
+
+function _renderOnboardingTexts() {
+  const t = shellTexts
+  const input  = document.getElementById('onboardingInput')
+  const btn    = document.getElementById('onboardingBtn')
+  const cancel = document.getElementById('onboardingSkipBtn')
+  const optIn  = document.getElementById('onboardingOptIn')
+  const optLbl = document.getElementById('onboardingOptInLabel')
+  document.getElementById('authProfileSubtitle')?.replaceChildren(document.createTextNode(t.onboardingSubtitle ?? ''))
+  if (input) {
+    input.setAttribute('placeholder', t.onboardingPlaceholder ?? '')
+    input.setAttribute('aria-label', t.onboardingPlaceholder ?? 'Nombre')
+    input.value = ''
+  }
+  if (optIn) optIn.checked = false
+  if (optLbl) optLbl.textContent = t.onboardingOptIn ?? ''
+  if (btn) { btn.textContent = t.onboardingBtn ?? 'Guardar'; btn.setAttribute('aria-label', t.onboardingBtn ?? '') }
+  if (cancel) {
+    const x = document.createElement('span'); x.className = 'auth-arrow'; x.setAttribute('aria-hidden', 'true'); x.textContent = '✕'
+    const lbl = document.createElement('span'); lbl.className = 'auth-text'; lbl.textContent = t.onboardingCancel ?? 'Cancelar'
+    cancel.replaceChildren(x, lbl)
+    cancel.setAttribute('aria-label', t.onboardingCancel ?? 'Cancelar')
+  }
+  document.getElementById('onboardingError')?.classList.add('hidden')
+}
+
+function _showOnboardingIfNeeded(isFirstSignup, onDone) {
+  if (isFirstSignup) {
+    _renderOnboardingTexts()
+    document.getElementById('authEmailStep')?.classList.add('hidden')
+    document.getElementById('authCodeStep')?.classList.add('hidden')
+    document.getElementById('authProfileStep')?.classList.remove('hidden')
+    setTimeout(() => document.getElementById('onboardingInput')?.focus(), 80)
+    return
+  }
+  onDone()
+}
+
+async function _handleOnboardingSave() {
+  const t = shellTexts
+  const input    = document.getElementById('onboardingInput')
+  const errorEl  = document.getElementById('onboardingError')
+  const btn      = document.getElementById('onboardingBtn')
+  const nickname = input?.value?.trim().toUpperCase()
+  if (!nickname) {
+    if (errorEl) errorEl.textContent = t.onboardingError ?? 'Escribe un nombre para continuar'
+    errorEl?.classList.remove('hidden')
+    input?.focus()
+    return
+  }
+  errorEl?.classList.add('hidden')
+  if (btn) { btn.disabled = true; btn.textContent = '...' }
+  const emailOptIn = document.getElementById('onboardingOptIn')?.checked ?? false
+  try { await saveOnboarding({ nickname, emailOptIn, language: shellLanguage }) } catch {}
+  _proceedToApp()
+}
+
+function _renderCancelConfirmTexts() {
+  const t = shellTexts
+  document.getElementById('profileCancelTitle')?.replaceChildren(document.createTextNode(t.onboardingCancelTitle ?? ''))
+  document.getElementById('profileCancelMsg')?.replaceChildren(document.createTextNode(t.onboardingCancelMsg ?? ''))
+  document.getElementById('profileCancelYesBtn')?.replaceChildren(document.createTextNode(t.onboardingCancelYes ?? ''))
+  document.getElementById('profileCancelNoBtn')?.replaceChildren(document.createTextNode(t.onboardingCancelNo ?? ''))
+}
+
+function _handleOnboardingCancel() {
+  _renderCancelConfirmTexts()
+  openModal('profile-cancel', { closable: true })
+}
+
+async function _handleProfileCancelConfirm() {
+  closeModal('profile-cancel', { reason: 'action' })
+  try { await signOut() } catch {}
+  document.getElementById('authProfileStep')?.classList.add('hidden')
+  document.getElementById('authCodeStep')?.classList.add('hidden')
+  document.getElementById('authEmailStep')?.classList.remove('hidden')
+  _showAuthEmailStep('fresh', getStoredEmail())
+  document.getElementById('authEmailInput')?.focus()
 }
 
 function _showAuthCodeStep(email) {
@@ -10776,6 +10918,7 @@ function handleLanguageChange(lang) {
   renderShellTexts();
   applyI18n(document);
   _showAuthEmailStep(_authMode, document.getElementById('authEmailInput')?.value || null);
+  if (!document.getElementById('authProfileStep')?.classList.contains('hidden')) _renderOnboardingTexts()
   renderLangToggle("authLangToggle");
   const st = matchController.getState();
   if (st) renderMatchFromState(st);

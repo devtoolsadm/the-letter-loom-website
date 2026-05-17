@@ -25,12 +25,13 @@ export function onAuthStateChange(callback) {
 
 // ── OTP flow ──────────────────────────────────────────────────
 
-export async function requestOtp(email, turnstileToken) {
+export async function requestOtp(email, turnstileToken, language) {
   const { error } = await supabase.auth.signInWithOtp({
     email,
     options: {
       captchaToken: turnstileToken,
       shouldCreateUser: true,
+      data: language ? { language } : undefined,
     },
   })
   return { error }
@@ -63,15 +64,30 @@ export function clearStoredEmail() { localStorage.removeItem(LAST_EMAIL_KEY) }
 export async function getProfile() {
   const { data, error } = await supabase
     .from('profiles')
-    .select('nickname, language, email_opt_in')
+    .select('nickname, language, email_opt_in, otp_verified_at')
     .single()
   return { profile: data ?? null, error }
 }
 
-export async function saveNickname(nickname) {
-  const { error } = await supabase
-    .from('profiles')
-    .update({ nickname })
-    .eq('id', (await getSession())?.user?.id)
+export async function checkFirstSignup() {
+  const { profile, error } = await getProfile()
+  if (error) throw error
+  return { isFirstSignup: profile?.otp_verified_at == null }
+}
+
+const OPT_IN_VERSION = 'v1'
+
+export async function saveOnboarding({ nickname, emailOptIn, language }) {
+  const updates = { otp_verified_at: new Date().toISOString() }
+  if (nickname) updates.nickname = nickname
+  if (language) updates.language = language
+  if (emailOptIn) {
+    updates.email_opt_in = true
+    updates.email_opt_in_at = new Date().toISOString()
+    updates.email_opt_in_version = OPT_IN_VERSION
+  }
+  const session = await getSession()
+  if (!session?.user?.id) return { error: new Error('no_session') }
+  const { error } = await supabase.from('profiles').update(updates).eq('id', session.user.id)
   return { error }
 }

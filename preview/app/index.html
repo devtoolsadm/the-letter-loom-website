@@ -95,7 +95,7 @@
             <div class="auth-logo-wrap">
               <img class="auth-logo" src="assets/img/logo-letters.png" alt="The Letter Loom" draggable="false" />
             </div>
-            <div class="auth-card">
+            <form class="auth-card" id="authForm" novalidate>
               <div class="auth-panel" id="authEmailStep">
                 <div class="auth-badge hidden" id="authBadge"></div>
                 <p class="auth-subtitle" id="authSubtitle"></p>
@@ -104,21 +104,35 @@
                 </div>
                 <button class="auth-not-you hidden" type="button" id="authNotYouBtn"></button>
                 <p class="auth-error hidden" id="authEmailError"></p>
-                <button class="game-btn primary" id="authContinueBtn"></button>
+                <button class="game-btn primary" type="submit" id="authContinueBtn"></button>
               </div>
               <div class="auth-panel hidden" id="authCodeStep">
                 <p class="auth-code-hint" id="authCodeHint"></p>
-                <div class="auth-field">
+                <div class="auth-field auth-verify-code">
                   <input type="text" id="authCodeInput" inputmode="numeric" maxlength="6" autocomplete="one-time-code" pattern="[0-9]*" aria-label="Código OTP" placeholder="000000" />
                 </div>
                 <p class="auth-error hidden" id="authCodeError"></p>
-                <button class="game-btn primary" id="authVerifyBtn"></button>
-                <button class="game-btn ghost" id="authResendBtn"></button>
+                <button class="game-btn primary" type="submit" id="authVerifyBtn"></button>
+                <button class="game-btn auth-resend" id="authResendBtn"></button>
+                <button class="auth-change-email" type="button" id="authChangeEmailBtn" aria-label="Change email"></button>
               </div>
-            </div>
+              <div class="auth-panel hidden" id="authProfileStep">
+                <p class="auth-subtitle" id="authProfileSubtitle"></p>
+                <div class="auth-field auth-profile-nickname">
+                  <input type="text" id="onboardingInput" maxlength="20" autocomplete="off" spellcheck="false" aria-label="Nombre" placeholder="..." />
+                </div>
+                <p class="auth-error hidden" id="onboardingError"></p>
+                <label class="onboarding-optin">
+                  <input type="checkbox" id="onboardingOptIn" />
+                  <span id="onboardingOptInLabel"></span>
+                </label>
+                <button class="game-btn primary" type="button" id="onboardingBtn" aria-label="Guardar perfil">...</button>
+                <button class="auth-change-email" type="button" id="onboardingSkipBtn" aria-label="Cancelar registro"></button>
+              </div>
+              <p class="auth-legal" id="authLegal"></p>
+            </form>
             <div id="authTurnstile"></div>
             <div id="authLangToggle" class="install-lang-toggle"></div>
-            <p class="auth-legal" id="authLegal"></p>
           </div>
         </div>
 
@@ -926,6 +940,21 @@
               <div class="player-name-hint hidden" id="playerNamesHint"></div>
               <div class="player-name-list" id="playerNamesList"></div>
               <div class="player-name-hint player-name-hint-delete hidden" id="playerNamesHintDelete"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-overlay" data-modal="profile-cancel" data-closable="1">
+      <div class="frame-panel">
+        <div class="modal-stitch"></div>
+        <div class="modal-ribbon"><span class="title-primary" id="profileCancelTitle"></span></div>
+        <div class="modal-canvas">
+          <div class="modal-content">
+            <p class="auth-subtitle" id="profileCancelMsg"></p>
+            <div class="modal-btn-row">
+              <button class="game-btn ghost" type="button" id="profileCancelNoBtn" aria-label="Volver"></button>
+              <button class="game-btn danger" type="button" id="profileCancelYesBtn" aria-label="Salir"></button>
             </div>
           </div>
         </div>

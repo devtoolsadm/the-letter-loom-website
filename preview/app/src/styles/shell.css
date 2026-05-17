@@ -6419,6 +6419,7 @@ body.splash-ready #splashLoadingBlock {
   align-items: center;
   justify-content: center;
   padding: 24px 20px;
+  overflow-y: auto;
 }
 
 .auth-wrap {
@@ -6443,6 +6444,7 @@ body.splash-ready #splashLoadingBlock {
 
 .auth-card {
   width: 100%;
+  margin: 0;
   background: rgba(10, 10, 25, 0.72);
   border: 2px solid rgba(255, 210, 74, 0.4);
   border-radius: 20px;
@@ -6450,13 +6452,16 @@ body.splash-ready #splashLoadingBlock {
   backdrop-filter: blur(10px);
   padding: 20px 18px;
   box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .auth-panel {
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
 .auth-badge {
@@ -6516,6 +6521,10 @@ body.splash-ready #splashLoadingBlock {
   flex-direction: column;
 }
 
+.auth-field input::placeholder {
+  color: rgba(47, 27, 18, 0.2);
+}
+
 .auth-field input {
   width: 100%;
   box-sizing: border-box;
@@ -6529,11 +6538,24 @@ body.splash-ready #splashLoadingBlock {
   text-align: center;
   outline: none;
   letter-spacing: 0.05em;
+  text-transform: lowercase;
 }
 
 .auth-field input:focus {
   border-color: var(--candy-blue);
   box-shadow: 0 0 0 3px rgba(45,143,227,0.25);
+}
+
+.auth-field.auth-verify-code input {
+    font-family: "Courier New", Courier, monospace;
+    font-size: var(--text-xxxl);
+    font-weight: bolder;
+    letter-spacing: 0.2em;
+    padding: 4px 0px;
+}
+
+.auth-field.auth-profile-nickname input{
+  text-transform: uppercase;
 }
 
 .auth-error {
@@ -6571,23 +6593,135 @@ body.splash-ready #splashLoadingBlock {
 }
 
 .auth-legal {
-  margin-top: 16px;
+  width: 100%;
+  margin: 0;
+  padding: 12px 4px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
   font-family: var(--font-text);
-  font-size: var(--text-xs);
-  color: rgba(255, 255, 255, 0.65);
+  font-size: var(--text-xs2);
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.68);
   text-align: center;
-  line-height: 1.4;
-  max-width: 80%;
-  margin-left: auto;
-  margin-right: auto;
+  line-height: 1.35;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35);
 }
 
 .auth-legal a {
-  color: rgba(255, 255, 255, 0.85);
+  color: #ffd14a;
+  font-weight: 900;
   text-decoration: underline;
   text-underline-offset: 2px;
 }
 
 .auth-legal a:hover {
-  color: #fff;
+  color: #ffe480;
+}
+
+.auth-change-email {
+  background: none;
+  border: none;
+  font-family: var(--font-text);
+  font-size: var(--text-sm);
+  color: rgba(255, 255, 255, 0.45);
+  cursor: pointer;
+  padding: 0;
+  margin-top: -4px;
+  transition: color 0.15s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  line-height: 1;
+}
+
+.auth-change-email .auth-text {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  display: inline-block;
+}
+
+.auth-change-email .auth-arrow {
+  line-height: 1;
+  text-decoration: none;
+  display: inline-block;
+}
+
+.auth-change-email:hover {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.game-btn.auth-resend {
+  --btn-main: rgba(255, 210, 74, 0.1);
+  --btn-dark: transparent;
+  --btn-text: #ffd14a;
+  background-image: none;
+  border: 2px solid rgba(255, 210, 74, 0.35);
+  box-shadow: none;
+  text-shadow: none;
+  min-height: 44px;
+  margin-top: 2px;
+}
+
+.game-btn.auth-resend:hover {
+  --btn-main: rgba(255, 210, 74, 0.18);
+}
+
+.lang-es #authResendBtn {
+  font-size: 21px;
+}
+
+.onboarding-optin {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.4;
+  padding: 4px 0;
+  text-align: justify;
+}
+
+.onboarding-optin input[type="checkbox"] {
+  flex-shrink: 0;
+  margin-top: 2px;
+  width: 18px;
+  height: 18px;
+  accent-color: #ffd14a;
+  cursor: pointer;
+}
+
+.lang-en #onboardingInput::placeholder {
+  font-size: 20px;
+}
+
+#onboardingInput {
+  text-transform: uppercase;
+}
+
+.game-btn.danger {
+  --btn-main: #e03030;
+  --btn-dark: #a51f1f;
+  --btn-text: #ffffff;
+  box-shadow:
+    0 6px 0 #a51f1f,
+    0 10px 18px rgba(0, 0, 0, 0.2);
+}
+
+.modal-btn-row {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+}
+
+.modal-btn-row .game-btn {
+  flex: 1;
+}
+
+.modal-content .auth-subtitle {
+  color: rgba(40, 28, 12, 0.72);
+}
+
+#onboardingSkipBtn {
+  margin-top: 6px;
 }
