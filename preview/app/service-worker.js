@@ -1,5 +1,5 @@
 const CACHE_PREFIX = "letter-loom-cache";
-const APP_VERSION = "v0.0.167";
+const APP_VERSION = "v0.0.168";
 let cacheVersion = APP_VERSION;
 let CACHE_NAME = `${CACHE_PREFIX}-${cacheVersion}`;
 const BASE_PATH = self.location.pathname.replace(/\/[^/]*$/, "/");
@@ -43,6 +43,12 @@ const PRECACHE_ASSETS = [
   `${BASE_PATH}assets/img/previous.svg`,
   `${BASE_PATH}assets/img/shop.svg`,
   `${BASE_PATH}assets/img/languages.png`,
+  `${BASE_PATH}assets/img/logout.svg`,
+  `${BASE_PATH}assets/img/account.svg`,
+  `${BASE_PATH}assets/img/play.svg`,
+  `${BASE_PATH}assets/img/stop.svg`,
+  `${BASE_PATH}assets/img/podium.svg`,
+  `${BASE_PATH}assets/img/delete-white.svg`,
   `${BASE_PATH}assets/img/record.svg`,
   `${BASE_PATH}assets/img/winner.svg`,
   `${BASE_PATH}assets/img/winner-button.svg`,
@@ -55,6 +61,8 @@ const PRECACHE_ASSETS = [
   `${BASE_PATH}assets/img/tiktok.svg`,
   `${BASE_PATH}assets/img/www.svg`,
   `${BASE_PATH}assets/img/email.svg`,
+  `${BASE_PATH}assets/img/quick-guide-round1.png`,
+  `${BASE_PATH}assets/img/quick-guide-round2.png`,
   `${BASE_PATH}assets/img/icon-192.png`,
   `${BASE_PATH}assets/img/icon-512.png`,
   `${BASE_PATH}assets/img/icon-192-preview.png`,

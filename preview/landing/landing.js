@@ -27,10 +27,10 @@ const LANDING_TEXTS = {
     guideModalTitle: "Cómo se juega",
     guideModalSubtitle: "Rápido de aprender. Bastante más difícil de olvidar.",
     guideModalIntro:
-      "The Letter Loom es un juego de letras en el que toca pensar rápido y jugar con picardía. El objetivo no es solo formar palabras, sino sacar la mayor puntuación posible combinando el valor de las letras con cartas de estrategia para mejorar tu jugada o arruinar la de los demás. Y todo, claro, a contrarreloj. Aquí no gana quien encuentra la palabra más larga, gana quien puntúa mejor.",
+      "The Letter Loom es un juego de letras en el que toca pensar rápido y jugar con picardía. El objetivo no es solo formar palabras, sino sacar la mayor puntuación posible combinando el valor de las letras con cartas de Acción para mejorar tu jugada o arruinar la de los demás. Y todo, claro, a contrarreloj. Aquí no gana quien encuentra la palabra más larga, gana quien puntúa mejor.",
     guideStep1Title: "Preparad la baza",
     guideStep1Body:
-      "Pon 5 letras boca arriba en el centro. Cada jugador recibe 3 letras y 2 cartas de estrategia.",
+      "Pon 5 letras boca arriba en el centro. Cada jugador recibe 3 letras y 2 cartas de Acción.",
     guideStep2Title: "Jugad con cabeza",
     guideStep2Body:
       "Primero va la fase de estrategia: cambias letras, robas, te proteges o atacas.",
@@ -98,10 +98,10 @@ const LANDING_TEXTS = {
     guideModalTitle: "How to play",
     guideModalSubtitle: "Quick to learn. Much harder to put down.",
     guideModalIntro:
-      "The Letter Loom is a word game where you need to think fast and play with a bit of cheek. The goal is not just to build words, but to squeeze out the highest score by combining letter values with strategy cards that improve your play or ruin everyone else's. And yes, all of it happens against the clock. The longest word does not win here: the best-scoring one does.",
+      "The Letter Loom is a word game where you need to think fast and play with a bit of cheek. The goal is not just to build words, but to squeeze out the highest score by combining letter values with Action cards that improve your play or ruin everyone else's. And yes, all of it happens against the clock. The longest word does not win here: the best-scoring one does.",
     guideStep1Title: "Set up the trick",
     guideStep1Body:
-      "Place 5 letters face up in the center. Each player gets 3 letters and 3 strategy cards.",
+      "Place 5 letters face up in the center. Each player gets 3 letters and 2 Action cards.",
     guideStep2Title: "Play smart first",
     guideStep2Body:
       "Strategy comes first: swap letters, draw, protect yourself or change the score. Then race to build your word.",

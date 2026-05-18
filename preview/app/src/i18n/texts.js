@@ -64,23 +64,22 @@ export const TEXTS = {
         id: "intro",
         title: "The Letter Loom",
         body: [
-          "Juego de cartas y estrategia para crear palabras y sumar puntos.",
+          "El juego de letras que te dejará sin palabras.",
           "Crea palabras con la mayor puntuación posible.",
-          "Usa cartas de estrategia para ayudarte o para fastidiar.",
-          "Gana quien llegue antes a la meta.",
-          "Esta app solo ayuda: jugadores, cronos, marcador y totales."
+          "¡Recuerda! No gana la palabra más larga, gana la que mejor puntúa.",
+          "Gana quien llegue antes a la meta de bazas o puntos acordados.",
         ],
         bullets: [
           "Vocales y consonantes: letras con valor.",
-          "Estrategia: ¡18 cartas distintas! [Ver cartas](#strategy-cards-all)."
+          "Usa cartas de Acción para ayudarte o para fastidiar. [Ver cartas](#strategy-cards-all).",
         ]
       },
       {
         id: "start",
         title: "Iniciar partida",
         body: [
-          "Ojo: aquí no se juega. Se juega con el juego físico.",
-          "La app solo acompaña la partida.",
+          "Ojo: Esta App solo acompaña la partida. Se juega con el juego físico.",
+          "Con esta App puedes gestionar el nombre, turno y número de jugadores, los tiempos de duración de las fases de Estrategia y Creación de palabra, llevar el conteo, validar palabras dudosas y compartir tus records en redes…",
           "¿No lo tienes? [Comprar el juego](action:buy)."
         ]
       },
@@ -96,7 +95,7 @@ export const TEXTS = {
         ],
         bullets: [
           "Tablero Central: 5 letras boca arriba.",
-          "A cada jugador: 3 letras + 3 cartas de estrategia."
+          "A cada jugador: 3 letras + 2 cartas de Acción."
         ]
       },
       {
@@ -106,8 +105,9 @@ export const TEXTS = {
           "Prepara tu jugada."
         ],
         bullets: [
-          "Activa el crono de estrategia.",
-          "Juega una carta de estrategia. [Ver cartas](#strategy-cards-all)."
+          "Inicia un único crono de estrategia para todos.",
+          "Durante ese tiempo, todos preparan su jugada.",
+          "Al acabar, cada jugador juega una carta de Acción y descarta la otra. [Ver cartas](#strategy-cards-all)."
         ]
       },
       {
@@ -117,9 +117,9 @@ export const TEXTS = {
           "Ahora toca formar palabra."
         ],
         bullets: [
-          "Activa el cronómetro de creación.",
-          "Forma tu palabra con letras del Tablero Central y tus letras.",
-          "Suma los valores, aplica color y efectos de estrategia.",
+          "Inicia un único crono de creación para todos.",
+          "Todos forman palabra a la vez con letras del Tablero Central y sus letras.",
+          "Suma los valores, aplica color y efectos de Acción.",
           "Muestra la palabra y tu puntuación."
         ]
       },
@@ -131,13 +131,17 @@ export const TEXTS = {
         ],
         bullets: [
           "Anota las puntuaciones en la app.",
+          "Palabra repetida en la baza: -4 puntos.",
+          "Palabra no válida: 0 puntos.",
+          "x2 si todas las letras son del mismo color o si usas todas tus letras y las del Tablero Central.",
+          "Aplica antes los + o - puntos de cartas de Acción; después, el x2.",
           "El reparto pasa al jugador de la derecha.",
           "Repite hasta llegar a la meta de bazas o puntos."
         ]
       },
       {
         id: "strategy-cards",
-        title: "Cartas de estrategia",
+        title: "Cartas de Acción",
         body: [
           "Lío bueno: cambian letras y puntos."
         ],
@@ -150,26 +154,32 @@ export const TEXTS = {
       },
       {
         id: "strategy-cards-all",
-        title: "Cartas de estrategia (todas)",
+        title: "Cartas de Acción (todas)",
         bullets: [
-          "¡Intercambio! Cambia una carta con otro jugador.",
-          "Carta extra: roba una letra del mazo.",
-          "Escudo total: te protege de cartas rivales.",
-          "Robo del siglo: roba una carta a cada rival.",
-          "Deshazte de una: descarta una carta.",
-          "Con la que yo diga: eliges qué letra se usa.",
-          "En inglés: esta baza va en inglés.",
-          "Comodín: una letra vale por cualquiera.",
-          "Cambia una de tus cartas: cambia 1 carta del mazo.",
-          "Cambia todo el Tablero Central: resetea las 5 letras.",
-          "Subidón total (+4): suma 4 puntos.",
-          "¡Fuera una!: todos descartan una carta.",
-          "Intercambio total: cambias toda tu mano.",
-          "Roba una carta: roba 1 carta a un rival.",
-          "Con esta jugamos todos: todos juegan con una carta.",
-          "Explosión de puntos (-4): resta 4 puntos a un rival.",
-          "Todos al Centro: todos aportan una carta al tablero.",
-          "¡Solo mía!: solo tú puedes usar esa carta."
+          "En inglés: si formas la palabra en inglés, sumas 10 puntos extra.",
+          "¡Solo mía!: roba una letra del Tablero Central; solo tú puedes usarla.",
+          "Subidón total: suma 6 puntos extra a tu palabra.",
+          "Carta extra: roba una vocal o consonante de los mazos de letras.",
+          "Escudo total: un ataque contra ti o contra todos no te afecta en esta baza.",
+          "Comodín: úsalo como vocal o consonante y suma 6 puntos extra.",
+          "Palabra extra: puedes formar dos palabras reutilizando solo una letra en ambas.",
+          "Usa consonante: todos deben usar la consonante del Tablero Central que elijas.",
+          "Con la que yo diga: todos deben usar la vocal o consonante del Tablero Central que elijas.",
+          "Dos al centro: roba una carta a cada jugador y coloca 2 en el Tablero Central.",
+          "Fuera una: roba una carta a cada jugador y ponlas en el mazo.",
+          "Robo del siglo: roba una carta a cada jugador.",
+          "Filólogo: obliga a un jugador a formar una palabra con tilde.",
+          "Explosión: resta 4 puntos a un jugador en esta baza.",
+          "Deshazte de una: un jugador debe dejar una letra en el mazo.",
+          "Usa vocal: todos deben usar la vocal del Tablero Central que elijas.",
+          "Roba una carta: roba una letra a otro jugador.",
+          "Roba una carta: renueva el Tablero Central; quita las 5 letras y pon 5 nuevas.",
+          "Intercambio total: cambia tus letras con las de otro jugador.",
+          "Exprime el cerebro: obliga a un jugador a formar una palabra de al menos tres sílabas.",
+          "Una para todos: pon una letra de otro jugador en el Tablero Central.",
+          "Cambia cartas: cambia las letras que quieras.",
+          "Intercambio: cambia una letra tuya por otra de otro jugador.",
+          "Inventa tu propia regla: usa una carta en blanco para crear una carta de Acción."
         ]
       },
       {
@@ -212,8 +222,8 @@ export const TEXTS = {
             a: "Sí, al menos una, si jugáis con esa regla."
           },
           {
-            q: "¿Cuándo se usan las cartas de estrategia?",
-            a: "Solo en la fase de estrategia, antes de crear palabra."
+            q: "¿Cuándo se usan las cartas de Acción?",
+            a: "Solo en la fase de estrategia: juegas una y descartas la otra."
           },
           {
             q: "¿Los nombres propios valen?",
@@ -221,7 +231,7 @@ export const TEXTS = {
           },
           {
             q: "¿Cómo funciona el x2?",
-            a: "Si todas las letras son del mismo color, se multiplica la puntuación por 2."
+            a: "Por mismo color o por usar todas tus letras y las del Tablero Central. Los + o - puntos van antes del x2."
           }
         ]
       }
@@ -272,6 +282,25 @@ export const TEXTS = {
     settingsSound: "Sonido",
     settingsMusic: "Música",
     settingsLanguage: "Idioma",
+    settingsAccount: "Cuenta",
+    settingsClose: "Cerrar",
+    accountTitle: "Cuenta",
+    accountNicknameLabel: "Tu nombre en el marcador",
+    accountBack: "Volver a ajustes",
+    accountLogout: "Cerrar sesión",
+    accountNicknameRequired: "El nombre no puede estar vacío.",
+    accountSaveError: "No se pudo guardar. Comprueba tu conexión.",
+    accountDiscard: "Salir sin guardar",
+    accountOffline: "Sin conexión — solo lectura",
+    settingsSaveError: "No se pudo guardar el idioma. Comprueba tu conexión.",
+    optInConfirmTitle: "Consentimiento",
+    optInConfirmMsg: "No has marcado la opción de recibir noticias. Sin tu permiso, no podremos avisarte del lanzamiento ni de las novedades del juego. No usamos marketing agresivo, y recuerda: siempre puedes desactivarlo cuando te apetezca.\n\n¿Nos das una oportunidad?",
+    optInConfirmSkip: "No",
+    optInConfirmActivate: "Sí",
+    logoutConfirmTitle: "Cerrar sesión",
+    logoutConfirmMsg: "¿Seguro que quieres cerrar sesión?",
+    logoutConfirmCancel: "Cancelar",
+    logoutConfirmOk: "Sí",
     footer: "© {year} The Letter Loom",
     installPromptTitle: "Instalar Letter Loom",
     installPromptDescription: "Instala el juego para acceder mas rápido y jugar a pantalla completa incluso sin conexión.",
@@ -546,14 +575,26 @@ export const TEXTS = {
     quickGuideSections: [
       {
         id: "intro",
-        title: "Quick start",
+        title: "The Letter Loom",
         body: [
-          "Set the match (rounds or points) and go.",
-          "The app runs timers, order and scoreboard."
+          "A game of Action cards where you build words and score points.",
+          "Build words with the highest score you can.",
+          "Use Action cards to help yourself or mess with others.",
+          "First player to reach the goal wins.",
+          "This app only helps with players, timers, scoreboard and totals."
         ],
         bullets: [
-          "2 to 8 players.",
-          "Typical length: 20-40 minutes."
+          "Vowels and consonants: letters with values.",
+          "Action: special cards that change the trick. [See cards](#strategy-cards-all)."
+        ]
+      },
+      {
+        id: "start",
+        title: "Start a game",
+        body: [
+          "Heads up: you do not play here. You play with the physical game.",
+          "The app only supports the match.",
+          "Don't have it? [Buy the game](action:buy)."
         ]
       },
       {
@@ -564,7 +605,7 @@ export const TEXTS = {
         ],
         bullets: [
           "Place the Central Board with 5 letters face up.",
-          "Deal 3 letters + 3 strategy cards to each player."
+          "Deal 3 letters + 2 Action cards to each player."
         ]
       },
       {
@@ -574,8 +615,9 @@ export const TEXTS = {
           "This is where you set up your play."
         ],
         bullets: [
-          "Start the strategy timer.",
-          "Each player plays a strategy card to change letters, points or the board."
+          "Start one shared strategy timer for everyone.",
+          "During that time, everyone prepares their play.",
+          "When it ends, each player plays one Action card and discards the other. [See cards](#strategy-cards-all)."
         ]
       },
       {
@@ -585,9 +627,9 @@ export const TEXTS = {
           "Now build your word."
         ],
         bullets: [
-          "Start the creation timer.",
-          "Form a word using the Central Board and your letters.",
-          "Add the values, apply color and strategy effects.",
+          "Start one shared creation timer for everyone.",
+          "Everyone builds a word at the same time using the Central Board and their letters.",
+          "Add the values, apply color and Action card effects.",
           "Show the word and your score."
         ]
       },
@@ -599,21 +641,55 @@ export const TEXTS = {
         ],
         bullets: [
           "Enter the scores in the app.",
+          "Repeated word in the trick: -4 points.",
+          "Invalid word: 0 points.",
+          "x2 if all letters are the same color or if you use all your letters and the whole Central Board.",
+          "Apply Action card + or - points first; then apply x2.",
           "The deal moves to the player on the right.",
           "Repeat until you reach the rounds/points goal."
         ]
       },
       {
         id: "strategy-cards",
-        title: "Strategy cards",
+        title: "Action cards",
         body: [
-          "They change letters or scoring."
+          "Good chaos: they change letters and points."
         ],
         bullets: [
           "Swap cards with other players.",
           "Draw or return cards to the board.",
-          "Multiply, add or subtract points.",
+          "Add, subtract or multiply points.",
           "Change the Central Board."
+        ]
+      },
+      {
+        id: "strategy-cards-all",
+        title: "Action cards (all)",
+        bullets: [
+          "In English: if you build the word in English, add 10 extra points.",
+          "Mine only!: take one letter from the Central Board; only you can use it.",
+          "Total Boost: add 6 extra points to your word.",
+          "Extra card: draw a vowel or consonant from the letter decks.",
+          "Total Shield: an attack against you or everyone does not affect you this trick.",
+          "Wildcard: use it as a vowel or consonant and add 6 extra points.",
+          "Extra word: you can build two words, reusing only one letter in both.",
+          "Use consonant: everyone must use the Central Board consonant you choose.",
+          "The one I say: everyone must use the Central Board vowel or consonant you choose.",
+          "Two to the center: take one card from each player and place 2 on the Central Board.",
+          "One out: take one card from each player and put them back in the deck.",
+          "Heist of the century: steal one card from each player.",
+          "Philologist: force one player to build a word with an accent mark.",
+          "Explosion: subtract 4 points from one player this trick.",
+          "Get rid of one: one player must put one letter back in the deck.",
+          "Use vowel: everyone must use the Central Board vowel you choose.",
+          "Steal a card: steal one letter from another player.",
+          "Steal a card: renew the Central Board; remove the 5 letters and place 5 new ones.",
+          "Total exchange: swap your letters with another player's letters.",
+          "Squeeze your brain: force one player to build a word with at least three syllables.",
+          "One for everyone: place another player's letter on the Central Board.",
+          "Change cards: change any letters you want.",
+          "Exchange: swap one of your letters for another player's letter.",
+          "Invent your own rule: use a blank card to create an Action card."
         ]
       },
       {
@@ -656,8 +732,8 @@ export const TEXTS = {
             a: "Yes, at least one letter, if you play with that rule."
           },
           {
-            q: "When do I use strategy cards?",
-            a: "Only in the strategy phase, before creating."
+            q: "When do I use Action cards?",
+            a: "Only in the strategy phase: play one and discard the other."
           },
           {
             q: "Are proper names allowed?",
@@ -665,7 +741,7 @@ export const TEXTS = {
           },
           {
             q: "How does x2 work?",
-            a: "If all letters are the same color, the score is multiplied by 2."
+            a: "Same color, or using all your letters and the whole Central Board. Add or subtract Action card points before x2."
           }
         ]
       }
@@ -716,6 +792,25 @@ export const TEXTS = {
     settingsSound: "Sound",
     settingsMusic: "Music",
     settingsLanguage: "Language",
+    settingsAccount: "Account",
+    settingsClose: "Close",
+    accountTitle: "Account",
+    accountNicknameLabel: "Your scoreboard name",
+    accountBack: "Back to settings",
+    accountLogout: "Sign out",
+    accountNicknameRequired: "Name can't be empty.",
+    accountSaveError: "Couldn't save. Check your connection.",
+    accountDiscard: "Exit without saving",
+    accountOffline: "Offline — read only",
+    settingsSaveError: "Couldn't save language. Check your connection.",
+    optInConfirmTitle: "Consent",
+    optInConfirmMsg: "You haven't checked the option to receive news. Without your permission, we won't be able to tell you about the launch or game updates. We don't use aggressive marketing, and remember: you can always turn it off whenever you like.\n\nGive us a chance?",
+    optInConfirmSkip: "No",
+    optInConfirmActivate: "OK",
+    logoutConfirmTitle: "Sign out",
+    logoutConfirmMsg: "Are you sure you want to sign out?",
+    logoutConfirmCancel: "Cancel",
+    logoutConfirmOk: "Yes",
     footer: "© {year} The Letter Loom",
     installPromptTitle: "Install Letter Loom",
     installPromptDescription: "Add the game for quick access and full-screen play, even offline.",

@@ -159,6 +159,22 @@ body.modal-open {
   padding-bottom: 28px;
 }
 
+.modal-overlay[data-modal="cuenta"] .modal-canvas {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  padding: 0 0 28px 0;
+}
+.modal-overlay[data-modal="cuenta"] .modal-nav-header {
+  background: rgba(47, 27, 18, 0.06);
+  border-bottom: 1px solid rgba(47, 27, 18, 0.1);
+}
+.modal-overlay[data-modal="cuenta"] .modal-content {
+  margin-top: 0;
+  padding: 18px 16px 0;
+  max-width: none;
+}
+
 .modal-letters {
   position: absolute;
   inset: 12px;
@@ -221,10 +237,10 @@ body.modal-open {
   gap: 8px;
 }
 
-.modal-overlay[data-modal="confirm"] .settings-actions .game-btn {
+.modal-overlay[data-modal="confirm"] .settings-actions .game-btn,
+.modal-overlay[data-modal="logout-confirm"] .settings-actions .game-btn {
   max-width: none;
   width: 50%;
-  font-size: 16px;
   padding: 10px 12px;
 }
 
@@ -288,6 +304,12 @@ body.modal-open {
 .modal-ribbon [data-i18n="supportTitle"] {
   font-size: 32px;
 }
+
+#optInConfirmTitle { font-size: 28px; }
+.lang-es #optInConfirmTitle { font-size: 20px; }
+
+#logoutConfirmTitle { font-size: 28px; }
+.lang-es #logoutConfirmTitle { font-size: 22px; }
 
 
 .modal-ribbon.inline {

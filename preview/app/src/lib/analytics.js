@@ -1,4 +1,6 @@
 // All events are proxied through the Worker — no PostHog key on the client.
+// Uses its own fetch (not workerFetch) because it manages a local queue with silent retry.
+// A 401 here is swallowed intentionally — analytics must never force a logout.
 // Call initAnon(workerBase) at app start; initAuth(getTokenFn) after login.
 // Call flush() at natural checkpoints (app open, match end, share, etc.).
 

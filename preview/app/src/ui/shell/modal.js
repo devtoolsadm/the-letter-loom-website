@@ -127,6 +127,10 @@ export function closeTopModal() {
   }
 }
 
+export function closeAllModals({ reason = "close" } = {}) {
+  [...modalStack].reverse().forEach(entry => closeModal(entry.id, { reason }));
+}
+
 function handleOverlayClick(e) {
   const overlay = e.currentTarget;
   const id = overlay.dataset.modal;

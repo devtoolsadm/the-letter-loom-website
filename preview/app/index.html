@@ -130,9 +130,9 @@
                 <button class="auth-change-email" type="button" id="onboardingSkipBtn" aria-label="Cancelar registro"></button>
               </div>
               <p class="auth-legal" id="authLegal"></p>
+              <div id="authLangToggle" class="install-lang-toggle auth-lang-toggle"></div>
             </form>
             <div id="authTurnstile"></div>
-            <div id="authLangToggle" class="install-lang-toggle"></div>
           </div>
         </div>
 
@@ -161,13 +161,13 @@
             <div class="install-required hidden" id="installRequired">
               <div class="install-required-title" id="installRequiredTitle"></div>
               <div class="install-required-desc" id="installRequiredDescription"></div>
+              <div id="installLangToggle" class="install-lang-toggle hidden"></div>
             </div>
             <div class="cta-stack">
               <button class="game-btn primary" id="splashContinueBtn"></button>
               <button class="game-btn ghost hidden" id="resumeMatchBtn"></button>
               <button class="game-btn btn-blue" id="installAppBtn"></button>
             </div>
-            <div id="installLangToggle" class="install-lang-toggle hidden"></div>
             <div class="splash-actions">
               <button class="icon-btn glossy btn-yellow" type="button" id="settingsBtn" aria-label="Settings"
                 data-modal-open="settings">
@@ -755,9 +755,19 @@
       <div class="frame-panel">
         <div class="modal-stitch"></div>
         <div class="modal-ribbon"><span class="title-primary" id="settingsTitle"></span></div>
-        <button class="modal-close" data-modal-close="settings" aria-label="Close"></button>
+        <button class="modal-close" id="settingsCloseBtn" aria-label="Close"></button>
         <div class="modal-canvas">
           <div class="modal-content settings-list">
+            <button class="settings-row settings-row-nav hidden" type="button" id="settingsAccountRow" aria-label="Account">
+              <div class="settings-label">
+                <span class="settings-icon account" aria-hidden="true"></span>
+                <div class="settings-account-label-wrap">
+                  <span id="settingsAccountLabel"></span>
+                  <span class="settings-account-email" id="settingsAccountEmail"></span>
+                </div>
+              </div>
+              <span class="settings-nav-chevron" aria-hidden="true">›</span>
+            </button>
             <div class="settings-row">
               <div class="settings-label">
                 <span class="settings-icon sound" id="settingsSoundIcon" aria-hidden="true"></span>
@@ -791,8 +801,79 @@
                 <div class="lang-dropdown settings-lang-dropdown" id="settingsLanguageDropdown"></div>
               </div>
             </div>
+            <div class="settings-save-feedback hidden" id="settingsSaveFeedback">
+              <p class="auth-error" id="settingsSaveError"></p>
+              <button class="account-discard-btn" type="button" id="settingsDiscardBtn"></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-overlay" data-modal="cuenta" data-closable="0">
+      <div class="frame-panel">
+        <div class="modal-stitch"></div>
+        <div class="modal-canvas">
+          <div class="modal-nav-header">
+            <button class="icon-btn glossy btn-yellow modal-nav-back-btn" type="button" id="accountBackBtn" aria-label="Volver">
+              <span class="icon-btn-img icon-prev" aria-hidden="true"></span>
+            </button>
+            <span class="modal-nav-title" id="accountTitle"></span>
+            <span aria-hidden="true"></span>
+          </div>
+          <p class="account-offline-msg hidden" id="accountOfflineMsg"></p>
+          <div class="account-save-feedback hidden" id="accountSaveFeedback">
+            <p class="auth-error" id="accountSaveError"></p>
+            <button class="account-discard-btn" type="button" id="accountDiscardBtn"></button>
+          </div>
+          <div class="modal-content account-content">
+            <div class="settings-row account-name-row">
+              <div class="settings-label" id="accountNicknameLabel"></div>
+              <input type="text" class="account-nickname-input" id="accountNicknameInput"
+                maxlength="20" autocomplete="off" spellcheck="false" placeholder="..." aria-label="Apodo" />
+              <p class="auth-error hidden" id="accountNicknameError"></p>
+            </div>
+            <label class="onboarding-optin account-optin">
+              <input type="checkbox" id="accountOptIn" aria-label="Email opt-in" />
+              <span id="accountOptInLabel"></span>
+            </label>
+            <div class="account-footer">
+              <button class="game-btn btn-red account-logout-btn" type="button" id="accountLogoutBtn" aria-label="Cerrar sesión">
+                <img src="assets/img/logout.svg" class="account-logout-icon" aria-hidden="true" />
+                <span id="accountLogoutLabel"></span>
+              </button>
+              <p class="account-footer-email" id="accountFooterEmail"></p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-overlay" data-modal="logout-confirm" data-closable="1">
+      <div class="frame-panel">
+        <div class="modal-stitch"></div>
+        <div class="modal-ribbon"><span class="title-primary" id="logoutConfirmTitle"></span></div>
+        <button class="modal-close" data-modal-close="logout-confirm" aria-label="Close"></button>
+        <div class="modal-canvas">
+          <div class="modal-content">
+            <p id="logoutConfirmBody"></p>
             <div class="settings-actions">
-              <button class="game-btn primary" type="button" id="settingsSaveBtn"></button>
+              <button class="game-btn ghost" type="button" id="logoutConfirmCancelBtn"></button>
+              <button class="game-btn btn-red" type="button" id="logoutConfirmOkBtn"></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-overlay" data-modal="optin-confirm" data-closable="1">
+      <div class="frame-panel">
+        <div class="modal-stitch"></div>
+        <div class="modal-ribbon"><span class="title-primary" id="optInConfirmTitle"></span></div>
+        <button class="modal-close" data-modal-close="optin-confirm" aria-label="Close"></button>
+        <div class="modal-canvas">
+          <div class="modal-content optin-confirm-content">
+            <p class="optin-confirm-body" id="optInConfirmBody"></p>
+            <div class="optin-confirm-btns">
+              <button class="game-btn ghost" type="button" id="optInConfirmSkipBtn"></button>
+              <button class="game-btn primary" type="button" id="optInConfirmActivateBtn"></button>
             </div>
           </div>
         </div>

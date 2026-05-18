@@ -381,7 +381,7 @@ body.shell-ready #game-root {
   height: 90% !important;
 }
 .icon-btn-img.icon-play {
-  background-image: url("../../assets/img//play.svg");
+  background-image: url("../../assets/img/play.svg");
 }
 .icon-btn-img.icon-pause {
   background-image: url("../../assets/ui-pack/Icons/SVG/Icon_Small_Blank_Pause.svg");
@@ -543,10 +543,13 @@ body.shell-ready #game-root {
 /* Settings language control: dropdown-style trigger */
 .settings-lang-control {
   position: relative;
+  width: 100%;
+  min-width: 0;
 }
 
 .settings-lang-control .lang-btn {
-  min-width: 86px;
+  width: 100%;
+  box-sizing: border-box;
   padding: 10px 14px;
   border-radius: 12px;
   border: 3px solid #c5af7d;
@@ -568,6 +571,8 @@ body.shell-ready #game-root {
 
 .settings-lang-control .lang-dropdown {
   display: none;
+  top: auto;
+  bottom: calc(100% + 6px);
 }
 
 .settings-lang-control.open .lang-dropdown {
@@ -964,6 +969,7 @@ body.shell-ready #game-root {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  width: 100%;
 }
 
 .settings-label {
@@ -992,7 +998,6 @@ body.shell-ready #game-root {
 
 .settings-icon.language {
   background-image: url("../../assets/img/languages.png");
-  background-size: cover;
 }
 
 .settings-icon.sound.off {
@@ -1048,6 +1053,254 @@ body.shell-ready #game-root {
   width: 100%;
   margin-top: 12px;
   margin-bottom: 10px;
+}
+
+.settings-row-nav {
+  width: 100%;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0 4px 0 4px;
+  text-align: left;
+  font-family: "Fredoka", Arial, sans-serif;
+  font-size: var(--text-md);
+  font-weight: 700;
+}
+.settings-row-nav:hover { opacity: 0.8; }
+.settings-row-nav .settings-label {
+  flex: 1;
+  min-width: 0;
+}
+.settings-account-label-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--text-md);
+  min-width: 0;
+  flex: 1;
+}
+.settings-account-email {
+  font-size: 16px;
+  font-weight: 600;
+  color: rgba(47, 27, 18, 0.5);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.settings-nav-chevron {
+  font-size: 28px;
+  font-weight: 900;
+  color: #2f1b12;
+  line-height: 1;
+  flex-shrink: 0;
+  margin-right: 2px;
+}
+.settings-icon.account {
+  background-image: url("../../assets/img/account.svg");
+  background-size: contain;
+  background-position: center;
+  flex-shrink: 0;
+}
+
+/* ── Account modal ─────────────────────────────────────────── */
+.account-content {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  text-align: left;
+}
+.account-name-row {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+}
+.account-name-row .settings-label {
+  font-size: var(--text-md);
+}
+.account-nickname-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 12px;
+  font-family: "Fredoka", Arial, sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: #2f1b12;
+  text-transform: uppercase;
+  background: #fffaf1;
+  border: 2px solid #d7b882;
+  border-radius: 10px;
+  outline: none;
+}
+.account-nickname-input:focus {
+  border-color: #c5af7d;
+  box-shadow: 0 0 0 2px rgba(197, 175, 125, 0.35);
+}
+.account-nickname-input:disabled {
+  background: rgba(47, 27, 18, 0.06);
+  color: rgba(47, 27, 18, 0.45);
+  border-color: rgba(47, 27, 18, 0.15);
+  cursor: default;
+}
+.account-save-feedback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px 10px;
+}
+.account-save-feedback.hidden {
+  display: none !important;
+}
+.account-save-feedback .auth-error {
+  margin: 0 auto;
+}
+.account-discard-btn {
+  border: none;
+  background: none;
+  color: rgba(47, 27, 18, 0.72);
+  font-family: "Fredoka", Arial, sans-serif;
+  font-size: 14px;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  padding: 0;
+}
+.account-discard-btn:hover {
+  color: rgba(47, 27, 18, 0.95);
+}
+.settings-save-feedback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px 10px;
+}
+.settings-save-feedback.hidden {
+  display: none !important;
+}
+.settings-save-feedback .auth-error {
+  margin: 0 auto;
+}
+.account-offline-msg {
+  margin: 0;
+  padding: 6px 16px 0;
+  font-family: "Fredoka", Arial, sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  color: rgba(47, 27, 18, 0.6);
+  text-align: center;
+}
+.account-offline-msg.hidden {
+  display: none !important;
+}
+/* ── Opt-in confirm modal ──────────────────────────────────── */
+.optin-confirm-content {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.optin-confirm-body {
+  font-family: "Fredoka", Arial, sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  color: #2f1b12;
+  margin: 0;
+  line-height: 1.5;
+  white-space: pre-line;
+}
+.optin-confirm-btns {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+}
+.optin-confirm-btns .game-btn {
+  flex: 1;
+  min-width: 0;
+  min-height: unset;
+  padding: 12px 10px;
+  border-radius: 14px;
+  white-space: nowrap;
+  box-shadow: 0 5px 0 var(--btn-dark), 0 8px 12px rgba(0,0,0,0.18);
+}
+
+.account-optin {
+  margin-top: 0;
+  width: 100%;
+  font-family: "Fredoka", Arial, sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  text-align: left;
+}
+.account-optin,
+.account-optin span { color: rgba(47, 27, 18, 0.75) !important; }
+.account-optin:has(input:disabled),
+.account-optin:has(input:disabled) span { color: rgba(47, 27, 18, 0.35) !important; }
+.modal-nav-header {
+  display: grid;
+  grid-template-columns: 40px 1fr 40px;
+  align-items: center;
+  width: 100%;
+  padding: 10px 12px 8px;
+}
+.modal-nav-back-btn {
+  width: 48px;
+  height: 48px;
+  min-width: unset;
+  min-height: unset;
+  padding: 0;
+}
+.modal-nav-title {
+  text-align: center;
+  font-family: "Fredoka", Arial, sans-serif;
+  font-size: var(--text-xl);
+  font-weight: 700;
+  color: #2f1b12;
+}
+.account-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  border-top: 1px solid rgba(47, 27, 18, 0.1);
+  padding-top: 16px;
+  margin-top: 4px;
+  width: 100%;
+}
+.account-footer-email {
+  display: block;
+  width: 100%;
+  max-width: 230px;
+  margin: 0;
+  font-family: "Fredoka", Arial, sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: rgba(47, 27, 18, 0.8);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.account-logout-btn {
+  width: min(100%, 250px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 10px;
+}
+.account-logout-icon {
+  width: 20px;
+  height: 20px;
+  filter: brightness(0) invert(1);
+  flex-shrink: 0;
+}
+
+.lang-es .account-logout-btn {
+  white-space: nowrap;
+  font-size: 23px;
 }
 
 .card-header {
@@ -2077,20 +2330,28 @@ body.shell-ready #game-root {
   flex-direction: row;
   gap: 10px;
   justify-content: center;
+  align-items: center;
   margin-top: 4px;
 }
 
 .install-lang-btn {
-  padding: 6px 18px;
+  width: 46px;
+  height: 30px;
+  padding: 0;
   border-radius: 99px;
   border: 2px solid rgba(255, 246, 220, 0.25);
   background: rgba(12, 24, 48, 0.78);
   color: rgba(255, 246, 220, 0.55);
-  font-size: 0.82rem;
+  font-size: 13px;
   font-weight: 900;
-  letter-spacing: 0.08em;
+  letter-spacing: 0;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
   transition: background 0.15s, color 0.15s, border-color 0.15s;
+  box-sizing: border-box;
 }
 
 .install-lang-btn.active {
@@ -2128,6 +2389,9 @@ body.shell-ready #game-root {
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
 }
 
+#installLangToggle {
+  margin-top: 8px;
+}
 .install-required-desc {
   font-size: 0.95rem;
   color: #fff6dc;
@@ -6592,6 +6856,11 @@ body.splash-ready #splashLoadingBlock {
   font-weight: 900;
 }
 
+.auth-lang-toggle {
+  display: flex;
+  justify-content: center;
+  padding: 8px 0 0;
+}
 .auth-legal {
   width: 100%;
   margin: 0;
@@ -6679,7 +6948,7 @@ body.splash-ready #splashLoadingBlock {
   color: rgba(255, 255, 255, 0.7);
   line-height: 1.4;
   padding: 4px 0;
-  text-align: justify;
+  text-align: left;
 }
 
 .onboarding-optin input[type="checkbox"] {

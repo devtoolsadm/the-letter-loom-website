@@ -19,8 +19,8 @@ function validateScores(players, scores) {
   return { missing, oddPlayer, outOfRangePlayer };
 }
 import { IS_LOCAL, IS_PREVIEW, IS_PROD } from "../../lib/env.js";
-import { getSession, requestOtp, verifyOtp, onAuthStateChange, signOut, getStoredEmail, saveStoredEmail, checkFirstSignup, saveOnboarding } from "../../lib/auth.js";
-import { TURNSTILE_SITE_KEY } from "../../lib/config.js";
+import { getSession, getAccessToken, requestOtp, verifyOtp, onAuthStateChange, signOut, getStoredEmail, saveStoredEmail, checkFirstSignup, saveOnboarding, updateProfile, getProfile } from "../../lib/auth.js";
+import { WORKER_BASE, TURNSTILE_SITE_KEY } from "../../lib/config.js";
 import {
   TEXTS,
   BULLET_CHAR,
@@ -65,17 +65,17 @@ import {
   WAKE_LOCK_SUCCESS_DEBOUNCE_MS,
 } from "../../core/constants.js";
 import { matchController, validateWordRemote } from "../../core/matchController.js";
-import { openModal, closeModal, closeTopModal } from "./modal.js";
+import { openModal, closeModal, closeTopModal, closeAllModals } from "./modal.js";
 import {
   initWakeLockManager,
   requestLock,
   releaseLock,
   isWakeLockActive,
 } from "../../core/wakeLockManager.js";
-import { loadState, updateState } from "../../core/stateStore.js";
+import { loadState, updateState, clearState } from "../../core/stateStore.js";
 import { APP_VERSION } from "../../core/version.js";
 import { logger, onLog, getLogs } from "../../core/logger.js";
-import { capture, flush } from "../../lib/analytics.js";
+import { capture, flush, initAnon, initAuth, resetIdentity, identify } from "../../lib/analytics.js";
 import {
   loadActiveMatch,
   saveActiveMatch,
@@ -135,6 +135,13 @@ let tempSettings = {
   musicVolume,
   language: shellLanguage,
 };
+let _settingsOpenedOnline = true
+let _settingsLangOnOpen = null
+let _accountOpenedOnline = true
+let _cachedNickname = null
+let _cachedEmail = null
+let _cachedOptIn = false
+let _isSigningOut = false
 let splashLoaderInterval = null;
 let splashLoaderComplete = false;
 let splashLoaderProgress = 0;
@@ -1658,7 +1665,9 @@ function buildPlayerFallbacks(count) {
   const fallbackNames = [];
   for (let i = 0; i < count; i += 1) {
     const base =
-      (knownNames[i] && knownNames[i].trim()) || getDefaultPlayerName(i);
+      (knownNames[i] && knownNames[i].trim()) ||
+      (i === 0 && _cachedNickname && _cachedNickname.trim()) ||
+      getDefaultPlayerName(i);
     fallbackNames.push(ensureUniquePlayerName(base, usedNames));
   }
   return fallbackNames;
@@ -2844,7 +2853,14 @@ function renderShellTexts() {
   setI18nById("settingsSoundLabel", "settingsSound");
   setI18nById("settingsMusicLabel", "settingsMusic");
   setI18nById("settingsLanguageLabel", "settingsLanguage");
-  setI18nById("settingsSaveBtn", "save");
+  setI18nById("settingsAccountLabel", "settingsAccount");
+  setI18nById("accountTitle", "accountTitle");
+  setI18nById("accountNicknameLabel", "accountNicknameLabel");
+  setI18nById("accountOptInLabel", "onboardingOptIn");
+  setI18nById("accountLogoutLabel", "accountLogout");
+  setI18nById("accountLogoutBtn", "accountLogout", { attr: "aria-label" });
+  setI18nById("accountNicknameInput", "accountNicknameLabel", { attr: "aria-label" });
+  setI18nById("accountNicknameInput", "onboardingPlaceholder", { attr: "placeholder" });
   setI18nById("supportTitle", "supportTitle");
   setI18nById("supportBody", "supportBody");
   setI18nById("supportCtaBtn", "supportCta");
@@ -3395,6 +3411,11 @@ function setupNavigation() {
     ["helpTiktokBtn", () => openSocialLink("tiktok")],
     ["helpEmailBtn", () => openSocialLink("email")],
     ["helpWebBtn", () => openSocialLink("web")],
+    ["supportCtaBtn", () => {
+      playClickFeedback();
+      const hash = shellLanguage === "es" ? "#comprar" : "#buy";
+      window.open(`${HELP_WEB_URL}/landing/${hash}`, "_blank", "noopener");
+    }],
     ["matchExitBtn", () => confirmExitToSplash()],
     ["matchBackBtn", () => exitMatchDirect()],
     ["matchSettingsBtn", () => openSettingsModal()],
@@ -3681,13 +3702,17 @@ function setupNavigation() {
     });
   }
 
-  const settingsSave = document.getElementById("settingsSaveBtn");
-  if (settingsSave) {
-    settingsSave.addEventListener("click", () => {
-      applySettingsFromTemp();
-      closeModal("settings", { reason: "action", action: "apply" });
-    });
-  }
+  document.getElementById("settingsCloseBtn")?.addEventListener("click", _handleSettingsClose);
+  document.getElementById("settingsDiscardBtn")?.addEventListener("click", _discardSettingsChanges);
+  document.getElementById("settingsAccountRow")?.addEventListener("click", _openAccountModal);
+  document.getElementById("accountBackBtn")?.addEventListener("click", _handleAccountBack);
+  document.getElementById("accountLogoutBtn")?.addEventListener("click", _handleLogout);
+  document.getElementById("accountDiscardBtn")?.addEventListener("click", _discardAccountChanges);
+  document.getElementById("optInConfirmSkipBtn")?.addEventListener("click", _handleOptInConfirmSkip);
+  document.getElementById("optInConfirmActivateBtn")?.addEventListener("click", _handleOptInConfirmActivate);
+  document.getElementById("logoutConfirmCancelBtn")?.addEventListener("click", () => closeModal('logout-confirm', { reason: 'close' }));
+  document.getElementById("logoutConfirmOkBtn")?.addEventListener("click", _doLogout);
+  _setupAccountOptInConfirm();
 
   const modeRoundsBtn = document.getElementById("matchModeRoundsBtn");
   const modePointsBtn = document.getElementById("matchModePointsBtn");
@@ -4033,6 +4058,8 @@ function openQuickGuide(sectionId = "index") {
     matchController.pause();
     stopClockLoop(false);
   }
+  clearMatchWordFor("help", false);
+  clearStatusValidationFor("help");
   showScreen("quick-guide");
   renderQuickGuide();
   requestAnimationFrame(() => {
@@ -5485,8 +5512,14 @@ function renderMatchFromState(matchState) {
 
   const matchValidation = validationSections.get("match");
   if (matchValidation?.root) {
+    const wasHidden = matchValidation.root.classList.contains("hidden");
     matchValidation.root.classList.toggle("hidden", !showValidation);
-    if (!showValidation) clearMatchWordFor("match");
+    if (showValidation && wasHidden) {
+      clearMatchWordFor("match", false);
+      clearStatusValidationFor("match");
+    } else if (!showValidation) {
+      clearMatchWordFor("match");
+    }
   }
 
   if (configBlock) configBlock.classList.toggle("hidden", !showConfig);
@@ -8754,7 +8787,8 @@ function updateSettingsControls(source = {}) {
 }
 
 function openSettingsModal() {
-  settingsSnapshot = getCurrentSettingsState();
+  _settingsOpenedOnline = navigator.onLine
+  _settingsLangOnOpen = shellLanguage
   tempSettings = {
     sound: soundOn || soundVolume > 0,
     music: musicOn || musicVolume > 0,
@@ -8764,8 +8798,19 @@ function openSettingsModal() {
   };
   renderSettingsLanguageSelector();
   updateSettingsControls(tempSettings);
+  _renderSettingsAccountRow();
+  _hideSettingsSaveFeedback();
   playModalOpenSound();
-  openModal("settings", { closable: true });
+  openModal("settings", { closable: false });
+}
+
+function _renderSettingsAccountRow() {
+  const row = document.getElementById('settingsAccountRow')
+  const emailEl = document.getElementById('settingsAccountEmail')
+  if (!row) return
+  if (!_cachedEmail) { row.classList.add('hidden'); return }
+  if (emailEl) emailEl.textContent = _cachedEmail
+  row.classList.remove('hidden')
 }
 
 function applySettingsFromTemp() {
@@ -8874,15 +8919,56 @@ function revertSettingsSnapshot() {
   }
 }
 
+function _hideSettingsSaveFeedback() {
+  document.getElementById('settingsSaveFeedback')?.classList.add('hidden')
+}
+
+function _showSettingsSaveFeedback() {
+  const wrap = document.getElementById('settingsSaveFeedback')
+  const errEl = document.getElementById('settingsSaveError')
+  const discardBtn = document.getElementById('settingsDiscardBtn')
+  if (errEl) errEl.textContent = shellTexts.settingsSaveError ?? 'Error al guardar el idioma'
+  if (discardBtn) discardBtn.textContent = shellTexts.accountDiscard ?? 'Salir sin guardar'
+  wrap?.classList.remove('hidden')
+}
+
+function _discardSettingsChanges() {
+  _hideSettingsSaveFeedback()
+  closeModal('settings', { reason: 'discard' })
+}
+
+async function _handleSettingsClose() {
+  _hideSettingsSaveFeedback()
+  updateState({ settings: { sound: soundOn, music: musicOn, soundVolume, musicVolume } })
+  const nextLang = shellLanguage
+  if (nextLang === _settingsLangOnOpen) {
+    closeModal('settings', { reason: 'close' })
+    return
+  }
+  setShellLanguage(nextLang)
+  if (!_settingsOpenedOnline) {
+    closeModal('settings', { reason: 'close' })
+    return
+  }
+  if (!navigator.onLine) {
+    _showSettingsSaveFeedback()
+    return
+  }
+  try {
+    const { error } = await updateProfile({ language: nextLang })
+    if (!error) {
+      closeModal('settings', { reason: 'close' })
+    } else {
+      _showSettingsSaveFeedback()
+    }
+  } catch {
+    _showSettingsSaveFeedback()
+  }
+}
+
 function handleModalClosed(evt) {
   const detail = evt.detail || {};
-  if (detail.id === "settings") {
-    if (detail.action === "apply") {
-      settingsSnapshot = getCurrentSettingsState();
-    } else {
-      revertSettingsSnapshot();
-    }
-  } else if (detail.id === "confirm") {
+  if (detail.id === "confirm") {
     if (detail.reason !== "action") {
       handleConfirmCancel();
     }
@@ -9917,8 +10003,10 @@ function assignSrcToNodes(nodes, src) {
     logger.info(`App version ${APP_VERSION}`);
     const bgSrc = document.documentElement.getAttribute("data-bg-image");
     if (bgSrc) applyBodyBackground(bgSrc);
-    capture('app_opened', { has_session: false });
-    flush()
+    initAnon(WORKER_BASE)
+    onAuthStateChange((session) => {
+      if (!session && !_isSigningOut) _doLogout()
+    })
     requestServiceWorkerVersion();
     const textErrors = validateTexts(TEXTS);
   if (textErrors.length) {
@@ -9949,8 +10037,10 @@ function assignSrcToNodes(nodes, src) {
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) {
       persistActiveMatchSnapshot(matchController.getState());
+      flush()
     }
   });
+  window.addEventListener("online", () => flush());
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) {
       const st = matchController.getState();
@@ -10020,22 +10110,38 @@ function assignSrcToNodes(nodes, src) {
 
   setupAuthScreen();
   if (fromInstall) {
+    capture('app_opened', { has_session: false })
+    flush()
     _proceedToApp();
     return;
   }
   const session = await getSession().catch(() => null);
+  const sessionAgeDays = session
+    ? Math.round((Date.now() - new Date(session.user.last_sign_in_at).getTime()) / 864e5)
+    : null
+  capture('app_opened', { has_session: !!session, session_age_days: sessionAgeDays })
+  flush()
   if (session) {
     try {
       const { isFirstSignup } = await checkFirstSignup()
       if (isFirstSignup) {
+        _cachedEmail = session.user.email ?? null
         _showAuthEmailStep('fresh', null)
         showScreen("auth")
         _showOnboardingIfNeeded(true, _proceedToApp)
       } else {
+        _cachedEmail = session.user.email ?? null
+        const { profile } = await getProfile().catch(() => ({ profile: null }))
+        _cachedNickname = profile?.nickname ?? null
+        _cachedOptIn = profile?.email_opt_in ?? false
+        if (profile?.language) setShellLanguage(profile.language)
+        initAuth(getAccessToken)
         _proceedToApp()
       }
     } catch {
       try { await signOut() } catch {}
+      _cachedNickname = null
+      _cachedEmail = null
       _showAuthEmailStep('fresh', getStoredEmail())
       showScreen("auth")
     }
@@ -10166,6 +10272,16 @@ function _showAuthEmailStep(mode, prefillEmail = null) {
   notYou?.classList.toggle('hidden', !isExpired)
   if (isExpired && prefillEmail) {
     if (emailEl) emailEl.value = prefillEmail
+  } else {
+    if (emailEl) emailEl.value = ''
+    document.getElementById('authEmailError')?.classList.add('hidden')
+    const codeInput = document.getElementById('authCodeInput')
+    if (codeInput) codeInput.value = ''
+    document.getElementById('authCodeError')?.classList.add('hidden')
+    document.getElementById('authCodeStep')?.classList.add('hidden')
+    document.getElementById('authEmailStep')?.classList.remove('hidden')
+    document.getElementById('authProfileStep')?.classList.add('hidden')
+    _pendingEmail = null
   }
 }
 
@@ -10263,6 +10379,7 @@ async function _handleAuthContinue() {
     const { error } = await requestOtp(email, token, shellLanguage)
     if (error) throw error
     _pendingEmail = email
+    capture(_authMode === 'fresh' ? 'signup_email_submitted' : 'login_email_submitted', { language: shellLanguage })
     _showAuthCodeStep(email)
   } catch (err) {
     let msg = !navigator.onLine
@@ -10296,7 +10413,18 @@ async function _handleAuthVerify() {
     const { session, error } = await verifyOtp(_pendingEmail, code)
     if (error || !session) throw error ?? new Error('no_session')
     saveStoredEmail(_pendingEmail)
+    _cachedEmail = _pendingEmail
     const { isFirstSignup } = await checkFirstSignup().catch(() => ({ isFirstSignup: false }))
+    if (!isFirstSignup) {
+      const { profile } = await getProfile().catch(() => ({ profile: null }))
+      _cachedNickname = profile?.nickname ?? null
+      _cachedOptIn = profile?.email_opt_in ?? false
+      if (profile?.language) setShellLanguage(profile.language)
+      initAuth(getAccessToken)
+      identify()
+      capture('login_completed', { language: shellLanguage })
+      flush()
+    }
     _showOnboardingIfNeeded(isFirstSignup, _proceedToApp)
   } catch {
     errorEl.textContent = t.authErrorInvalidCode ?? 'Código incorrecto'
@@ -10327,7 +10455,7 @@ function _renderOnboardingTexts() {
   }
   if (optIn) optIn.checked = false
   if (optLbl) optLbl.textContent = t.onboardingOptIn ?? ''
-  if (btn) { btn.textContent = t.onboardingBtn ?? 'Guardar'; btn.setAttribute('aria-label', t.onboardingBtn ?? '') }
+  if (btn) { btn.disabled = false; btn.textContent = t.onboardingBtn ?? 'Guardar'; btn.setAttribute('aria-label', t.onboardingBtn ?? '') }
   if (cancel) {
     const x = document.createElement('span'); x.className = 'auth-arrow'; x.setAttribute('aria-hidden', 'true'); x.textContent = '✕'
     const lbl = document.createElement('span'); lbl.className = 'auth-text'; lbl.textContent = t.onboardingCancel ?? 'Cancelar'
@@ -10350,10 +10478,10 @@ function _showOnboardingIfNeeded(isFirstSignup, onDone) {
 }
 
 async function _handleOnboardingSave() {
-  const t = shellTexts
-  const input    = document.getElementById('onboardingInput')
-  const errorEl  = document.getElementById('onboardingError')
-  const btn      = document.getElementById('onboardingBtn')
+  const t       = shellTexts
+  const input   = document.getElementById('onboardingInput')
+  const errorEl = document.getElementById('onboardingError')
+  const optIn   = document.getElementById('onboardingOptIn')
   const nickname = input?.value?.trim().toUpperCase()
   if (!nickname) {
     if (errorEl) errorEl.textContent = t.onboardingError ?? 'Escribe un nombre para continuar'
@@ -10362,9 +10490,30 @@ async function _handleOnboardingSave() {
     return
   }
   errorEl?.classList.add('hidden')
+  if (!optIn?.checked) {
+    _showOptInConfirmModal(
+      () => _doOnboardingSave(),
+      () => { if (optIn) optIn.checked = true; _doOnboardingSave() }
+    )
+    return
+  }
+  await _doOnboardingSave()
+}
+
+async function _doOnboardingSave() {
+  const input  = document.getElementById('onboardingInput')
+  const btn    = document.getElementById('onboardingBtn')
+  const nickname = input?.value?.trim().toUpperCase()
+  if (!nickname) return
   if (btn) { btn.disabled = true; btn.textContent = '...' }
   const emailOptIn = document.getElementById('onboardingOptIn')?.checked ?? false
   try { await saveOnboarding({ nickname, emailOptIn, language: shellLanguage }) } catch {}
+  _cachedNickname = nickname
+  _cachedOptIn = emailOptIn
+  initAuth(getAccessToken)
+  identify()
+  capture('signup_completed', { language: shellLanguage, email_opt_in: emailOptIn })
+  flush()
   _proceedToApp()
 }
 
@@ -10374,6 +10523,171 @@ function _renderCancelConfirmTexts() {
   document.getElementById('profileCancelMsg')?.replaceChildren(document.createTextNode(t.onboardingCancelMsg ?? ''))
   document.getElementById('profileCancelYesBtn')?.replaceChildren(document.createTextNode(t.onboardingCancelYes ?? ''))
   document.getElementById('profileCancelNoBtn')?.replaceChildren(document.createTextNode(t.onboardingCancelNo ?? ''))
+}
+
+async function _handleAccountBack() {
+  if (!_accountOpenedOnline) {
+    closeModal('cuenta', { reason: 'close' })
+    return
+  }
+  const saved = await _saveAccountOnExit()
+  if (saved) closeModal('cuenta', { reason: 'close' })
+}
+
+function _openAccountModal() {
+  _accountOpenedOnline = navigator.onLine
+  const input      = document.getElementById('accountNicknameInput')
+  const optIn      = document.getElementById('accountOptIn')
+  const emailEl    = document.getElementById('accountFooterEmail')
+  const discard    = document.getElementById('accountDiscardBtn')
+  const offlineMsg = document.getElementById('accountOfflineMsg')
+  if (input) input.value = _cachedNickname ?? ''
+  if (optIn) optIn.checked = _cachedOptIn ?? false
+  if (emailEl) emailEl.textContent = _cachedEmail ?? ''
+  if (discard) discard.textContent = shellTexts.accountDiscard ?? 'Salir sin guardar'
+  _hideAccountSaveFeedback()
+  if (!_accountOpenedOnline) {
+    if (input) { input.disabled = true; input.readOnly = true }
+    if (optIn) optIn.disabled = true
+    if (offlineMsg) { offlineMsg.textContent = shellTexts.accountOffline ?? 'Sin conexión — solo lectura'; offlineMsg.classList.remove('hidden') }
+  } else {
+    if (input) { input.disabled = false; input.readOnly = false }
+    if (optIn) optIn.disabled = false
+    offlineMsg?.classList.add('hidden')
+  }
+  closeModal('settings', { reason: 'navigate' })
+  openModal('cuenta', { closable: false, onClose: (detail) => {
+    if (detail.reason !== 'logout') openSettingsModal()
+  }})
+}
+
+function _hideAccountSaveFeedback() {
+  document.getElementById('accountSaveFeedback')?.classList.add('hidden')
+  document.getElementById('accountNicknameError')?.classList.add('hidden')
+}
+
+function _showAccountSaveFeedback() {
+  const wrap = document.getElementById('accountSaveFeedback')
+  const errEl = document.getElementById('accountSaveError')
+  const discard = document.getElementById('accountDiscardBtn')
+  if (errEl) errEl.textContent = shellTexts.accountSaveError ?? 'Error al guardar'
+  if (discard) discard.textContent = shellTexts.accountDiscard ?? 'Salir sin guardar'
+  wrap?.classList.remove('hidden')
+}
+
+function _discardAccountChanges() {
+  _hideAccountSaveFeedback()
+  closeModal('cuenta', { reason: 'discard' })
+}
+
+async function _saveAccountOnExit() {
+  const input      = document.getElementById('accountNicknameInput')
+  const optIn      = document.getElementById('accountOptIn')
+  const errNick    = document.getElementById('accountNicknameError')
+  const nickname   = input?.value?.trim().toUpperCase() || null
+  const emailOptIn = optIn?.checked ?? false
+  const prevOptIn = _cachedOptIn
+  if (!nickname) {
+    if (errNick) { errNick.textContent = shellTexts.accountNicknameRequired ?? 'El nombre no puede estar vacío.'; errNick.classList.remove('hidden') }
+    input?.focus()
+    return false
+  }
+  errNick?.classList.add('hidden')
+  try {
+    if (IS_LOCAL && nickname.endsWith('1')) {
+      throw new Error('Simulated network error (dev: nickname ends in 1)')
+    }
+    const { error } = await updateProfile({ nickname, emailOptIn })
+    if (!error) {
+      _cachedNickname = nickname
+      _cachedOptIn = emailOptIn
+      if (emailOptIn !== prevOptIn) {
+        capture('email_opt_in_changed', { value: emailOptIn })
+        flush()
+      }
+      _renderSettingsAccountRow()
+      _hideAccountSaveFeedback()
+      return true
+    }
+    _showAccountSaveFeedback()
+    return false
+  } catch {
+    _showAccountSaveFeedback()
+    return false
+  }
+}
+
+function _setupAccountOptInConfirm() {
+  document.getElementById('accountOptIn')?.addEventListener('change', (e) => {
+    if (!e.target.checked) {
+      _showOptInConfirmModal(
+        () => {},
+        () => { e.target.checked = true }
+      )
+    }
+  })
+}
+
+let _optInOnSkip = null
+let _optInOnActivate = null
+
+function _showOptInConfirmModal(onSkip, onActivate) {
+  const t = shellTexts
+  const title = document.getElementById('optInConfirmTitle')
+  const body = document.getElementById('optInConfirmBody')
+  const skipBtn = document.getElementById('optInConfirmSkipBtn')
+  const activateBtn = document.getElementById('optInConfirmActivateBtn')
+  if (title) title.textContent = t.optInConfirmTitle ?? 'Consentimiento'
+  if (body) body.textContent = t.optInConfirmMsg ?? ''
+  if (skipBtn) skipBtn.textContent = t.optInConfirmSkip ?? 'No'
+  if (activateBtn) activateBtn.textContent = t.optInConfirmActivate ?? 'Sí'
+  _optInOnSkip = onSkip
+  _optInOnActivate = onActivate
+  openModal('optin-confirm', { closable: true })
+}
+
+function _handleOptInConfirmSkip() {
+  const cb = _optInOnSkip
+  _optInOnSkip = null; _optInOnActivate = null
+  closeModal('optin-confirm', { reason: 'action', action: 'skip' })
+  cb?.()
+}
+
+function _handleOptInConfirmActivate() {
+  const cb = _optInOnActivate
+  _optInOnSkip = null; _optInOnActivate = null
+  closeModal('optin-confirm', { reason: 'action', action: 'activate' })
+  cb?.()
+}
+
+function _handleLogout() {
+  const t = shellTexts
+  const title = document.getElementById('logoutConfirmTitle')
+  const body = document.getElementById('logoutConfirmBody')
+  const cancelBtn = document.getElementById('logoutConfirmCancelBtn')
+  const okBtn = document.getElementById('logoutConfirmOkBtn')
+  if (title) title.textContent = t.logoutConfirmTitle ?? 'Cerrar sesión'
+  if (body) body.textContent = t.logoutConfirmMsg ?? '¿Seguro que quieres cerrar sesión?'
+  if (cancelBtn) cancelBtn.textContent = t.logoutConfirmCancel ?? 'Cancelar'
+  if (okBtn) okBtn.textContent = t.logoutConfirmOk ?? 'Sí'
+  openModal('logout-confirm', { closable: true })
+}
+
+async function _doLogout() {
+  closeModal('logout-confirm', { reason: 'action' })
+  closeAllModals({ reason: 'logout' })
+  _isSigningOut = true
+  try { await signOut() } catch {}
+  _isSigningOut = false
+  resetIdentity()
+  _cachedNickname = null
+  _cachedEmail = null
+  _cachedOptIn = false
+  clearState()
+  localStorage.removeItem(WORD_CANDIDATES_KEY)
+  localStorage.removeItem('letterloom_match_records')
+  _showAuthEmailStep('fresh', null)
+  showScreen('auth')
 }
 
 function _handleOnboardingCancel() {
@@ -10398,6 +10712,10 @@ function _showAuthCodeStep(email) {
   codeStep?.classList.remove('hidden')
   const hint = document.getElementById('authCodeHint')
   if (hint) hint.textContent = `${t.authCodeHint ?? 'Código enviado a'} ${email}`
+  const verifyBtn = document.getElementById('authVerifyBtn')
+  if (verifyBtn) { verifyBtn.disabled = false; verifyBtn.textContent = t.authVerifyBtn ?? 'Verificar' }
+  document.getElementById('authCodeInput')?.value && (document.getElementById('authCodeInput').value = '')
+  document.getElementById('authCodeError')?.classList.add('hidden')
   document.getElementById('authCodeInput')?.focus()
 }
 
