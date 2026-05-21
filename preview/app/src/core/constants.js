@@ -45,24 +45,24 @@ export const TRAINING_CENTRAL_BOARD_SIZE = 5;
 export const LETTER_COLORS = ["blue", "orange", "green", "purple"];
 const COLORS_ORDER = ["blue", "orange", "green", "purple"];
 
-// Compact data per letter: [letter, value, [blue, orange, green, purple], tildeValue?].
-// tildeValue: if present, this card has an extra higher score when the player
-// uses it in a tilde position (e.g. Á=10 vs A=2). The card still plays as the
-// base letter without tilde for its base value. Cards WITHOUT tildeValue can
-// be used in any position but always score the base value.
+// Compact data per letter:
+//   [letter, baseValue, [blue, orange, green, purple], tildeValue?, tildeForm?, tildeKind?]
+// tildeValue: extra higher score when the card is played in its marked
+// position (with tilde or diéresis).
+// tildeForm: actual marked character to display (Á, É, …, Ú, Ü).
+// tildeKind: "tilde" | "diaeresis" — only affects UI labels.
 const VOWELS_RAW = [
-  // letter, base value, color counts, tilde value (only on tilde-capable cards)
   ["E",  2, [1, 2, 2, 2]],
-  ["E",  2, [1, 0, 0, 0], 10],  // Tilde-capable "Á/É/..." variant — only 1 (blue)
+  ["E",  2, [1, 0, 0, 0], 10, "É", "tilde"],
   ["A",  2, [2, 1, 2, 2]],
-  ["A",  2, [0, 1, 0, 0], 10],  // 1 orange tilde-capable
+  ["A",  2, [0, 1, 0, 0], 10, "Á", "tilde"],
   ["O",  2, [2, 2, 1, 1]],
-  ["O",  2, [0, 0, 1, 0], 10],  // 1 green tilde-capable
+  ["O",  2, [0, 0, 1, 0], 10, "Ó", "tilde"],
   ["I",  2, [1, 1, 1, 1]],
-  ["I",  2, [0, 0, 0, 1], 10],  // 1 purple tilde-capable
+  ["I",  2, [0, 0, 0, 1], 10, "Í", "tilde"],
   ["U",  4, [1, 1, 1, 0]],
-  ["U",  4, [0, 0, 0, 1], 14],  // 1 purple tilde-capable (Ú: 14)
-  ["U",  4, [0, 0, 0, 1], 14],  // 1 purple diéresis-capable (Ü: 14, same rule as Ú)
+  ["U",  4, [0, 0, 0, 1], 14, "Ú", "tilde"],
+  ["U",  4, [0, 0, 0, 1], 14, "Ü", "diaeresis"],
 ];
 
 const CONSONANTS_RAW = [
@@ -93,11 +93,15 @@ const CONSONANTS_RAW = [
 function expandLetterDefs(defs) {
   const out = [];
   for (const row of defs) {
-    const [letter, value, counts, tildeValue] = row;
+    const [letter, value, counts, tildeValue, tildeForm, tildeKind] = row;
     counts.forEach((count, idx) => {
       if (count > 0) {
         const entry = { letter, value, color: COLORS_ORDER[idx], count };
-        if (typeof tildeValue === "number") entry.tildeValue = tildeValue;
+        if (typeof tildeValue === "number") {
+          entry.tildeValue = tildeValue;
+          entry.tildeForm = tildeForm ?? letter;
+          entry.tildeKind = tildeKind ?? "tilde";
+        }
         out.push(entry);
       }
     });

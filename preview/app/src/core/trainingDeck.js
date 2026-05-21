@@ -29,6 +29,8 @@ export function buildVowelDeck() {
         letter: def.letter,
         value: def.value,
         tildeValue: def.tildeValue ?? null,
+        tildeForm: def.tildeForm ?? null,
+        tildeKind: def.tildeKind ?? null,
         color: def.color,
         isWildcard: false,
       });

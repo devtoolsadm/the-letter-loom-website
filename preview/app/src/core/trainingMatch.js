@@ -279,6 +279,45 @@ export function tickStrategyTimer(state) {
   return next;
 }
 
+// Manual rule: "Ningún jugador puede quedarse sin letras. Si, como
+// resultado de robos, un jugador se queda sin letras, tendrá derecho a
+// coger una letra de los mazos." Caller picks vowel or consonant.
+export function drawEmergencyLetter(state, kind) {
+  const userId = state.players[0].id;
+  const hand = state.hands[userId];
+  if (!hand || hand === "<hidden>") return state;
+  const result = drawLetterOfKind(
+    state.decks.vowelDeck,
+    state.decks.consonantDeck,
+    state.discards,
+    kind,
+  );
+  if (!result.card) return state;
+  const next = {
+    ...state,
+    decks: {
+      ...state.decks,
+      vowelDeck: result.vowelDeck,
+      consonantDeck: result.consonantDeck,
+    },
+    discards: result.discards,
+    hands: {
+      ...state.hands,
+      [userId]: { ...hand, letters: [...hand.letters, result.card] },
+    },
+    updatedAt: Date.now(),
+  };
+  saveTrainingMatch(next);
+  return next;
+}
+
+export function userHandHasNoLetters(state) {
+  const userId = state.players[0].id;
+  const hand = state.hands[userId];
+  if (!hand || hand === "<hidden>") return false;
+  return (hand.letters?.filter(Boolean).length ?? 0) === 0;
+}
+
 // ── Action resolution ───────────────────────────────────────
 
 function discardActions(state, playerId, idsToDiscard) {
@@ -471,7 +510,7 @@ export function addToWord(state, cardId, source, opts = {}) {
   word.push({
     cardId,
     source,
-    tilde: false,
+    tilde: opts.tilde ?? false,
     chosen: opts.chosenLetter ?? null,
   });
   const next = { ...state, userWord: word, updatedAt: Date.now() };

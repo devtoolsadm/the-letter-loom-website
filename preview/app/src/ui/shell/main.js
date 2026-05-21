@@ -93,6 +93,8 @@ import {
   userHasShield,
   isAttackOnUser,
   isUserShieldPreSelected,
+  drawEmergencyLetter,
+  userHandHasNoLetters,
   addToWord,
   removeFromWord,
   reorderWord,
@@ -8810,6 +8812,11 @@ function renderTrainingMatch() {
   if (state.phase !== "actions") clearActionBanner();
   maybeStartUserTurnTimer(state);
   maybeShowPhaseFlash(state);
+  if (state.phase === "creation") {
+    // Safety net: if the user reached creation with an empty hand somehow,
+    // give them an emergency letter (manual rule).
+    maybeOfferEmergencyDraw();
+  }
 }
 
 function capitalizeStr(s) {
@@ -8819,52 +8826,49 @@ function capitalizeStr(s) {
 // Shows the contextual prompt above the row that needs the user's attention,
 // and hides the top instruction (or vice-versa for non-interactive phases).
 function renderTrainingPrompt(state) {
-  const topInstr      = document.getElementById("trainingInstruction");
-  const timerPrompt   = document.getElementById("trainingTimerPrompt");
-  const handPrompt    = document.getElementById("trainingHandPrompt");
-  const actionsPrompt = document.getElementById("trainingActionsPrompt");
-  const doneBtn       = document.getElementById("trainingTimerDoneBtn");
-  if (!topInstr || !timerPrompt || !handPrompt || !actionsPrompt || !doneBtn) return;
+  const topInstr    = document.getElementById("trainingInstruction");
+  const timerPrompt = document.getElementById("trainingTimerPrompt");
+  const doneBtn     = document.getElementById("trainingTimerDoneBtn");
+  if (!topInstr || !timerPrompt || !doneBtn) return;
 
-  // Reset visibility
+  // All phase prompts now share the slot below the timer.
   topInstr.classList.add("hidden");
   timerPrompt.classList.add("hidden");
-  handPrompt.classList.add("hidden");
-  actionsPrompt.classList.add("hidden");
+  timerPrompt.classList.remove("is-collapsed");
   doneBtn.classList.add("hidden");
 
-  // Collapse prompt slots in phases where they can't appear (frees vertical
-  // space; e.g. during creation the hand section has no prompts at all).
-  handPrompt.classList.toggle("is-collapsed", state.phase !== "dealing");
-  actionsPrompt.classList.toggle("is-collapsed", state.phase !== "actions");
-
   const userId = state.players[0].id;
+  let key = null;
+  let showDone = false;
 
   if (state.phase === "dealing") {
-    setI18nById("trainingHandPrompt", "trainingInstrDealing");
-    handPrompt.classList.remove("hidden");
+    key = "trainingInstrDealing";
   } else if (state.phase === "strategy") {
-    setI18nById("trainingTimerPrompt", "trainingInstrStrategy");
-    timerPrompt.classList.remove("hidden");
-    doneBtn.setAttribute("aria-label", shellTexts.trainingTimerDone || "");
-    doneBtn.classList.remove("hidden");
+    key = "trainingInstrStrategy";
+    showDone = true;
   } else if (state.phase === "creation") {
-    setI18nById("trainingTimerPrompt", "trainingInstrCreation");
-    timerPrompt.classList.remove("hidden");
-    doneBtn.setAttribute("aria-label", shellTexts.trainingTimerDone || "");
-    doneBtn.classList.remove("hidden");
+    // Strip label "TU PALABRA" is enough — collapse the timer prompt to
+    // free vertical space, but keep the Listo button visible.
+    timerPrompt.classList.add("is-collapsed");
+    showDone = true;
   } else if (state.phase === "actions"
       && state.actionsQueue?.[0] === userId
       && state.userActionIndex == null
       && !state.userActionResolved) {
-    setI18nById("trainingActionsPrompt", "trainingInstrUserTurn");
-    actionsPrompt.classList.remove("hidden");
+    key = "trainingInstrUserTurn";
   } else if (state.phase === "actions") {
-    setI18nById("trainingTimerPrompt", "trainingInstrActions");
-    timerPrompt.classList.remove("hidden");
+    key = "trainingInstrActions";
   } else if (state.phase === "result") {
-    setI18nById("trainingTimerPrompt", "trainingInstrResult");
+    key = "trainingInstrResult";
+  }
+
+  if (key) {
+    setI18nById("trainingTimerPrompt", key);
     timerPrompt.classList.remove("hidden");
+  }
+  if (showDone) {
+    doneBtn.setAttribute("aria-label", shellTexts.trainingTimerDone || "");
+    doneBtn.classList.remove("hidden");
   }
 }
 
@@ -8997,13 +9001,16 @@ function openTildeChoice(card, onPick) {
 
   const options = document.createElement("div");
   options.className = "training-tilde-options";
-  const tildedLetter = TILDE_FORMS[card.letter] || card.letter;
+  const tildedLetter = card.tildeForm || TILDE_FORMS[card.letter] || card.letter;
+  const isDiaeresis = card.tildeKind === "diaeresis";
+  const withKey    = isDiaeresis ? "trainingDiaeresisWithLabel"    : "trainingTildeWithLabel";
+  const withoutKey = isDiaeresis ? "trainingDiaeresisWithoutLabel" : "trainingTildeWithoutLabel";
 
   options.appendChild(
     buildTildeOption({
       letter: tildedLetter,
       value: card.tildeValue,
-      label: shellTexts.trainingTildeWithLabel || "",
+      label: shellTexts[withKey] || "",
       color: card.color,
       onClick: () => {
         document.body.removeChild(overlay);
@@ -9015,7 +9022,7 @@ function openTildeChoice(card, onPick) {
     buildTildeOption({
       letter: card.letter,
       value: card.value,
-      label: shellTexts.trainingTildeWithoutLabel || "",
+      label: shellTexts[withoutKey] || "",
       color: card.color,
       onClick: () => {
         document.body.removeChild(overlay);
@@ -9104,10 +9111,13 @@ function renderTrainingWordStrip(state) {
     if (slot.chosen) {
       displayLetter = slot.chosen;
     } else if (slot.tilde && card.tildeValue != null) {
-      displayLetter = TILDE_FORMS[card.letter] || card.letter;
+      displayLetter = card.tildeForm || TILDE_FORMS[card.letter] || card.letter;
     }
     const displayCard = { ...card, letter: displayLetter };
     const cardEl = renderLetterCard(displayCard);
+    if (slot.tilde && card.tildeValue != null) {
+      cardEl.classList.add("is-tilde-active");
+    }
     cardEl.classList.add("is-tappable");
     cardEl.addEventListener("click", (ev) => {
       ev.stopPropagation();
@@ -9246,16 +9256,28 @@ function renderLetterCard(card, opts = {}) {
   }
   if (card.isWildcard) {
     el.className = "tcard is-wildcard";
-    el.dataset.kind = card.isActionWildcard ? "action" : card.kind;
+    const kind = card.isActionWildcard ? "action" : card.kind;
+    el.dataset.kind = kind;
+    // Center: chosen letter if any, otherwise the wildcard star.
     const letter = document.createElement("span");
     letter.className = "tcard-letter";
-    // If a chosen letter was provided (in the word strip), show it instead of ★
     letter.textContent = card.letter && card.letter !== "*" ? card.letter : "★";
-    const badge = document.createElement("span");
-    badge.className = "tcard-wildcard-badge";
-    const k = el.dataset.kind;
-    badge.textContent = k === "vowel" ? "V" : k === "consonant" ? "C" : "+6";
-    el.append(letter, badge);
+    // Bottom-left: small wildcard star icon (always present on wildcards).
+    const star = document.createElement("span");
+    star.className = "tcard-wildcard-star";
+    star.textContent = "★";
+    // Bottom-right: value (0 for letter wildcards, +6 for action wildcard).
+    const value = document.createElement("span");
+    value.className = "tcard-value";
+    value.textContent = card.isActionWildcard ? "+6" : "0";
+    el.append(letter, star, value);
+    // Top-left: V or C tag, only on letter wildcards (not action).
+    if (kind === "vowel" || kind === "consonant") {
+      const tag = document.createElement("span");
+      tag.className = "tcard-kind-tag";
+      tag.textContent = kind === "vowel" ? "V" : "C";
+      el.appendChild(tag);
+    }
     return el;
   }
   el.className = "tcard";
@@ -9297,7 +9319,7 @@ function renderActionCard(card, opts = {}) {
   el.className = "tcard is-action";
   if (opts.selectable) el.classList.add("is-selectable");
   if (opts.selected)   el.classList.add("is-selected");
-  el.textContent = card.actionId.replace(/_/g, " ");
+  el.textContent = actionLabel(card.actionId);
   if (opts.onClick) {
     el.addEventListener("click", opts.onClick);
   }
@@ -9453,6 +9475,10 @@ function processNextActionsTurn() {
   showActionToast(s, planned.log);
   s = advanceActionsQueue(s);
   renderTrainingMatch();
+  if (maybeOfferEmergencyDraw(() => {
+    const cur = getTrainingMatch();
+    if (cur?.phase === "actions") scheduleActionsDriver();
+  })) return;
   if (s.phase === "actions") scheduleActionsDriver();
 }
 
@@ -9483,13 +9509,45 @@ function promptShield(opportunity, log) {
       showActionToast(s, log);
       s = advanceActionsQueue(s);
       renderTrainingMatch();
+      if (maybeOfferEmergencyDraw(() => {
+        const cur = getTrainingMatch();
+        if (cur?.phase === "actions") scheduleActionsDriver();
+      })) return;
       if (s.phase === "actions") scheduleActionsDriver();
     },
   });
 }
 
 function humanActionName(actionId) {
-  return actionId.replace(/_/g, " ").toUpperCase();
+  return actionLabel(actionId).toUpperCase();
+}
+
+function actionLabel(actionId) {
+  return shellTexts[`actName_${actionId}`] || actionId.replace(/_/g, " ");
+}
+
+// Manual rule: when the user's hand is emptied by ghost actions, they get
+// to draw 1 letter (vowel or consonant) before continuing. Returns true if
+// the prompt was shown (caller should pause its loop).
+function maybeOfferEmergencyDraw(onPicked) {
+  const state = getTrainingMatch();
+  if (!state) return false;
+  if (!userHandHasNoLetters(state)) return false;
+  actionsDriverBusy = true;
+  openTrainingPicker({
+    titleKey: "trainingEmergencyDrawTitle",
+    options: [
+      { id: "vowel",     label: shellTexts.trainingEmergencyDrawVowel || "V" },
+      { id: "consonant", label: shellTexts.trainingEmergencyDrawConsonant || "C" },
+    ],
+    onPick: (kind) => {
+      drawEmergencyLetter(getTrainingMatch(), kind);
+      actionsDriverBusy = false;
+      renderTrainingMatch();
+      if (typeof onPicked === "function") onPicked();
+    },
+  });
+  return true;
 }
 
 // ── 5s auto-select countdown when user's turn starts in actions phase ─
