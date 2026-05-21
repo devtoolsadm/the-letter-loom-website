@@ -1,7 +1,7 @@
 const CACHE_PREFIX = "letter-loom-cache";
 // Injected by CI (sed) at deploy time. In local dev this stays at whatever value was last committed,
 // so the SW cache version may lag behind version.local.js. Bypass the SW in DevTools during development.
-const APP_VERSION = "v1.0.822";
+const APP_VERSION = "v1.0.823";
 let cacheVersion = APP_VERSION;
 let CACHE_NAME = `${CACHE_PREFIX}-${cacheVersion}`;
 const BASE_PATH = self.location.pathname.replace(/\/[^/]*$/, "/");

@@ -10129,7 +10129,7 @@ if ("serviceWorker" in navigator) {
 function registerServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
   navigator.serviceWorker
-    .register("service-worker.js")
+    .register("service-worker.js", { updateViaCache: "none" })
     .then((registration) => {
       logger.debug("Service worker registered");
       if (navigator.onLine === true) {
@@ -10149,6 +10149,12 @@ function registerServiceWorker() {
             }
           }
         });
+      });
+      // Periodic update check (every 5 min) + on visibility (when user
+      // re-focuses the app after switching apps or unlocking the phone).
+      setInterval(() => registration.update().catch(() => {}), 5 * 60 * 1000);
+      document.addEventListener("visibilitychange", () => {
+        if (!document.hidden) registration.update().catch(() => {});
       });
     })
     .catch((err) => logger.error("Service worker registration failed", err));
