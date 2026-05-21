@@ -165,6 +165,7 @@
             </div>
             <div class="cta-stack">
               <button class="game-btn primary" id="splashContinueBtn"></button>
+              <button class="game-btn btn-cyan" id="splashTrainBtn"></button>
               <button class="game-btn ghost hidden" id="resumeMatchBtn"></button>
               <button class="game-btn btn-blue" id="installAppBtn"></button>
             </div>
@@ -603,6 +604,119 @@
             </div>
           </div>
           <button class="game-btn primary" id="startGameBtn"></button>
+        </div>
+
+        <div class="screen" id="screen-training-setup">
+          <div class="screen-topbar match-top-row">
+            <button class="icon-btn glossy btn-yellow" type="button" id="trainingBackBtn" aria-label="Back">
+              <span class="icon-btn-img icon-prev" aria-hidden="true"></span>
+            </button>
+            <div class="modal-ribbon topbar-title title-primary" id="trainingSetupTitle"></div>
+            <button class="icon-btn glossy btn-yellow" type="button" id="trainingSettingsBtn" aria-label="Settings">
+              <span class="icon-btn-img icon-settings" aria-hidden="true"></span>
+            </button>
+          </div>
+
+          <div class="training-picker">
+            <button class="training-card" type="button" id="trainingCardEasy" data-difficulty="easy">
+              <span class="training-card-badge" data-i18n="trainingDifficultyEasy"></span>
+              <span class="training-card-summary">
+                <span id="trainingCardEasyPlayers"></span>
+                <span class="training-card-sep">·</span>
+                <span class="training-card-clock" aria-hidden="true">⏱</span>
+                <span id="trainingCardEasyTimers"></span>
+              </span>
+              <span class="training-card-stat" id="trainingCardEasyStat"></span>
+            </button>
+            <button class="training-card" type="button" id="trainingCardNormal" data-difficulty="normal">
+              <span class="training-card-badge" data-i18n="trainingDifficultyNormal"></span>
+              <span class="training-card-summary">
+                <span id="trainingCardNormalPlayers"></span>
+                <span class="training-card-sep">·</span>
+                <span class="training-card-clock" aria-hidden="true">⏱</span>
+                <span id="trainingCardNormalTimers"></span>
+              </span>
+              <span class="training-card-stat" id="trainingCardNormalStat"></span>
+            </button>
+            <button class="training-card" type="button" id="trainingCardHard" data-difficulty="hard">
+              <span class="training-card-badge" data-i18n="trainingDifficultyHard"></span>
+              <span class="training-card-summary">
+                <span id="trainingCardHardPlayers"></span>
+                <span class="training-card-sep">·</span>
+                <span class="training-card-clock" aria-hidden="true">⏱</span>
+                <span id="trainingCardHardTimers"></span>
+              </span>
+              <span class="training-card-stat" id="trainingCardHardStat"></span>
+            </button>
+          </div>
+
+          <div class="training-rules-row">
+            <button class="icon-btn glossy btn-yellow match-rules-btn" type="button" id="trainingRulesBtn">
+              <span class="icon-btn-img icon-rules" aria-hidden="true"></span>
+              <span class="match-rules-btn-text" id="trainingRulesBtnText"></span>
+            </button>
+            <div class="match-start-hint hidden" id="trainingStartHint"></div>
+          </div>
+        </div>
+
+        <div class="screen" id="screen-training">
+          <div class="screen-topbar match-top-row">
+            <button class="icon-btn glossy btn-yellow" type="button" id="trainingMatchBackBtn" aria-label="Back">
+              <span class="icon-btn-img icon-prev" aria-hidden="true"></span>
+            </button>
+            <div class="modal-ribbon topbar-title title-primary" id="trainingMatchTitle"></div>
+            <button class="icon-btn glossy btn-yellow" type="button" id="trainingMatchExitBtn" aria-label="Exit">
+              <span class="icon-btn-img icon-exit" aria-hidden="true"></span>
+            </button>
+            <button class="icon-btn glossy btn-yellow" type="button" id="trainingMatchSettingsBtn" aria-label="Settings">
+              <span class="icon-btn-img icon-settings" aria-hidden="true"></span>
+            </button>
+          </div>
+
+          <div class="training-phase-flash hidden" id="trainingPhaseFlash"></div>
+
+          <div class="training-match">
+            <div class="training-round-info">
+              <span id="trainingRoundLabel"></span>
+              <span class="training-round-sep">·</span>
+              <span class="training-phase-label" id="trainingPhaseLabel"></span>
+            </div>
+
+            <div class="training-instruction" id="trainingInstruction"></div>
+
+            <div class="training-scoreboard" id="trainingScoreboard"></div>
+
+            <div class="training-timer">
+              <div class="match-timer training-match-timer" id="trainingMatchTimerCard">
+                <div class="match-timer-value" id="trainingTimerValue">--:--</div>
+              </div>
+              <button class="icon-btn glossy btn-red match-timer-btn match-timer-right training-timer-done hidden" type="button" id="trainingTimerDoneBtn" aria-label="">
+                <span class="icon-btn-img icon-finish" aria-hidden="true"></span>
+              </button>
+            </div>
+            <div class="training-prompt hidden" id="trainingTimerPrompt"></div>
+            <div class="training-action-bar-wrap hidden" id="trainingActionBarWrap">
+              <div class="training-action-bar" id="trainingActionBar"></div>
+            </div>
+
+            <div class="training-word-strip hidden" id="trainingWordStrip">
+              <div class="training-word-strip-label" id="trainingWordStripLabel"></div>
+              <div class="training-word-strip-cards" id="trainingWordStripCards"></div>
+            </div>
+
+            <div class="training-section is-board">
+              <div class="training-section-label" id="trainingBoardLabel"></div>
+              <div class="training-board" id="trainingBoard"></div>
+            </div>
+
+            <div class="training-section">
+              <div class="training-section-label" id="trainingHandLabel"></div>
+              <div class="training-prompt training-prompt-inline hidden" id="trainingHandPrompt"></div>
+              <div class="training-hand" id="trainingHand"></div>
+              <div class="training-prompt training-prompt-inline hidden" id="trainingActionsPrompt"></div>
+              <div class="training-actions-hand" id="trainingActionsHand"></div>
+            </div>
+          </div>
         </div>
 
         <div class="screen" id="screen-live">

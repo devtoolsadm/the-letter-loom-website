@@ -24,6 +24,149 @@ export const CREATION_TIMEUP_AUTO_ACTION_MS = 3000;
 export const MATCH_MODE_ROUNDS = "rounds";
 export const MATCH_MODE_POINTS = "points";
 
+// Match type identifiers
+export const MATCH_TYPE_SCOREBOARD = "scoreboard"; // physical game, app tracks scores
+export const MATCH_TYPE_TRAINING   = "training";   // solo training against simulated players
+
+// ── Training mode ────────────────────────────────────────────
+// Composition of decks. Values to be adjusted against the physical game.
+
+export const TRAINING_MIN_OPPONENTS = 1;
+export const TRAINING_MAX_OPPONENTS = 5;
+export const TRAINING_DEFAULT_OPPONENTS = 2;
+export const TRAINING_MIN_WORD_LETTERS = 2;
+export const TRAINING_HAND_LETTERS = 3;
+export const TRAINING_HAND_ACTIONS = 2;
+export const TRAINING_CENTRAL_BOARD_SIZE = 5;
+
+// Letter background colors (used for x2 same-color scoring). "none" is the
+// wildcard color (no x2 contribution). Order must match the column order
+// in VOWELS_RAW / CONSONANTS_RAW below.
+export const LETTER_COLORS = ["blue", "orange", "green", "purple"];
+const COLORS_ORDER = ["blue", "orange", "green", "purple"];
+
+// Compact data per letter: [letter, value, [blue, orange, green, purple], tildeValue?].
+// tildeValue: if present, this card has an extra higher score when the player
+// uses it in a tilde position (e.g. Á=10 vs A=2). The card still plays as the
+// base letter without tilde for its base value. Cards WITHOUT tildeValue can
+// be used in any position but always score the base value.
+const VOWELS_RAW = [
+  // letter, base value, color counts, tilde value (only on tilde-capable cards)
+  ["E",  2, [1, 2, 2, 2]],
+  ["E",  2, [1, 0, 0, 0], 10],  // Tilde-capable "Á/É/..." variant — only 1 (blue)
+  ["A",  2, [2, 1, 2, 2]],
+  ["A",  2, [0, 1, 0, 0], 10],  // 1 orange tilde-capable
+  ["O",  2, [2, 2, 1, 1]],
+  ["O",  2, [0, 0, 1, 0], 10],  // 1 green tilde-capable
+  ["I",  2, [1, 1, 1, 1]],
+  ["I",  2, [0, 0, 0, 1], 10],  // 1 purple tilde-capable
+  ["U",  4, [1, 1, 1, 0]],
+  ["U",  4, [0, 0, 0, 1], 14],  // 1 purple tilde-capable (Ú: 14)
+  ["U",  4, [0, 0, 0, 1], 14],  // 1 purple diéresis-capable (Ü: 14, same rule as Ú)
+];
+
+const CONSONANTS_RAW = [
+  ["S",   4, [2, 2, 1, 1]],
+  ["R",   4, [1, 1, 2, 2]],
+  ["N",   4, [2, 1, 2, 1]],
+  ["D",   4, [1, 1, 1, 2]],
+  ["L",   4, [1, 1, 1, 1]],
+  ["C",   4, [1, 1, 1, 1]],
+  ["T",   4, [1, 1, 1, 1]],
+  ["M",   4, [0, 1, 1, 1]],
+  ["P",   4, [1, 0, 1, 1]],
+  ["B",   6, [1, 1, 0, 1]],
+  ["G",   6, [1, 1, 1, 0]],
+  ["V",   8, [0, 1, 1, 1]],
+  ["Y",  10, [1, 0, 1, 1]],
+  ["QU", 12, [1, 1, 0, 1]],
+  ["H",   8, [1, 1, 1, 0]],
+  ["F",   8, [0, 1, 1, 1]],
+  ["Z",  10, [1, 1, 0, 0]],
+  ["J",   8, [0, 0, 1, 1]],
+  ["Ñ",  14, [1, 0, 1, 0]],
+  ["X",  12, [0, 1, 0, 1]],
+  ["K",  14, [1, 1, 0, 0]],
+  ["W",  14, [0, 0, 1, 1]],
+];
+
+function expandLetterDefs(defs) {
+  const out = [];
+  for (const row of defs) {
+    const [letter, value, counts, tildeValue] = row;
+    counts.forEach((count, idx) => {
+      if (count > 0) {
+        const entry = { letter, value, color: COLORS_ORDER[idx], count };
+        if (typeof tildeValue === "number") entry.tildeValue = tildeValue;
+        out.push(entry);
+      }
+    });
+  }
+  return out;
+}
+
+export const VOWEL_DECK_DEF = expandLetterDefs(VOWELS_RAW);
+export const CONSONANT_DECK_DEF = expandLetterDefs(CONSONANTS_RAW);
+
+// Wildcards: 2 vowel-wildcards, 2 consonant-wildcards (value 0, no color).
+export const TRAINING_VOWEL_WILDCARDS = 2;
+export const TRAINING_CONSONANT_WILDCARDS = 2;
+
+// Action card definitions. id = stable identifier used across state, analytics, etc.
+// kind: 'self_bonus' | 'board' | 'attack' | 'rule_force' | 'shield'
+// target: 'self' | 'one' | 'all'
+// count: number of copies of this card in the deck
+// inMVP: false → deferred (PALABRA EXTRA, INVENTA TU REGLA, UNA PARA TODOS)
+export const ACTION_CARDS = [
+  { id: "in_english",    kind: "rule_force", target: "self", count: 3, inMVP: false },
+  { id: "boost_total",   kind: "self_bonus", target: "self", count: 2, inMVP: true },
+  { id: "extra_card",    kind: "self_bonus", target: "self", count: 5, inMVP: true },
+  { id: "wildcard",      kind: "self_bonus", target: "self", count: 5, inMVP: true },
+  { id: "shield_total",  kind: "shield",     target: "self", count: 5, inMVP: true },
+  { id: "change_cards",  kind: "self_bonus", target: "self", count: 5, inMVP: true },
+  { id: "use_vowel",     kind: "rule_force", target: "all",  count: 2, inMVP: true },
+  { id: "use_consonant", kind: "rule_force", target: "all",  count: 2, inMVP: true },
+  { id: "use_letter",    kind: "rule_force", target: "all",  count: 1, inMVP: true },
+  { id: "two_to_center", kind: "board",      target: "all",  count: 4, inMVP: true },
+  { id: "out_one",       kind: "attack",     target: "all",  count: 3, inMVP: true },
+  { id: "great_heist",   kind: "attack",     target: "all",  count: 4, inMVP: true },
+  { id: "steal_letter",  kind: "attack",     target: "one",  count: 5, inMVP: true },
+  { id: "renew_board",   kind: "board",      target: "self", count: 3, inMVP: true },
+  { id: "swap_all",      kind: "attack",     target: "one",  count: 3, inMVP: true },
+  { id: "swap_one",      kind: "attack",     target: "one",  count: 4, inMVP: true },
+  { id: "solo_mia",      kind: "board",      target: "self", count: 4, inMVP: true },
+  { id: "one_for_all",   kind: "board",      target: "one",  count: 3, inMVP: true },
+  { id: "philologist",   kind: "rule_force", target: "one",  count: 3, inMVP: true },
+  { id: "brain_squeeze", kind: "rule_force", target: "one",  count: 3, inMVP: true },
+  { id: "explosion",     kind: "attack",     target: "one",  count: 2, inMVP: true },
+  { id: "discard_one",   kind: "attack",     target: "one",  count: 4, inMVP: true },
+];
+
+// Self-bonus point modifiers (applied before x2)
+export const ACTION_POINTS = {
+  in_english:  10,
+  boost_total: 6,
+  wildcard:    6,
+  explosion:  -4,
+};
+
+// Ghost score distribution by difficulty level.
+export const GHOST_SCORE_LEVELS = {
+  easy:   { mean:  6, stdDev: 4, invalidRate: 0.20 },
+  normal: { mean: 12, stdDev: 6, invalidRate: 0.10 },
+  hard:   { mean: 20, stdDev: 8, invalidRate: 0.05 },
+};
+export const GHOST_DEFAULT_LEVEL = "normal";
+
+// Full presets for the 3 difficulty levels (the only thing the user picks).
+// Adjust as we tune the game.
+export const TRAINING_DIFFICULTY_PRESETS = {
+  easy:   { opponents: 2, strategySeconds: 30, creationSeconds: 60, roundsTarget: 6, ghostLevel: "easy"   },
+  normal: { opponents: 3, strategySeconds: 20, creationSeconds: 40, roundsTarget: 6, ghostLevel: "normal" },
+  hard:   { opponents: 4, strategySeconds: 10, creationSeconds: 30, roundsTarget: 6, ghostLevel: "hard"   },
+};
+export const TRAINING_DIFFICULTIES = ["easy", "normal", "hard"];
+
 // Palette of player colors (string identifiers or hex values)
 const USE_VIVID_PLAYER_COLORS = true;
 

@@ -9,6 +9,7 @@ import {
   DEFAULT_POINTS_TARGET,
   MATCH_MODE_ROUNDS,
   MATCH_MODE_POINTS,
+  MATCH_TYPE_SCOREBOARD,
   PLAYER_COLORS,
   DEFAULT_PLAYER_COUNT,
 } from "./constants.js";
@@ -91,6 +92,7 @@ class MatchController {
       round: matchState.round ?? 1,
       phase: matchState.phase ?? "config",
       remaining: matchState.remaining ?? 0,
+      matchType: matchState.matchType ?? MATCH_TYPE_SCOREBOARD,
       mode: matchState.mode ?? (basePrefs.mode === MATCH_MODE_POINTS ? MATCH_MODE_POINTS : MATCH_MODE_ROUNDS),
       roundsTarget: matchState.roundsTarget ?? basePrefs.roundsTarget ?? DEFAULT_ROUNDS_TARGET,
       pointsTarget: matchState.pointsTarget ?? basePrefs.pointsTarget ?? DEFAULT_POINTS_TARGET,
@@ -140,6 +142,7 @@ class MatchController {
       round: 1,
       phase: "config",
       remaining: 0,
+      matchType: MATCH_TYPE_SCOREBOARD,
       mode: prefs.mode === MATCH_MODE_POINTS ? MATCH_MODE_POINTS : MATCH_MODE_ROUNDS,
       roundsTarget: prefs.roundsTarget ?? DEFAULT_ROUNDS_TARGET,
       pointsTarget: prefs.pointsTarget ?? DEFAULT_POINTS_TARGET,

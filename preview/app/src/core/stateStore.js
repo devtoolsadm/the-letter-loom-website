@@ -33,6 +33,12 @@ const defaultState = () => ({
     players: [],
   },
   matchState: null,
+  training: {
+    // Active training match (survives reloads). null when no match in progress.
+    active: null,
+    // Per-difficulty stats: { easy:{best,wins,played,streak}, normal:{...}, hard:{...} }
+    stats: {},
+  },
   meta: {
     lastUpdated: Date.now(),
   },
@@ -89,6 +95,14 @@ export function updateState(partial = {}) {
     gamePreferences: mergeShallow(current.gamePreferences, partial.gamePreferences || {}),
     matchState:
       partial.matchState !== undefined ? partial.matchState : current.matchState,
+    training: partial.training !== undefined
+      ? {
+          ...current.training,
+          ...partial.training,
+          stats: { ...(current.training?.stats || {}), ...(partial.training?.stats || {}) },
+          active: partial.training.active !== undefined ? partial.training.active : current.training?.active,
+        }
+      : current.training,
     meta: { ...current.meta, lastUpdated: Date.now() },
   };
   saveState(next);

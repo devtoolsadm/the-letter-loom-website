@@ -63,6 +63,7 @@ import {
   RECORD_AVG_PENALTY_MAX,
   WAKE_LOCK_TIMEOUT_MS,
   WAKE_LOCK_SUCCESS_DEBOUNCE_MS,
+  TRAINING_DIFFICULTY_PRESETS,
 } from "../../core/constants.js";
 import { matchController, validateWordRemote } from "../../core/matchController.js";
 import { openModal, closeModal, closeTopModal, closeAllModals } from "./modal.js";
@@ -73,6 +74,33 @@ import {
   isWakeLockActive,
 } from "../../core/wakeLockManager.js";
 import { loadState, updateState, clearState } from "../../core/stateStore.js";
+import {
+  createTrainingMatch,
+  getTrainingMatch,
+  clearTrainingMatch,
+  initializeRound,
+  revealLetterSlot,
+  tickStrategyTimer,
+  tickCreationTimer,
+  enterActionsPhase,
+  selectActionInStrategy,
+  saveTrainingMatch,
+  planGhostAction,
+  applyPlannedGhostAction,
+  useShieldOnAttack,
+  playUserAction,
+  advanceActionsQueue,
+  userHasShield,
+  isAttackOnUser,
+  isUserShieldPreSelected,
+  addToWord,
+  removeFromWord,
+  reorderWord,
+  toggleTildeInWord,
+  setWildcardLetterInWord,
+  submitUserWord,
+} from "../../core/trainingMatch.js";
+import { ACTION_CARDS } from "../../core/constants.js";
 import { APP_VERSION } from "../../core/version.js";
 import { logger, onLog, getLogs } from "../../core/logger.js";
 import { capture, flush, initAnon, initAuth, resetIdentity, identify } from "../../lib/analytics.js";
@@ -2794,7 +2822,15 @@ function renderShellTexts() {
   setI18nById("splashTitle", "splashTitle");
   setI18nById("splashSubtitle", "splashSubtitle");
   setI18nById("splashContinueBtn", "splashContinue");
+  setI18nById("splashTrainBtn", "splashTrain");
   setI18nById("resumeMatchBtn", "splashResume");
+  setI18nById("trainingSetupTitle", "trainingSetupTitle");
+  setI18nById("trainingRulesBtnText", "trainingRulesBtn");
+  setI18nById("trainingStartHint", "trainingComingSoon");
+  document.querySelectorAll("#screen-training-setup [data-i18n]").forEach((el) => {
+    const key = el.getAttribute("data-i18n");
+    if (key && shellTexts[key]) el.textContent = shellTexts[key];
+  });
   setI18nById("installAppBtn", "installButtonText");
   setI18nById("installRequiredTitle", "installRequiredTitle");
   setI18nById("installRequiredDescription", "installRequiredDescription");
@@ -3150,10 +3186,12 @@ function isAppInstalled() {
 function applyInstallGate() {
   const installed = isAppInstalled();
   const continueBtn = document.getElementById("splashContinueBtn");
+  const trainBtn = document.getElementById("splashTrainBtn");
   const resumeBtn = document.getElementById("resumeMatchBtn");
   const actions = document.querySelector(".splash-actions");
   const required = document.getElementById("installRequired");
   if (continueBtn) continueBtn.classList.toggle("hidden", !installed);
+  if (trainBtn) trainBtn.classList.toggle("hidden", !installed);
   if (resumeBtn && !installed) resumeBtn.classList.add("hidden");
   if (required) required.classList.toggle("hidden", installed);
   if (actions) {
@@ -3395,6 +3433,20 @@ function setupNavigation() {
       });
       if (!prompted) showScreen("match");
     }],
+    ["splashTrainBtn", () => {
+      playClickFeedback();
+      showScreen("training-setup");
+    }],
+    ["trainingBackBtn", () => showScreen("splash")],
+    ["trainingSettingsBtn", () => openSettingsModal()],
+    ["trainingCardEasy",   () => startTrainingMatch("easy")],
+    ["trainingCardNormal", () => startTrainingMatch("normal")],
+    ["trainingCardHard",   () => startTrainingMatch("hard")],
+    ["trainingRulesBtn",   () => openRulesModal()],
+    ["trainingMatchBackBtn",     () => confirmExitTrainingMatch()],
+    ["trainingMatchExitBtn",     () => confirmExitTrainingMatch()],
+    ["trainingMatchSettingsBtn", () => openSettingsModal()],
+    ["trainingTimerDoneBtn",     () => finishTrainingTimer()],
     ["resumeMatchBtn", () => showScreen("match")],
     ["splashHelpBtn", () => showScreen("help")],
     ["helpBtn", () => showScreen("help")],
@@ -8678,7 +8730,1066 @@ function handleConfirmCancel() {
   closeModal("confirm", { reason: "cancel" });
 }
 
+// ── Training mode picker ────────────────────────────────────
+// User picks one of three difficulty presets — no other config. Best score
+// per difficulty is tracked in stateStore.training.stats.
+
+function renderTrainingSetup() {
+  const state = loadState();
+  const stats = state.training?.stats || {};
+  for (const diff of ["easy", "normal", "hard"]) {
+    const preset = TRAINING_DIFFICULTY_PRESETS[diff];
+    const cap = diff[0].toUpperCase() + diff.slice(1);
+    setI18nById(`trainingCard${cap}Players`, "trainingCardPlayers", {
+      vars: { opponents: preset.opponents },
+    });
+    setI18nById(`trainingCard${cap}Timers`, "trainingCardTimers", {
+      vars: { strategy: preset.strategySeconds, creation: preset.creationSeconds },
+    });
+    const best = stats[diff]?.best;
+    const statEl = document.getElementById(`trainingCard${cap}Stat`);
+    if (best != null) {
+      setI18nById(`trainingCard${cap}Stat`, "trainingCardBest", { vars: { points: best } });
+      statEl?.classList.remove("hidden");
+    } else {
+      statEl?.classList.add("hidden");
+    }
+  }
+}
+
+function startTrainingMatch(difficulty) {
+  playClickFeedback();
+  const preset = TRAINING_DIFFICULTY_PRESETS[difficulty];
+  if (!preset) return;
+  const nickname = loadState().settings?.knownPlayerNames?.[0] || null;
+  const state = createTrainingMatch(difficulty, { userNickname: nickname });
+  logger.info("Training match created", { matchId: state.matchId, difficulty });
+  lastFlashedPhase = null;
+  showScreen("training");
+}
+
+// ── Training match rendering (Block 1: skeleton + placeholders) ──
+
+function renderTrainingMatch() {
+  let state = getTrainingMatch();
+  if (!state) {
+    showScreen("training-setup");
+    return;
+  }
+  // Deal central board + action cards on first render of a fresh round.
+  if (state.centralBoard.length === 0) {
+    state = initializeRound(state);
+  }
+
+  setI18nById("trainingMatchTitle", `trainingDifficulty${capitalizeStr(state.difficulty)}`);
+  setI18nById("trainingBoardLabel", "trainingBoardLabel");
+  setI18nById("trainingHandLabel", "trainingHandLabel");
+  setI18nById("trainingRoundLabel", "trainingRoundLabel", {
+    vars: { round: state.round, total: state.roundsTarget },
+  });
+  setI18nById("trainingPhaseLabel", `trainingPhase${capitalizeStr(state.phase)}`);
+  renderTrainingPrompt(state);
+
+  renderTrainingScoreboard(state);
+  renderTrainingWordStrip(state);
+  renderTrainingBoard(state);
+  renderTrainingHand(state);
+  renderTrainingActions(state);
+  renderTrainingTimer(state);
+  if (state.phase === "strategy" || state.phase === "creation") {
+    ensureTrainingTimer();
+  } else {
+    stopTrainingTimer();
+  }
+  const userId = state.players[0].id;
+  const isUserTurn = state.actionsQueue?.[0] === userId && state.userActionIndex == null;
+  if (state.phase === "actions" && (state.actionsQueue?.length ?? 0) > 0 && !isUserTurn
+      && !actionsDriverBusy && !actionsDriverTimeout) {
+    scheduleActionsDriver();
+  }
+  if (state.phase !== "actions") clearActionBanner();
+  maybeStartUserTurnTimer(state);
+  maybeShowPhaseFlash(state);
+}
+
+function capitalizeStr(s) {
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : "";
+}
+
+// Shows the contextual prompt above the row that needs the user's attention,
+// and hides the top instruction (or vice-versa for non-interactive phases).
+function renderTrainingPrompt(state) {
+  const topInstr      = document.getElementById("trainingInstruction");
+  const timerPrompt   = document.getElementById("trainingTimerPrompt");
+  const handPrompt    = document.getElementById("trainingHandPrompt");
+  const actionsPrompt = document.getElementById("trainingActionsPrompt");
+  const doneBtn       = document.getElementById("trainingTimerDoneBtn");
+  if (!topInstr || !timerPrompt || !handPrompt || !actionsPrompt || !doneBtn) return;
+
+  // Reset visibility
+  topInstr.classList.add("hidden");
+  timerPrompt.classList.add("hidden");
+  handPrompt.classList.add("hidden");
+  actionsPrompt.classList.add("hidden");
+  doneBtn.classList.add("hidden");
+
+  // Collapse prompt slots in phases where they can't appear (frees vertical
+  // space; e.g. during creation the hand section has no prompts at all).
+  handPrompt.classList.toggle("is-collapsed", state.phase !== "dealing");
+  actionsPrompt.classList.toggle("is-collapsed", state.phase !== "actions");
+
+  const userId = state.players[0].id;
+
+  if (state.phase === "dealing") {
+    setI18nById("trainingHandPrompt", "trainingInstrDealing");
+    handPrompt.classList.remove("hidden");
+  } else if (state.phase === "strategy") {
+    setI18nById("trainingTimerPrompt", "trainingInstrStrategy");
+    timerPrompt.classList.remove("hidden");
+    doneBtn.setAttribute("aria-label", shellTexts.trainingTimerDone || "");
+    doneBtn.classList.remove("hidden");
+  } else if (state.phase === "creation") {
+    setI18nById("trainingTimerPrompt", "trainingInstrCreation");
+    timerPrompt.classList.remove("hidden");
+    doneBtn.setAttribute("aria-label", shellTexts.trainingTimerDone || "");
+    doneBtn.classList.remove("hidden");
+  } else if (state.phase === "actions"
+      && state.actionsQueue?.[0] === userId
+      && state.userActionIndex == null
+      && !state.userActionResolved) {
+    setI18nById("trainingActionsPrompt", "trainingInstrUserTurn");
+    actionsPrompt.classList.remove("hidden");
+  } else if (state.phase === "actions") {
+    setI18nById("trainingTimerPrompt", "trainingInstrActions");
+    timerPrompt.classList.remove("hidden");
+  } else if (state.phase === "result") {
+    setI18nById("trainingTimerPrompt", "trainingInstrResult");
+    timerPrompt.classList.remove("hidden");
+  }
+}
+
+// Phase-transition flash banner. Triggered when entering strategy or creation.
+let lastFlashedPhase = null;
+function maybeShowPhaseFlash(state) {
+  const phase = state.phase;
+  if (phase === lastFlashedPhase) return;
+  if (phase === "strategy" || phase === "creation") {
+    const flash = document.getElementById("trainingPhaseFlash");
+    if (!flash) {
+      lastFlashedPhase = phase;
+      return;
+    }
+    const key = `trainingPhase${capitalizeStr(phase)}`;
+    flash.textContent = shellTexts[key] || phase.toUpperCase();
+    flash.classList.remove("hidden");
+    flash.style.animation = "none";
+    void flash.offsetWidth;
+    flash.style.animation = "";
+    clearTimeout(flash._hideTimer);
+    flash._hideTimer = setTimeout(() => {
+      flash.classList.add("hidden");
+    }, 1200);
+  }
+  lastFlashedPhase = phase;
+}
+
+function renderTrainingScoreboard(state) {
+  const root = document.getElementById("trainingScoreboard");
+  if (!root) return;
+  root.innerHTML = "";
+  for (const p of state.players) {
+    const pill = document.createElement("div");
+    pill.className = "training-score-pill" + (p.isGhost ? "" : " is-user");
+    pill.dataset.playerId = p.id;
+    const name = document.createElement("span");
+    name.className = "training-score-pill-name";
+    name.textContent = p.name;
+    const value = document.createElement("span");
+    value.className = "training-score-pill-value";
+    value.textContent = String(p.score);
+    pill.append(name, value);
+    root.appendChild(pill);
+  }
+  attachActionBubble();
+}
+
+function renderTrainingBoard(state) {
+  const root = document.getElementById("trainingBoard");
+  if (!root) return;
+  root.innerHTML = "";
+  const slots = state.centralBoard.length
+    ? state.centralBoard
+    : Array.from({ length: 5 }, () => null);
+  const isCreation = state.phase === "creation";
+  const wordIds = new Set((state.userWord ?? []).map((s) => s.cardId));
+  for (const card of slots) {
+    const el = renderLetterCard(card);
+    if (card && isCreation) attachCardSelectableBehavior(el, card, "board", wordIds.has(card.id));
+    root.appendChild(el);
+  }
+}
+
+function renderTrainingHand(state) {
+  const root = document.getElementById("trainingHand");
+  if (!root) return;
+  root.innerHTML = "";
+  const userHand = state.hands[state.players[0].id];
+  const letters = userHand && userHand !== "<hidden>" ? userHand.letters : [null, null, null];
+  const isDealing = state.phase === "dealing";
+  const isCreation = state.phase === "creation";
+  const wordIds = new Set((state.userWord ?? []).map((s) => s.cardId));
+  letters.forEach((card, idx) => {
+    if (!card && isDealing) {
+      root.appendChild(renderDealPickerCard(idx));
+    } else {
+      const el = renderLetterCard(card, { faceDown: isDealing });
+      if (card && isCreation) attachCardSelectableBehavior(el, card, "hand", wordIds.has(card.id));
+      root.appendChild(el);
+    }
+  });
+}
+
+function attachCardSelectableBehavior(el, card, source, isAlreadyInWord) {
+  if (isAlreadyInWord) {
+    el.classList.add("is-in-word");
+    return;
+  }
+  el.classList.add("is-tappable");
+  el.addEventListener("click", () => handleWordCardTap(card, source));
+}
+
+function handleWordCardTap(card, source) {
+  playClickFeedback();
+  const state = getTrainingMatch();
+  if (!state || state.phase !== "creation") return;
+  if (card.isWildcard) {
+    openTrainingPicker({
+      titleKey: "trainingPickWildcardTitle",
+      options: wildcardLetterOptions(card),
+      onPick: (letter) => {
+        addToWord(state, card.id, source, { chosenLetter: letter });
+        renderTrainingMatch();
+      },
+    });
+    return;
+  }
+  if (card.tildeValue != null) {
+    // Tilde-capable: ask whether to use it with or without tilde.
+    openTildeChoice(card, (withTilde) => {
+      addToWord(state, card.id, source, { tilde: withTilde });
+      renderTrainingMatch();
+    });
+    return;
+  }
+  addToWord(state, card.id, source);
+  renderTrainingMatch();
+}
+
+function openTildeChoice(card, onPick) {
+  const overlay = document.createElement("div");
+  overlay.className = "training-picker-overlay";
+  const cardEl = document.createElement("div");
+  cardEl.className = "training-picker-card";
+  const title = document.createElement("div");
+  title.className = "training-picker-title";
+  title.textContent = shellTexts.trainingTildeChoiceTitle || "";
+  cardEl.appendChild(title);
+
+  const options = document.createElement("div");
+  options.className = "training-tilde-options";
+  const tildedLetter = TILDE_FORMS[card.letter] || card.letter;
+
+  options.appendChild(
+    buildTildeOption({
+      letter: tildedLetter,
+      value: card.tildeValue,
+      label: shellTexts.trainingTildeWithLabel || "",
+      color: card.color,
+      onClick: () => {
+        document.body.removeChild(overlay);
+        onPick(true);
+      },
+    }),
+  );
+  options.appendChild(
+    buildTildeOption({
+      letter: card.letter,
+      value: card.value,
+      label: shellTexts.trainingTildeWithoutLabel || "",
+      color: card.color,
+      onClick: () => {
+        document.body.removeChild(overlay);
+        onPick(false);
+      },
+    }),
+  );
+
+  cardEl.appendChild(options);
+  overlay.appendChild(cardEl);
+  document.body.appendChild(overlay);
+}
+
+function buildTildeOption({ letter, value, label, color, onClick }) {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "training-tilde-option";
+  const cardFace = document.createElement("div");
+  cardFace.className = "tcard training-tilde-option-card";
+  cardFace.dataset.color = color || "none";
+  const letterSpan = document.createElement("span");
+  letterSpan.className = "tcard-letter";
+  letterSpan.textContent = letter;
+  const valueSpan = document.createElement("span");
+  valueSpan.className = "tcard-value";
+  valueSpan.textContent = String(value);
+  cardFace.append(letterSpan, valueSpan);
+  const labelEl = document.createElement("div");
+  labelEl.className = "training-tilde-option-label";
+  labelEl.textContent = label;
+  btn.append(cardFace, labelEl);
+  btn.addEventListener("click", onClick);
+  return btn;
+}
+
+const TILDE_FORMS = { A: "Á", E: "É", I: "Í", O: "Ó", U: "Ú" };
+const VOWEL_LETTERS = ["A", "E", "I", "O", "U"];
+const CONSONANT_LETTERS = [
+  "B","C","D","F","G","H","J","K","L","M","N","Ñ","P","Q","R","S","T","V","W","X","Y","Z",
+];
+function wildcardLetterOptions(card) {
+  // Action wildcard (gold) can stand for any letter; vowel/consonant wildcards
+  // are restricted to their kind.
+  let letters;
+  if (card.kind === "vowel") letters = VOWEL_LETTERS;
+  else if (card.kind === "consonant") letters = CONSONANT_LETTERS;
+  else letters = [...VOWEL_LETTERS, ...CONSONANT_LETTERS];
+  return letters.map((l) => ({ id: l, label: l }));
+}
+
+function renderTrainingWordStrip(state) {
+  const root = document.getElementById("trainingWordStrip");
+  const cardsRoot = document.getElementById("trainingWordStripCards");
+  const label = document.getElementById("trainingWordStripLabel");
+  if (!root || !cardsRoot || !label) return;
+  const visible = state.phase === "creation";
+  root.classList.toggle("hidden", !visible);
+  if (!visible) return;
+  setI18nById("trainingWordStripLabel", "trainingWordStripLabel");
+  cardsRoot.innerHTML = "";
+  const word = state.userWord ?? [];
+  if (word.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "training-word-strip-empty";
+    empty.textContent = shellTexts.trainingWordStripEmpty || "";
+    cardsRoot.appendChild(empty);
+    return;
+  }
+  const allCards = buildAllCardsIndex(state);
+  word.forEach((slot, idx) => {
+    const card = allCards.get(slot.cardId);
+    if (!card) return;
+    const wrapper = document.createElement("div");
+    wrapper.className = "training-word-slot";
+    wrapper.draggable = true;
+    wrapper.dataset.index = String(idx);
+    wrapper.addEventListener("dragstart", handleWordDragStart);
+    wrapper.addEventListener("dragover", handleWordDragOver);
+    wrapper.addEventListener("dragleave", handleWordDragLeave);
+    wrapper.addEventListener("drop", handleWordDrop);
+    wrapper.addEventListener("dragend", handleWordDragEnd);
+
+    // Render the underlying card with chosen letter (wildcards) or tilded
+    // form (when the tilde toggle is active for a tilde-capable card).
+    let displayLetter = card.letter;
+    if (slot.chosen) {
+      displayLetter = slot.chosen;
+    } else if (slot.tilde && card.tildeValue != null) {
+      displayLetter = TILDE_FORMS[card.letter] || card.letter;
+    }
+    const displayCard = { ...card, letter: displayLetter };
+    const cardEl = renderLetterCard(displayCard);
+    cardEl.classList.add("is-tappable");
+    cardEl.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      handleWordSlotTap(slot.cardId);
+    });
+    wrapper.appendChild(cardEl);
+    cardsRoot.appendChild(wrapper);
+  });
+}
+
+function buildAllCardsIndex(state) {
+  const map = new Map();
+  for (const c of state.centralBoard ?? []) map.set(c.id, c);
+  const userHand = state.hands?.[state.players[0].id];
+  if (userHand && userHand !== "<hidden>") {
+    for (const c of userHand.letters ?? []) if (c) map.set(c.id, c);
+  }
+  return map;
+}
+
+function handleWordSlotTap(cardId) {
+  playClickFeedback();
+  const state = getTrainingMatch();
+  if (!state || state.phase !== "creation") return;
+  removeFromWord(state, cardId);
+  renderTrainingMatch();
+}
+
+function handleWordSlotToggleTilde(cardId) {
+  playClickFeedback();
+  const state = getTrainingMatch();
+  if (!state || state.phase !== "creation") return;
+  toggleTildeInWord(state, cardId);
+  renderTrainingMatch();
+}
+
+let wordDragFromIndex = null;
+function handleWordDragStart(ev) {
+  wordDragFromIndex = Number(ev.currentTarget.dataset.index);
+  ev.currentTarget.classList.add("is-dragging");
+  if (ev.dataTransfer) {
+    ev.dataTransfer.effectAllowed = "move";
+    ev.dataTransfer.setData("text/plain", String(wordDragFromIndex));
+  }
+}
+function handleWordDragOver(ev) {
+  ev.preventDefault();
+  if (ev.dataTransfer) ev.dataTransfer.dropEffect = "move";
+  ev.currentTarget.classList.add("is-drop-target");
+}
+function handleWordDragLeave(ev) {
+  ev.currentTarget.classList.remove("is-drop-target");
+}
+function handleWordDrop(ev) {
+  ev.preventDefault();
+  ev.currentTarget.classList.remove("is-drop-target");
+  const toIdx = Number(ev.currentTarget.dataset.index);
+  const fromIdx = wordDragFromIndex;
+  if (fromIdx == null || fromIdx === toIdx) return;
+  const state = getTrainingMatch();
+  if (!state) return;
+  reorderWord(state, fromIdx, toIdx);
+  renderTrainingMatch();
+}
+function handleWordDragEnd(ev) {
+  ev.currentTarget.classList.remove("is-dragging");
+  wordDragFromIndex = null;
+}
+
+function renderDealPickerCard(slotIndex) {
+  const el = document.createElement("div");
+  el.className = "tcard is-deal-picker";
+  const vowelBtn = document.createElement("button");
+  vowelBtn.type = "button";
+  vowelBtn.className = "tcard-pick-half tcard-pick-vowel";
+  vowelBtn.textContent = "V";
+  vowelBtn.setAttribute("aria-label", "vocal");
+  vowelBtn.addEventListener("click", () => handleDealPick(slotIndex, "vowel"));
+  const consonantBtn = document.createElement("button");
+  consonantBtn.type = "button";
+  consonantBtn.className = "tcard-pick-half tcard-pick-consonant";
+  consonantBtn.textContent = "C";
+  consonantBtn.setAttribute("aria-label", "consonant");
+  consonantBtn.addEventListener("click", () => handleDealPick(slotIndex, "consonant"));
+  el.append(vowelBtn, consonantBtn);
+  return el;
+}
+
+function handleDealPick(slotIndex, kind) {
+  playClickFeedback();
+  const state = getTrainingMatch();
+  if (!state || state.phase !== "dealing") return;
+  revealLetterSlot(state, slotIndex, kind);
+  renderTrainingMatch();
+}
+
+function renderTrainingActions(state) {
+  const root = document.getElementById("trainingActionsHand");
+  if (!root) return;
+  root.innerHTML = "";
+  const userId = state.players[0].id;
+  const userHand = state.hands[userId];
+  const actions = userHand && userHand !== "<hidden>" ? userHand.actions : [null, null];
+  const isStrategy = state.phase === "strategy";
+  const isUserTurn = state.phase === "actions"
+    && (state.actionsQueue?.[0] === userId)
+    && state.userActionIndex == null;
+  const tappable = isStrategy || isUserTurn;
+  const isDealing = state.phase === "dealing";
+  actions.forEach((card, idx) => {
+    root.appendChild(
+      renderActionCard(card, {
+        selectable: tappable && !!card,
+        selected: false,
+        faceDown: isDealing,
+        onClick: tappable && card ? () => handleUserPickAction(idx) : null,
+      }),
+    );
+  });
+}
+
+function renderLetterCard(card, opts = {}) {
+  const el = document.createElement("div");
+  if (!card) {
+    el.className = "tcard is-empty";
+    const l = document.createElement("span");
+    l.className = "tcard-letter";
+    l.textContent = "?";
+    el.appendChild(l);
+    return el;
+  }
+  if (opts.faceDown) {
+    el.className = "tcard is-face-down " + (card.kind === "vowel" ? "back-vowel" : "back-consonant");
+    el.textContent = card.kind === "vowel" ? "V" : "C";
+    return el;
+  }
+  if (card.isWildcard) {
+    el.className = "tcard is-wildcard";
+    el.dataset.kind = card.isActionWildcard ? "action" : card.kind;
+    const letter = document.createElement("span");
+    letter.className = "tcard-letter";
+    // If a chosen letter was provided (in the word strip), show it instead of ★
+    letter.textContent = card.letter && card.letter !== "*" ? card.letter : "★";
+    const badge = document.createElement("span");
+    badge.className = "tcard-wildcard-badge";
+    const k = el.dataset.kind;
+    badge.textContent = k === "vowel" ? "V" : k === "consonant" ? "C" : "+6";
+    el.append(letter, badge);
+    return el;
+  }
+  el.className = "tcard";
+  el.dataset.color = card.color || "none";
+  const letter = document.createElement("span");
+  letter.className = "tcard-letter";
+  letter.textContent = card.letter;
+  if (card.tildeValue != null) {
+    // Tilde-capable card: two corner badges — tildeValue (left), base (right)
+    const tildeBadge = document.createElement("span");
+    tildeBadge.className = "tcard-value-tilde";
+    tildeBadge.textContent = String(card.tildeValue);
+    const baseBadge = document.createElement("span");
+    baseBadge.className = "tcard-value-base";
+    baseBadge.textContent = String(card.value);
+    el.append(letter, tildeBadge, baseBadge);
+  } else {
+    const value = document.createElement("span");
+    value.className = "tcard-value";
+    value.textContent = String(card.value ?? 0);
+    el.append(letter, value);
+  }
+  return el;
+}
+
+function renderActionCard(card, opts = {}) {
+  const el = document.createElement("div");
+  if (!card) {
+    el.className = "tcard is-action is-empty";
+    el.textContent = "?";
+    return el;
+  }
+  if (opts.faceDown) {
+    el.className = "tcard is-face-down back-action";
+    // U+26A1 + U+FE0E forces text-style rendering (uses CSS color, not emoji)
+    el.textContent = "⚡︎";
+    return el;
+  }
+  el.className = "tcard is-action";
+  if (opts.selectable) el.classList.add("is-selectable");
+  if (opts.selected)   el.classList.add("is-selected");
+  el.textContent = card.actionId.replace(/_/g, " ");
+  if (opts.onClick) {
+    el.addEventListener("click", opts.onClick);
+  }
+  return el;
+}
+
+function renderTrainingTimer(state) {
+  const el = document.getElementById("trainingTimerValue");
+  const card = document.getElementById("trainingMatchTimerCard");
+  if (!el) return;
+  const s = Math.max(0, state.remaining || 0);
+  const mm = String(Math.floor(s / 60)).padStart(2, "0");
+  const ss = String(s % 60).padStart(2, "0");
+  el.textContent = `${mm}:${ss}`;
+  if (card) {
+    const running = state.phase === "strategy" || state.phase === "creation";
+    card.classList.toggle("time-pressure", running && s <= LOW_TIME_THRESHOLD && s > 5);
+    card.classList.toggle("time-pressure-urgent", running && s <= 5 && s > 0);
+    card.classList.toggle("timeup", running && s === 0);
+  }
+}
+
+function exitTrainingMatch() {
+  stopTrainingTimer();
+  stopActionsDriver();
+  stopUserTurnTimer();
+  clearTrainingMatch();
+  showScreen("training-setup");
+}
+
+function finishTrainingTimer() {
+  playClickFeedback();
+  const state = getTrainingMatch();
+  if (!state) return;
+  if (state.phase === "strategy") {
+    stopTrainingTimer();
+    enterActionsPhase(state);
+    renderTrainingMatch();
+    return;
+  }
+  if (state.phase === "creation") {
+    stopTrainingTimer();
+    submitUserWord(state);
+    renderTrainingMatch();
+    return;
+  }
+}
+
+// ── Actions phase driver ───────────────────────────────────
+// Walks the actionsQueue, resolving one player per ~600ms tick. Ghost turns
+// auto-resolve; user turn pauses and waits for input. ESCUDO interrupt may
+// pop a modal mid-resolution.
+
+let actionsDriverTimeout = null;
+let actionsDriverBusy = false;
+
+function stopActionsDriver() {
+  if (actionsDriverTimeout) {
+    clearTimeout(actionsDriverTimeout);
+    actionsDriverTimeout = null;
+  }
+  actionsDriverBusy = false;
+}
+
+function scheduleActionsDriver(delay = 1800) {
+  stopActionsDriver();
+  actionsDriverTimeout = setTimeout(processNextActionsTurn, delay);
+}
+
+function processNextActionsTurn() {
+  actionsDriverTimeout = null;
+  if (actionsDriverBusy) return;
+  const state = getTrainingMatch();
+  if (!state || state.phase !== "actions") return;
+  const queue = state.actionsQueue ?? [];
+  if (queue.length === 0) {
+    renderTrainingMatch();
+    return;
+  }
+  const nextActorId = queue[0];
+  const userId = state.players[0].id;
+
+  if (nextActorId === userId) {
+    if (state.userActionResolved) {
+      // Already resolved (shield interrupt or pre-played). Skip turn.
+      const next = advanceActionsQueue(state);
+      renderTrainingMatch();
+      if (next.phase === "actions") scheduleActionsDriver();
+      return;
+    }
+    if (state.userActionIndex != null) {
+      // Pre-selected during strategy: play it now. If it needs a target or
+      // a board letter, ask the user at this moment (not when they picked
+      // the card during strategy).
+      const userHand = state.hands[userId];
+      const card = userHand !== "<hidden>" ? userHand?.actions?.[state.userActionIndex] : null;
+      if (!card) {
+        renderTrainingMatch();
+        return;
+      }
+      actionsDriverBusy = true;
+      pickTargetAndPayloadForUser(state, card, (targetId, payload) => {
+        actionsDriverBusy = false;
+        let s = playUserAction(getTrainingMatch(), state.userActionIndex, targetId, payload);
+        showActionToast(s, {
+          playerId: userId,
+          actionId: card.actionId,
+          targetId,
+          payload,
+        });
+        s = advanceActionsQueue(s);
+        renderTrainingMatch();
+        if (s.phase === "actions") scheduleActionsDriver();
+      });
+      return;
+    }
+    // Wait for user input (renderTrainingActions made action cards tappable).
+    renderTrainingMatch();
+    return;
+  }
+
+  // Ghost turn
+  const planned = planGhostAction(state, nextActorId);
+  if (!planned.log) {
+    advanceActionsQueue(planned.state);
+    renderTrainingMatch();
+    scheduleActionsDriver();
+    return;
+  }
+
+  saveTrainingMatch(planned.state);
+
+  // Auto-shield: user pre-selected ESCUDO TOTAL during strategy and a
+  // ghost just attacked. Block automatically without prompting.
+  if (planned.autoShield) {
+    let s = useShieldOnAttack(planned.state, planned.autoShield.source);
+    s = applyPlannedGhostAction(s, planned.log, { shielded: true });
+    showActionToast(s, planned.log, { blocked: true });
+    s = advanceActionsQueue(s);
+    renderTrainingMatch();
+    if (s.phase === "actions") scheduleActionsDriver();
+    return;
+  }
+
+  if (planned.shieldOpportunity) {
+    actionsDriverBusy = true;
+    promptShield(planned.shieldOpportunity, planned.log);
+    return;
+  }
+
+  // No shield prompt: apply and advance.
+  let s = applyPlannedGhostAction(planned.state, planned.log);
+  showActionToast(s, planned.log);
+  s = advanceActionsQueue(s);
+  renderTrainingMatch();
+  if (s.phase === "actions") scheduleActionsDriver();
+}
+
+function promptShield(opportunity, log) {
+  const sourcePlayer = (getTrainingMatch().players ?? []).find((p) => p.id === opportunity.source);
+  const sourceName = sourcePlayer?.name || opportunity.source;
+  const actionLabel = humanActionName(opportunity.card.actionId);
+  openConfirm({
+    title: "trainingShieldPromptTitle",
+    body: "trainingShieldPromptBody",
+    bodyVars: { source: sourceName, action: actionLabel },
+    acceptText: "optInConfirmActivate",
+    cancelText: "optInConfirmSkip",
+    onConfirm: () => {
+      actionsDriverBusy = false;
+      let s = getTrainingMatch();
+      s = useShieldOnAttack(s, opportunity.source);
+      s = applyPlannedGhostAction(s, log, { shielded: true });
+      showActionToast(s, log, { blocked: true });
+      s = advanceActionsQueue(s);
+      renderTrainingMatch();
+      if (s.phase === "actions") scheduleActionsDriver();
+    },
+    onCancel: () => {
+      actionsDriverBusy = false;
+      let s = getTrainingMatch();
+      s = applyPlannedGhostAction(s, log);
+      showActionToast(s, log);
+      s = advanceActionsQueue(s);
+      renderTrainingMatch();
+      if (s.phase === "actions") scheduleActionsDriver();
+    },
+  });
+}
+
+function humanActionName(actionId) {
+  return actionId.replace(/_/g, " ").toUpperCase();
+}
+
+// ── 5s auto-select countdown when user's turn starts in actions phase ─
+const USER_TURN_DURATION_MS = 5000;
+let userTurnTimerInterval = null;
+let userTurnRemainingMs = 0;
+
+function stopUserTurnTimer() {
+  if (userTurnTimerInterval) {
+    clearInterval(userTurnTimerInterval);
+    userTurnTimerInterval = null;
+  }
+  const wrap = document.getElementById("trainingActionBarWrap");
+  if (wrap) wrap.classList.add("hidden");
+}
+
+function startUserTurnTimer() {
+  stopUserTurnTimer();
+  userTurnRemainingMs = USER_TURN_DURATION_MS;
+  const wrap = document.getElementById("trainingActionBarWrap");
+  const bar = document.getElementById("trainingActionBar");
+  if (wrap) wrap.classList.remove("hidden");
+  if (bar) bar.style.width = "100%";
+  userTurnTimerInterval = setInterval(() => {
+    userTurnRemainingMs -= 100;
+    const pct = Math.max(0, (userTurnRemainingMs / USER_TURN_DURATION_MS) * 100);
+    const barEl = document.getElementById("trainingActionBar");
+    if (barEl) barEl.style.width = pct + "%";
+    if (userTurnRemainingMs <= 0) {
+      stopUserTurnTimer();
+      autoPickUserAction();
+    }
+  }, 100);
+}
+
+function maybeStartUserTurnTimer(state) {
+  const userId = state.players[0].id;
+  const isUserTurn = state.phase === "actions"
+    && state.actionsQueue?.[0] === userId
+    && state.userActionIndex == null
+    && !state.userActionResolved;
+  if (isUserTurn) {
+    if (!userTurnTimerInterval) startUserTurnTimer();
+  } else {
+    stopUserTurnTimer();
+  }
+}
+
+function autoPickUserAction() {
+  const state = getTrainingMatch();
+  if (!state || state.phase !== "actions") return;
+  const userId = state.players[0].id;
+  if (state.actionsQueue?.[0] !== userId) return;
+  if (state.userActionIndex != null || state.userActionResolved) return;
+  const hand = state.hands[userId];
+  if (!hand || hand === "<hidden>") return;
+  const firstIdx = hand.actions.findIndex((c) => c != null);
+  if (firstIdx < 0) return;
+  const card = hand.actions[firstIdx];
+
+  // Pick random target/payload as ghosts do when the action requires one.
+  let targetId = null;
+  let payload = {};
+  if (card.target === "one") {
+    const candidates = state.players.filter((p) => p.id !== userId);
+    if (candidates.length > 0) {
+      targetId = candidates[Math.floor(Math.random() * candidates.length)].id;
+    }
+  }
+  if (["use_vowel", "use_consonant", "use_letter"].includes(card.actionId)) {
+    const letters = (state.centralBoard ?? []).filter((c) => {
+      if (card.actionId === "use_vowel") return c.kind === "vowel";
+      if (card.actionId === "use_consonant") return c.kind === "consonant";
+      return true;
+    });
+    if (letters.length > 0) {
+      payload = { letter: letters[Math.floor(Math.random() * letters.length)].letter };
+    }
+  }
+
+  let s = playUserAction(state, firstIdx, targetId, payload);
+  showActionToast(s, { playerId: userId, actionId: card.actionId, targetId, payload });
+  s = advanceActionsQueue(s);
+  renderTrainingMatch();
+  if (s.phase === "actions") scheduleActionsDriver();
+}
+
+// ── User action selection ──────────────────────────────────
+// Strategy phase: pre-commit, close timer, enter actions phase. The action
+// auto-plays when the user's turn arrives (unless interrupted by ESCUDO).
+// Actions phase (user's turn): play immediately and advance the queue.
+function handleUserPickAction(actionIndex) {
+  playClickFeedback();
+  const state = getTrainingMatch();
+  if (!state) return;
+  const userId = state.players[0].id;
+  const card = state.hands[userId]?.actions?.[actionIndex];
+  if (!card) return;
+
+  if (state.phase === "strategy") {
+    // No target/payload picker here — that's resolved at the user's actual
+    // turn in the actions phase. The other action card is discarded.
+    stopTrainingTimer();
+    const after = selectActionInStrategy(state, actionIndex);
+    renderTrainingMatch();
+    if (after.phase === "actions") scheduleActionsDriver();
+    return;
+  }
+
+  if (state.phase === "actions" && state.actionsQueue?.[0] === userId && state.userActionIndex == null) {
+    pickTargetAndPayloadForUser(state, card, (targetId, payload) => {
+      let s = playUserAction(getTrainingMatch(), actionIndex, targetId, payload);
+      showActionToast(s, { playerId: userId, actionId: card.actionId, targetId, payload });
+      s = advanceActionsQueue(s);
+      renderTrainingMatch();
+      if (s.phase === "actions") scheduleActionsDriver();
+    });
+  }
+}
+
+function pickTargetAndPayloadForUser(state, card, done) {
+  // Player-target actions
+  if (card.target === "one") {
+    const candidates = state.players.filter((p) => p.id !== state.players[0].id);
+    openTrainingPicker({
+      titleKey: "trainingPickTargetTitle",
+      options: candidates.map((p) => ({ id: p.id, label: p.name })),
+      onPick: (targetId) => done(targetId, {}),
+    });
+    return;
+  }
+  // Letter payload for use_vowel / use_consonant / use_letter
+  if (["use_vowel", "use_consonant", "use_letter"].includes(card.actionId)) {
+    const letters = (state.centralBoard ?? []).filter((c) => {
+      if (card.actionId === "use_vowel") return c.kind === "vowel";
+      if (card.actionId === "use_consonant") return c.kind === "consonant";
+      return true;
+    });
+    openTrainingPicker({
+      titleKey: "trainingPickLetterTitle",
+      options: letters.map((c) => ({ id: c.id, label: c.letter })),
+      onPick: (id) => {
+        const lc = letters.find((c) => c.id === id);
+        done(null, { letter: lc?.letter });
+      },
+    });
+    return;
+  }
+  done(null, {});
+}
+
+// Simple picker modal — reuses openConfirm shape with custom buttons.
+function openTrainingPicker({ titleKey, options, onPick }) {
+  // Build an ad-hoc modal using DOM directly for flexibility.
+  const overlay = document.createElement("div");
+  overlay.className = "training-picker-overlay";
+  const card = document.createElement("div");
+  card.className = "training-picker-card";
+  const title = document.createElement("div");
+  title.className = "training-picker-title";
+  title.textContent = shellTexts[titleKey] || "";
+  card.appendChild(title);
+  const list = document.createElement("div");
+  list.className = "training-picker-options";
+  for (const opt of options) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "training-picker-option";
+    btn.textContent = opt.label;
+    btn.addEventListener("click", () => {
+      document.body.removeChild(overlay);
+      onPick(opt.id);
+    });
+    list.appendChild(btn);
+  }
+  card.appendChild(list);
+  overlay.appendChild(card);
+  document.body.appendChild(overlay);
+}
+
+// ── Action speech bubble (attached to acting player's pill) ─
+// State persists across re-renders; renderTrainingScoreboard re-attaches it.
+let currentActionBubble = null;
+let bubbleAutoHideTimeout = null;
+const BUBBLE_AUTOHIDE_MS = 2800;
+
+function showActionToast(state, log, opts = {}) {
+  if (!log) return;
+  if (bubbleAutoHideTimeout) clearTimeout(bubbleAutoHideTimeout);
+  currentActionBubble = {
+    playerId: log.playerId,
+    text: humanActionName(log.actionId),
+    blocked: !!opts.blocked,
+    isNew: true,
+  };
+  attachActionBubble();
+  bubbleAutoHideTimeout = setTimeout(() => {
+    clearActionBanner();
+  }, BUBBLE_AUTOHIDE_MS);
+}
+
+function clearActionBanner() {
+  if (bubbleAutoHideTimeout) {
+    clearTimeout(bubbleAutoHideTimeout);
+    bubbleAutoHideTimeout = null;
+  }
+  currentActionBubble = null;
+  document.querySelectorAll(".training-action-bubble").forEach((el) => el.remove());
+}
+
+function attachActionBubble() {
+  const existing = document.querySelector(".training-action-bubble");
+  if (!currentActionBubble) {
+    if (existing) existing.remove();
+    return;
+  }
+  const targetPill = document.querySelector(
+    `.training-score-pill[data-player-id="${currentActionBubble.playerId}"]`,
+  );
+  if (!targetPill) {
+    if (existing) existing.remove();
+    return;
+  }
+  const expectedKey =
+    `${currentActionBubble.playerId}|${currentActionBubble.text}|${currentActionBubble.blocked ? "1" : "0"}`;
+  // Already on the right pill with the right content → leave it (no flicker).
+  if (existing && existing.parentElement === targetPill && existing.dataset.key === expectedKey) {
+    return;
+  }
+  if (existing) existing.remove();
+  const bubble = document.createElement("div");
+  bubble.className = "training-action-bubble" + (currentActionBubble.blocked ? " is-blocked" : "");
+  bubble.dataset.key = expectedKey;
+  bubble.textContent = (currentActionBubble.blocked ? "🛡 " : "") + currentActionBubble.text;
+  if (!currentActionBubble.isNew) {
+    bubble.style.animation = "none";
+  }
+  currentActionBubble.isNew = false;
+  targetPill.appendChild(bubble);
+}
+
+function confirmExitTrainingMatch() {
+  playClickFeedback();
+  const state = getTrainingMatch();
+  // No active match, or match hasn't really started (no cards dealt yet) → exit directly.
+  if (!state || state.centralBoard.length === 0) {
+    exitTrainingMatch();
+    return;
+  }
+  openConfirm({
+    title: "trainingExitConfirmTitle",
+    body: "trainingExitConfirmBody",
+    acceptText: "confirmAccept",
+    cancelText: "cancel",
+    onConfirm: () => exitTrainingMatch(),
+  });
+}
+
+let trainingTimerInterval = null;
+
+function stopTrainingTimer() {
+  if (trainingTimerInterval) {
+    clearInterval(trainingTimerInterval);
+    trainingTimerInterval = null;
+  }
+}
+
+function ensureTrainingTimer() {
+  stopTrainingTimer();
+  const state = getTrainingMatch();
+  if (!state) return;
+  const phase = state.phase;
+  if (phase !== "strategy" && phase !== "creation") return;
+  trainingTimerInterval = setInterval(() => {
+    const current = getTrainingMatch();
+    if (!current || (current.phase !== "strategy" && current.phase !== "creation")) {
+      stopTrainingTimer();
+      return;
+    }
+    const next = current.phase === "strategy" ? tickStrategyTimer(current) : tickCreationTimer(current);
+    if (next.phase !== current.phase) {
+      saveTrainingMatch(next);
+      stopTrainingTimer();
+      renderTrainingMatch();
+      return;
+    }
+    saveTrainingMatch(next);
+    renderTrainingTimer(next);
+    if (next.remaining <= LOW_TIME_THRESHOLD && next.remaining > 0) {
+      playLowTimeTick();
+    }
+  }, 1000);
+}
+
 function showScreen(name) {
+  if (name !== "training") {
+    stopTrainingTimer();
+    stopActionsDriver();
+    stopUserTurnTimer();
+  }
   currentScreen = name;
   if (name !== "match") {
     matchConfigCustomizeOpen = false;
@@ -8722,6 +9833,10 @@ function showScreen(name) {
   }
   if (name === "match") {
     renderMatch();
+  } else if (name === "training-setup") {
+    renderTrainingSetup();
+  } else if (name === "training") {
+    renderTrainingMatch();
   } else if (name === "round-end") {
     renderRoundEndScreen();
   } else if (name === "scoreboard") {
@@ -10786,8 +11901,9 @@ function bootstrapInstallMode() {
   if (splashAssets.logoLoader) splashAssets.logoLoader().catch(() => {});
   if (splashAssets.backgroundLoader) splashAssets.backgroundLoader().catch(() => {});
 
-  // Only show install button + help message; hide play/resume/actions
+  // Only show install button + help message; hide play/train/resume/actions
   document.getElementById("splashContinueBtn")?.classList.add("hidden");
+  document.getElementById("splashTrainBtn")?.classList.add("hidden");
   document.getElementById("resumeMatchBtn")?.classList.add("hidden");
   document.getElementById("installRequired")?.classList.remove("hidden");
   const actions = document.querySelector(".splash-actions");
