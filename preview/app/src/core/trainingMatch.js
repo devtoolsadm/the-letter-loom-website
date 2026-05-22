@@ -8,17 +8,26 @@ import {
   TRAINING_DIFFICULTY_PRESETS,
   TRAINING_HAND_LETTERS,
   TRAINING_HAND_ACTIONS,
+  TRAINING_MIN_WORD_LETTERS,
   MATCH_TYPE_TRAINING,
 } from "./constants.js";
+import {
+  buildWordFromCards,
+  usesAtLeastOneFromBoardAndHand,
+  validateForcedRules,
+  computeWordScore,
+} from "./wordRules.js";
 import {
   buildInitialDecks,
   dealCentralBoard,
   drawActions,
   drawLetterOfKind,
+  discardAllForNewTrick,
 } from "./trainingDeck.js";
 import { applyActionEffect } from "./actionEffects.js";
 import {
   generateGhostScore,
+  generateGhostScores,
   pickRandomTarget,
   pickRandomBoardCardId,
   pickGhostActionIndex,
@@ -565,7 +574,111 @@ export function tickCreationTimer(state) {
 }
 
 export function submitUserWord(state) {
-  const next = { ...state, phase: "result", remaining: 0, updatedAt: Date.now() };
+  return finalizeUserWord(state);
+}
+
+// Validate the user's word locally (no AI yet), compute its score and
+// transition to the result phase. Sets `userWordResult` with the outcome.
+export function finalizeUserWord(state, language = "es") {
+  const userId = state.players[0].id;
+  const hand = state.hands[userId];
+  const handLetters = hand && hand !== "<hidden>" ? hand.letters ?? [] : [];
+
+  const cardIndex = new Map();
+  for (const c of state.centralBoard ?? []) if (c) cardIndex.set(c.id, c);
+  for (const c of handLetters) if (c) cardIndex.set(c.id, c);
+
+  const selectedCards = (state.userWord ?? [])
+    .map((slot) => {
+      const card = cardIndex.get(slot.cardId);
+      if (!card) return null;
+      return {
+        ...card,
+        usingTilde: !!(slot.tilde && card.tildeValue != null),
+        tildeChar: card.tildeForm,
+        chosenLetter: slot.chosen,
+      };
+    })
+    .filter(Boolean);
+
+  const boardIds = new Set((state.centralBoard ?? []).map((c) => c.id));
+  const handLetterIds = new Set(handLetters.filter(Boolean).map((c) => c.id));
+  const wordStr = buildWordFromCards(selectedCards);
+  const forcedEffects = state.forcedRules?.[userId] ?? [];
+
+  let valid = true;
+  let reason = null;
+  let violations = [];
+
+  if (selectedCards.length < TRAINING_MIN_WORD_LETTERS) {
+    valid = false;
+    reason = "too_short";
+  } else if (!usesAtLeastOneFromBoardAndHand(selectedCards, boardIds, handLetterIds)) {
+    valid = false;
+    reason = "missing_source";
+  } else {
+    const forcedCheck = validateForcedRules({
+      word: wordStr,
+      selectedCards,
+      effects: forcedEffects,
+      lang: language,
+    });
+    if (!forcedCheck.ok) {
+      valid = false;
+      reason = "forced_rule";
+      violations = forcedCheck.violations;
+    }
+  }
+
+  let score = 0;
+  if (valid) {
+    const allUserLetters = handLetters.filter(Boolean).map((c) => c.id);
+    const allBoardLetters = (state.centralBoard ?? []).map((c) => c.id);
+    const plusMinus = state.scoreModifiers?.[userId] ?? 0;
+    score = computeWordScore({
+      selectedCards,
+      allUserLetters,
+      allBoardLetters,
+      plusMinus,
+    });
+  }
+
+  // Persist round entries: user gets validated score, ghosts get generated scores.
+  const ghostScoreList = generateGhostScores(
+    state.players.filter((p) => p.isGhost).length,
+    state.ghostLevel,
+  );
+  let ghostIdx = 0;
+  const players = state.players.map((p) => {
+    if (!p.isGhost) {
+      const newRounds = [
+        ...(p.rounds ?? []),
+        { round: state.round, points: score, tieBreak: false },
+      ];
+      return { ...p, rounds: newRounds, score: (p.score ?? 0) + score };
+    }
+    const gScore = ghostScoreList[ghostIdx++] ?? 0;
+    const newRounds = [
+      ...(p.rounds ?? []),
+      { round: state.round, points: gScore },
+    ];
+    return { ...p, rounds: newRounds, score: (p.score ?? 0) + gScore };
+  });
+
+  const next = {
+    ...state,
+    players,
+    phase: "result",
+    remaining: 0,
+    userWordResult: {
+      word: wordStr,
+      valid,
+      reason,
+      violations,
+      score,
+    },
+    updatedAt: Date.now(),
+  };
   saveTrainingMatch(next);
   return next;
 }
@@ -606,4 +719,72 @@ export function revealLetterSlot(state, slotIndex, kind) {
   };
   saveTrainingMatch(next);
   return next;
+}
+
+// Discard all trick cards, reset per-baza state, advance the round counter.
+// If the last baza was just played → phase "done". Otherwise → phase "dealing".
+export function advanceToNextBaza(state) {
+  const deckResult = discardAllForNewTrick({
+    vowelDeck: state.decks.vowelDeck,
+    consonantDeck: state.decks.consonantDeck,
+    actionDeck: state.decks.actionDeck,
+    discards: state.discards,
+    hands: state.hands,
+    centralBoard: state.centralBoard,
+  });
+
+  const nextRound = (state.round ?? 1) + 1;
+  const isMatchOver = nextRound > (state.roundsTarget ?? 1);
+
+  const players = state.players;
+  const dealerIdx = players.findIndex((p) => p.id === state.dealerId);
+  const nextDealerId = players[(dealerIdx >= 0 ? dealerIdx + 1 : 1) % players.length].id;
+
+  const newHands = {};
+  for (const p of players) {
+    newHands[p.id] = p.isGhost
+      ? "<hidden>"
+      : {
+          letters: Array.from({ length: TRAINING_HAND_LETTERS }, () => null),
+          actions: Array.from({ length: TRAINING_HAND_ACTIONS }, () => null),
+        };
+  }
+
+  const next = {
+    ...state,
+    decks: {
+      vowelDeck: deckResult.vowelDeck,
+      consonantDeck: deckResult.consonantDeck,
+      actionDeck: deckResult.actionDeck,
+    },
+    discards: deckResult.discards,
+    hands: newHands,
+    centralBoard: [],
+    round: isMatchOver ? state.round : nextRound,
+    phase: isMatchOver ? "done" : "dealing",
+    remaining: 0,
+    dealerId: nextDealerId,
+    trickActions: [],
+    pendingEffectsOnUser: [],
+    forcedRules: {},
+    scoreModifiers: {},
+    userWord: [],
+    userWordResult: null,
+    actionsQueue: [],
+    actionsLog: [],
+    userActionIndex: null,
+    userActionTarget: null,
+    userActionPayload: null,
+    userActionResolved: false,
+    matchOver: isMatchOver,
+    winnerIds: isMatchOver ? computeWinnerIds(players) : [],
+    updatedAt: Date.now(),
+  };
+  saveTrainingMatch(next);
+  return next;
+}
+
+function computeWinnerIds(players) {
+  const maxScore = Math.max(...players.map((p) => p.score ?? 0));
+  return players.filter((p) => (p.score ?? 0) === maxScore).map((p) => p.id);
 }

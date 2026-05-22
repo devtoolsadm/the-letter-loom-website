@@ -187,10 +187,12 @@ export function discardAllForNewTrick({ vowelDeck, consonantDeck, actionDeck, di
     const h = hands[playerId];
     if (!h || h === "<hidden>") continue;
     for (const card of h.letters ?? []) {
+      if (!card) continue;
       if (card.kind === "vowel") newDiscards.vowels.push(card);
       else newDiscards.consonants.push(card);
     }
     for (const card of h.actions ?? []) {
+      if (!card) continue;
       newDiscards.actions.push(card);
     }
   }

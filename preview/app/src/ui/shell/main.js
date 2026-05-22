@@ -95,12 +95,14 @@ import {
   isUserShieldPreSelected,
   drawEmergencyLetter,
   userHandHasNoLetters,
+  finalizeUserWord,
   addToWord,
   removeFromWord,
   reorderWord,
   toggleTildeInWord,
   setWildcardLetterInWord,
   submitUserWord,
+  advanceToNextBaza,
 } from "../../core/trainingMatch.js";
 import { ACTION_CARDS } from "../../core/constants.js";
 import { APP_VERSION } from "../../core/version.js";
@@ -8793,11 +8795,19 @@ function renderTrainingMatch() {
   renderTrainingPrompt(state);
 
   renderTrainingScoreboard(state);
+  renderTrainingForcedRules(state);
   renderTrainingWordStrip(state);
   renderTrainingBoard(state);
   renderTrainingHand(state);
   renderTrainingActions(state);
   renderTrainingTimer(state);
+  renderTrainingResult(state);
+  const isResultOrDone = state.phase === "result" || state.phase === "done";
+  // During result/done: hide the game content sections so the result panel can expand.
+  [".training-section.is-board", ".training-section:not(.is-board)"].forEach((sel) => {
+    const el = document.querySelector(sel);
+    if (el) el.classList.toggle("hidden", isResultOrDone);
+  });
   if (state.phase === "strategy" || state.phase === "creation") {
     ensureTrainingTimer();
   } else {
@@ -8926,11 +8936,57 @@ function renderTrainingBoard(state) {
     : Array.from({ length: 5 }, () => null);
   const isCreation = state.phase === "creation";
   const wordIds = new Set((state.userWord ?? []).map((s) => s.cardId));
+  const requiredLetters = collectRequiredLetters(state);
   for (const card of slots) {
     const el = renderLetterCard(card);
+    if (card && requiredLetters.has(card.letter)) {
+      el.classList.add("is-required-letter");
+    }
     if (card && isCreation) attachCardSelectableBehavior(el, card, "board", wordIds.has(card.id));
     root.appendChild(el);
   }
+}
+
+function collectRequiredLetters(state) {
+  const userId = state.players[0].id;
+  const effects = state.forcedRules?.[userId] ?? [];
+  const letters = new Set();
+  for (const e of effects) {
+    if (["use_vowel", "use_consonant", "use_letter"].includes(e.actionId)) {
+      if (e.payload?.letter) letters.add(e.payload.letter);
+    }
+  }
+  return letters;
+}
+
+function renderTrainingForcedRules(state) {
+  const root = document.getElementById("trainingForcedRules");
+  if (!root) return;
+  root.innerHTML = "";
+  const userId = state.players[0].id;
+  const effects = state.forcedRules?.[userId] ?? [];
+  if (effects.length === 0 || (state.phase !== "creation" && state.phase !== "strategy")) {
+    root.classList.add("hidden");
+    return;
+  }
+  for (const e of effects) {
+    const chip = document.createElement("div");
+    chip.className = "training-forced-chip";
+    let text = "";
+    if (e.actionId === "philologist") {
+      text = shellTexts.trainingForcedTilde || "";
+    } else if (e.actionId === "brain_squeeze") {
+      text = shellTexts.trainingForcedSyllables || "";
+    } else if (["use_vowel", "use_consonant", "use_letter"].includes(e.actionId)) {
+      const tpl = shellTexts.trainingForcedUseLetter || "Usa {letter}";
+      text = tpl.replace("{letter}", e.payload?.letter || "?");
+    } else {
+      continue;
+    }
+    chip.textContent = text;
+    root.appendChild(chip);
+  }
+  root.classList.toggle("hidden", root.children.length === 0);
 }
 
 function renderTrainingHand(state) {
@@ -9342,6 +9398,132 @@ function renderTrainingTimer(state) {
   }
 }
 
+function renderTrainingResult(state) {
+  const panel = document.getElementById("trainingResultPanel");
+  if (!panel) return;
+  const isResult = state.phase === "result";
+  const isDone   = state.phase === "done";
+  if (!isResult && !isDone) {
+    panel.classList.add("hidden");
+    return;
+  }
+  panel.classList.remove("hidden");
+  panel.innerHTML = "";
+
+  if (isDone) {
+    // Match-over screen inside the result panel.
+    const title = document.createElement("div");
+    title.className = "training-result-done-title";
+    title.textContent = shellTexts.trainingMatchDoneTitle || "¡Fin!";
+    panel.appendChild(title);
+  }
+
+  const result = state.userWordResult;
+
+  if (result) {
+    // Validity badge.
+    const validityRow = document.createElement("div");
+    validityRow.className = "training-result-validity";
+    const badge = document.createElement("div");
+    badge.className = "training-result-badge " + (result.valid ? "is-valid" : "is-invalid");
+    badge.textContent = result.valid
+      ? (shellTexts.trainingResultValidWord || "✓ Válida")
+      : (shellTexts.trainingResultInvalidWord || "✗ No válida");
+    validityRow.appendChild(badge);
+    panel.appendChild(validityRow);
+
+    // The word itself.
+    const wordEl = document.createElement("div");
+    wordEl.className = "training-result-word" + (result.valid ? "" : " is-invalid");
+    wordEl.textContent = result.word || "—";
+    panel.appendChild(wordEl);
+
+    // Reason for invalid.
+    if (!result.valid && result.reason) {
+      const reasonEl = document.createElement("div");
+      reasonEl.className = "training-result-reason";
+      const reasonKey = {
+        too_short: "trainingResultReasonTooShort",
+        missing_source: "trainingResultReasonSource",
+        forced_rule: "trainingResultReasonForcedRule",
+      }[result.reason];
+      reasonEl.textContent = (reasonKey ? shellTexts[reasonKey] : result.reason) || result.reason;
+      panel.appendChild(reasonEl);
+    }
+  }
+
+  // Scores table.
+  const currentRound = isDone ? state.round : state.round;
+  const table = document.createElement("table");
+  table.className = "training-result-table";
+  const thead = document.createElement("thead");
+  const headerRow = document.createElement("tr");
+  ["", shellTexts.trainingResultThisRound || "Esta baza", shellTexts.trainingResultTotal || "Total"].forEach((text, i) => {
+    const th = document.createElement("th");
+    th.textContent = text;
+    if (i > 0) th.className = i === 1 ? "col-round" : "col-total";
+    headerRow.appendChild(th);
+  });
+  thead.appendChild(headerRow);
+  table.appendChild(thead);
+
+  const tbody = document.createElement("tbody");
+  for (const p of state.players) {
+    const roundEntry = (p.rounds ?? []).find((r) => r.round === currentRound);
+    const roundPts = roundEntry != null ? roundEntry.points : "—";
+    const tr = document.createElement("tr");
+    if (!p.isGhost) tr.classList.add("is-user");
+    const nameTd = document.createElement("td");
+    nameTd.textContent = p.name;
+    const roundTd = document.createElement("td");
+    roundTd.className = "col-round";
+    roundTd.textContent = typeof roundPts === "number" ? String(roundPts) : roundPts;
+    const totalTd = document.createElement("td");
+    totalTd.className = "col-total";
+    totalTd.textContent = String(p.score ?? 0);
+    tr.append(nameTd, roundTd, totalTd);
+    tbody.appendChild(tr);
+  }
+  table.appendChild(tbody);
+  panel.appendChild(table);
+
+  // Action button(s).
+  const actionsDiv = document.createElement("div");
+  actionsDiv.className = "training-result-actions";
+
+  if (isDone) {
+    const playAgainBtn = document.createElement("button");
+    playAgainBtn.type = "button";
+    playAgainBtn.className = "training-result-btn is-play-again";
+    playAgainBtn.textContent = shellTexts.trainingMatchPlayAgain || "Jugar otra";
+    playAgainBtn.addEventListener("click", handleTrainingPlayAgain);
+    actionsDiv.appendChild(playAgainBtn);
+  } else {
+    const nextBtn = document.createElement("button");
+    nextBtn.type = "button";
+    nextBtn.className = "training-result-btn";
+    nextBtn.textContent = shellTexts.trainingNextBaza || "Siguiente baza";
+    nextBtn.addEventListener("click", handleNextBaza);
+    actionsDiv.appendChild(nextBtn);
+  }
+  panel.appendChild(actionsDiv);
+}
+
+function handleNextBaza() {
+  playClickFeedback();
+  const state = getTrainingMatch();
+  if (!state || state.phase !== "result") return;
+  advanceToNextBaza(state);
+  lastFlashedPhase = null; // allow phase flash for new baza
+  renderTrainingMatch();
+}
+
+function handleTrainingPlayAgain() {
+  playClickFeedback();
+  clearTrainingMatch();
+  showScreen("training-setup");
+}
+
 function exitTrainingMatch() {
   stopTrainingTimer();
   stopActionsDriver();
@@ -9362,7 +9544,7 @@ function finishTrainingTimer() {
   }
   if (state.phase === "creation") {
     stopTrainingTimer();
-    submitUserWord(state);
+    finalizeUserWord(state, shellLanguage);
     renderTrainingMatch();
     return;
   }
@@ -9827,7 +10009,17 @@ function ensureTrainingTimer() {
       stopTrainingTimer();
       return;
     }
-    const next = current.phase === "strategy" ? tickStrategyTimer(current) : tickCreationTimer(current);
+    let next;
+    if (current.phase === "strategy") {
+      next = tickStrategyTimer(current);
+    } else {
+      // Creation phase: tick; if timer ran out, finalize the word with
+      // validation/score and transition to result.
+      next = tickCreationTimer(current);
+      if (current.phase === "creation" && next.phase === "result") {
+        next = finalizeUserWord(current, shellLanguage);
+      }
+    }
     if (next.phase !== current.phase) {
       saveTrainingMatch(next);
       stopTrainingTimer();
