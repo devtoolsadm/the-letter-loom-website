@@ -1,7 +1,7 @@
 const CACHE_PREFIX = "letter-loom-cache";
 // Injected by CI (sed) at deploy time. In local dev this stays at whatever value was last committed,
 // so the SW cache version may lag behind version.local.js. Bypass the SW in DevTools during development.
-const APP_VERSION = "v1.0.857";
+const APP_VERSION = "v1.0.858";
 let cacheVersion = APP_VERSION;
 let CACHE_NAME = `${CACHE_PREFIX}-${cacheVersion}`;
 const BASE_PATH = self.location.pathname.replace(/\/[^/]*$/, "/");
@@ -349,17 +349,8 @@ async function matchAppShell() {
       if (hit) return hit;
     }
   } catch {}
-  try {
-    const keys = await caches.keys();
-    for (const key of keys) {
-      if (key === CACHE_NAME) continue;
-      const cache = await caches.open(key);
-      for (const url of candidates) {
-        const hit = await cache.match(url, { ignoreSearch: true });
-        if (hit) return hit;
-      }
-    }
-  } catch {}
+  // Do NOT fall back to other (old) caches — returning stale content from a
+  // previous-version cache defeats the whole update mechanism.
   return null;
 }
 
@@ -388,26 +379,19 @@ function logSw(level, message, context) {
 }
 
 async function resolveCacheVersion() {
+  // Only resume a cache that belongs to THIS SW's own APP_VERSION.
+  // If we find a cache from an older version we must NOT inherit it —
+  // doing so would cause the new SW to fill and activate the old cache,
+  // serving stale assets until the user clears storage.
   try {
+    const ownCache = `${CACHE_PREFIX}-${APP_VERSION}`;
     const keys = await caches.keys();
-    const candidates = keys.filter((key) => key.startsWith(`${CACHE_PREFIX}-`));
-    if (!candidates.length) return;
-    for (const key of candidates) {
-      const cache = await caches.open(key);
-      const cached = await cache.match(new Request(VERSION_JS));
-      if (!cached) continue;
-      const text = await cached.text();
-      const match = text.match(/APP_VERSION\s*=\s*"([^"]+)"/);
-      if (match && match[1]) {
-        cacheVersion = match[1];
-        CACHE_NAME = `${CACHE_PREFIX}-${cacheVersion}`;
-        logSw("debug", `Cache version resolved from cache: ${CACHE_NAME}`);
-        return;
-      }
-      CACHE_NAME = key;
-      logSw("debug", `Cache version resolved from cache key: ${CACHE_NAME}`);
-      return;
+    if (keys.includes(ownCache)) {
+      cacheVersion = APP_VERSION;
+      CACHE_NAME = ownCache;
+      logSw("debug", `Resumed own cache: ${CACHE_NAME}`);
     }
+    // No matching cache → keep the module-level defaults (already set to APP_VERSION).
   } catch (err) {
     logSw("warn", "Could not resolve cache version from cache; using default", err);
   }
