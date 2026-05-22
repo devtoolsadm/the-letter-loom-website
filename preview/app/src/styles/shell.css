@@ -2639,9 +2639,9 @@ body.splash-ready #splashLoadingBlock {
 .training-action-bar-wrap {
   width: 100%;
   max-width: 220px;
-  height: 6px;
-  background: rgba(0, 0, 0, 0.18);
-  border-radius: 3px;
+  height: 10px;
+  background: rgba(0, 0, 0, 0.28);
+  border-radius: 6px;
   overflow: hidden;
   align-self: center;
   margin-top: -2px;
@@ -3340,6 +3340,9 @@ body.splash-ready #splashLoadingBlock {
   min-width: 110px;
   padding: 2px 18px;
   gap: 0;
+}
+.training-timer .match-timer.timeup {
+  background-color: #ffd5d5;
 }
 .training-timer .match-timer-value {
   font-size: 30px;
