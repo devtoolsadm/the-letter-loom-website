@@ -2824,6 +2824,17 @@ body.splash-ready #splashLoadingBlock {
   text-align: center;
   padding: 0 3px;
 }
+.training-debug-badge {
+  font-size: 10px;
+  font-weight: 700;
+  background: #222;
+  color: #0f0;
+  border-radius: 4px;
+  padding: 2px 6px;
+  margin-left: auto;
+  font-family: monospace;
+  letter-spacing: 0.5px;
+}
 
 .training-section {
   display: flex;
@@ -3432,6 +3443,58 @@ body.splash-ready #splashLoadingBlock {
 .training-action-bubble.is-blocked::before { border-bottom-color: #1e4a92; }
 .training-action-bubble.is-blocked::after  { border-bottom-color: #d8eaff; }
 
+/* Attack banner — shown prominently when user is targeted */
+.training-attack-banner {
+  position: absolute;
+  top: 56px; /* below topbar */
+  left: 0;
+  right: 0;
+  z-index: 120;
+  background: linear-gradient(90deg, #c0392b 0%, #e74c3c 100%);
+  color: #fff;
+  font-family: var(--font-heading);
+  font-weight: 900;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  text-align: center;
+  padding: 8px 16px;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.training-attack-banner.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+.training-attack-banner.is-hiding {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+/* User pill shake when attacked */
+@keyframes pill-shake {
+  0%   { transform: translateX(0); }
+  20%  { transform: translateX(-5px); }
+  40%  { transform: translateX(5px); }
+  60%  { transform: translateX(-4px); }
+  80%  { transform: translateX(3px); }
+  100% { transform: translateX(0); }
+}
+.training-score-pill.is-under-attack {
+  animation: pill-shake 0.6s ease;
+  outline: 2px solid #e74c3c;
+}
+
+/* Attack bubble — more alarming color on attacker's pill */
+.training-action-bubble.is-attack {
+  background: #c0392b;
+  color: #fff;
+}
+.training-action-bubble.is-attack::before { border-bottom-color: #7b1c10; }
+.training-action-bubble.is-attack::after  { border-bottom-color: #ff6b5a; }
+
 @keyframes training-bubble-pop {
   from { opacity: 0; transform: translateX(-50%) translateY(-6px) scale(0.6); }
   to   { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
@@ -3472,6 +3535,29 @@ body.splash-ready #splashLoadingBlock {
   text-align: center;
   flex: 0 0 auto;
 }
+.training-picker-subtitle {
+  font-size: 12px;
+  color: #5a3c2a;
+  text-align: center;
+  line-height: 1.4;
+  flex: 0 0 auto;
+}
+.training-picker-context {
+  font-family: var(--font-heading);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  text-align: center;
+  padding: 3px 10px;
+  border-radius: 20px;
+  margin-bottom: 4px;
+  flex: 0 0 auto;
+}
+.training-picker-context.is-self   { background: #1b5e20; color: #e8f5e9; }
+.training-picker-context.is-attack { background: #b71c1c; color: #ffebee; }
+.training-picker-context.is-forced { background: #e65100; color: #fff3e0; }
+.training-picker-context.is-shield { background: #0d47a1; color: #e3f2fd; }
 .training-picker-options {
   display: flex;
   flex-wrap: wrap;
@@ -3501,6 +3587,34 @@ body.splash-ready #splashLoadingBlock {
   transition: transform 80ms ease;
 }
 .training-picker-option:active { transform: translateY(2px); }
+
+/* Multi-select picker: toggled state */
+.training-picker-option.is-selected {
+  background: #2e7d32;
+  color: #fff;
+  border-color: #1b5e20;
+}
+
+/* Confirm button at bottom of multi-select picker */
+.training-picker-confirm-btn {
+  margin-top: 8px;
+  width: 100%;
+  padding: 10px 0;
+  background: linear-gradient(180deg, #ffe566 0%, #f0b800 100%);
+  color: #2f1b12;
+  font-family: var(--font-heading);
+  font-weight: 900;
+  font-size: 13px;
+  text-transform: uppercase;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+.training-picker-confirm-btn:active {
+  background: linear-gradient(180deg, #f0b800 0%, #c8980000 100%);
+  transform: scale(0.97);
+}
 
 /* Tilde choice modal: two card-shaped options side by side */
 .training-tilde-options {
@@ -3544,6 +3658,21 @@ body.splash-ready #splashLoadingBlock {
   color: #2f1b12;
   text-transform: uppercase;
   letter-spacing: 0.4px;
+}
+.training-picker-timer-wrap {
+  width: 100%;
+  height: 7px;
+  background: rgba(0, 0, 0, 0.18);
+  border-radius: 4px;
+  overflow: hidden;
+  flex: 0 0 auto;
+}
+.training-picker-timer-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #f7b500 0%, #e74c3c 100%);
+  width: 100%;
+  transition: width 100ms linear;
+  border-radius: 4px;
 }
 
 
@@ -8220,4 +8349,14 @@ body.splash-ready #splashLoadingBlock {
   color: #ffe566;
   text-align: center;
   text-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+}
+
+.training-result-standings-label {
+  font-family: "Fredoka", sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.45);
+  text-align: center;
 }

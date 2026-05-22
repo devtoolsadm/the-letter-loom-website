@@ -138,7 +138,8 @@ export function applyActionEffect(state, action, sourcePlayerId, targetPlayerId,
       let consonantDiscard = newConsonantDiscard;
       const drawn = [];
       for (const c of toReturn) {
-        if (c.kind === "vowel") {
+        const wantKind = (payload.kinds ?? {})[c.id] ?? c.kind;
+        if (wantKind === "vowel") {
           const r = drawFromDeck(vowelDeck, vowelDiscard, 1);
           vowelDeck = r.deck;
           vowelDiscard = r.discard;
@@ -309,8 +310,14 @@ export function applyActionEffect(state, action, sourcePlayerId, targetPlayerId,
       const sourceHand = ensureHand(state, sourcePlayerId);
       const targetHand = state.hands[targetPlayerId];
       if (targetHand === "<hidden>") {
-        // Simulated swap: discard source letters, draw same count of mixed letters.
-        const oldLetters = sourceHand.letters;
+        // Simulated swap: discard source letters (or selected subset), draw same count of mixed letters.
+        const fromIds = payload.fromIds ? new Set(payload.fromIds) : null;
+        const oldLetters = fromIds
+          ? sourceHand.letters.filter((c) => c && fromIds.has(c.id))
+          : sourceHand.letters.filter(Boolean);
+        const keptLetters = fromIds
+          ? sourceHand.letters.filter((c) => c && !fromIds.has(c.id))
+          : [];
         const newVowelDiscard = state.discards.vowels.slice();
         const newConsonantDiscard = state.discards.consonants.slice();
         for (const c of oldLetters) {
@@ -338,7 +345,7 @@ export function applyActionEffect(state, action, sourcePlayerId, targetPlayerId,
           ...state,
           decks: { ...state.decks, vowelDeck: vDeck, consonantDeck: cDeck },
           discards: { ...state.discards, vowels: vDiscard, consonants: cDiscard },
-          hands: { ...state.hands, [sourcePlayerId]: { ...sourceHand, letters: newLetters } },
+          hands: { ...state.hands, [sourcePlayerId]: { ...sourceHand, letters: [...keptLetters, ...newLetters] } },
         };
       }
       // Real swap (e.g. user vs another real player, future online)
@@ -426,6 +433,25 @@ export function applyActionEffect(state, action, sourcePlayerId, targetPlayerId,
     case "philologist":
     case "brain_squeeze":
       return addForcedRule(state, targetPlayerId, action.actionId, sourcePlayerId, {});
+
+    case "one_for_all": {
+      // Source puts one of their hand letters onto the central board.
+      // payload.cardId = which hand letter to place (random for ghosts).
+      const hand = ensureHand(state, sourcePlayerId);
+      const letters = hand.letters.filter(Boolean);
+      if (letters.length === 0) return state;
+      const cardId = payload.cardId ?? letters[Math.floor(rng() * letters.length)]?.id;
+      const card = letters.find((c) => c.id === cardId);
+      if (!card) return state;
+      return {
+        ...state,
+        centralBoard: [...(state.centralBoard ?? []), card],
+        hands: {
+          ...state.hands,
+          [sourcePlayerId]: { ...hand, letters: hand.letters.filter((c) => c.id !== cardId) },
+        },
+      };
+    }
 
     default:
       // Unknown / deferred action: no effect.

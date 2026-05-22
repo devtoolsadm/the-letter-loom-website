@@ -3539,6 +3539,7 @@ function setupNavigation() {
   });
 
   setupDelegatedControls();
+  setupTrainingDebugToggle();
 
   const matchScoreboard = document.getElementById("matchScoreboard");
   if (matchScoreboard) {
@@ -3823,6 +3824,20 @@ function setupNavigation() {
       playClickFeedback();
       handlePhaseTabClick("creation");
     });
+}
+
+function setupTrainingDebugToggle() {
+  let pressTimer = null;
+  const el = document.getElementById("trainingRoundLabel");
+  if (!el) return;
+  el.addEventListener("pointerdown", () => {
+    pressTimer = setTimeout(() => {
+      debugMode = !debugMode;
+      renderTrainingMatch();
+    }, 800);
+  });
+  el.addEventListener("pointerup",     () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } });
+  el.addEventListener("pointercancel", () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } });
 }
 
 function setupDelegatedControls() {
@@ -8924,6 +8939,12 @@ function renderTrainingScoreboard(state) {
     pill.append(name, value);
     root.appendChild(pill);
   }
+  if (debugMode) {
+    const badge = document.createElement("div");
+    badge.className = "training-debug-badge";
+    badge.textContent = "🐛 DEBUG";
+    root.appendChild(badge);
+  }
   attachActionBubble();
 }
 
@@ -9064,18 +9085,6 @@ function openTildeChoice(card, onPick) {
 
   options.appendChild(
     buildTildeOption({
-      letter: tildedLetter,
-      value: card.tildeValue,
-      label: shellTexts[withKey] || "",
-      color: card.color,
-      onClick: () => {
-        document.body.removeChild(overlay);
-        onPick(true);
-      },
-    }),
-  );
-  options.appendChild(
-    buildTildeOption({
       letter: card.letter,
       value: card.value,
       label: shellTexts[withoutKey] || "",
@@ -9083,6 +9092,18 @@ function openTildeChoice(card, onPick) {
       onClick: () => {
         document.body.removeChild(overlay);
         onPick(false);
+      },
+    }),
+  );
+  options.appendChild(
+    buildTildeOption({
+      letter: tildedLetter,
+      value: card.tildeValue,
+      label: shellTexts[withKey] || "",
+      color: card.color,
+      onClick: () => {
+        document.body.removeChild(overlay);
+        onPick(true);
       },
     }),
   );
@@ -9411,17 +9432,13 @@ function renderTrainingResult(state) {
   panel.innerHTML = "";
 
   if (isDone) {
-    // Match-over screen inside the result panel.
-    const title = document.createElement("div");
-    title.className = "training-result-done-title";
-    title.textContent = shellTexts.trainingMatchDoneTitle || "¡Fin!";
-    panel.appendChild(title);
+    renderTrainingDonePanel(panel, state);
+    return;
   }
 
+  // ── Baza result ──────────────────────────────────────────────
   const result = state.userWordResult;
-
   if (result) {
-    // Validity badge.
     const validityRow = document.createElement("div");
     validityRow.className = "training-result-validity";
     const badge = document.createElement("div");
@@ -9432,28 +9449,25 @@ function renderTrainingResult(state) {
     validityRow.appendChild(badge);
     panel.appendChild(validityRow);
 
-    // The word itself.
     const wordEl = document.createElement("div");
     wordEl.className = "training-result-word" + (result.valid ? "" : " is-invalid");
     wordEl.textContent = result.word || "—";
     panel.appendChild(wordEl);
 
-    // Reason for invalid.
     if (!result.valid && result.reason) {
       const reasonEl = document.createElement("div");
       reasonEl.className = "training-result-reason";
       const reasonKey = {
-        too_short: "trainingResultReasonTooShort",
+        too_short:     "trainingResultReasonTooShort",
         missing_source: "trainingResultReasonSource",
-        forced_rule: "trainingResultReasonForcedRule",
+        forced_rule:   "trainingResultReasonForcedRule",
       }[result.reason];
       reasonEl.textContent = (reasonKey ? shellTexts[reasonKey] : result.reason) || result.reason;
       panel.appendChild(reasonEl);
     }
   }
 
-  // Scores table.
-  const currentRound = isDone ? state.round : state.round;
+  // Scores table (this baza)
   const table = document.createElement("table");
   table.className = "training-result-table";
   const thead = document.createElement("thead");
@@ -9466,10 +9480,9 @@ function renderTrainingResult(state) {
   });
   thead.appendChild(headerRow);
   table.appendChild(thead);
-
   const tbody = document.createElement("tbody");
   for (const p of state.players) {
-    const roundEntry = (p.rounds ?? []).find((r) => r.round === currentRound);
+    const roundEntry = (p.rounds ?? []).find((r) => r.round === state.round);
     const roundPts = roundEntry != null ? roundEntry.points : "—";
     const tr = document.createElement("tr");
     if (!p.isGhost) tr.classList.add("is-user");
@@ -9487,25 +9500,112 @@ function renderTrainingResult(state) {
   table.appendChild(tbody);
   panel.appendChild(table);
 
-  // Action button(s).
   const actionsDiv = document.createElement("div");
   actionsDiv.className = "training-result-actions";
+  const nextBtn = document.createElement("button");
+  nextBtn.type = "button";
+  nextBtn.className = "training-result-btn";
+  nextBtn.textContent = shellTexts.trainingNextBaza || "Siguiente baza";
+  nextBtn.addEventListener("click", handleNextBaza);
+  actionsDiv.appendChild(nextBtn);
+  panel.appendChild(actionsDiv);
+}
 
-  if (isDone) {
-    const playAgainBtn = document.createElement("button");
-    playAgainBtn.type = "button";
-    playAgainBtn.className = "training-result-btn is-play-again";
-    playAgainBtn.textContent = shellTexts.trainingMatchPlayAgain || "Jugar otra";
-    playAgainBtn.addEventListener("click", handleTrainingPlayAgain);
-    actionsDiv.appendChild(playAgainBtn);
-  } else {
-    const nextBtn = document.createElement("button");
-    nextBtn.type = "button";
-    nextBtn.className = "training-result-btn";
-    nextBtn.textContent = shellTexts.trainingNextBaza || "Siguiente baza";
-    nextBtn.addEventListener("click", handleNextBaza);
-    actionsDiv.appendChild(nextBtn);
+function saveTrainingStats(state) {
+  const prev = loadState().training?.stats?.[state.difficulty] ?? {};
+  const userWon = state.players[0].score >= Math.max(...state.players.map((p) => p.score));
+  updateState({
+    training: {
+      stats: {
+        [state.difficulty]: {
+          played: (prev.played || 0) + 1,
+          wins: (prev.wins || 0) + (userWon ? 1 : 0),
+          best: Math.max(prev.best || 0, state.players[0].score ?? 0),
+          streak: userWon ? (prev.streak || 0) + 1 : 0,
+        },
+      },
+    },
+  });
+}
+
+function renderTrainingDonePanel(panel, state) {
+  if (!state.statsSaved) {
+    saveTrainingMatch({ ...state, statsSaved: true });
+    saveTrainingStats(state);
   }
+
+  // Title
+  const title = document.createElement("div");
+  title.className = "training-result-done-title";
+  title.textContent = shellTexts.trainingMatchDoneTitle || "¡Fin del entrenamiento!";
+  panel.appendChild(title);
+
+  // Win / lose / draw badge
+  const userId = state.players[0].id;
+  const userScore = state.players[0].score ?? 0;
+  const maxScore = Math.max(...state.players.map((p) => p.score ?? 0));
+  const winners = state.players.filter((p) => (p.score ?? 0) === maxScore);
+  const userWon  = !state.players[0].isGhost && winners.some((p) => p.id === userId);
+  const isDraw   = winners.length > 1 && userWon;
+  const outcomeKey = isDraw ? "trainingResultDraw" : userWon ? "trainingResultWon" : "trainingResultLost";
+  const outcomeBadge = document.createElement("div");
+  outcomeBadge.className = "training-result-badge " + (userWon ? "is-valid" : "is-invalid");
+  outcomeBadge.textContent = shellTexts[outcomeKey] || (userWon ? "¡Has ganado!" : "¡Bien jugado!");
+  const badgeRow = document.createElement("div");
+  badgeRow.className = "training-result-validity";
+  badgeRow.appendChild(outcomeBadge);
+  panel.appendChild(badgeRow);
+
+  // Final standings label
+  const standingsLabel = document.createElement("div");
+  standingsLabel.className = "training-result-standings-label";
+  standingsLabel.textContent = shellTexts.trainingResultFinalStandings || "Clasificación final";
+  panel.appendChild(standingsLabel);
+
+  // Final standings table (sorted by score desc)
+  const sorted = state.players.slice().sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+  const table = document.createElement("table");
+  table.className = "training-result-table";
+  const thead = document.createElement("thead");
+  const headerRow = document.createElement("tr");
+  ["#", shellTexts.trainingResultTotal || "Total"].forEach((text, i) => {
+    const th = document.createElement("th");
+    th.textContent = text;
+    if (i === 1) th.className = "col-total";
+    else th.style.width = "24px";
+    headerRow.appendChild(th);
+  });
+  thead.appendChild(headerRow);
+  table.appendChild(thead);
+  const tbody = document.createElement("tbody");
+  let rank = 1;
+  sorted.forEach((p, idx) => {
+    if (idx > 0 && (sorted[idx - 1].score ?? 0) > (p.score ?? 0)) rank = idx + 1;
+    const tr = document.createElement("tr");
+    if (!p.isGhost) tr.classList.add("is-user");
+    const rankTd = document.createElement("td");
+    rankTd.textContent = String(rank);
+    rankTd.style.color = rank === 1 ? "#ffe566" : "rgba(255,255,255,0.5)";
+    rankTd.style.width = "24px";
+    const nameTd = document.createElement("td");
+    nameTd.textContent = p.name;
+    const totalTd = document.createElement("td");
+    totalTd.className = "col-total";
+    totalTd.textContent = String(p.score ?? 0);
+    tr.append(rankTd, nameTd, totalTd);
+    tbody.appendChild(tr);
+  });
+  table.appendChild(tbody);
+  panel.appendChild(table);
+
+  const actionsDiv = document.createElement("div");
+  actionsDiv.className = "training-result-actions";
+  const playAgainBtn = document.createElement("button");
+  playAgainBtn.type = "button";
+  playAgainBtn.className = "training-result-btn is-play-again";
+  playAgainBtn.textContent = shellTexts.trainingMatchPlayAgain || "Jugar otra";
+  playAgainBtn.addEventListener("click", handleTrainingPlayAgain);
+  actionsDiv.appendChild(playAgainBtn);
   panel.appendChild(actionsDiv);
 }
 
@@ -9520,6 +9620,8 @@ function handleNextBaza() {
 
 function handleTrainingPlayAgain() {
   playClickFeedback();
+  trainingClockPhase = null;
+  stopClockLoop(false);
   clearTrainingMatch();
   showScreen("training-setup");
 }
@@ -9528,6 +9630,8 @@ function exitTrainingMatch() {
   stopTrainingTimer();
   stopActionsDriver();
   stopUserTurnTimer();
+  trainingClockPhase = null;
+  stopClockLoop(false);
   clearTrainingMatch();
   showScreen("training-setup");
 }
@@ -9538,12 +9642,16 @@ function finishTrainingTimer() {
   if (!state) return;
   if (state.phase === "strategy") {
     stopTrainingTimer();
+    trainingClockPhase = null;
+    stopClockLoop(false);
     enterActionsPhase(state);
     renderTrainingMatch();
     return;
   }
   if (state.phase === "creation") {
     stopTrainingTimer();
+    trainingClockPhase = null;
+    stopClockLoop(false);
     finalizeUserWord(state, shellLanguage);
     renderTrainingMatch();
     return;
@@ -9557,6 +9665,7 @@ function finishTrainingTimer() {
 
 let actionsDriverTimeout = null;
 let actionsDriverBusy = false;
+let debugMode = false;
 
 function stopActionsDriver() {
   if (actionsDriverTimeout) {
@@ -9602,6 +9711,20 @@ function processNextActionsTurn() {
         renderTrainingMatch();
         return;
       }
+      // Shield pre-selected but no ghost attack arrived — discard and pass.
+      if (card.actionId === "shield_total") {
+        const allActions = (userHand?.actions ?? []).filter(Boolean);
+        let s = { ...state,
+          hands: { ...state.hands, [userId]: { ...userHand, actions: [] } },
+          discards: { ...state.discards, actions: [...state.discards.actions, ...allActions] },
+          userActionResolved: true,
+        };
+        saveTrainingMatch(s);
+        s = advanceActionsQueue(s);
+        renderTrainingMatch();
+        if (s.phase === "actions") scheduleActionsDriver();
+        return;
+      }
       actionsDriverBusy = true;
       pickTargetAndPayloadForUser(state, card, (targetId, payload) => {
         actionsDriverBusy = false;
@@ -9618,12 +9741,85 @@ function processNextActionsTurn() {
       });
       return;
     }
+    // Debug: bypass hand and let user pick any action card
+    if (debugMode) {
+      const mvpCards = ACTION_CARDS.filter((c) => c.inMVP);
+      actionsDriverBusy = true;
+      openTrainingPicker({
+        titleKey: null,
+        context: { label: "🐛 Tú juegas:", kind: "self" },
+        options: mvpCards.map((c) => ({ id: c.id, label: humanActionName(c.id) })),
+        onPick: (actionId) => {
+          actionsDriverBusy = false;
+          const cardDef = ACTION_CARDS.find((c) => c.id === actionId);
+          const fakeCard = { id: "debug-card", type: "action", ...cardDef };
+          stopUserTurnTimer();
+          pickTargetAndPayloadForUser(state, fakeCard, (targetId, payload) => {
+            const fakeLog = { playerId: userId, actionId, targetId };
+            let s = applyPlannedGhostAction(getTrainingMatch(), fakeLog);
+            showActionToast(s, fakeLog);
+            s = { ...s, userActionResolved: true };
+            saveTrainingMatch(s);
+            s = advanceActionsQueue(s);
+            renderTrainingMatch();
+            if (s.phase === "actions") scheduleActionsDriver();
+          });
+        },
+      });
+      return;
+    }
     // Wait for user input (renderTrainingActions made action cards tappable).
     renderTrainingMatch();
     return;
   }
 
-  // Ghost turn
+  // Debug mode: let user choose which card the ghost plays
+  if (debugMode) {
+    const ghostName = state.players.find((p) => p.id === nextActorId)?.name || nextActorId;
+    const mvpCards = ACTION_CARDS.filter((c) => c.inMVP);
+    actionsDriverBusy = true;
+    openTrainingPicker({
+      titleKey: null,
+      context: { label: `🐛 ${ghostName} juega:`, kind: "forced" },
+      options: mvpCards.map((c) => ({ id: c.id, label: humanActionName(c.id) })),
+      onPick: (actionId) => {
+        const cardDef = ACTION_CARDS.find((c) => c.id === actionId);
+        const needsTarget = cardDef && cardDef.target === "one";
+        function applyDebugGhost(targetId) {
+          actionsDriverBusy = false;
+          const fakeLog = { playerId: nextActorId, actionId, targetId };
+          const isAtk = isAttackOnUser(cardDef, targetId, userId);
+          if (isAtk && userHasShield(state) && !isUserShieldPreSelected(state)) {
+            actionsDriverBusy = true;
+            promptShield({ source: nextActorId, card: cardDef }, fakeLog);
+          } else {
+            let s = applyPlannedGhostAction(state, fakeLog);
+            showActionToast(s, fakeLog);
+            s = advanceActionsQueue(s);
+            renderTrainingMatch();
+            if (maybeOfferEmergencyDraw(() => {
+              const cur = getTrainingMatch();
+              if (cur?.phase === "actions") scheduleActionsDriver();
+            })) return;
+            if (s.phase === "actions") scheduleActionsDriver();
+          }
+        }
+        if (needsTarget) {
+          const candidates = state.players.filter((p) => p.id !== nextActorId);
+          openTrainingPicker({
+            titleKey: null,
+            context: { label: `🐛 ${ghostName} → objetivo:`, kind: "forced" },
+            options: candidates.map((p) => ({ id: p.id, label: p.name })),
+            onPick: (tgt) => applyDebugGhost(tgt),
+          });
+        } else {
+          applyDebugGhost(null);
+        }
+      },
+    });
+    return;
+  }
+  // Ghost turn (normal)
   const planned = planGhostAction(state, nextActorId);
   if (!planned.log) {
     advanceActionsQueue(planned.state);
@@ -9667,35 +9863,40 @@ function processNextActionsTurn() {
 function promptShield(opportunity, log) {
   const sourcePlayer = (getTrainingMatch().players ?? []).find((p) => p.id === opportunity.source);
   const sourceName = sourcePlayer?.name || opportunity.source;
-  const actionLabel = humanActionName(opportunity.card.actionId);
-  openConfirm({
-    title: "trainingShieldPromptTitle",
-    body: "trainingShieldPromptBody",
-    bodyVars: { source: sourceName, action: actionLabel },
-    acceptText: "optInConfirmActivate",
-    cancelText: "optInConfirmSkip",
-    onConfirm: () => {
+  const attackLabel = humanActionName(opportunity.card.actionId);
+  const bodyTpl = shellTexts.trainingShieldPromptBody || "{source} → {action}";
+  const subtitle = bodyTpl.replace("{source}", sourceName).replace("{action}", attackLabel);
+  openTrainingPicker({
+    titleKey: "trainingShieldPromptTitle",
+    context: { label: `🛡 ¿Usas escudo?`, kind: "shield" },
+    subtitle,
+    options: [
+      { id: "use",  label: shellTexts.optInConfirmActivate || "🛡" },
+      { id: "skip", label: shellTexts.optInConfirmSkip    || "✗"  },
+    ],
+    timeoutMs: PICKER_TIMEOUT_MS,
+    onPick: (choice) => {
       actionsDriverBusy = false;
-      let s = getTrainingMatch();
-      s = useShieldOnAttack(s, opportunity.source);
-      s = applyPlannedGhostAction(s, log, { shielded: true });
-      showActionToast(s, log, { blocked: true });
-      s = advanceActionsQueue(s);
-      renderTrainingMatch();
-      if (s.phase === "actions") scheduleActionsDriver();
-    },
-    onCancel: () => {
-      actionsDriverBusy = false;
-      let s = getTrainingMatch();
-      s = applyPlannedGhostAction(s, log);
-      showActionToast(s, log);
-      s = advanceActionsQueue(s);
-      renderTrainingMatch();
-      if (maybeOfferEmergencyDraw(() => {
-        const cur = getTrainingMatch();
-        if (cur?.phase === "actions") scheduleActionsDriver();
-      })) return;
-      if (s.phase === "actions") scheduleActionsDriver();
+      if (choice === "use") {
+        let s = getTrainingMatch();
+        s = useShieldOnAttack(s, opportunity.source);
+        s = applyPlannedGhostAction(s, log, { shielded: true });
+        showActionToast(s, log, { blocked: true });
+        s = advanceActionsQueue(s);
+        renderTrainingMatch();
+        if (s.phase === "actions") scheduleActionsDriver();
+      } else {
+        let s = getTrainingMatch();
+        s = applyPlannedGhostAction(s, log);
+        showActionToast(s, log);
+        s = advanceActionsQueue(s);
+        renderTrainingMatch();
+        if (maybeOfferEmergencyDraw(() => {
+          const cur = getTrainingMatch();
+          if (cur?.phase === "actions") scheduleActionsDriver();
+        })) return;
+        if (s.phase === "actions") scheduleActionsDriver();
+      }
     },
   });
 }
@@ -9718,10 +9919,12 @@ function maybeOfferEmergencyDraw(onPicked) {
   actionsDriverBusy = true;
   openTrainingPicker({
     titleKey: "trainingEmergencyDrawTitle",
+    context: { label: `⚡ Robo de emergencia`, kind: "forced" },
     options: [
       { id: "vowel",     label: shellTexts.trainingEmergencyDrawVowel || "V" },
       { id: "consonant", label: shellTexts.trainingEmergencyDrawConsonant || "C" },
     ],
+    timeoutMs: PICKER_TIMEOUT_MS,
     onPick: (kind) => {
       drawEmergencyLetter(getTrainingMatch(), kind);
       actionsDriverBusy = false;
@@ -9733,7 +9936,7 @@ function maybeOfferEmergencyDraw(onPicked) {
 }
 
 // ── 5s auto-select countdown when user's turn starts in actions phase ─
-const USER_TURN_DURATION_MS = 5000;
+const USER_TURN_DURATION_MS = 10000;
 let userTurnTimerInterval = null;
 let userTurnRemainingMs = 0;
 
@@ -9779,6 +9982,7 @@ function maybeStartUserTurnTimer(state) {
 }
 
 function autoPickUserAction() {
+  if (actionsDriverBusy) return;
   const state = getTrainingMatch();
   if (!state || state.phase !== "actions") return;
   const userId = state.players[0].id;
@@ -9840,7 +10044,10 @@ function handleUserPickAction(actionIndex) {
   }
 
   if (state.phase === "actions" && state.actionsQueue?.[0] === userId && state.userActionIndex == null) {
+    stopUserTurnTimer();
+    actionsDriverBusy = true;
     pickTargetAndPayloadForUser(state, card, (targetId, payload) => {
+      actionsDriverBusy = false;
       let s = playUserAction(getTrainingMatch(), actionIndex, targetId, payload);
       showActionToast(s, { playerId: userId, actionId: card.actionId, targetId, payload });
       s = advanceActionsQueue(s);
@@ -9850,14 +10057,201 @@ function handleUserPickAction(actionIndex) {
   }
 }
 
+function openChangeCardsPicker(letters, titleKey, onConfirm, context = null) {
+  const overlay = document.createElement("div");
+  overlay.className = "training-picker-overlay";
+  const card = document.createElement("div");
+  card.className = "training-picker-card";
+  const title = document.createElement("div");
+  title.className = "training-picker-title";
+  title.textContent = shellTexts[titleKey] || "¿Qué cartas cambias?";
+  card.appendChild(title);
+  if (context) {
+    const ctx = document.createElement("div");
+    ctx.className = "training-picker-context is-" + context.kind;
+    ctx.textContent = context.label;
+    card.insertBefore(ctx, title);
+  }
+
+  const selected = new Set(letters.map((l) => l.id)); // start all selected
+
+  const list = document.createElement("div");
+  list.className = "training-picker-options";
+  const btns = {};
+  for (const l of letters) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "training-picker-option is-selected";
+    btn.textContent = l.letter;
+    btns[l.id] = btn;
+    btn.addEventListener("click", () => {
+      if (selected.has(l.id)) {
+        selected.delete(l.id);
+        btn.classList.remove("is-selected");
+      } else {
+        selected.add(l.id);
+        btn.classList.add("is-selected");
+      }
+      const count = selected.size;
+      confirmBtn.textContent =
+        (shellTexts.trainingChangeCardsConfirm || "Cambiar") +
+        (count > 0 ? ` (${count})` : "");
+    });
+    list.appendChild(btn);
+  }
+  card.appendChild(list);
+
+  const confirmBtn = document.createElement("button");
+  confirmBtn.type = "button";
+  confirmBtn.className = "training-picker-confirm-btn";
+  confirmBtn.textContent =
+    (shellTexts.trainingChangeCardsConfirm || "Cambiar") + ` (${letters.length})`;
+  confirmBtn.addEventListener("click", () => {
+    if (document.body.contains(overlay)) document.body.removeChild(overlay);
+    onConfirm([...selected]);
+  });
+  card.appendChild(confirmBtn);
+
+  overlay.appendChild(card);
+  document.body.appendChild(overlay);
+}
+
 function pickTargetAndPayloadForUser(state, card, done) {
+  const userId = state.players[0].id;
+  const cardDisplayName = humanActionName(card.actionId);
+  const selfCtx    = { label: `🎯 Tú: ${cardDisplayName}`, kind: "self"   };
+  const attackCtx  = { label: `⚔️ Tú atacas: ${cardDisplayName}`, kind: "attack" };
+  // one_for_all: pick which hand card to give to the board
+  if (card.actionId === "one_for_all") {
+    const userHand = state.hands[userId];
+    const letters = userHand && userHand !== "<hidden>"
+      ? (userHand.letters ?? []).filter(Boolean) : [];
+    if (letters.length === 0) { done(null, {}); return; }
+    openTrainingPicker({
+      titleKey: "trainingOneForAllTitle",
+      context: selfCtx,
+      options: letters.map((c) => ({ id: c.id, label: c.letter })),
+      onPick: (cardId) => done(null, { cardId }),
+      timeoutMs: PICKER_TIMEOUT_MS,
+    });
+    return;
+  }
+  // extra_card: pick vowel or consonant
+  if (card.actionId === "extra_card") {
+    openTrainingPicker({
+      titleKey: "trainingPickKindTitle",
+      context: selfCtx,
+      options: [
+        { id: "vowel",     label: shellTexts.trainingEmergencyDrawVowel     || "Vocal" },
+        { id: "consonant", label: shellTexts.trainingEmergencyDrawConsonant || "Consonante" },
+      ],
+      onPick: (kind) => done(null, { kind }),
+      timeoutMs: PICKER_TIMEOUT_MS,
+    });
+    return;
+  }
+  // solo_mia: pick which board card to take
+  if (card.actionId === "solo_mia") {
+    const boardCards = (state.centralBoard ?? []).filter(Boolean);
+    if (boardCards.length === 0) { done(null, {}); return; }
+    openTrainingPicker({
+      titleKey: "trainingPickBoardCardTitle",
+      context: selfCtx,
+      options: boardCards.map((c) => ({ id: c.id, label: c.letter })),
+      onPick: (cardId) => done(null, { cardId }),
+      timeoutMs: PICKER_TIMEOUT_MS,
+    });
+    return;
+  }
+  // change_cards: multi-select which cards to discard, then vowel/consonant per card
+  if (card.actionId === "change_cards") {
+    const userHand = state.hands[userId];
+    const letters = userHand && userHand !== "<hidden>"
+      ? (userHand.letters ?? []).filter(Boolean) : [];
+    if (letters.length === 0) { done(null, {}); return; }
+    openChangeCardsPicker(letters, "trainingChangeCardsTitle", (selectedIds) => {
+      if (selectedIds.length === 0) { done(null, {}); return; }
+      // Ask vowel or consonant for each selected card, one at a time
+      const kinds = {};
+      function askKindFor(idx) {
+        if (idx >= selectedIds.length) {
+          done(null, { cardIds: selectedIds, kinds });
+          return;
+        }
+        const cId = selectedIds[idx];
+        const letterChar = letters.find((l) => l.id === cId)?.letter || "?";
+        openTrainingPicker({
+          titleKey: "trainingPickKindTitle",
+          context: selfCtx,
+          subtitle: letterChar,
+          options: [
+            { id: "vowel",     label: shellTexts.trainingEmergencyDrawVowel     || "Vocal"       },
+            { id: "consonant", label: shellTexts.trainingEmergencyDrawConsonant || "Consonante"  },
+          ],
+          timeoutMs: PICKER_TIMEOUT_MS,
+          onPick: (kind) => {
+            kinds[cId] = kind;
+            askKindFor(idx + 1);
+          },
+        });
+      }
+      askKindFor(0);
+    }, selfCtx);
+    return;
+  }
+
+  // swap_all: pick target then pick which of your own letters to give
+  if (card.actionId === "swap_all") {
+    const candidates = state.players.filter((p) => p.id !== userId);
+    openTrainingPicker({
+      titleKey: "trainingPickTargetTitle",
+      context: attackCtx,
+      options: candidates.map((p) => ({ id: p.id, label: p.name })),
+      timeoutMs: PICKER_TIMEOUT_MS,
+      onPick: (targetId) => {
+        const letters = (state.hands[userId]?.letters ?? []).filter(Boolean);
+        if (letters.length === 0) { done(targetId, { fromIds: [] }); return; }
+        openChangeCardsPicker(letters, "trainingSwapAllPickTitle", (fromIds) => {
+          done(targetId, { fromIds });
+        }, attackCtx);
+      },
+    });
+    return;
+  }
+
+  // swap_one: pick target then pick which one of your own letters to give
+  if (card.actionId === "swap_one") {
+    const candidates = state.players.filter((p) => p.id !== userId);
+    openTrainingPicker({
+      titleKey: "trainingPickTargetTitle",
+      context: attackCtx,
+      options: candidates.map((p) => ({ id: p.id, label: p.name })),
+      timeoutMs: PICKER_TIMEOUT_MS,
+      onPick: (targetId) => {
+        const letters = (state.hands[userId]?.letters ?? []).filter(Boolean);
+        if (letters.length === 0) { done(targetId, {}); return; }
+        openTrainingPicker({
+          titleKey: "trainingSwapOnePickTitle",
+          context: attackCtx,
+          subtitle: shellTexts.trainingSwapOnePickSubtitle || null,
+          options: letters.map((c) => ({ id: c.id, label: c.letter })),
+          timeoutMs: PICKER_TIMEOUT_MS,
+          onPick: (fromId) => done(targetId, { fromId }),
+        });
+      },
+    });
+    return;
+  }
+
   // Player-target actions
   if (card.target === "one") {
     const candidates = state.players.filter((p) => p.id !== state.players[0].id);
     openTrainingPicker({
       titleKey: "trainingPickTargetTitle",
+      context: attackCtx,
       options: candidates.map((p) => ({ id: p.id, label: p.name })),
       onPick: (targetId) => done(targetId, {}),
+      timeoutMs: PICKER_TIMEOUT_MS,
     });
     return;
   }
@@ -9870,20 +10264,25 @@ function pickTargetAndPayloadForUser(state, card, done) {
     });
     openTrainingPicker({
       titleKey: "trainingPickLetterTitle",
+      context: selfCtx,
       options: letters.map((c) => ({ id: c.id, label: c.letter })),
       onPick: (id) => {
         const lc = letters.find((c) => c.id === id);
         done(null, { letter: lc?.letter });
       },
+      timeoutMs: PICKER_TIMEOUT_MS,
     });
     return;
   }
   done(null, {});
 }
 
+const PICKER_TIMEOUT_MS = 7000;
+
 // Simple picker modal — reuses openConfirm shape with custom buttons.
-function openTrainingPicker({ titleKey, options, onPick }) {
-  // Build an ad-hoc modal using DOM directly for flexibility.
+// Pass timeoutMs to show a countdown bar and auto-pick the first option on expiry.
+// Pass subtitle (string) to render a body line below the title.
+function openTrainingPicker({ titleKey, subtitle, context, options, onPick, timeoutMs = 0 }) {
   const overlay = document.createElement("div");
   overlay.className = "training-picker-overlay";
   const card = document.createElement("div");
@@ -9892,6 +10291,48 @@ function openTrainingPicker({ titleKey, options, onPick }) {
   title.className = "training-picker-title";
   title.textContent = shellTexts[titleKey] || "";
   card.appendChild(title);
+  if (subtitle) {
+    const sub = document.createElement("div");
+    sub.className = "training-picker-subtitle";
+    sub.textContent = subtitle;
+    card.appendChild(sub);
+  }
+  if (context) {
+    const ctx = document.createElement("div");
+    ctx.className = "training-picker-context is-" + context.kind;
+    ctx.textContent = context.label;
+    card.insertBefore(ctx, title); // context badge goes ABOVE the title
+  }
+
+  let timerInterval = null;
+  let remaining = timeoutMs;
+
+  function dismiss(id) {
+    if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+    if (document.body.contains(overlay)) document.body.removeChild(overlay);
+    onPick(id);
+  }
+
+  if (timeoutMs > 0 && options.length > 0) {
+    const timerWrap = document.createElement("div");
+    timerWrap.className = "training-picker-timer-wrap";
+    const timerBar = document.createElement("div");
+    timerBar.className = "training-picker-timer-bar";
+    timerBar.style.width = "100%";
+    timerWrap.appendChild(timerBar);
+    card.appendChild(timerWrap);
+    timerInterval = setInterval(() => {
+      remaining -= 100;
+      const pct = Math.max(0, (remaining / timeoutMs) * 100);
+      timerBar.style.width = pct + "%";
+      if (remaining <= 0) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+        dismiss(options[0].id);
+      }
+    }, 100);
+  }
+
   const list = document.createElement("div");
   list.className = "training-picker-options";
   for (const opt of options) {
@@ -9899,10 +10340,7 @@ function openTrainingPicker({ titleKey, options, onPick }) {
     btn.type = "button";
     btn.className = "training-picker-option";
     btn.textContent = opt.label;
-    btn.addEventListener("click", () => {
-      document.body.removeChild(overlay);
-      onPick(opt.id);
-    });
+    btn.addEventListener("click", () => dismiss(opt.id));
     list.appendChild(btn);
   }
   card.appendChild(list);
@@ -9916,15 +10354,53 @@ let currentActionBubble = null;
 let bubbleAutoHideTimeout = null;
 const BUBBLE_AUTOHIDE_MS = 2800;
 
+let attackBannerTimeout = null;
+
+function triggerAttackBanner(attackerName, actionName) {
+  const banner = document.getElementById("trainingAttackBanner");
+  if (!banner) return;
+  if (attackBannerTimeout) { clearTimeout(attackBannerTimeout); attackBannerTimeout = null; }
+  banner.textContent = `⚠ ${attackerName}: ${actionName}`;
+  banner.classList.remove("hidden", "is-hiding");
+  banner.classList.add("is-visible");
+  // Add shake to user pill
+  const userPill = document.querySelector(".training-score-pill.is-user");
+  if (userPill) {
+    userPill.classList.remove("is-under-attack");
+    void userPill.offsetWidth; // force reflow to restart animation
+    userPill.classList.add("is-under-attack");
+    setTimeout(() => userPill.classList.remove("is-under-attack"), 700);
+  }
+  attackBannerTimeout = setTimeout(() => {
+    banner.classList.add("is-hiding");
+    setTimeout(() => {
+      banner.classList.add("hidden");
+      banner.classList.remove("is-visible", "is-hiding");
+    }, 300);
+    attackBannerTimeout = null;
+  }, 3000);
+}
+
 function showActionToast(state, log, opts = {}) {
   if (!log) return;
   if (bubbleAutoHideTimeout) clearTimeout(bubbleAutoHideTimeout);
+  const userId = state?.players?.[0]?.id;
+  const ALL_TARGET_ATTACK_IDS = new Set(["out_one", "great_heist", "swap_all", "two_to_center"]);
+  let isAttackTarget = false;
+  if (userId && log.playerId !== userId && !opts.blocked) {
+    isAttackTarget = log.targetId === userId || ALL_TARGET_ATTACK_IDS.has(log.actionId);
+  }
   currentActionBubble = {
     playerId: log.playerId,
     text: humanActionName(log.actionId),
     blocked: !!opts.blocked,
+    isAttackOnUser: isAttackTarget,
     isNew: true,
   };
+  if (isAttackTarget) {
+    const attacker = (state.players ?? []).find((p) => p.id === log.playerId);
+    triggerAttackBanner(attacker?.name || log.playerId, humanActionName(log.actionId));
+  }
   attachActionBubble();
   bubbleAutoHideTimeout = setTimeout(() => {
     clearActionBanner();
@@ -9954,14 +10430,16 @@ function attachActionBubble() {
     return;
   }
   const expectedKey =
-    `${currentActionBubble.playerId}|${currentActionBubble.text}|${currentActionBubble.blocked ? "1" : "0"}`;
+    `${currentActionBubble.playerId}|${currentActionBubble.text}|${currentActionBubble.blocked ? 1 : 0}|${currentActionBubble.isAttackOnUser ? 1 : 0}`;
   // Already on the right pill with the right content → leave it (no flicker).
   if (existing && existing.parentElement === targetPill && existing.dataset.key === expectedKey) {
     return;
   }
   if (existing) existing.remove();
   const bubble = document.createElement("div");
-  bubble.className = "training-action-bubble" + (currentActionBubble.blocked ? " is-blocked" : "");
+  bubble.className = "training-action-bubble"
+    + (currentActionBubble.blocked ? " is-blocked" : "")
+    + (currentActionBubble.isAttackOnUser && !currentActionBubble.blocked ? " is-attack" : "");
   bubble.dataset.key = expectedKey;
   bubble.textContent = (currentActionBubble.blocked ? "🛡 " : "") + currentActionBubble.text;
   if (!currentActionBubble.isNew) {
@@ -9989,6 +10467,7 @@ function confirmExitTrainingMatch() {
 }
 
 let trainingTimerInterval = null;
+let trainingClockPhase = null;
 
 function stopTrainingTimer() {
   if (trainingTimerInterval) {
@@ -10003,6 +10482,10 @@ function ensureTrainingTimer() {
   if (!state) return;
   const phase = state.phase;
   if (phase !== "strategy" && phase !== "creation") return;
+  if (trainingClockPhase !== phase) {
+    trainingClockPhase = phase;
+    playClockLoop();
+  }
   trainingTimerInterval = setInterval(() => {
     const current = getTrainingMatch();
     if (!current || (current.phase !== "strategy" && current.phase !== "creation")) {
@@ -10021,8 +10504,10 @@ function ensureTrainingTimer() {
       }
     }
     if (next.phase !== current.phase) {
+      trainingClockPhase = null;
       saveTrainingMatch(next);
       stopTrainingTimer();
+      triggerTimeUpEffects("training");
       renderTrainingMatch();
       return;
     }
@@ -10039,6 +10524,10 @@ function showScreen(name) {
     stopTrainingTimer();
     stopActionsDriver();
     stopUserTurnTimer();
+    if (trainingClockPhase !== null) {
+      trainingClockPhase = null;
+      stopClockLoop(name !== "match");
+    }
   }
   currentScreen = name;
   if (name !== "match") {
