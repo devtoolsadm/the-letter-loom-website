@@ -2834,7 +2834,7 @@ function renderShellTexts() {
   setI18nById("trainingRulesBtnText", "trainingRulesBtn");
   setI18nById("trainingStartHint", "trainingComingSoon");
   const galleryRow = document.getElementById("trainingGalleryRow");
-  if (galleryRow) galleryRow.classList.toggle("hidden", !debugMode);
+  if (galleryRow) galleryRow.classList.remove("hidden");
   document.querySelectorAll("#screen-training-setup [data-i18n]").forEach((el) => {
     const key = el.getAttribute("data-i18n");
     if (key && shellTexts[key]) el.textContent = shellTexts[key];
@@ -3840,8 +3840,6 @@ function setupTrainingDebugToggle() {
       debugMode = !debugMode;
       const badge = document.getElementById("trainingDebugBadge");
       if (badge) badge.classList.toggle("hidden", !debugMode);
-      const galleryRow = document.getElementById("trainingGalleryRow");
-      if (galleryRow) galleryRow.classList.toggle("hidden", !debugMode);
       renderTrainingMatch();
     }, 800);
   });
@@ -4000,6 +3998,32 @@ function renderQuickGuideRichText(targetEl, text) {
   if (lastIndex === 0) targetEl.textContent = text;
 }
 
+function renderActionCardGrid() {
+  const grid = document.createElement("div");
+  grid.className = "quick-guide-action-grid";
+  ACTION_CARDS.filter((c) => c.inMVP).forEach((def) => {
+    const item = document.createElement("div");
+    item.className = "quick-guide-action-item";
+
+    const cardEl = renderActionCard({ actionId: def.id }, { selectable: false });
+    cardEl.style.cssText = "pointer-events:none;flex-shrink:0;";
+    item.appendChild(cardEl);
+
+    const nameEl = document.createElement("div");
+    nameEl.className = "quick-guide-action-item-name";
+    nameEl.textContent = actionLabel(def.id);
+    item.appendChild(nameEl);
+
+    const descEl = document.createElement("div");
+    descEl.className = "quick-guide-action-item-desc";
+    descEl.textContent = actionDesc(def.id);
+    item.appendChild(descEl);
+
+    grid.appendChild(item);
+  });
+  return grid;
+}
+
 function renderQuickGuide() {
   const indexList = document.getElementById("quickGuideIndexList");
   const sectionsWrap = document.getElementById("quickGuideSections");
@@ -4076,7 +4100,9 @@ function renderQuickGuide() {
       if (imagesWrap.children.length) sectionEl.appendChild(imagesWrap);
     }
 
-    if (!skipBullets && Array.isArray(section.bullets) && section.bullets.length) {
+    if (!skipBullets && section.id === "strategy-cards-all") {
+      sectionEl.appendChild(renderActionCardGrid());
+    } else if (!skipBullets && Array.isArray(section.bullets) && section.bullets.length) {
       const ul = document.createElement("ul");
       ul.className = "quick-guide-list";
       section.bullets.forEach((item) => {
@@ -9087,32 +9113,44 @@ function renderTrainingHand(state) {
   if (!isCreation && state.phase !== "result" && state.phase !== "done") {
     actions.forEach((card, idx) => {
       const isFocused = isStrategy && focusedActionIndex === idx;
-      root.appendChild(
-        renderActionCard(card, {
-          selectable: tappable && !!card,
-          selected: false,
-          focused: isFocused,
-          faceDown: isDealing,
-          onClick: tappable && card ? () => {
-            if (isStrategy) {
-              const now = Date.now();
-              const isDoubleTap = lastActionTapIndex === idx && (now - lastActionTapTime) < DOUBLE_TAP_MS;
-              lastActionTapIndex = idx;
-              lastActionTapTime = now;
-              if (isDoubleTap) {
-                focusedActionIndex = null;
-                lastActionTapIndex = null;
-                handleUserPickAction(idx);
-              } else {
-                focusedActionIndex = focusedActionIndex === idx ? null : idx;
-                renderTrainingMatch();
-              }
-            } else {
-              handleUserPickAction(idx);
-            }
-          } : null,
-        }),
-      );
+      const clickHandler = tappable && card ? () => {
+        if (isStrategy) {
+          const now = Date.now();
+          const isDoubleTap = lastActionTapIndex === idx && (now - lastActionTapTime) < DOUBLE_TAP_MS;
+          lastActionTapIndex = idx;
+          lastActionTapTime = now;
+          if (isDoubleTap) {
+            focusedActionIndex = null;
+            lastActionTapIndex = null;
+            handleUserPickAction(idx);
+          } else {
+            focusedActionIndex = focusedActionIndex === idx ? null : idx;
+            renderTrainingMatch();
+          }
+        } else {
+          handleUserPickAction(idx);
+        }
+      } : null;
+      const cardEl = renderActionCard(card, {
+        selectable: tappable && !!card,
+        selected: false,
+        focused: isFocused,
+        faceDown: isDealing,
+        onClick: clickHandler,
+      });
+      if (!isDealing && card) {
+        const wrap = document.createElement("div");
+        wrap.className = "tcard-action-wrap";
+        wrap.appendChild(cardEl);
+        const label = document.createElement("span");
+        label.className = "tcard-action-label";
+        label.textContent = actionLabel(card.actionId);
+        if (clickHandler) label.addEventListener("click", clickHandler);
+        wrap.appendChild(label);
+        root.appendChild(wrap);
+      } else {
+        root.appendChild(cardEl);
+      }
     });
   }
   renderActionFocusPanel(state);
@@ -9497,10 +9535,7 @@ function renderActionCard(card, opts = {}) {
   if (opts.selectable) el.classList.add("is-selectable");
   if (opts.selected)   el.classList.add("is-selected");
   if (opts.focused)    el.classList.add("is-focused");
-  const icon = document.createElement("span");
-  icon.className = "tcard-action-icon";
-  icon.textContent = actionIcon(card.actionId);
-  el.appendChild(icon);
+  el.appendChild(makeActionIconEl(card.actionId, "tcard-action-icon"));
   if (opts.onClick) {
     el.addEventListener("click", opts.onClick);
   }
@@ -10052,29 +10087,33 @@ function promptDiscardOne(state, log) {
   });
 }
 
+// Single source of truth for action card icon + description.
+// svg: path to SVG in assets/img/actions/ (drop in new SVGs to replace emoji).
+// icon: emoji fallback shown when no SVG exists yet.
+// desc: canonical description — used in gallery, focus panel, AND quick guide.
 const ACTION_CARD_META = {
-  boost_total:   { icon: "⬆️",  desc: "Suma 6 puntos extra a tu palabra." },
-  extra_card:    { icon: "🃏",  desc: "Roba una vocal o consonante de los mazos de letras." },
-  wildcard:      { icon: "🌟",  desc: "Úsalo como vocal o consonante y suma 6 puntos extra." },
-  shield_total:  { icon: "🛡️", desc: "Un ataque contra ti o contra todos no te afecta en esta baza." },
-  change_cards:  { icon: "🔄",  desc: "Cambia las letras que quieras." },
-  use_vowel:     { icon: "🅰️", desc: "Todos deben usar la vocal del Tablero Central que elijas." },
-  use_consonant: { icon: "🔤",  desc: "Todos deben usar la consonante del Tablero Central que elijas." },
-  use_letter:    { icon: "📌",  desc: "Todos deben usar la vocal o consonante del Tablero Central que elijas." },
-  two_to_center: { icon: "🎯",  desc: "Roba una carta a cada jugador y coloca 2 en el Tablero Central." },
-  out_one:       { icon: "💥",  desc: "Roba una carta a cada jugador y ponlas en el mazo." },
-  great_heist:   { icon: "🦹",  desc: "Roba una carta a cada jugador." },
-  steal_letter:  { icon: "✂️", desc: "Roba una letra a otro jugador." },
-  renew_board:   { icon: "♻️", desc: "Quita las 5 letras y pon 5 nuevas." },
-  swap_all:      { icon: "🔀",  desc: "Cambia tus letras con las de otro jugador." },
-  swap_one:      { icon: "↔️", desc: "Cambia una letra tuya por otra de otro jugador." },
-  solo_mia:      { icon: "🔒",  desc: "Roba una letra del Tablero Central; solo tú puedes usarla." },
-  one_for_all:   { icon: "🤝",  desc: "Pon una letra de otro jugador en el Tablero Central." },
-  philologist:   { icon: "📖",  desc: "Obliga a un jugador a formar una palabra con tilde." },
-  brain_squeeze: { icon: "🧠",  desc: "Obliga a un jugador a formar una palabra de al menos tres sílabas." },
-  explosion:     { icon: "💣",  desc: "Resta 4 puntos a un jugador en esta baza." },
-  discard_one:   { icon: "🗑️", desc: "Un jugador debe dejar una letra en el mazo." },
-  in_english:    { icon: "🇬🇧",  desc: "Si formas la palabra en inglés, sumas 10 puntos extra." },
+  boost_total:   { svg: null, icon: "⬆️",  desc: "Suma 6 puntos extra a tu palabra." },
+  extra_card:    { svg: null, icon: "🃏",  desc: "Roba una vocal o consonante de los mazos de letras." },
+  wildcard:      { svg: null, icon: "🌟",  desc: "Úsalo como vocal o consonante y suma 6 puntos extra." },
+  shield_total:  { svg: null, icon: "🛡️", desc: "Un ataque contra ti o contra todos no te afecta en esta baza." },
+  change_cards:  { svg: null, icon: "🔄",  desc: "Cambia las letras que quieras." },
+  use_vowel:     { svg: null, icon: "🅰️", desc: "Todos deben usar la vocal del Tablero Central que elijas." },
+  use_consonant: { svg: null, icon: "🔤",  desc: "Todos deben usar la consonante del Tablero Central que elijas." },
+  use_letter:    { svg: null, icon: "📌",  desc: "Todos deben usar la vocal o consonante del Tablero Central que elijas." },
+  two_to_center: { svg: null, icon: "🎯",  desc: "Roba una carta a cada jugador y coloca 2 en el Tablero Central." },
+  out_one:       { svg: null, icon: "💥",  desc: "Roba una carta a cada jugador y ponlas en el mazo." },
+  great_heist:   { svg: null, icon: "🦹",  desc: "Roba una carta a cada jugador." },
+  steal_letter:  { svg: null, icon: "✂️", desc: "Roba una letra a otro jugador." },
+  renew_board:   { svg: null, icon: "♻️", desc: "Quita las 5 letras y pon 5 nuevas." },
+  swap_all:      { svg: null, icon: "🔀",  desc: "Cambia tus letras con las de otro jugador." },
+  swap_one:      { svg: null, icon: "↔️", desc: "Cambia una letra tuya por otra de otro jugador." },
+  solo_mia:      { svg: null, icon: "🔒",  desc: "Roba una letra del Tablero Central; solo tú puedes usarla." },
+  one_for_all:   { svg: null, icon: "🤝",  desc: "Pon una letra de otro jugador en el Tablero Central." },
+  philologist:   { svg: null, icon: "📖",  desc: "Obliga a un jugador a formar una palabra con tilde." },
+  brain_squeeze: { svg: null, icon: "🧠",  desc: "Obliga a un jugador a formar una palabra de al menos tres sílabas." },
+  explosion:     { svg: null, icon: "💣",  desc: "Resta 4 puntos a un jugador en esta baza." },
+  discard_one:   { svg: null, icon: "🗑️", desc: "Un jugador debe dejar una letra en el mazo." },
+  in_english:    { svg: null, icon: "🇬🇧",  desc: "Si formas la palabra en inglés, sumas 10 puntos extra." },
 };
 
 function actionIcon(actionId) {
@@ -10083,6 +10122,23 @@ function actionIcon(actionId) {
 
 function actionDesc(actionId) {
   return ACTION_CARD_META[actionId]?.desc ?? "";
+}
+
+// Returns an <img> if a custom SVG path is set, otherwise a <span> with the emoji.
+function makeActionIconEl(actionId, className = "tcard-action-icon") {
+  const meta = ACTION_CARD_META[actionId];
+  if (meta?.svg) {
+    const img = document.createElement("img");
+    img.src = meta.svg;
+    img.alt = "";
+    img.className = className;
+    img.style.cssText = "width:1em;height:1em;object-fit:contain;";
+    return img;
+  }
+  const span = document.createElement("span");
+  span.className = className;
+  span.textContent = meta?.icon ?? "🎴";
+  return span;
 }
 
 function openActionGallery() {
@@ -10097,7 +10153,12 @@ function openActionGallery() {
 
   const title = document.createElement("div");
   title.className = "training-picker-title";
-  title.textContent = "🎴 Cartas de acción";
+  const galleryIcon = document.createElement("img");
+  galleryIcon.src = "assets/img/actions/gallery.svg";
+  galleryIcon.alt = "";
+  galleryIcon.style.cssText = "width:20px;height:20px;vertical-align:middle;margin-right:6px;";
+  title.appendChild(galleryIcon);
+  title.appendChild(document.createTextNode("Cartas de acción"));
   card.appendChild(title);
 
   const grid = document.createElement("div");

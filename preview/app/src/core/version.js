@@ -7,7 +7,7 @@ import { IS_LOCAL } from '../lib/env.js'
 
 const VERSION_PREFIX = "1.0" // read by CI and post-commit hook via grep
 
-let _version = "v1.0.863"
+let _version = "v1.0.865"
 
 if (IS_LOCAL) {
   try {

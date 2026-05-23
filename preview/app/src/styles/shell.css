@@ -2027,6 +2027,33 @@ body.shell-ready #game-root {
   line-height: 1.35;
 }
 
+.quick-guide-action-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: 8px;
+}
+.quick-guide-action-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.quick-guide-action-item-name {
+  font-size: 9px;
+  font-weight: 800;
+  color: #3e2723;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.2px;
+  line-height: 1.2;
+}
+.quick-guide-action-item-desc {
+  font-size: 8px;
+  color: #5a3a1a;
+  text-align: center;
+  line-height: 1.3;
+}
+
 .quick-guide-faq {
   display: flex;
   flex-direction: column;
@@ -2577,8 +2604,8 @@ body.splash-ready #splashLoadingBlock {
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 2px 10px 8px;
+  gap: 4px;
+  padding: 2px 10px 4px;
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
@@ -2620,12 +2647,12 @@ body.splash-ready #splashLoadingBlock {
   text-align: center;
   font-family: var(--font-heading);
   font-weight: 900;
-  font-size: 14px;
+  font-size: 13px;
   color: #2f1b12;
   background: linear-gradient(180deg, #fff8d6 0%, #f7d670 100%);
   border: 2px solid #a36500;
   border-radius: 12px;
-  padding: 5px 14px;
+  padding: 3px 12px;
   align-self: center;
   max-width: 100%;
   text-transform: uppercase;
@@ -2903,7 +2930,7 @@ body.splash-ready #splashLoadingBlock {
   background: linear-gradient(180deg, #fff8e0 0%, #f5e7be 100%);
   border: 2px solid #c5af7d;
   border-radius: 16px;
-  padding: 12px 4px 5px;
+  padding: 10px 4px 8px;
   position: relative;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.6),
@@ -2911,7 +2938,7 @@ body.splash-ready #splashLoadingBlock {
     0 4px 10px rgba(0, 0, 0, 0.1);
 }
 .training-section.is-board {
-  margin-top: 10px;
+  margin-top: 4px;
   background: linear-gradient(180deg, #e3f2d8 0%, #b9dcaa 100%);
   border-color: #6e9c52;
   box-shadow:
@@ -2948,10 +2975,11 @@ body.splash-ready #splashLoadingBlock {
 }
 .training-hand {
   display: flex;
-  gap: 6px;
+  gap: 5px;
   justify-content: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: flex-start;
+  overflow: visible;
 }
 .training-actions-hand {
   display: none;
@@ -3162,7 +3190,7 @@ body.splash-ready #splashLoadingBlock {
 /* Word strip — selected letters in order. Fixed total height so layout
    doesn't jump when adding cards. Horizontal scroll for many letters. */
 .training-word-strip {
-  margin-top: 10px;
+  margin-top: 4px;
   background: linear-gradient(180deg, #fff8e0 0%, #f5e7be 100%);
   border: 2px dashed #c5af7d;
   border-radius: 14px;
@@ -3379,9 +3407,30 @@ body.splash-ready #splashLoadingBlock {
   justify-content: center;
 }
 .tcard-action-icon {
-  font-size: 26px;
+  font-size: 34px;
   line-height: 1;
   display: block;
+  pointer-events: none;
+}
+/* Wrapper: card + name label stacked vertically */
+.tcard-action-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+.tcard-action-label {
+  display: block;
+  font-size: 8px;
+  font-weight: 800;
+  color: #3e2723;
+  text-transform: uppercase;
+  letter-spacing: 0.2px;
+  line-height: 1.15;
+  text-align: center;
+  width: 56px;
+  word-break: break-word;
+  overflow-wrap: anywhere;
   pointer-events: none;
 }
 .tcard.is-action.is-selectable {
@@ -3395,17 +3444,17 @@ body.splash-ready #splashLoadingBlock {
 }
 .tcard.is-action.is-focused {
   border-color: #f7b500;
-  box-shadow: 0 0 0 3px #f7b500, 0 3px 0 rgba(0, 0, 0, 0.15);
+  box-shadow: inset 0 0 0 3px #f7b500;
   transform: translateY(-3px);
   animation: none;
 }
 @keyframes training-action-pulse {
-  0%, 100% { transform: translateY(0)    scale(1);    filter: drop-shadow(0 0 0 rgba(247, 181, 0, 0)); }
-  50%      { transform: translateY(-3px) scale(1.04); filter: drop-shadow(0 0 6px rgba(247, 181, 0, 0.85)); }
+  0%, 100% { transform: translateY(0);    filter: drop-shadow(0 0 0 rgba(247, 181, 0, 0)); }
+  50%      { transform: translateY(-3px); filter: drop-shadow(0 0 6px rgba(247, 181, 0, 0.85)); }
 }
 .tcard.is-action.is-selected {
   border-color: #f7b500;
-  box-shadow: 0 0 0 3px #f7b500, 0 3px 0 rgba(0, 0, 0, 0.15);
+  box-shadow: inset 0 0 0 3px #f7b500;
   transform: translateY(-2px);
 }
 
@@ -3415,44 +3464,53 @@ body.splash-ready #splashLoadingBlock {
   background: #fff8ee;
   border: 1.5px solid #e0b96e;
   border-radius: 10px;
-  padding: 8px 12px;
+  padding: 10px 12px;
   margin-top: 4px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
   align-items: stretch;
 }
 .training-action-focus-panel.hidden {
   display: none;
 }
 .training-action-focus-name {
-  font-size: 13px;
-  font-weight: 800;
+  font-size: 14px;
+  font-weight: 900;
   color: #3e2723;
   text-transform: uppercase;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.4px;
   text-align: center;
 }
 .training-action-focus-desc {
-  font-size: 12px;
+  font-size: 15px;
   color: #5a3a1a;
   text-align: center;
-  line-height: 1.35;
+  line-height: 1.4;
 }
 .training-action-focus-play {
-  margin-top: 4px;
-  padding: 6px 0;
-  background: #e74c3c;
-  color: #fff;
-  border: none;
-  border-radius: 7px;
-  font-size: 13px;
-  font-weight: 800;
+  --btn-main: #e74c3c;
+  --btn-dark: #992d22;
+  --btn-text: #fff;
+  margin-top: 6px;
+  padding: 14px 20px;
+  background: var(--btn-main);
+  color: var(--btn-text);
+  border: 3px solid var(--btn-dark);
+  border-radius: 20px;
+  font-family: var(--font-heading);
+  font-size: 17px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
   cursor: pointer;
-  letter-spacing: 0.3px;
+  text-shadow: 0 3px 0 var(--btn-dark);
+  box-shadow: 0 6px 0 var(--btn-dark), 0 10px 16px rgba(0,0,0,0.2);
+  transition: transform 0.08s, box-shadow 0.08s;
 }
 .training-action-focus-play:active {
-  background: #c0392b;
+  transform: translateY(4px);
+  box-shadow: 0 2px 0 var(--btn-dark), 0 4px 8px rgba(0,0,0,0.15);
 }
 
 /* Debug action gallery modal */
@@ -3489,7 +3547,7 @@ body.splash-ready #splashLoadingBlock {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  margin-top: 4px;
+  margin-top: 0;
   width: 100%;
   max-width: 360px;
   margin-left: auto;
