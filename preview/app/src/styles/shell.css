@@ -2029,17 +2029,17 @@ body.shell-ready #game-root {
 
 .quick-guide-action-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px 10px;
 }
 .quick-guide-action-item {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
 }
 .quick-guide-action-item-name {
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 800;
   color: #3e2723;
   text-align: center;
@@ -2048,10 +2048,10 @@ body.shell-ready #game-root {
   line-height: 1.2;
 }
 .quick-guide-action-item-desc {
-  font-size: 8px;
+  font-size: 12px;
   color: #5a3a1a;
   text-align: center;
-  line-height: 1.3;
+  line-height: 1.35;
 }
 
 .quick-guide-faq {
@@ -2859,9 +2859,15 @@ body.splash-ready #splashLoadingBlock {
   pointer-events: none;
 }
 .pill-badge-turn {
-  top: -10px;
+  top: -22px;
   left: 50%;
   transform: translateX(-50%);
+  background: #fff;
+  border-radius: 50%;
+  border: 1.5px solid #f7b500;
+  padding: 1px;
+  width: 22px;
+  height: 22px;
 }
 .pill-badge-shield {
   bottom: -10px;
@@ -2869,13 +2875,11 @@ body.splash-ready #splashLoadingBlock {
   transform: translateX(-50%);
 }
 /* Dealer badge — top-right corner */
-.training-score-pill.is-dealer::before {
-  content: "🎴";
-  position: absolute;
+.pill-badge-deal {
   top: -9px;
   right: -3px;
-  font-size: 13px;
-  line-height: 1;
+  width: 20px;
+  height: 20px;
 }
 .training-score-pill-name {
   font-size: 10px;
@@ -3396,10 +3400,10 @@ body.splash-ready #splashLoadingBlock {
     drop-shadow( 0    2px 3px rgba(0,0,0,0.45));
 }
 
-/* Action card: red pastel, same dimensions as letter card */
+/* Action card: pastel red, same dimensions as letter card */
 .tcard.is-action {
   padding: 4px;
-  background: #ffb3a8;
+  background: #f07272;
   border-color: #6b4a1d;
   text-align: center;
   display: flex;
@@ -3437,6 +3441,12 @@ body.splash-ready #splashLoadingBlock {
   cursor: pointer;
   animation: training-action-pulse 1.6s ease-in-out infinite;
 }
+.tcard.is-action.is-dimmed {
+  opacity: 0.38;
+  animation: none;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
 .tcard.is-action.is-selectable:active {
   animation: none;
   transform: translateY(2px);
@@ -3445,7 +3455,6 @@ body.splash-ready #splashLoadingBlock {
 .tcard.is-action.is-focused {
   border-color: #f7b500;
   box-shadow: inset 0 0 0 3px #f7b500;
-  transform: translateY(-3px);
   animation: none;
 }
 @keyframes training-action-pulse {
@@ -3494,7 +3503,11 @@ body.splash-ready #splashLoadingBlock {
   --btn-text: #fff;
   margin-top: 6px;
   padding: 14px 20px;
-  background: var(--btn-main);
+  background-color: var(--btn-main);
+  background-image: url("../../assets/img/button.svg");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 100% 100%;
   color: var(--btn-text);
   border: 3px solid var(--btn-dark);
   border-radius: 20px;
@@ -3505,8 +3518,10 @@ body.splash-ready #splashLoadingBlock {
   letter-spacing: 0.5px;
   cursor: pointer;
   text-shadow: 0 3px 0 var(--btn-dark);
-  box-shadow: 0 6px 0 var(--btn-dark), 0 10px 16px rgba(0,0,0,0.2);
+  box-shadow: 0 8px 0 var(--btn-dark), 0 12px 20px rgba(0,0,0,0.22);
   transition: transform 0.08s, box-shadow 0.08s;
+  width: 100%;
+  line-height: 1.05;
 }
 .training-action-focus-play:active {
   transform: translateY(4px);
@@ -6013,6 +6028,7 @@ body.splash-ready #splashLoadingBlock {
 */
 
 .match-timer.time-pressure {
+  background-color: #fff6df;
   animation: pulseStress 0.7s ease-in-out infinite;
   animation-fill-mode: both;
   box-shadow:
@@ -6022,6 +6038,7 @@ body.splash-ready #splashLoadingBlock {
 }
 
 .match-timer.time-pressure-urgent {
+  background-color: #fff6df;
   animation: flashStress 0.45s ease-in-out infinite;
   animation-fill-mode: both;
   box-shadow:
@@ -6046,15 +6063,15 @@ body.splash-ready #splashLoadingBlock {
 @keyframes flashStress {
   0% {
     transform: scale(1);
-    background-color: inherit;
+    background-color: #fff6df;
   }
   30% {
     transform: scale(1.03);
-    background-color: rgba(239, 68, 68, 0.14);
+    background-color: #ffe0e0;
   }
   100% {
     transform: scale(1);
-    background-color: inherit;
+    background-color: #fff6df;
   }
 }
 

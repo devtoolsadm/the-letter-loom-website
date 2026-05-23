@@ -3451,7 +3451,7 @@ function setupNavigation() {
     ["trainingCardNormal", () => startTrainingMatch("normal")],
     ["trainingCardHard",   () => startTrainingMatch("hard")],
     ["trainingRulesBtn",   () => openRulesModal()],
-    ["trainingGalleryBtn", () => openActionGallery()],
+    ["trainingGalleryBtn", () => openQuickGuide("strategy-cards-all")],
     ["trainingMatchBackBtn",     () => confirmExitTrainingMatch()],
     ["trainingMatchExitBtn",     () => confirmExitTrainingMatch()],
     ["trainingMatchSettingsBtn", () => openSettingsModal()],
@@ -4001,7 +4001,11 @@ function renderQuickGuideRichText(targetEl, text) {
 function renderActionCardGrid() {
   const grid = document.createElement("div");
   grid.className = "quick-guide-action-grid";
-  ACTION_CARDS.filter((c) => c.inMVP).forEach((def) => {
+  const groupOrder = { self: 0, all: 1, one: 2 };
+  const sorted = ACTION_CARDS
+    .slice()
+    .sort((a, b) => (groupOrder[a.target] ?? 9) - (groupOrder[b.target] ?? 9));
+  sorted.forEach((def) => {
     const item = document.createElement("div");
     item.className = "quick-guide-action-item";
 
@@ -9016,6 +9020,13 @@ function renderTrainingScoreboard(state) {
       shieldIcon.className = "pill-badge pill-badge-shield";
       pill.appendChild(shieldIcon);
     }
+    if (isDealer) {
+      const dealIcon = document.createElement("img");
+      dealIcon.src = "assets/img/actions/gallery.svg";
+      dealIcon.alt = "";
+      dealIcon.className = "pill-badge pill-badge-deal";
+      pill.appendChild(dealIcon);
+    }
 
     pill.append(name, value, dots);
     root.appendChild(pill);
@@ -9131,10 +9142,12 @@ function renderTrainingHand(state) {
           handleUserPickAction(idx);
         }
       } : null;
+      const hasFocus = isStrategy && focusedActionIndex != null;
       const cardEl = renderActionCard(card, {
         selectable: tappable && !!card,
         selected: false,
         focused: isFocused,
+        dimmed: hasFocus && !isFocused,
         faceDown: isDealing,
         onClick: clickHandler,
       });
@@ -9535,6 +9548,7 @@ function renderActionCard(card, opts = {}) {
   if (opts.selectable) el.classList.add("is-selectable");
   if (opts.selected)   el.classList.add("is-selected");
   if (opts.focused)    el.classList.add("is-focused");
+  if (opts.dimmed)     el.classList.add("is-dimmed");
   el.appendChild(makeActionIconEl(card.actionId, "tcard-action-icon"));
   if (opts.onClick) {
     el.addEventListener("click", opts.onClick);

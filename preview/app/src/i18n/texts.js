@@ -237,46 +237,11 @@ export const TEXTS = {
         ]
       },
       {
-        id: "strategy-cards",
+        id: "strategy-cards-all",
         title: "Cartas de Acción",
         body: [
-          "Lío bueno: cambian letras y puntos."
-        ],
-        bullets: [
-          "Cambia cartas con otros.",
-          "Roba o devuelve al tablero.",
-          "Suma, resta o multiplica puntos.",
-          "Cambia el Tablero Central."
-        ]
-      },
-      {
-        id: "strategy-cards-all",
-        title: "Cartas de Acción (todas)",
-        bullets: [
-          "En inglés: si formas la palabra en inglés, sumas 10 puntos extra.",
-          "¡Solo mía!: roba una letra del Tablero Central; solo tú puedes usarla.",
-          "Subidón total: suma 6 puntos extra a tu palabra.",
-          "Carta extra: roba una vocal o consonante de los mazos de letras.",
-          "Escudo total: un ataque contra ti o contra todos no te afecta en esta baza.",
-          "Comodín: úsalo como vocal o consonante y suma 6 puntos extra.",
-          "Palabra extra: puedes formar dos palabras reutilizando solo una letra en ambas.",
-          "Usa consonante: todos deben usar la consonante del Tablero Central que elijas.",
-          "Con la que yo diga: todos deben usar la vocal o consonante del Tablero Central que elijas.",
-          "Dos al centro: roba una carta a cada jugador y coloca 2 en el Tablero Central.",
-          "Fuera una: roba una carta a cada jugador y ponlas en el mazo.",
-          "Robo del siglo: roba una carta a cada jugador.",
-          "Filólogo: obliga a un jugador a formar una palabra con tilde.",
-          "Explosión: resta 4 puntos a un jugador en esta baza.",
-          "Deshazte de una: un jugador debe dejar una letra en el mazo.",
-          "Usa vocal: todos deben usar la vocal del Tablero Central que elijas.",
-          "Roba una carta: roba una letra a otro jugador.",
-          "Renueva el Tablero Central: quita las 5 letras y pon 5 nuevas.",
-          "Intercambio total: cambia tus letras con las de otro jugador.",
-          "Exprime el cerebro: obliga a un jugador a formar una palabra de al menos tres sílabas.",
-          "Una para todos: pon una letra de otro jugador en el Tablero Central.",
-          "Cambia cartas: cambia las letras que quieras.",
-          "Intercambio: cambia una letra tuya por otra de otro jugador.",
-          "Inventa tu propia regla: usa una carta en blanco para crear una carta de Acción."
+          "¡Que empiece el caos! El repartidor va primero: si su carta va contra todos, la pone boca arriba junto al Tablero; si va a por un jugador, se la da; si es para él, se la queda. Luego el resto hace lo mismo, uno a uno.",
+          "Al terminar puede que el Tablero haya cambiado y que las letras de los demás ya no sean las mismas... ¡eso es lo divertido! Ojo: nadie puede quedarse sin letras; si los robos te dejan con la mano vacía, tienes derecho a coger una de los mazos."
         ]
       },
       {
@@ -844,46 +809,11 @@ export const TEXTS = {
         ]
       },
       {
-        id: "strategy-cards",
+        id: "strategy-cards-all",
         title: "Action cards",
         body: [
-          "Good chaos: they change letters and points."
-        ],
-        bullets: [
-          "Swap cards with other players.",
-          "Draw or return cards to the board.",
-          "Add, subtract or multiply points.",
-          "Change the Central Board."
-        ]
-      },
-      {
-        id: "strategy-cards-all",
-        title: "Action cards (all)",
-        bullets: [
-          "In English: if you build the word in English, add 10 extra points.",
-          "Mine only!: take one letter from the Central Board; only you can use it.",
-          "Total Boost: add 6 extra points to your word.",
-          "Extra card: draw a vowel or consonant from the letter decks.",
-          "Total Shield: an attack against you or everyone does not affect you this trick.",
-          "Wildcard: use it as a vowel or consonant and add 6 extra points.",
-          "Extra word: you can build two words, reusing only one letter in both.",
-          "Use consonant: everyone must use the Central Board consonant you choose.",
-          "The one I say: everyone must use the Central Board vowel or consonant you choose.",
-          "Two to the center: take one card from each player and place 2 on the Central Board.",
-          "One out: take one card from each player and put them back in the deck.",
-          "Heist of the century: steal one card from each player.",
-          "Philologist: force one player to build a word with an accent mark.",
-          "Explosion: subtract 4 points from one player this trick.",
-          "Get rid of one: one player must put one letter back in the deck.",
-          "Use vowel: everyone must use the Central Board vowel you choose.",
-          "Steal a card: steal one letter from another player.",
-          "Renew the Central Board: remove the 5 letters and place 5 new ones.",
-          "Total exchange: swap your letters with another player's letters.",
-          "Squeeze your brain: force one player to build a word with at least three syllables.",
-          "One for everyone: place another player's letter on the Central Board.",
-          "Change cards: change any letters you want.",
-          "Exchange: swap one of your letters for another player's letter.",
-          "Invent your own rule: use a blank card to create an Action card."
+          "Let the chaos begin! The dealer goes first: if the card targets everyone, it goes face-up next to the Central Board; if it targets one player, they hand it over; if it's a self-benefit, they keep it. Then each player does the same, one by one.",
+          "By the time everyone has played... the Central Board may have changed and players might have totally different letters! That's the fun part. Note: no player can be left without letters — if steals leave you empty-handed, you get to draw one from the decks."
         ]
       },
       {
