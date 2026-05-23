@@ -52,7 +52,7 @@ describe('boost_total', () => {
 
 describe('wildcard', () => {
   it('adds wildcard letter to source hand and +6 modifier', () => {
-    const state = makeState({ hands: { p1: { letters: [], actions: [] }, p2: '<hidden>', p3: '<hidden>' } })
+    const state = makeState({ hands: { p1: { letters: [], actions: [] }, p2: { letters: [], actions: [] }, p3: { letters: [], actions: [] } } })
     const action = makeActionCard({ actionId: 'wildcard' })
     const next = applyActionEffect(state, action, 'p1', null, {})
     expect(next.scoreModifiers.p1).toBe(6)
@@ -69,7 +69,7 @@ describe('extra_card', () => {
   it('draws a vowel and adds to source hand (kind=vowel)', () => {
     const vowel = makeLetter({ letter: 'E', kind: 'vowel' })
     const state = makeState({
-      hands: { p1: { letters: [], actions: [] }, p2: '<hidden>', p3: '<hidden>' },
+      hands: { p1: { letters: [], actions: [] }, p2: { letters: [], actions: [] }, p3: { letters: [], actions: [] } },
       decks: { vowelDeck: [vowel], consonantDeck: [], actionDeck: [] },
     })
     const action = makeActionCard({ actionId: 'extra_card' })
@@ -82,7 +82,7 @@ describe('extra_card', () => {
   it('draws a consonant when kind=consonant', () => {
     const cons = makeConsonant({ letter: 'R' })
     const state = makeState({
-      hands: { p1: { letters: [], actions: [] }, p2: '<hidden>', p3: '<hidden>' },
+      hands: { p1: { letters: [], actions: [] }, p2: { letters: [], actions: [] }, p3: { letters: [], actions: [] } },
       decks: { vowelDeck: [], consonantDeck: [cons], actionDeck: [] },
     })
     const action = makeActionCard({ actionId: 'extra_card' })
@@ -94,7 +94,7 @@ describe('extra_card', () => {
   it('defaults to vowel when kind is unspecified', () => {
     const vowel = makeLetter({ letter: 'I' })
     const state = makeState({
-      hands: { p1: { letters: [], actions: [] }, p2: '<hidden>', p3: '<hidden>' },
+      hands: { p1: { letters: [], actions: [] }, p2: { letters: [], actions: [] }, p3: { letters: [], actions: [] } },
       decks: { vowelDeck: [vowel], consonantDeck: [], actionDeck: [] },
     })
     const action = makeActionCard({ actionId: 'extra_card' })
@@ -103,7 +103,7 @@ describe('extra_card', () => {
   })
 
   it('returns state unchanged when deck and discard are empty', () => {
-    const state = makeState({ hands: { p1: { letters: [], actions: [] }, p2: '<hidden>', p3: '<hidden>' } })
+    const state = makeState({ hands: { p1: { letters: [], actions: [] }, p2: { letters: [], actions: [] }, p3: { letters: [], actions: [] } } })
     const action = makeActionCard({ actionId: 'extra_card' })
     const next = applyActionEffect(state, action, 'p1', null, { kind: 'vowel' })
     expect(next.hands.p1.letters).toHaveLength(0)
@@ -116,7 +116,7 @@ describe('change_cards', () => {
     const old = makeLetter({ id: 'old-v', letter: 'A', kind: 'vowel' })
     const replacement = makeLetter({ id: 'new-v', letter: 'E', kind: 'vowel' })
     const state = makeState({
-      hands: { p1: { letters: [old], actions: [] }, p2: '<hidden>', p3: '<hidden>' },
+      hands: { p1: { letters: [old], actions: [] }, p2: { letters: [], actions: [] }, p3: { letters: [], actions: [] } },
       decks: { vowelDeck: [replacement], consonantDeck: [], actionDeck: [] },
       discards: { vowels: [], consonants: [], actions: [] },
     })
@@ -134,7 +134,7 @@ describe('change_cards', () => {
     const newV = makeLetter({ id: 'v2', kind: 'vowel', letter: 'O' })
     const newC = makeConsonant({ id: 'c2', kind: 'consonant', letter: 'R' })
     const state = makeState({
-      hands: { p1: { letters: [v1, c1], actions: [] }, p2: '<hidden>', p3: '<hidden>' },
+      hands: { p1: { letters: [v1, c1], actions: [] }, p2: { letters: [], actions: [] }, p3: { letters: [], actions: [] } },
       decks: { vowelDeck: [newV], consonantDeck: [newC], actionDeck: [] },
       discards: { vowels: [], consonants: [], actions: [] },
     })
@@ -245,7 +245,7 @@ describe('solo_mia', () => {
     const other = makeLetter({ id: 'bc2', letter: 'I', kind: 'vowel' })
     const state = makeState({
       centralBoard: [target, other],
-      hands: { p1: { letters: [], actions: [] }, p2: '<hidden>', p3: '<hidden>' },
+      hands: { p1: { letters: [], actions: [] }, p2: { letters: [], actions: [] }, p3: { letters: [], actions: [] } },
     })
     const action = makeActionCard({ actionId: 'solo_mia' })
     const next = applyActionEffect(state, action, 'p1', null, { cardId: 'bc1' })
@@ -259,7 +259,7 @@ describe('solo_mia', () => {
     const bc = makeLetter({ id: 'bc1', letter: 'A', kind: 'vowel' })
     const state = makeState({
       centralBoard: [bc],
-      hands: { p1: { letters: [], actions: [] }, p2: '<hidden>', p3: '<hidden>' },
+      hands: { p1: { letters: [], actions: [] }, p2: { letters: [], actions: [] }, p3: { letters: [], actions: [] } },
     })
     const action = makeActionCard({ actionId: 'solo_mia' })
     const next = applyActionEffect(state, action, 'p1', null, {}, rng0)
@@ -302,7 +302,7 @@ describe('out_one', () => {
       hands: {
         p1: { letters: [makeLetter()], actions: [] },
         p2: { letters: [], actions: [] },
-        p3: '<hidden>',
+        p3: { letters: [], actions: [] },
       },
     })
     const action = makeActionCard({ actionId: 'out_one' })
@@ -341,7 +341,7 @@ describe('steal_letter', () => {
       hands: {
         p1: { letters: [], actions: [] },
         p2: { letters: [stolen, other], actions: [] },
-        p3: '<hidden>',
+        p3: { letters: [], actions: [] },
       },
     })
     const action = makeActionCard({ actionId: 'steal_letter' })
@@ -357,7 +357,7 @@ describe('steal_letter', () => {
       hands: {
         p1: { letters: [], actions: [] },
         p2: { letters: [card], actions: [] },
-        p3: '<hidden>',
+        p3: { letters: [], actions: [] },
       },
     })
     const action = makeActionCard({ actionId: 'steal_letter' })
@@ -371,7 +371,7 @@ describe('steal_letter', () => {
       hands: {
         p1: { letters: [], actions: [] },
         p2: { letters: [], actions: [] },
-        p3: '<hidden>',
+        p3: { letters: [], actions: [] },
       },
     })
     const action = makeActionCard({ actionId: 'steal_letter' })
@@ -381,34 +381,14 @@ describe('steal_letter', () => {
 })
 
 describe('swap_all', () => {
-  it('simulates swap against hidden target: source discards, draws same count', () => {
-    const v1 = makeLetter({ id: 'v1', kind: 'vowel' })
-    const c1 = makeConsonant({ id: 'c1' })
-    const newV = makeLetter({ id: 'nv', kind: 'vowel', letter: 'O' })
-    const newC = makeConsonant({ id: 'nc', letter: 'R' })
-    const state = makeState({
-      hands: { p1: { letters: [v1, c1], actions: [] }, p2: '<hidden>', p3: '<hidden>' },
-      decks: { vowelDeck: [newV], consonantDeck: [newC], actionDeck: [] },
-      discards: { vowels: [], consonants: [], actions: [] },
-    })
-    const action = makeActionCard({ actionId: 'swap_all' })
-    const next = applyActionEffect(state, action, 'p1', 'p2', {})
-    expect(next.hands.p1.letters).toHaveLength(2)
-    const ids = next.hands.p1.letters.map(c => c.id)
-    expect(ids).not.toContain('v1')
-    expect(ids).not.toContain('c1')
-    expect(next.discards.vowels[0].id).toBe('v1')
-    expect(next.discards.consonants[0].id).toBe('c1')
-  })
-
-  it('swaps letters when both hands are visible', () => {
+  it('swaps all letters between source and target', () => {
     const srcLetter = makeLetter({ id: 'src', letter: 'A', kind: 'vowel' })
     const tgtLetter = makeConsonant({ id: 'tgt', letter: 'N' })
     const state = makeState({
       hands: {
         p1: { letters: [srcLetter], actions: [] },
         p2: { letters: [tgtLetter], actions: [] },
-        p3: '<hidden>',
+        p3: { letters: [], actions: [] },
       },
     })
     const action = makeActionCard({ actionId: 'swap_all' })
@@ -416,33 +396,56 @@ describe('swap_all', () => {
     expect(next.hands.p1.letters[0].id).toBe('tgt')
     expect(next.hands.p2.letters[0].id).toBe('src')
   })
+
+  it('partial swap: source gives fromIds, receives all target letters', () => {
+    const v1 = makeLetter({ id: 'v1', kind: 'vowel' })
+    const c1 = makeConsonant({ id: 'c1' })
+    const tgtLetter = makeConsonant({ id: 'tgt', letter: 'R' })
+    const state = makeState({
+      hands: {
+        p1: { letters: [v1, c1], actions: [] },
+        p2: { letters: [tgtLetter], actions: [] },
+        p3: { letters: [], actions: [] },
+      },
+    })
+    const action = makeActionCard({ actionId: 'swap_all' })
+    const next = applyActionEffect(state, action, 'p1', 'p2', { fromIds: ['v1'] })
+    // source keeps c1, receives tgt
+    expect(next.hands.p1.letters.map(c => c.id)).toContain('c1')
+    expect(next.hands.p1.letters.map(c => c.id)).toContain('tgt')
+    expect(next.hands.p1.letters.map(c => c.id)).not.toContain('v1')
+    // target receives the given-away card
+    expect(next.hands.p2.letters.map(c => c.id)).toContain('v1')
+  })
 })
 
 describe('swap_one', () => {
-  it('simulates swap against hidden target: source loses one, gains one of same kind', () => {
-    const given = makeLetter({ id: 'given', kind: 'vowel' })
-    const replacement = makeLetter({ id: 'repl', kind: 'vowel', letter: 'O' })
+  it('swaps one letter by targetKind from target real hand', () => {
+    const fromCard = makeLetter({ id: 'from', kind: 'vowel' })
+    const toCard = makeConsonant({ id: 'to', letter: 'R' })
     const state = makeState({
-      hands: { p1: { letters: [given], actions: [] }, p2: '<hidden>', p3: '<hidden>' },
-      decks: { vowelDeck: [replacement], consonantDeck: [], actionDeck: [] },
-      discards: { vowels: [], consonants: [], actions: [] },
+      hands: {
+        p1: { letters: [fromCard], actions: [] },
+        p2: { letters: [toCard], actions: [] },
+        p3: { letters: [], actions: [] },
+      },
     })
     const action = makeActionCard({ actionId: 'swap_one' })
-    const next = applyActionEffect(state, action, 'p1', 'p2', { fromId: 'given' })
+    const next = applyActionEffect(state, action, 'p1', 'p2', { fromId: 'from', targetKind: 'consonant' }, rng0)
     expect(next.hands.p1.letters).toHaveLength(1)
-    expect(next.hands.p1.letters[0].id).toBe('repl')
-    expect(next.discards.vowels).toHaveLength(1)
-    expect(next.discards.vowels[0].id).toBe('given')
+    expect(next.hands.p1.letters[0].id).toBe('to')
+    expect(next.hands.p2.letters).toHaveLength(1)
+    expect(next.hands.p2.letters[0].id).toBe('from')
   })
 
-  it('swaps specific cards between two visible hands', () => {
+  it('swaps specific cards between two hands using explicit toId', () => {
     const fromCard = makeLetter({ id: 'from', letter: 'A', kind: 'vowel' })
     const toCard = makeConsonant({ id: 'to', letter: 'N' })
     const state = makeState({
       hands: {
         p1: { letters: [fromCard], actions: [] },
         p2: { letters: [toCard], actions: [] },
-        p3: '<hidden>',
+        p3: { letters: [], actions: [] },
       },
     })
     const action = makeActionCard({ actionId: 'swap_one' })
@@ -477,7 +480,7 @@ describe('discard_one', () => {
       hands: {
         p1: { letters: [makeLetter()], actions: [] },
         p2: { letters: [toDiscard, keep], actions: [] },
-        p3: '<hidden>',
+        p3: { letters: [], actions: [] },
       },
       decks: { vowelDeck: [], consonantDeck: [], actionDeck: [] },
     })
@@ -495,7 +498,7 @@ describe('discard_one', () => {
       hands: {
         p1: { letters: [], actions: [] },
         p2: { letters: [only], actions: [] },
-        p3: '<hidden>',
+        p3: { letters: [], actions: [] },
       },
       decks: { vowelDeck: [], consonantDeck: [], actionDeck: [] },
     })
@@ -563,42 +566,76 @@ describe('brain_squeeze', () => {
 })
 
 describe('one_for_all', () => {
-  it('moves specified hand card to central board', () => {
-    const card = makeLetter({ id: 'card1', letter: 'A', kind: 'vowel' })
-    const other = makeLetter({ id: 'card2', letter: 'E' })
+  it('moves specified card from TARGET hand to central board', () => {
+    const tCard = makeLetter({ id: 'tcard1', letter: 'A', kind: 'vowel' })
+    const tOther = makeLetter({ id: 'tcard2', letter: 'E' })
     const state = makeState({
-      hands: { p1: { letters: [card, other], actions: [] }, p2: '<hidden>', p3: '<hidden>' },
+      hands: {
+        p1: { letters: [], actions: [] },
+        p2: { letters: [tCard, tOther], actions: [] },
+        p3: { letters: [], actions: [] },
+      },
       centralBoard: [],
     })
     const action = makeActionCard({ actionId: 'one_for_all', target: 'one' })
-    const next = applyActionEffect(state, action, 'p1', null, { cardId: 'card1' })
+    const next = applyActionEffect(state, action, 'p1', 'p2', { cardId: 'tcard1' })
     expect(next.centralBoard).toHaveLength(1)
-    expect(next.centralBoard[0].id).toBe('card1')
-    expect(next.hands.p1.letters).toHaveLength(1)
-    expect(next.hands.p1.letters[0].id).toBe('card2')
-  })
-
-  it('picks random hand card when no cardId specified', () => {
-    const card = makeLetter({ id: 'only', letter: 'A' })
-    const state = makeState({
-      hands: { p1: { letters: [card], actions: [] }, p2: '<hidden>', p3: '<hidden>' },
-      centralBoard: [],
-    })
-    const action = makeActionCard({ actionId: 'one_for_all' })
-    const next = applyActionEffect(state, action, 'p1', null, {}, rng0)
-    expect(next.centralBoard[0].id).toBe('only')
+    expect(next.centralBoard[0].id).toBe('tcard1')
+    expect(next.hands.p2.letters).toHaveLength(1)
+    expect(next.hands.p2.letters[0].id).toBe('tcard2')
+    // Source hand unchanged
     expect(next.hands.p1.letters).toHaveLength(0)
   })
 
-  it('returns state unchanged when source hand is empty', () => {
+  it('picks random card from target hand when no cardId specified', () => {
+    const tCard = makeLetter({ id: 'only', letter: 'A' })
     const state = makeState({
-      hands: { p1: { letters: [], actions: [] }, p2: '<hidden>', p3: '<hidden>' },
+      hands: {
+        p1: { letters: [], actions: [] },
+        p2: { letters: [tCard], actions: [] },
+        p3: { letters: [], actions: [] },
+      },
+      centralBoard: [],
     })
     const action = makeActionCard({ actionId: 'one_for_all' })
-    const next = applyActionEffect(state, action, 'p1', null, {}, rng0)
+    const next = applyActionEffect(state, action, 'p1', 'p2', {}, rng0)
+    expect(next.centralBoard[0].id).toBe('only')
+    expect(next.hands.p2.letters).toHaveLength(0)
+  })
+
+  it('returns state unchanged when target hand is empty', () => {
+    const state = makeState({
+      hands: {
+        p1: { letters: [], actions: [] },
+        p2: { letters: [], actions: [] },
+        p3: { letters: [], actions: [] },
+      },
+    })
+    const action = makeActionCard({ actionId: 'one_for_all' })
+    const next = applyActionEffect(state, action, 'p1', 'p2', {}, rng0)
     expect(next).toBe(state)
   })
+
+  it('picks a card by targetKind from target real hand when no cardId specified', () => {
+    const vowel = makeLetter({ id: 'dv1', letter: 'A', kind: 'vowel' })
+    const cons = makeConsonant({ id: 'dc1', letter: 'R' })
+    const state = makeState({
+      hands: {
+        p1: { letters: [], actions: [] },
+        p2: { letters: [vowel, cons], actions: [] },
+        p3: { letters: [], actions: [] },
+      },
+      centralBoard: [],
+    })
+    const action = makeActionCard({ actionId: 'one_for_all' })
+    const next = applyActionEffect(state, action, 'p1', 'p2', { targetKind: 'vowel' }, rng0)
+    expect(next.centralBoard).toHaveLength(1)
+    expect(next.centralBoard[0].id).toBe('dv1')
+    expect(next.hands.p2.letters).toHaveLength(1)
+    expect(next.hands.p2.letters[0].id).toBe('dc1')
+  })
 })
+
 
 // ── Unknown action ───────────────────────────────────────────────────────────
 

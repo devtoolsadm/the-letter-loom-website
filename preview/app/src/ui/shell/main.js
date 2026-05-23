@@ -91,6 +91,7 @@ import {
   playUserAction,
   advanceActionsQueue,
   userHasShield,
+  playerHasShield,
   isAttackOnUser,
   isUserShieldPreSelected,
   drawEmergencyLetter,
@@ -8926,17 +8927,43 @@ function renderTrainingScoreboard(state) {
   const root = document.getElementById("trainingScoreboard");
   if (!root) return;
   root.innerHTML = "";
+
+  const currentActorId = state.phase === "actions" ? (state.actionsQueue?.[0] ?? null) : null;
+  const HAND_SLOTS = 3; // TRAINING_HAND_LETTERS
+
   for (const p of state.players) {
+    const hand = state.hands?.[p.id];
+    const letters = hand && hand !== "<hidden>" ? (hand.letters ?? []).filter(Boolean) : [];
+    const hasShield = p.isGhost ? playerHasShield(state, p.id) : isUserShieldPreSelected(state);
+    const isDealer = p.id === state.dealerId;
+    const isActive = p.id === currentActorId;
+
     const pill = document.createElement("div");
-    pill.className = "training-score-pill" + (p.isGhost ? "" : " is-user");
+    let pillClass = "training-score-pill" + (p.isGhost ? "" : " is-user");
+    if (hasShield) pillClass += " has-shield";
+    if (isDealer) pillClass += " is-dealer";
+    if (isActive) pillClass += " is-active";
+    pill.className = pillClass;
     pill.dataset.playerId = p.id;
+
     const name = document.createElement("span");
     name.className = "training-score-pill-name";
     name.textContent = p.name;
+
     const value = document.createElement("span");
     value.className = "training-score-pill-value";
     value.textContent = String(p.score);
-    pill.append(name, value);
+
+    // Card count: dots (filled = has card, empty = slot is empty)
+    const dots = document.createElement("div");
+    dots.className = "training-score-pill-cards";
+    for (let i = 0; i < HAND_SLOTS; i++) {
+      const dot = document.createElement("span");
+      if (i < letters.length) dot.className = "filled";
+      dots.appendChild(dot);
+    }
+
+    pill.append(name, value, dots);
     root.appendChild(pill);
   }
   if (debugMode) {
@@ -9701,7 +9728,7 @@ function processNextActionsTurn() {
       if (next.phase === "actions") scheduleActionsDriver();
       return;
     }
-    if (state.userActionIndex != null) {
+    if (state.userActionIndex != null && !debugMode) {
       // Pre-selected during strategy: play it now. If it needs a target or
       // a board letter, ask the user at this moment (not when they picked
       // the card during strategy).
@@ -9752,10 +9779,10 @@ function processNextActionsTurn() {
         onPick: (actionId) => {
           actionsDriverBusy = false;
           const cardDef = ACTION_CARDS.find((c) => c.id === actionId);
-          const fakeCard = { id: "debug-card", type: "action", ...cardDef };
+          const fakeCard = { id: "debug-card", type: "action", ...cardDef, actionId: cardDef.id };
           stopUserTurnTimer();
           pickTargetAndPayloadForUser(state, fakeCard, (targetId, payload) => {
-            const fakeLog = { playerId: userId, actionId, targetId };
+            const fakeLog = { playerId: userId, actionId, targetId, payload };
             let s = applyPlannedGhostAction(getTrainingMatch(), fakeLog);
             showActionToast(s, fakeLog);
             s = { ...s, userActionResolved: true };
@@ -9784,10 +9811,11 @@ function processNextActionsTurn() {
       options: mvpCards.map((c) => ({ id: c.id, label: humanActionName(c.id) })),
       onPick: (actionId) => {
         const cardDef = ACTION_CARDS.find((c) => c.id === actionId);
-        const needsTarget = cardDef && cardDef.target === "one";
-        function applyDebugGhost(targetId) {
+        const fakeCard = { id: "debug-ghost-card", type: "action", ...cardDef, actionId: cardDef.id };
+
+        function applyDebugGhost(targetId, payload = {}) {
           actionsDriverBusy = false;
-          const fakeLog = { playerId: nextActorId, actionId, targetId };
+          const fakeLog = { playerId: nextActorId, actionId, targetId, payload };
           const isAtk = isAttackOnUser(cardDef, targetId, userId);
           if (isAtk && userHasShield(state) && !isUserShieldPreSelected(state)) {
             actionsDriverBusy = true;
@@ -9804,17 +9832,10 @@ function processNextActionsTurn() {
             if (s.phase === "actions") scheduleActionsDriver();
           }
         }
-        if (needsTarget) {
-          const candidates = state.players.filter((p) => p.id !== nextActorId);
-          openTrainingPicker({
-            titleKey: null,
-            context: { label: `🐛 ${ghostName} → objetivo:`, kind: "forced" },
-            options: candidates.map((p) => ({ id: p.id, label: p.name })),
-            onPick: (tgt) => applyDebugGhost(tgt),
-          });
-        } else {
-          applyDebugGhost(null);
-        }
+
+        pickTargetAndPayloadForUser(state, fakeCard, (targetId, payload) => {
+          applyDebugGhost(targetId, payload);
+        }, `🐛 ${ghostName}`, nextActorId);
       },
     });
     return;
@@ -9839,6 +9860,13 @@ function processNextActionsTurn() {
     s = advanceActionsQueue(s);
     renderTrainingMatch();
     if (s.phase === "actions") scheduleActionsDriver();
+    return;
+  }
+
+  // discard_one targeting user → user picks which card to discard
+  if (planned.log.actionId === "discard_one" && planned.log.targetId === userId) {
+    actionsDriverBusy = true;
+    promptDiscardOne(planned.state, planned.log);
     return;
   }
 
@@ -9897,6 +9925,39 @@ function promptShield(opportunity, log) {
         })) return;
         if (s.phase === "actions") scheduleActionsDriver();
       }
+    },
+  });
+}
+
+function promptDiscardOne(state, log) {
+  const userId = state.players[0].id;
+  const hand = state.hands[userId];
+  const letters = hand && hand !== "<hidden>" ? (hand.letters ?? []).filter(Boolean) : [];
+  const attacker = state.players.find((p) => p.id === log.playerId);
+  if (letters.length === 0) {
+    actionsDriverBusy = false;
+    let s = advanceActionsQueue(state);
+    renderTrainingMatch();
+    if (s.phase === "actions") scheduleActionsDriver();
+    return;
+  }
+  const attackerName = attacker?.name || log.playerId;
+  openTrainingPicker({
+    titleKey: "trainingDiscardOneTitle",
+    context: { label: `⚡ ${attackerName}: Deshazte de una`, kind: "forced" },
+    options: letters.map((c) => ({ id: c.id, label: c.letter })),
+    timeoutMs: PICKER_TIMEOUT_MS,
+    onPick: (cardId) => {
+      actionsDriverBusy = false;
+      let s = applyPlannedGhostAction(state, { ...log, payload: { cardId } });
+      showActionToast(s, log);
+      s = advanceActionsQueue(s);
+      renderTrainingMatch();
+      if (maybeOfferEmergencyDraw(() => {
+        const cur = getTrainingMatch();
+        if (cur?.phase === "actions") scheduleActionsDriver();
+      })) return;
+      if (s.phase === "actions") scheduleActionsDriver();
     },
   });
 }
@@ -10116,24 +10177,199 @@ function openChangeCardsPicker(letters, titleKey, onConfirm, context = null) {
   document.body.appendChild(overlay);
 }
 
-function pickTargetAndPayloadForUser(state, card, done) {
-  const userId = state.players[0].id;
-  const cardDisplayName = humanActionName(card.actionId);
-  const selfCtx    = { label: `🎯 Tú: ${cardDisplayName}`, kind: "self"   };
-  const attackCtx  = { label: `⚔️ Tú atacas: ${cardDisplayName}`, kind: "attack" };
-  // one_for_all: pick which hand card to give to the board
-  if (card.actionId === "one_for_all") {
-    const userHand = state.hands[userId];
-    const letters = userHand && userHand !== "<hidden>"
-      ? (userHand.letters ?? []).filter(Boolean) : [];
-    if (letters.length === 0) { done(null, {}); return; }
-    openTrainingPicker({
-      titleKey: "trainingOneForAllTitle",
-      context: selfCtx,
-      options: letters.map((c) => ({ id: c.id, label: c.letter })),
-      onPick: (cardId) => done(null, { cardId }),
+// ── Ghost dorso (back-of-card) helpers ────────────────────────
+// Generate N simulated card backs (V/C) for a ghost's hidden hand.
+// ~35% vowels, 65% consonants (Spanish distribution).
+function generateGhostBacks(count = 3) {
+  return Array.from({ length: count }, () => ({
+    kind: Math.random() < 0.35 ? "vowel" : "consonant",
+  }));
+}
+
+// Show a dorso (back-of-card) picker for a ghost's simulated hand.
+// backs = [{kind}], onPick(kind) called with chosen kind.
+function openDorsoPicker({ backs, context, onPick, timeoutMs = 0 }) {
+  const overlay = document.createElement("div");
+  overlay.className = "training-picker-overlay";
+  const card = document.createElement("div");
+  card.className = "training-picker-card";
+  if (context) {
+    const ctx = document.createElement("div");
+    ctx.className = "training-picker-context is-" + context.kind;
+    ctx.textContent = context.label;
+    card.appendChild(ctx);
+  }
+  const title = document.createElement("div");
+  title.className = "training-picker-title";
+  title.textContent = shellTexts.trainingPickDorsoTitle || "¿Qué carta robas?";
+  card.appendChild(title);
+
+  let timerInterval = null;
+  let remaining = timeoutMs;
+
+  function dismiss(kind) {
+    if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+    if (document.body.contains(overlay)) document.body.removeChild(overlay);
+    onPick(kind);
+  }
+
+  if (timeoutMs > 0 && backs.length > 0) {
+    const timerWrap = document.createElement("div");
+    timerWrap.className = "training-picker-timer-wrap";
+    const timerBar = document.createElement("div");
+    timerBar.className = "training-picker-timer-bar";
+    timerBar.style.width = "100%";
+    timerWrap.appendChild(timerBar);
+    card.appendChild(timerWrap);
+    timerInterval = setInterval(() => {
+      remaining -= 100;
+      const pct = Math.max(0, (remaining / timeoutMs) * 100);
+      timerBar.style.width = pct + "%";
+      if (remaining <= 0) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+        dismiss(backs[0].kind);
+      }
+    }, 100);
+  }
+
+  const list = document.createElement("div");
+  list.className = "training-picker-options";
+  for (const b of backs) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = `training-picker-option is-dorso is-dorso-${b.kind === "vowel" ? "vowel" : "consonant"}`;
+    btn.textContent = b.kind === "vowel" ? "V" : "C";
+    btn.addEventListener("click", () => dismiss(b.kind));
+    list.appendChild(btn);
+  }
+  card.appendChild(list);
+  overlay.appendChild(card);
+  document.body.appendChild(overlay);
+}
+
+// Returns dorso backs for a player: real kinds if hand is visible, random if hidden.
+function getPlayerBacks(state, playerId) {
+  const hand = state.hands[playerId];
+  if (!hand || hand === "<hidden>") return generateGhostBacks(3);
+  const letters = (hand.letters ?? []).filter(Boolean);
+  if (letters.length === 0) return generateGhostBacks(3);
+  return letters.map((c) => ({ kind: c.kind }));
+}
+
+// Reorder players clockwise starting from the player AFTER actorId.
+function inTurnOrder(players, actorId) {
+  const n = players.length;
+  const idx = players.findIndex((p) => p.id === actorId);
+  if (idx < 0) return players;
+  const result = [];
+  for (let i = 1; i < n; i++) result.push(players[(idx + i) % n]);
+  return result;
+}
+
+// Pick from each victim sequentially (for out_one, great_heist, two_to_center).
+// victims = [player], context = context badge object.
+// onAllPicked([{ playerId, kind }]) called when all victims processed.
+function pickFromEachGhostSequential(victims, count, context, onAllPicked, state = null) {
+  const picks = [];
+  function pickNext(idx) {
+    if (idx >= victims.length) { onAllPicked(picks); return; }
+    const victim = victims[idx];
+    const backs = state ? getPlayerBacks(state, victim.id) : generateGhostBacks(count);
+    openDorsoPicker({
+      backs,
+      context: { label: context.label + " " + victim.name, kind: context.kind },
       timeoutMs: PICKER_TIMEOUT_MS,
+      onPick: (kind) => {
+        picks.push({ playerId: victim.id, kind });
+        pickNext(idx + 1);
+      },
     });
+  }
+  pickNext(0);
+}
+
+function pickTargetAndPayloadForUser(state, card, done, actorLabel = null, actorId = null) {
+  const userId = state.players[0].id;
+  const actor_id = actorId || userId;
+  const cardDisplayName = humanActionName(card.actionId);
+  const actor = actorLabel || "Tú";
+  const selfCtx    = { label: `🎯 ${actor}: ${cardDisplayName}`, kind: actorLabel ? "forced" : "self"   };
+  const attackCtx  = { label: `⚔️ ${actor} ataca: ${cardDisplayName}`, kind: actorLabel ? "forced" : "attack" };
+  // Filter out shielded players from attack candidate lists
+  const unshielded = (players) => players.filter((p) => !playerHasShield(state, p.id));
+
+  // one_for_all: pick a target, then pick from their V/C backs
+  if (card.actionId === "one_for_all") {
+    const candidates = unshielded(inTurnOrder(state.players, actor_id));
+    if (candidates.length === 0) { done(null, {}); return; }
+    openTrainingPicker({
+      titleKey: "trainingPickTargetTitle",
+      context: attackCtx,
+      options: candidates.map((p) => ({ id: p.id, label: p.name })),
+      timeoutMs: PICKER_TIMEOUT_MS,
+      onPick: (targetId) => {
+        const backs = getPlayerBacks(state, targetId);
+        openDorsoPicker({
+          backs,
+          context: attackCtx,
+          timeoutMs: PICKER_TIMEOUT_MS,
+          onPick: (targetKind) => done(targetId, { targetKind }),
+        });
+      },
+    });
+    return;
+  }
+
+  // steal_letter: pick target, then pick from their V/C backs
+  if (card.actionId === "steal_letter") {
+    const candidates = unshielded(inTurnOrder(state.players, actor_id));
+    if (candidates.length === 0) { done(null, {}); return; }
+    openTrainingPicker({
+      titleKey: "trainingPickTargetTitle",
+      context: attackCtx,
+      options: candidates.map((p) => ({ id: p.id, label: p.name })),
+      timeoutMs: PICKER_TIMEOUT_MS,
+      onPick: (targetId) => {
+        const backs = getPlayerBacks(state, targetId);
+        openDorsoPicker({
+          backs,
+          context: attackCtx,
+          timeoutMs: PICKER_TIMEOUT_MS,
+          onPick: (targetKind) => done(targetId, { targetKind }),
+        });
+      },
+    });
+    return;
+  }
+
+  // out_one: pick from each victim sequentially by V/C backs (exclude actor)
+  if (card.actionId === "out_one") {
+    const victims = unshielded(inTurnOrder(state.players, actor_id));
+    if (victims.length === 0) { done(null, {}); return; }
+    pickFromEachGhostSequential(victims, 3, attackCtx, (picks) => {
+      done(null, { picks });
+    }, state);
+    return;
+  }
+
+  // great_heist: pick from each victim sequentially by V/C backs (exclude actor)
+  if (card.actionId === "great_heist") {
+    const victims = unshielded(inTurnOrder(state.players, actor_id));
+    if (victims.length === 0) { done(null, {}); return; }
+    pickFromEachGhostSequential(victims, 3, attackCtx, (picks) => {
+      done(null, { picks });
+    }, state);
+    return;
+  }
+
+  // two_to_center: pick from each victim sequentially by V/C backs (exclude actor)
+  if (card.actionId === "two_to_center") {
+    const victims = unshielded(inTurnOrder(state.players, actor_id));
+    if (victims.length === 0) { done(null, {}); return; }
+    pickFromEachGhostSequential(victims, 3, attackCtx, (picks) => {
+      done(null, { picks });
+    }, state);
     return;
   }
   // extra_card: pick vowel or consonant
@@ -10163,15 +10399,14 @@ function pickTargetAndPayloadForUser(state, card, done) {
     });
     return;
   }
-  // change_cards: multi-select which cards to discard, then vowel/consonant per card
+  // change_cards: multi-select which of the ACTOR's cards to discard, then vowel/consonant per card
   if (card.actionId === "change_cards") {
-    const userHand = state.hands[userId];
-    const letters = userHand && userHand !== "<hidden>"
-      ? (userHand.letters ?? []).filter(Boolean) : [];
+    const actorHand = state.hands[actor_id];
+    const letters = actorHand && actorHand !== "<hidden>"
+      ? (actorHand.letters ?? []).filter(Boolean) : [];
     if (letters.length === 0) { done(null, {}); return; }
     openChangeCardsPicker(letters, "trainingChangeCardsTitle", (selectedIds) => {
       if (selectedIds.length === 0) { done(null, {}); return; }
-      // Ask vowel or consonant for each selected card, one at a time
       const kinds = {};
       function askKindFor(idx) {
         if (idx >= selectedIds.length) {
@@ -10200,16 +10435,19 @@ function pickTargetAndPayloadForUser(state, card, done) {
     return;
   }
 
-  // swap_all: pick target then pick which of your own letters to give
+  // swap_all: pick target then pick which of ACTOR's own letters to give
   if (card.actionId === "swap_all") {
-    const candidates = state.players.filter((p) => p.id !== userId);
+    const candidates = unshielded(inTurnOrder(state.players, actor_id));
+    if (candidates.length === 0) { done(null, {}); return; }
     openTrainingPicker({
       titleKey: "trainingPickTargetTitle",
       context: attackCtx,
       options: candidates.map((p) => ({ id: p.id, label: p.name })),
       timeoutMs: PICKER_TIMEOUT_MS,
       onPick: (targetId) => {
-        const letters = (state.hands[userId]?.letters ?? []).filter(Boolean);
+        const actorHand = state.hands[actor_id];
+        const letters = actorHand && actorHand !== "<hidden>"
+          ? (actorHand.letters ?? []).filter(Boolean) : [];
         if (letters.length === 0) { done(targetId, { fromIds: [] }); return; }
         openChangeCardsPicker(letters, "trainingSwapAllPickTitle", (fromIds) => {
           done(targetId, { fromIds });
@@ -10219,16 +10457,19 @@ function pickTargetAndPayloadForUser(state, card, done) {
     return;
   }
 
-  // swap_one: pick target then pick which one of your own letters to give
+  // swap_one: pick target, then pick which of ACTOR's own letters to give, then pick target's V/C back
   if (card.actionId === "swap_one") {
-    const candidates = state.players.filter((p) => p.id !== userId);
+    const candidates = unshielded(inTurnOrder(state.players, actor_id));
+    if (candidates.length === 0) { done(null, {}); return; }
     openTrainingPicker({
       titleKey: "trainingPickTargetTitle",
       context: attackCtx,
       options: candidates.map((p) => ({ id: p.id, label: p.name })),
       timeoutMs: PICKER_TIMEOUT_MS,
       onPick: (targetId) => {
-        const letters = (state.hands[userId]?.letters ?? []).filter(Boolean);
+        const actorHand = state.hands[actor_id];
+        const letters = actorHand && actorHand !== "<hidden>"
+          ? (actorHand.letters ?? []).filter(Boolean) : [];
         if (letters.length === 0) { done(targetId, {}); return; }
         openTrainingPicker({
           titleKey: "trainingSwapOnePickTitle",
@@ -10236,7 +10477,15 @@ function pickTargetAndPayloadForUser(state, card, done) {
           subtitle: shellTexts.trainingSwapOnePickSubtitle || null,
           options: letters.map((c) => ({ id: c.id, label: c.letter })),
           timeoutMs: PICKER_TIMEOUT_MS,
-          onPick: (fromId) => done(targetId, { fromId }),
+          onPick: (fromId) => {
+            const backs = getPlayerBacks(state, targetId);
+            openDorsoPicker({
+              backs,
+              context: attackCtx,
+              timeoutMs: PICKER_TIMEOUT_MS,
+              onPick: (targetKind) => done(targetId, { fromId, targetKind }),
+            });
+          },
         });
       },
     });
@@ -10245,7 +10494,7 @@ function pickTargetAndPayloadForUser(state, card, done) {
 
   // Player-target actions
   if (card.target === "one") {
-    const candidates = state.players.filter((p) => p.id !== state.players[0].id);
+    const candidates = unshielded(inTurnOrder(state.players, actor_id));
     openTrainingPicker({
       titleKey: "trainingPickTargetTitle",
       context: attackCtx,
@@ -10258,10 +10507,12 @@ function pickTargetAndPayloadForUser(state, card, done) {
   // Letter payload for use_vowel / use_consonant / use_letter
   if (["use_vowel", "use_consonant", "use_letter"].includes(card.actionId)) {
     const letters = (state.centralBoard ?? []).filter((c) => {
+      if (c.isWildcard) return false; // wildcards have no fixed letter
       if (card.actionId === "use_vowel") return c.kind === "vowel";
       if (card.actionId === "use_consonant") return c.kind === "consonant";
       return true;
     });
+    if (letters.length === 0) { done(null, {}); return; }
     openTrainingPicker({
       titleKey: "trainingPickLetterTitle",
       context: selfCtx,

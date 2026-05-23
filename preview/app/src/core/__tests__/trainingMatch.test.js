@@ -228,8 +228,8 @@ describe('userHasShield', () => {
     expect(userHasShield(state)).toBe(false)
   })
 
-  it('returns false when user hand is hidden', () => {
-    const state = makeState({ hands: { p1: '<hidden>', p2: '<hidden>', p3: '<hidden>' } })
+  it('returns false when user hand has no actions', () => {
+    const state = makeState({ hands: { p1: { letters: [], actions: [] }, p2: { letters: [], actions: [] }, p3: { letters: [], actions: [] } } })
     expect(userHasShield(state)).toBe(false)
   })
 })
@@ -781,7 +781,8 @@ describe('advanceToNextBaza', () => {
     const next = advanceToNextBaza(state)
     expect(next.hands.p1.letters).toHaveLength(3) // TRAINING_HAND_LETTERS = 3
     expect(next.hands.p1.letters.every(c => c === null)).toBe(true)
-    expect(next.hands.p2).toBe('<hidden>')
+    expect(next.hands.p2.letters).toHaveLength(3)
+    expect(next.hands.p2.letters.every(c => c === null)).toBe(true)
   })
 })
 

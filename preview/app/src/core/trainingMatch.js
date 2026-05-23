@@ -48,11 +48,14 @@ export function isAttackOnUser(action, targetId, userId) {
   return targetId === userId;
 }
 
+export function playerHasShield(state, playerId) {
+  const hand = state.hands[playerId];
+  if (!hand) return false;
+  return (hand.actions ?? []).some((a) => a && a.actionId === "shield_total");
+}
+
 export function userHasShield(state) {
-  const userId = state.players[0].id;
-  const hand = state.hands[userId];
-  if (!hand || hand === "<hidden>") return false;
-  return hand.actions.some((a) => a && a.actionId === "shield_total");
+  return playerHasShield(state, state.players[0].id);
 }
 
 function makeId() {
@@ -79,13 +82,10 @@ function buildPlayers(opponents, userNickname) {
 function buildEmptyHands(players) {
   const hands = {};
   for (const p of players) {
-    hands[p.id] = p.isGhost
-      ? "<hidden>"
-      : {
-          // 3 empty letter slots; user picks vowel/consonant per slot during deal.
-          letters: Array.from({ length: TRAINING_HAND_LETTERS }, () => null),
-          actions: Array.from({ length: TRAINING_HAND_ACTIONS }, () => null),
-        };
+    hands[p.id] = {
+      letters: Array.from({ length: TRAINING_HAND_LETTERS }, () => null),
+      actions: Array.from({ length: TRAINING_HAND_ACTIONS }, () => null),
+    };
   }
   return hands;
 }
@@ -175,16 +175,32 @@ export function initializeRound(state) {
     },
   };
 
+  // Auto-deal letters to ghost players (~35% vowels, 65% consonants, matching dorso ratio)
+  let gVowelDeck = boardResult.vowelDeck;
+  let gConsonantDeck = boardResult.consonantDeck;
+  let gDiscards = { ...boardResult.discards };
+  for (const p of state.players.filter((pl) => pl.isGhost)) {
+    const letters = [];
+    for (let i = 0; i < TRAINING_HAND_LETTERS; i++) {
+      const kind = Math.random() < 0.35 ? "vowel" : "consonant";
+      const r = drawLetterOfKind(gVowelDeck, gConsonantDeck, { vowels: gDiscards.vowels, consonants: gDiscards.consonants }, kind);
+      gVowelDeck = r.vowelDeck;
+      gConsonantDeck = r.consonantDeck;
+      if (r.card) letters.push(r.card);
+    }
+    newHands[p.id] = { letters, actions: [] };
+  }
+
   const next = {
     ...state,
     centralBoard: boardResult.board,
     decks: {
-      vowelDeck: boardResult.vowelDeck,
-      consonantDeck: boardResult.consonantDeck,
+      vowelDeck: gVowelDeck,
+      consonantDeck: gConsonantDeck,
       actionDeck: actionsResult.deck,
     },
     discards: {
-      ...boardResult.discards,
+      ...gDiscards,
       actions: actionsResult.discard,
     },
     hands: newHands,
@@ -742,12 +758,10 @@ export function advanceToNextBaza(state) {
 
   const newHands = {};
   for (const p of players) {
-    newHands[p.id] = p.isGhost
-      ? "<hidden>"
-      : {
-          letters: Array.from({ length: TRAINING_HAND_LETTERS }, () => null),
-          actions: Array.from({ length: TRAINING_HAND_ACTIONS }, () => null),
-        };
+    newHands[p.id] = {
+      letters: Array.from({ length: TRAINING_HAND_LETTERS }, () => null),
+      actions: Array.from({ length: TRAINING_HAND_ACTIONS }, () => null),
+    };
   }
 
   const next = {

@@ -45,8 +45,8 @@ export function makeState(overrides = {}) {
   ]
   const defaultHands = {
     p1: { letters: [], actions: [] },
-    p2: '<hidden>',
-    p3: '<hidden>',
+    p2: { letters: [], actions: [] },
+    p3: { letters: [], actions: [] },
   }
   return {
     matchType: 'training',

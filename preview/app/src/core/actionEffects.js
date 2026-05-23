@@ -21,7 +21,7 @@ import { ACTION_POINTS } from "./constants.js";
 
 function ensureHand(state, playerId) {
   const h = state.hands[playerId];
-  if (h === "<hidden>" || !h) return { letters: [], actions: [] };
+  if (!h) return { letters: [], actions: [] };
   return h;
 }
 
@@ -50,6 +50,17 @@ function takeRandomLetter(hand, rng) {
   const taken = hand.letters[idx];
   const next = { ...hand, letters: hand.letters.filter((_, i) => i !== idx) };
   return { taken, hand: next };
+}
+
+function takeLetterByKind(hand, kind, rng) {
+  const letters = (hand?.letters ?? []).filter(Boolean);
+  const candidates = kind ? letters.filter((c) => c.kind === kind) : letters;
+  if (candidates.length === 0) return { taken: null, hand };
+  const taken = candidates[Math.floor(rng() * candidates.length)];
+  return {
+    taken,
+    hand: { ...hand, letters: (hand.letters ?? []).filter((c) => c?.id !== taken.id) },
+  };
 }
 
 // ── Effect dispatcher ─────────────────────────────────────────
@@ -165,7 +176,33 @@ export function applyActionEffect(state, action, sourcePlayerId, targetPlayerId,
 
     // ── Board modifiers ──────────────────────────────────────
     case "two_to_center": {
-      // Take 1 letter from each other player, place 2 in central board.
+      if (payload.picks && payload.picks.length > 0) {
+        let st = state;
+        const drawn = [];
+        for (const pick of payload.picks) {
+          const h = ensureHand(st, pick.playerId);
+          const { taken, hand } = takeLetterByKind(h, pick.kind, rng);
+          if (taken) {
+            drawn.push(taken);
+            st = { ...st, hands: { ...st.hands, [pick.playerId]: hand } };
+          }
+        }
+        const toBoard = drawn.slice(0, 2);
+        const toDiscard = drawn.slice(2);
+        const newDiscards = { ...st.discards };
+        newDiscards.vowels = newDiscards.vowels.slice();
+        newDiscards.consonants = newDiscards.consonants.slice();
+        for (const c of toDiscard) {
+          if (c.kind === "vowel") newDiscards.vowels.push(c);
+          else newDiscards.consonants.push(c);
+        }
+        return {
+          ...st,
+          centralBoard: [...st.centralBoard, ...toBoard],
+          discards: newDiscards,
+        };
+      }
+      // Ghost plays: take 1 letter from each other player, place 2 in central board.
       let st = state;
       const taken = [];
       for (const pid of Object.keys(state.hands)) {
@@ -240,7 +277,25 @@ export function applyActionEffect(state, action, sourcePlayerId, targetPlayerId,
 
     // ── Attacks (letter theft / point reduction) ─────────────
     case "out_one": {
-      // Take 1 card from each other player, send to deck (back of letter decks).
+      if (payload.picks && payload.picks.length > 0) {
+        let st = state;
+        const newVowels = st.decks.vowelDeck.slice();
+        const newConsonants = st.decks.consonantDeck.slice();
+        for (const pick of payload.picks) {
+          const h = ensureHand(st, pick.playerId);
+          const { taken, hand } = takeLetterByKind(h, pick.kind, rng);
+          if (taken) {
+            if (taken.kind === "vowel") newVowels.push(taken);
+            else newConsonants.push(taken);
+            st = { ...st, hands: { ...st.hands, [pick.playerId]: hand } };
+          }
+        }
+        return {
+          ...st,
+          decks: { ...st.decks, vowelDeck: shuffle(newVowels), consonantDeck: shuffle(newConsonants) },
+        };
+      }
+      // Ghost plays: take 1 card from each other player, send to deck.
       let st = state;
       const newVowels = st.decks.vowelDeck.slice();
       const newConsonants = st.decks.consonantDeck.slice();
@@ -261,7 +316,24 @@ export function applyActionEffect(state, action, sourcePlayerId, targetPlayerId,
     }
 
     case "great_heist": {
-      // Take 1 card from each other player, give to source.
+      if (payload.picks && payload.picks.length > 0) {
+        let st = state;
+        const stolen = [];
+        for (const pick of payload.picks) {
+          const h = ensureHand(st, pick.playerId);
+          const { taken, hand } = takeLetterByKind(h, pick.kind, rng);
+          if (taken) {
+            stolen.push(taken);
+            st = { ...st, hands: { ...st.hands, [pick.playerId]: hand } };
+          }
+        }
+        const srcHand = ensureHand(st, sourcePlayerId);
+        return {
+          ...st,
+          hands: { ...st.hands, [sourcePlayerId]: { ...srcHand, letters: [...srcHand.letters, ...stolen] } },
+        };
+      }
+      // Ghost plays: take 1 card from each other player, give to source.
       let st = state;
       const stolen = [];
       for (const pid of Object.keys(state.hands)) {
@@ -279,17 +351,15 @@ export function applyActionEffect(state, action, sourcePlayerId, targetPlayerId,
     }
 
     case "steal_letter": {
-      // Steal 1 specific letter (payload.cardId) or random.
       const targetHand = ensureHand(state, targetPlayerId);
-      let taken;
-      let restHand;
+      let taken, restLetters;
       if (payload.cardId) {
-        taken = targetHand.letters.find((c) => c.id === payload.cardId);
-        restHand = { ...targetHand, letters: targetHand.letters.filter((c) => c.id !== payload.cardId) };
+        taken = targetHand.letters.find((c) => c && c.id === payload.cardId);
+        restLetters = targetHand.letters.filter((c) => c?.id !== payload.cardId);
       } else {
-        const r = takeRandomLetter(targetHand, rng);
-        taken = r.taken;
-        restHand = r.hand;
+        const { taken: t, hand: h } = takeLetterByKind(targetHand, payload.targetKind ?? null, rng);
+        taken = t;
+        restLetters = h.letters;
       }
       if (!taken) return state;
       const sourceHand = ensureHand(state, sourcePlayerId);
@@ -297,58 +367,29 @@ export function applyActionEffect(state, action, sourcePlayerId, targetPlayerId,
         ...state,
         hands: {
           ...state.hands,
-          [targetPlayerId]: restHand,
+          [targetPlayerId]: { ...targetHand, letters: restLetters },
           [sourcePlayerId]: { ...sourceHand, letters: [...sourceHand.letters, taken] },
         },
       };
     }
 
     case "swap_all": {
-      // Swap all letters between source and target. Against ghosts: simulated
-      // (target hand may be opaque; we just draw fresh letters for source and
-      // discard source's old letters).
       const sourceHand = ensureHand(state, sourcePlayerId);
-      const targetHand = state.hands[targetPlayerId];
-      if (targetHand === "<hidden>") {
-        // Simulated swap: discard source letters (or selected subset), draw same count of mixed letters.
-        const fromIds = payload.fromIds ? new Set(payload.fromIds) : null;
-        const oldLetters = fromIds
-          ? sourceHand.letters.filter((c) => c && fromIds.has(c.id))
-          : sourceHand.letters.filter(Boolean);
-        const keptLetters = fromIds
-          ? sourceHand.letters.filter((c) => c && !fromIds.has(c.id))
-          : [];
-        const newVowelDiscard = state.discards.vowels.slice();
-        const newConsonantDiscard = state.discards.consonants.slice();
-        for (const c of oldLetters) {
-          if (c.kind === "vowel") newVowelDiscard.push(c);
-          else newConsonantDiscard.push(c);
-        }
-        // Draw replacements: assume same kind proportion
-        let vDeck = state.decks.vowelDeck;
-        let cDeck = state.decks.consonantDeck;
-        let vDiscard = newVowelDiscard;
-        let cDiscard = newConsonantDiscard;
-        const newLetters = [];
-        for (const c of oldLetters) {
-          if (c.kind === "vowel") {
-            const r = drawFromDeck(vDeck, vDiscard, 1);
-            vDeck = r.deck; vDiscard = r.discard;
-            if (r.drawn[0]) newLetters.push(r.drawn[0]);
-          } else {
-            const r = drawFromDeck(cDeck, cDiscard, 1);
-            cDeck = r.deck; cDiscard = r.discard;
-            if (r.drawn[0]) newLetters.push(r.drawn[0]);
-          }
-        }
+      const targetHand = ensureHand(state, targetPlayerId);
+      if (payload.fromIds && payload.fromIds.length > 0) {
+        const fromIdSet = new Set(payload.fromIds);
+        const givenAway = sourceHand.letters.filter((c) => c && fromIdSet.has(c.id));
+        const keptBySource = sourceHand.letters.filter((c) => c && !fromIdSet.has(c.id));
+        const received = targetHand.letters.filter(Boolean);
         return {
           ...state,
-          decks: { ...state.decks, vowelDeck: vDeck, consonantDeck: cDeck },
-          discards: { ...state.discards, vowels: vDiscard, consonants: cDiscard },
-          hands: { ...state.hands, [sourcePlayerId]: { ...sourceHand, letters: [...keptLetters, ...newLetters] } },
+          hands: {
+            ...state.hands,
+            [sourcePlayerId]: { ...sourceHand, letters: [...keptBySource, ...received] },
+            [targetPlayerId]: { ...targetHand, letters: givenAway },
+          },
         };
       }
-      // Real swap (e.g. user vs another real player, future online)
       return {
         ...state,
         hands: {
@@ -360,28 +401,20 @@ export function applyActionEffect(state, action, sourcePlayerId, targetPlayerId,
     }
 
     case "swap_one": {
-      // Swap one letter (payload.fromId from source, payload.toId from target).
       const sourceHand = ensureHand(state, sourcePlayerId);
-      const targetHand = state.hands[targetPlayerId];
-      if (targetHand === "<hidden>") {
-        // Simulated: source loses 1 letter (random if not specified), gains random of same kind.
-        const fromId = payload.fromId ?? sourceHand.letters[Math.floor(rng() * sourceHand.letters.length)]?.id;
-        const givenAway = sourceHand.letters.find((c) => c.id === fromId);
-        if (!givenAway) return state;
-        const remaining = sourceHand.letters.filter((c) => c.id !== fromId);
-        const deckKey = givenAway.kind === "vowel" ? "vowelDeck" : "consonantDeck";
-        const discardKey = givenAway.kind === "vowel" ? "vowels" : "consonants";
-        const { drawn, deck, discard } = drawFromDeck(state.decks[deckKey], state.discards[discardKey], 1);
-        const newCards = drawn[0] ? [...remaining, drawn[0]] : remaining;
-        return {
-          ...state,
-          decks: { ...state.decks, [deckKey]: deck },
-          discards: { ...state.discards, [discardKey]: [...discard, givenAway] },
-          hands: { ...state.hands, [sourcePlayerId]: { ...sourceHand, letters: newCards } },
-        };
+      const targetHand = ensureHand(state, targetPlayerId);
+      const fromCard = payload.fromId
+        ? sourceHand.letters.find((c) => c?.id === payload.fromId)
+        : sourceHand.letters.find(Boolean);
+      let toCard;
+      if (payload.toId) {
+        toCard = targetHand.letters.find((c) => c?.id === payload.toId);
+      } else if (payload.targetKind) {
+        const { taken } = takeLetterByKind(targetHand, payload.targetKind, rng);
+        toCard = taken;
+      } else {
+        toCard = targetHand.letters.find(Boolean);
       }
-      const fromCard = sourceHand.letters.find((c) => c.id === payload.fromId);
-      const toCard = targetHand.letters.find((c) => c.id === payload.toId);
       if (!fromCard || !toCard) return state;
       return {
         ...state,
@@ -389,11 +422,11 @@ export function applyActionEffect(state, action, sourcePlayerId, targetPlayerId,
           ...state.hands,
           [sourcePlayerId]: {
             ...sourceHand,
-            letters: sourceHand.letters.map((c) => (c.id === fromCard.id ? toCard : c)),
+            letters: sourceHand.letters.map((c) => (c?.id === fromCard.id ? toCard : c)),
           },
           [targetPlayerId]: {
             ...targetHand,
-            letters: targetHand.letters.map((c) => (c.id === toCard.id ? fromCard : c)),
+            letters: targetHand.letters.map((c) => (c?.id === toCard.id ? fromCard : c)),
           },
         },
       };
@@ -435,20 +468,25 @@ export function applyActionEffect(state, action, sourcePlayerId, targetPlayerId,
       return addForcedRule(state, targetPlayerId, action.actionId, sourcePlayerId, {});
 
     case "one_for_all": {
-      // Source puts one of their hand letters onto the central board.
-      // payload.cardId = which hand letter to place (random for ghosts).
-      const hand = ensureHand(state, sourcePlayerId);
-      const letters = hand.letters.filter(Boolean);
+      const targetHand = ensureHand(state, targetPlayerId);
+      const letters = targetHand.letters.filter(Boolean);
       if (letters.length === 0) return state;
-      const cardId = payload.cardId ?? letters[Math.floor(rng() * letters.length)]?.id;
-      const card = letters.find((c) => c.id === cardId);
+      let card;
+      if (payload.cardId) {
+        card = letters.find((c) => c.id === payload.cardId);
+      } else if (payload.targetKind) {
+        const { taken } = takeLetterByKind(targetHand, payload.targetKind, rng);
+        card = taken;
+      } else {
+        card = letters[Math.floor(rng() * letters.length)];
+      }
       if (!card) return state;
       return {
         ...state,
         centralBoard: [...(state.centralBoard ?? []), card],
         hands: {
           ...state.hands,
-          [sourcePlayerId]: { ...hand, letters: hand.letters.filter((c) => c.id !== cardId) },
+          [targetPlayerId]: { ...targetHand, letters: targetHand.letters.filter((c) => c?.id !== card.id) },
         },
       };
     }
