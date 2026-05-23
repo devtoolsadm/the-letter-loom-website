@@ -2833,6 +2833,8 @@ function renderShellTexts() {
   setI18nById("trainingSetupTitle", "trainingSetupTitle");
   setI18nById("trainingRulesBtnText", "trainingRulesBtn");
   setI18nById("trainingStartHint", "trainingComingSoon");
+  const galleryRow = document.getElementById("trainingGalleryRow");
+  if (galleryRow) galleryRow.classList.toggle("hidden", !debugMode);
   document.querySelectorAll("#screen-training-setup [data-i18n]").forEach((el) => {
     const key = el.getAttribute("data-i18n");
     if (key && shellTexts[key]) el.textContent = shellTexts[key];
@@ -3449,6 +3451,7 @@ function setupNavigation() {
     ["trainingCardNormal", () => startTrainingMatch("normal")],
     ["trainingCardHard",   () => startTrainingMatch("hard")],
     ["trainingRulesBtn",   () => openRulesModal()],
+    ["trainingGalleryBtn", () => openActionGallery()],
     ["trainingMatchBackBtn",     () => confirmExitTrainingMatch()],
     ["trainingMatchExitBtn",     () => confirmExitTrainingMatch()],
     ["trainingMatchSettingsBtn", () => openSettingsModal()],
@@ -3837,6 +3840,8 @@ function setupTrainingDebugToggle() {
       debugMode = !debugMode;
       const badge = document.getElementById("trainingDebugBadge");
       if (badge) badge.classList.toggle("hidden", !debugMode);
+      const galleryRow = document.getElementById("trainingGalleryRow");
+      if (galleryRow) galleryRow.classList.toggle("hidden", !debugMode);
       renderTrainingMatch();
     }, 800);
   });
@@ -8840,6 +8845,7 @@ function renderTrainingMatch() {
       && !actionsDriverBusy && !actionsDriverTimeout) {
     scheduleActionsDriver();
   }
+  if (state.phase !== "strategy" && focusedActionIndex != null) { focusedActionIndex = null; lastActionTapIndex = null; }
   if (state.phase !== "actions") clearActionBanner();
   maybeStartUserTurnTimer(state);
   maybeShowPhaseFlash(state);
@@ -9080,16 +9086,64 @@ function renderTrainingHand(state) {
   });
   if (!isCreation && state.phase !== "result" && state.phase !== "done") {
     actions.forEach((card, idx) => {
+      const isFocused = isStrategy && focusedActionIndex === idx;
       root.appendChild(
         renderActionCard(card, {
           selectable: tappable && !!card,
           selected: false,
+          focused: isFocused,
           faceDown: isDealing,
-          onClick: tappable && card ? () => handleUserPickAction(idx) : null,
+          onClick: tappable && card ? () => {
+            if (isStrategy) {
+              const now = Date.now();
+              const isDoubleTap = lastActionTapIndex === idx && (now - lastActionTapTime) < DOUBLE_TAP_MS;
+              lastActionTapIndex = idx;
+              lastActionTapTime = now;
+              if (isDoubleTap) {
+                focusedActionIndex = null;
+                lastActionTapIndex = null;
+                handleUserPickAction(idx);
+              } else {
+                focusedActionIndex = focusedActionIndex === idx ? null : idx;
+                renderTrainingMatch();
+              }
+            } else {
+              handleUserPickAction(idx);
+            }
+          } : null,
         }),
       );
     });
   }
+  renderActionFocusPanel(state);
+}
+
+function renderActionFocusPanel(state) {
+  const panel = document.getElementById("trainingActionFocusPanel");
+  if (!panel) return;
+  const nameEl = document.getElementById("trainingActionFocusName");
+  const descEl = document.getElementById("trainingActionFocusDesc");
+  const playBtn = document.getElementById("trainingActionFocusPlay");
+
+  const isStrategy = state?.phase === "strategy";
+  if (!isStrategy || focusedActionIndex == null) {
+    panel.classList.add("hidden");
+    return;
+  }
+  const userId = state.players[0].id;
+  const card = state.hands[userId]?.actions?.[focusedActionIndex];
+  if (!card) {
+    panel.classList.add("hidden");
+    return;
+  }
+  panel.classList.remove("hidden");
+  nameEl.textContent = actionLabel(card.actionId);
+  descEl.textContent = actionDesc(card.actionId);
+  playBtn.textContent = "Jugar esta carta";
+  playBtn.onclick = () => {
+    handleUserPickAction(focusedActionIndex);
+    focusedActionIndex = null;
+  };
 }
 
 function attachCardSelectableBehavior(el, card, source, isAlreadyInWord) {
@@ -9442,7 +9496,11 @@ function renderActionCard(card, opts = {}) {
   el.className = "tcard is-action";
   if (opts.selectable) el.classList.add("is-selectable");
   if (opts.selected)   el.classList.add("is-selected");
-  el.textContent = actionLabel(card.actionId);
+  if (opts.focused)    el.classList.add("is-focused");
+  const icon = document.createElement("span");
+  icon.className = "tcard-action-icon";
+  icon.textContent = actionIcon(card.actionId);
+  el.appendChild(icon);
   if (opts.onClick) {
     el.addEventListener("click", opts.onClick);
   }
@@ -9712,6 +9770,10 @@ function finishTrainingTimer() {
 let actionsDriverTimeout = null;
 let actionsDriverBusy = false;
 let debugMode = ["localhost", "127.0.0.1"].includes(window.location.hostname);
+let focusedActionIndex = null;
+let lastActionTapIndex = null;
+let lastActionTapTime = 0;
+const DOUBLE_TAP_MS = 400;
 
 function stopActionsDriver() {
   if (actionsDriverTimeout) {
@@ -9988,6 +10050,93 @@ function promptDiscardOne(state, log) {
       if (s.phase === "actions") scheduleActionsDriver();
     },
   });
+}
+
+const ACTION_CARD_META = {
+  boost_total:   { icon: "⬆️",  desc: "Suma 6 puntos extra a tu palabra." },
+  extra_card:    { icon: "🃏",  desc: "Roba una vocal o consonante de los mazos de letras." },
+  wildcard:      { icon: "🌟",  desc: "Úsalo como vocal o consonante y suma 6 puntos extra." },
+  shield_total:  { icon: "🛡️", desc: "Un ataque contra ti o contra todos no te afecta en esta baza." },
+  change_cards:  { icon: "🔄",  desc: "Cambia las letras que quieras." },
+  use_vowel:     { icon: "🅰️", desc: "Todos deben usar la vocal del Tablero Central que elijas." },
+  use_consonant: { icon: "🔤",  desc: "Todos deben usar la consonante del Tablero Central que elijas." },
+  use_letter:    { icon: "📌",  desc: "Todos deben usar la vocal o consonante del Tablero Central que elijas." },
+  two_to_center: { icon: "🎯",  desc: "Roba una carta a cada jugador y coloca 2 en el Tablero Central." },
+  out_one:       { icon: "💥",  desc: "Roba una carta a cada jugador y ponlas en el mazo." },
+  great_heist:   { icon: "🦹",  desc: "Roba una carta a cada jugador." },
+  steal_letter:  { icon: "✂️", desc: "Roba una letra a otro jugador." },
+  renew_board:   { icon: "♻️", desc: "Quita las 5 letras y pon 5 nuevas." },
+  swap_all:      { icon: "🔀",  desc: "Cambia tus letras con las de otro jugador." },
+  swap_one:      { icon: "↔️", desc: "Cambia una letra tuya por otra de otro jugador." },
+  solo_mia:      { icon: "🔒",  desc: "Roba una letra del Tablero Central; solo tú puedes usarla." },
+  one_for_all:   { icon: "🤝",  desc: "Pon una letra de otro jugador en el Tablero Central." },
+  philologist:   { icon: "📖",  desc: "Obliga a un jugador a formar una palabra con tilde." },
+  brain_squeeze: { icon: "🧠",  desc: "Obliga a un jugador a formar una palabra de al menos tres sílabas." },
+  explosion:     { icon: "💣",  desc: "Resta 4 puntos a un jugador en esta baza." },
+  discard_one:   { icon: "🗑️", desc: "Un jugador debe dejar una letra en el mazo." },
+  in_english:    { icon: "🇬🇧",  desc: "Si formas la palabra en inglés, sumas 10 puntos extra." },
+};
+
+function actionIcon(actionId) {
+  return ACTION_CARD_META[actionId]?.icon ?? "🎴";
+}
+
+function actionDesc(actionId) {
+  return ACTION_CARD_META[actionId]?.desc ?? "";
+}
+
+function openActionGallery() {
+  const mvpCards = ACTION_CARDS.filter((c) => c.inMVP);
+  const overlay = document.createElement("div");
+  overlay.className = "training-picker-overlay";
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
+
+  const card = document.createElement("div");
+  card.className = "training-picker-card";
+  card.style.cssText = "max-width:360px;width:92vw;max-height:80vh;overflow-y:auto;";
+
+  const title = document.createElement("div");
+  title.className = "training-picker-title";
+  title.textContent = "🎴 Cartas de acción";
+  card.appendChild(title);
+
+  const grid = document.createElement("div");
+  grid.className = "training-gallery-grid";
+
+  mvpCards.forEach((def) => {
+    const item = document.createElement("div");
+    item.className = "training-gallery-item";
+
+    const fakeCard = { actionId: def.id };
+    const cardEl = renderActionCard(fakeCard, { selectable: false });
+    cardEl.style.cssText = "pointer-events:none;flex-shrink:0;";
+    item.appendChild(cardEl);
+
+    const nameEl = document.createElement("div");
+    nameEl.className = "training-gallery-item-name";
+    nameEl.textContent = actionLabel(def.id);
+    item.appendChild(nameEl);
+
+    const descEl = document.createElement("div");
+    descEl.className = "training-gallery-item-desc";
+    descEl.textContent = actionDesc(def.id);
+    item.appendChild(descEl);
+
+    grid.appendChild(item);
+  });
+
+  card.appendChild(grid);
+
+  const closeBtn = document.createElement("button");
+  closeBtn.type = "button";
+  closeBtn.className = "training-picker-option";
+  closeBtn.textContent = "✕ Cerrar";
+  closeBtn.style.cssText = "background:#eee;color:#333;margin-top:8px;";
+  closeBtn.addEventListener("click", () => overlay.remove());
+  card.appendChild(closeBtn);
+
+  overlay.appendChild(card);
+  document.body.appendChild(overlay);
 }
 
 function humanActionName(actionId) {
