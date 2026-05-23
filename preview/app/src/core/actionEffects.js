@@ -170,9 +170,12 @@ export function applyActionEffect(state, action, sourcePlayerId, targetPlayerId,
       };
     }
 
-    // ── Shield (handled separately in turn manager, no state change here) ───
-    case "shield_total":
-      return state;
+    // ── Shield: register in shieldedPlayers so pill and attack filter work ───
+    case "shield_total": {
+      const already = state.shieldedPlayers ?? [];
+      if (already.includes(sourcePlayerId)) return state;
+      return { ...state, shieldedPlayers: [...already, sourcePlayerId] };
+    }
 
     // ── Board modifiers ──────────────────────────────────────
     case "two_to_center": {
@@ -459,7 +462,7 @@ export function applyActionEffect(state, action, sourcePlayerId, targetPlayerId,
       let st = state;
       for (const pid of Object.keys(state.hands)) {
         if (pid === sourcePlayerId) continue;
-        st = addForcedRule(st, pid, action.actionId, sourcePlayerId, { letter: payload.letter });
+        st = addForcedRule(st, pid, action.actionId, sourcePlayerId, { letter: payload.letter, cardId: payload.cardId });
       }
       return st;
     }

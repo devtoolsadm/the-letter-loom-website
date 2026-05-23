@@ -92,6 +92,7 @@ import {
   advanceActionsQueue,
   userHasShield,
   playerHasShield,
+  autoDrawForEmptyGhosts,
   isAttackOnUser,
   isUserShieldPreSelected,
   drawEmergencyLetter,
@@ -3834,6 +3835,8 @@ function setupTrainingDebugToggle() {
   el.addEventListener("pointerdown", () => {
     pressTimer = setTimeout(() => {
       debugMode = !debugMode;
+      const badge = document.getElementById("trainingDebugBadge");
+      if (badge) badge.classList.toggle("hidden", !debugMode);
       renderTrainingMatch();
     }, 800);
   });
@@ -8808,6 +8811,8 @@ function renderTrainingMatch() {
     vars: { round: state.round, total: state.roundsTarget },
   });
   setI18nById("trainingPhaseLabel", `trainingPhase${capitalizeStr(state.phase)}`);
+  const _debugBadge = document.getElementById("trainingDebugBadge");
+  if (_debugBadge) _debugBadge.classList.toggle("hidden", !debugMode);
   renderTrainingPrompt(state);
 
   renderTrainingScoreboard(state);
@@ -8929,12 +8934,13 @@ function renderTrainingScoreboard(state) {
   root.innerHTML = "";
 
   const currentActorId = state.phase === "actions" ? (state.actionsQueue?.[0] ?? null) : null;
-  const HAND_SLOTS = 3; // TRAINING_HAND_LETTERS
 
   for (const p of state.players) {
     const hand = state.hands?.[p.id];
     const letters = hand && hand !== "<hidden>" ? (hand.letters ?? []).filter(Boolean) : [];
-    const hasShield = p.isGhost ? playerHasShield(state, p.id) : isUserShieldPreSelected(state);
+    const hasShield = p.isGhost
+      ? (state.shieldedPlayers ?? []).includes(p.id)
+      : isUserShieldPreSelected(state);
     const isDealer = p.id === state.dealerId;
     const isActive = p.id === currentActorId;
 
@@ -8954,23 +8960,33 @@ function renderTrainingScoreboard(state) {
     value.className = "training-score-pill-value";
     value.textContent = String(p.score);
 
-    // Card count: dots (filled = has card, empty = slot is empty)
+    // Card count: one dot per actual letter in hand (no fixed cap)
     const dots = document.createElement("div");
     dots.className = "training-score-pill-cards";
-    for (let i = 0; i < HAND_SLOTS; i++) {
+    const dotCount = Math.max(letters.length, 1); // at least 1 slot so pill doesn't collapse
+    for (let i = 0; i < dotCount; i++) {
       const dot = document.createElement("span");
-      if (i < letters.length) dot.className = "filled";
+      if (i < letters.length) dot.className = letters[i].kind === "vowel" ? "is-vowel" : "is-consonant";
       dots.appendChild(dot);
+    }
+
+    if (isActive) {
+      const turnIcon = document.createElement("img");
+      turnIcon.src = "assets/img/turn.svg";
+      turnIcon.alt = "";
+      turnIcon.className = "pill-badge pill-badge-turn";
+      pill.appendChild(turnIcon);
+    }
+    if (hasShield) {
+      const shieldIcon = document.createElement("img");
+      shieldIcon.src = "assets/img/shield.svg";
+      shieldIcon.alt = "";
+      shieldIcon.className = "pill-badge pill-badge-shield";
+      pill.appendChild(shieldIcon);
     }
 
     pill.append(name, value, dots);
     root.appendChild(pill);
-  }
-  if (debugMode) {
-    const badge = document.createElement("div");
-    badge.className = "training-debug-badge";
-    badge.textContent = "🐛 DEBUG";
-    root.appendChild(badge);
   }
   attachActionBubble();
 }
@@ -8984,10 +9000,10 @@ function renderTrainingBoard(state) {
     : Array.from({ length: 5 }, () => null);
   const isCreation = state.phase === "creation";
   const wordIds = new Set((state.userWord ?? []).map((s) => s.cardId));
-  const requiredLetters = collectRequiredLetters(state);
+  const requiredCardIds = collectRequiredCardIds(state);
   for (const card of slots) {
     const el = renderLetterCard(card);
-    if (card && requiredLetters.has(card.letter)) {
+    if (card && requiredCardIds.has(card.id)) {
       el.classList.add("is-required-letter");
     }
     if (card && isCreation) attachCardSelectableBehavior(el, card, "board", wordIds.has(card.id));
@@ -8995,16 +9011,16 @@ function renderTrainingBoard(state) {
   }
 }
 
-function collectRequiredLetters(state) {
+function collectRequiredCardIds(state) {
   const userId = state.players[0].id;
   const effects = state.forcedRules?.[userId] ?? [];
-  const letters = new Set();
+  const ids = new Set();
   for (const e of effects) {
     if (["use_vowel", "use_consonant", "use_letter"].includes(e.actionId)) {
-      if (e.payload?.letter) letters.add(e.payload.letter);
+      if (e.payload?.cardId) ids.add(e.payload.cardId);
     }
   }
-  return letters;
+  return ids;
 }
 
 function renderTrainingForcedRules(state) {
@@ -9041,10 +9057,17 @@ function renderTrainingHand(state) {
   const root = document.getElementById("trainingHand");
   if (!root) return;
   root.innerHTML = "";
-  const userHand = state.hands[state.players[0].id];
+  const userId = state.players[0].id;
+  const userHand = state.hands[userId];
   const letters = userHand && userHand !== "<hidden>" ? userHand.letters : [null, null, null];
+  const actions = userHand && userHand !== "<hidden>" ? userHand.actions : [null, null];
   const isDealing = state.phase === "dealing";
   const isCreation = state.phase === "creation";
+  const isStrategy = state.phase === "strategy";
+  const isUserTurn = state.phase === "actions"
+    && (state.actionsQueue?.[0] === userId)
+    && state.userActionIndex == null;
+  const tappable = isStrategy || isUserTurn;
   const wordIds = new Set((state.userWord ?? []).map((s) => s.cardId));
   letters.forEach((card, idx) => {
     if (!card && isDealing) {
@@ -9055,6 +9078,18 @@ function renderTrainingHand(state) {
       root.appendChild(el);
     }
   });
+  if (!isCreation && state.phase !== "result" && state.phase !== "done") {
+    actions.forEach((card, idx) => {
+      root.appendChild(
+        renderActionCard(card, {
+          selectable: tappable && !!card,
+          selected: false,
+          faceDown: isDealing,
+          onClick: tappable && card ? () => handleUserPickAction(idx) : null,
+        }),
+      );
+    });
+  }
 }
 
 function attachCardSelectableBehavior(el, card, source, isAlreadyInWord) {
@@ -9319,28 +9354,9 @@ function handleDealPick(slotIndex, kind) {
 }
 
 function renderTrainingActions(state) {
+  // Action cards are now rendered inside renderTrainingHand alongside letter cards.
   const root = document.getElementById("trainingActionsHand");
-  if (!root) return;
-  root.innerHTML = "";
-  const userId = state.players[0].id;
-  const userHand = state.hands[userId];
-  const actions = userHand && userHand !== "<hidden>" ? userHand.actions : [null, null];
-  const isStrategy = state.phase === "strategy";
-  const isUserTurn = state.phase === "actions"
-    && (state.actionsQueue?.[0] === userId)
-    && state.userActionIndex == null;
-  const tappable = isStrategy || isUserTurn;
-  const isDealing = state.phase === "dealing";
-  actions.forEach((card, idx) => {
-    root.appendChild(
-      renderActionCard(card, {
-        selectable: tappable && !!card,
-        selected: false,
-        faceDown: isDealing,
-        onClick: tappable && card ? () => handleUserPickAction(idx) : null,
-      }),
-    );
-  });
+  if (root) root.innerHTML = "";
 }
 
 function renderLetterCard(card, opts = {}) {
@@ -9416,8 +9432,11 @@ function renderActionCard(card, opts = {}) {
   }
   if (opts.faceDown) {
     el.className = "tcard is-face-down back-action";
-    // U+26A1 + U+FE0E forces text-style rendering (uses CSS color, not emoji)
-    el.textContent = "⚡︎";
+    const img = document.createElement("img");
+    img.src = "assets/img/action.svg";
+    img.alt = "";
+    img.className = "tcard-action-back-icon";
+    el.appendChild(img);
     return el;
   }
   el.className = "tcard is-action";
@@ -9692,7 +9711,7 @@ function finishTrainingTimer() {
 
 let actionsDriverTimeout = null;
 let actionsDriverBusy = false;
-let debugMode = false;
+let debugMode = ["localhost", "127.0.0.1"].includes(window.location.hostname);
 
 function stopActionsDriver() {
   if (actionsDriverTimeout) {
@@ -9785,6 +9804,15 @@ function processNextActionsTurn() {
             const fakeLog = { playerId: userId, actionId, targetId, payload };
             let s = applyPlannedGhostAction(getTrainingMatch(), fakeLog);
             showActionToast(s, fakeLog);
+            // Clear user action hand (applyPlannedGhostAction skips this unlike playUserAction)
+            const userH = s.hands[userId];
+            if (userH) {
+              const actionCards = (userH.actions ?? []).filter(Boolean);
+              s = { ...s,
+                hands: { ...s.hands, [userId]: { ...userH, actions: [] } },
+                discards: { ...s.discards, actions: [...s.discards.actions, ...actionCards] },
+              };
+            }
             s = { ...s, userActionResolved: true };
             saveTrainingMatch(s);
             s = advanceActionsQueue(s);
@@ -9974,16 +10002,24 @@ function actionLabel(actionId) {
 // to draw 1 letter (vowel or consonant) before continuing. Returns true if
 // the prompt was shown (caller should pause its loop).
 function maybeOfferEmergencyDraw(onPicked) {
-  const state = getTrainingMatch();
+  let state = getTrainingMatch();
   if (!state) return false;
+  // Auto-draw for any ghost with empty hand first
+  const after = autoDrawForEmptyGhosts(state);
+  if (after !== state) {
+    saveTrainingMatch(after);
+    state = after;
+    renderTrainingMatch();
+  }
+  // Then check if the user also needs to draw
   if (!userHandHasNoLetters(state)) return false;
   actionsDriverBusy = true;
   openTrainingPicker({
     titleKey: "trainingEmergencyDrawTitle",
     context: { label: `⚡ Robo de emergencia`, kind: "forced" },
     options: [
-      { id: "vowel",     label: shellTexts.trainingEmergencyDrawVowel || "V" },
-      { id: "consonant", label: shellTexts.trainingEmergencyDrawConsonant || "C" },
+      { id: "vowel",     label: shellTexts.trainingEmergencyDrawVowel || "Vocal" },
+      { id: "consonant", label: shellTexts.trainingEmergencyDrawConsonant || "Consonante" },
     ],
     timeoutMs: PICKER_TIMEOUT_MS,
     onPick: (kind) => {
@@ -10071,7 +10107,8 @@ function autoPickUserAction() {
       return true;
     });
     if (letters.length > 0) {
-      payload = { letter: letters[Math.floor(Math.random() * letters.length)].letter };
+      const picked = letters[Math.floor(Math.random() * letters.length)];
+      payload = { letter: picked.letter, cardId: picked.id };
     }
   }
 
@@ -10519,7 +10556,7 @@ function pickTargetAndPayloadForUser(state, card, done, actorLabel = null, actor
       options: letters.map((c) => ({ id: c.id, label: c.letter })),
       onPick: (id) => {
         const lc = letters.find((c) => c.id === id);
-        done(null, { letter: lc?.letter });
+        done(null, { letter: lc?.letter, cardId: lc?.id });
       },
       timeoutMs: PICKER_TIMEOUT_MS,
     });

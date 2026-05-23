@@ -2823,6 +2823,24 @@ body.splash-ready #splashLoadingBlock {
     inset 0 1px 0 rgba(255,255,255,0.7),
     0 0 0 3px rgba(52, 152, 219, 0.45);
 }
+/* Turn / shield icon badges */
+.pill-badge {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  pointer-events: none;
+}
+.pill-badge-turn {
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.pill-badge-shield {
+  bottom: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+}
 /* Dealer badge — top-right corner */
 .training-score-pill.is-dealer::before {
   content: "🎴";
@@ -2860,12 +2878,11 @@ body.splash-ready #splashLoadingBlock {
   background: rgba(0,0,0,0.15);
   display: block;
 }
-.training-score-pill-cards span.filled {
-  background: #3e2723;
-  opacity: 0.65;
+.training-score-pill-cards span.is-vowel {
+  background: #99CA3C;
 }
-.training-score-pill.is-user .training-score-pill-cards span.filled {
-  background: #2f1b12;
+.training-score-pill-cards span.is-consonant {
+  background: #6ECACF;
 }
 .training-debug-badge {
   font-size: 10px;
@@ -2886,7 +2903,7 @@ body.splash-ready #splashLoadingBlock {
   background: linear-gradient(180deg, #fff8e0 0%, #f5e7be 100%);
   border: 2px solid #c5af7d;
   border-radius: 16px;
-  padding: 12px 6px 5px;
+  padding: 12px 4px 5px;
   position: relative;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.6),
@@ -2894,6 +2911,7 @@ body.splash-ready #splashLoadingBlock {
     0 4px 10px rgba(0, 0, 0, 0.1);
 }
 .training-section.is-board {
+  margin-top: 10px;
   background: linear-gradient(180deg, #e3f2d8 0%, #b9dcaa 100%);
   border-color: #6e9c52;
   box-shadow:
@@ -2926,26 +2944,22 @@ body.splash-ready #splashLoadingBlock {
   flex-wrap: wrap;
   gap: 5px;
   justify-content: center;
-  max-width: 360px;
-  margin: 0 auto;
 }
 .training-hand {
   display: flex;
   gap: 6px;
   justify-content: center;
   flex-wrap: wrap;
+  align-items: flex-start;
 }
 .training-actions-hand {
-  display: flex;
-  gap: 6px;
-  justify-content: center;
-  flex-wrap: wrap;
+  display: none;
 }
 
 /* ── Card placeholders ────────────────────────────────────── */
 .tcard {
-  width: 68px;
-  height: 68px;
+  width: 56px;
+  height: 56px;
   border-radius: 11px;
   display: flex;
   flex-direction: column;
@@ -3009,47 +3023,47 @@ body.splash-ready #splashLoadingBlock {
   background: #b3d8ff;
 }
 .tcard-letter {
-  font-size: 34px;
+  font-size: 32px;
   color: #2f1b12;
   line-height: 1;
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
 }
 .tcard-value {
   position: absolute;
-  bottom: 3px;
-  right: 4px;
-  font-size: 14px;
+  bottom: 0;
+  right: 0;
+  font-size: 12px;
   color: #2f1b12;
   font-weight: 900;
   background: rgba(255, 255, 255, 0.78);
-  border-radius: 4px;
-  padding: 0 4px;
-  line-height: 17px;
-  min-width: 16px;
+  border-radius: 4px 0 4px 0;
+  padding: 0 3px;
+  line-height: 16px;
+  min-width: 15px;
   text-align: center;
 }
 .tcard-value.has-tilde-value {
   font-size: 11px;
-  padding: 0 3px;
+  padding: 0 2px;
   letter-spacing: 0;
 }
 /* Tilde-capable card: bottom corners (tildeValue left, base right). */
 .tcard-value-tilde,
 .tcard-value-base {
   position: absolute;
-  bottom: 3px;
-  font-size: 12px;
+  bottom: 0;
+  font-size: 10px;
   color: #2f1b12;
   font-weight: 900;
   background: rgba(255, 255, 255, 0.78);
   border-radius: 4px;
-  padding: 0 3px;
-  line-height: 15px;
-  min-width: 14px;
+  padding: 0 2px;
+  line-height: 14px;
+  min-width: 13px;
   text-align: center;
 }
-.tcard-value-tilde { left: 4px; }
-.tcard-value-base  { right: 4px; }
+.tcard-value-tilde { left: 0;  border-radius: 0 4px 0 4px; }
+.tcard-value-base  { right: 0; border-radius: 4px 0 4px 0; }
 
 /* Tilde-capable card with tilde active: highlight the tildeValue badge
    (left) and dim the base value (right) to show which one applies. */
@@ -3147,6 +3161,7 @@ body.splash-ready #splashLoadingBlock {
 /* Word strip — selected letters in order. Fixed total height so layout
    doesn't jump when adding cards. Horizontal scroll for many letters. */
 .training-word-strip {
+  margin-top: 10px;
   background: linear-gradient(180deg, #fff8e0 0%, #f5e7be 100%);
   border: 2px dashed #c5af7d;
   border-radius: 14px;
@@ -3290,15 +3305,15 @@ body.splash-ready #splashLoadingBlock {
    wildcards have no V/C tag). */
 .tcard-kind-tag {
   position: absolute;
-  top: 3px;
-  left: 4px;
+  top: 0;
+  left: 0;
   font-size: 11px;
   font-weight: 900;
   color: #2f1b12;
   background: rgba(255, 255, 255, 0.7);
-  border-radius: 4px;
-  padding: 0 4px;
-  line-height: 16px;
+  border-radius: 0 4px 0 4px;
+  padding: 0 3px;
+  line-height: 15px;
   text-shadow: none;
 }
 .tcard[data-color="blue"]   .tcard-letter,
@@ -3321,6 +3336,7 @@ body.splash-ready #splashLoadingBlock {
 /* Face-down card back: used during dealing for user's own cards.
    Shows a single letter (V/C/A) indicating the card type. */
 .tcard.is-face-down {
+  padding-bottom: 0;
   background: #6b4a1d;
   border-color: #3e2723;
   font-family: var(--font-heading);
@@ -3331,21 +3347,31 @@ body.splash-ready #splashLoadingBlock {
 }
 .tcard.is-face-down.back-vowel     { background: #99CA3C; border-color: #6e9a28; }
 .tcard.is-face-down.back-consonant { background: #6ECACF; border-color: #3d9aa0; }
-.tcard.is-face-down.back-action    {
-  background: #c95845;
-  border-color: #7a2e22;
-}
 .tcard.is-face-down.back-action {
-  font-size: 38px;
-  color: #fff8d6;
-  text-shadow:
-    0 2px 0 rgba(0, 0, 0, 0.55),
-    0 0 8px rgba(255, 240, 130, 0.5);
+  background: #EE3132;
+  border-color: #a01f1f;
+  font-size: 0;
+}
+.tcard-action-back-icon {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 60%;
+  height: 60%;
+  object-fit: contain;
+  display: block;
+  filter:
+    drop-shadow( 1px  0   0   #fff)
+    drop-shadow(-1px  0   0   #fff)
+    drop-shadow( 0    1px 0   #fff)
+    drop-shadow( 0   -1px 0   #fff)
+    drop-shadow( 0    2px 3px rgba(0,0,0,0.45));
 }
 
 /* Action card: red pastel, same dimensions as letter card */
 .tcard.is-action {
-  padding: 4px 4px;
+  padding: 4px;
   background: #ffb3a8;
   border-color: #6b4a1d;
   text-align: center;

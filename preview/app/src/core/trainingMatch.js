@@ -49,6 +49,7 @@ export function isAttackOnUser(action, targetId, userId) {
 }
 
 export function playerHasShield(state, playerId) {
+  if ((state.shieldedPlayers ?? []).includes(playerId)) return true;
   const hand = state.hands[playerId];
   if (!hand) return false;
   return (hand.actions ?? []).some((a) => a && a.actionId === "shield_total");
@@ -120,6 +121,7 @@ export function createTrainingMatch(difficulty, { userNickname } = {}) {
     discards: decksAndDiscards.discards,
     trickActions: [],
     pendingEffectsOnUser: [],
+    shieldedPlayers: [],
     forcedRules: {},
     scoreModifiers: {},
     userWord: [],
@@ -183,9 +185,10 @@ export function initializeRound(state) {
     const letters = [];
     for (let i = 0; i < TRAINING_HAND_LETTERS; i++) {
       const kind = Math.random() < 0.35 ? "vowel" : "consonant";
-      const r = drawLetterOfKind(gVowelDeck, gConsonantDeck, { vowels: gDiscards.vowels, consonants: gDiscards.consonants }, kind);
+      const r = drawLetterOfKind(gVowelDeck, gConsonantDeck, gDiscards, kind);
       gVowelDeck = r.vowelDeck;
       gConsonantDeck = r.consonantDeck;
+      gDiscards = r.discards;
       if (r.card) letters.push(r.card);
     }
     newHands[p.id] = { letters, actions: [] };
@@ -343,6 +346,28 @@ export function userHandHasNoLetters(state) {
   return (hand.letters?.filter(Boolean).length ?? 0) === 0;
 }
 
+// Draw 1 emergency letter for any ghost player whose hand is empty (auto-pick kind).
+// Returns updated state. Call after every action effect resolves.
+export function autoDrawForEmptyGhosts(state, rng = Math.random) {
+  let s = state;
+  for (const p of s.players.filter((pl) => pl.isGhost)) {
+    const hand = s.hands[p.id];
+    if (!hand) continue;
+    const count = (hand.letters ?? []).filter(Boolean).length;
+    if (count > 0) continue;
+    const kind = rng() < 0.4 ? "vowel" : "consonant";
+    const r = drawLetterOfKind(s.decks.vowelDeck, s.decks.consonantDeck, s.discards, kind);
+    if (!r.card) continue;
+    s = {
+      ...s,
+      decks: { ...s.decks, vowelDeck: r.vowelDeck, consonantDeck: r.consonantDeck },
+      discards: r.discards,
+      hands: { ...s.hands, [p.id]: { ...hand, letters: [...(hand.letters ?? []), r.card] } },
+    };
+  }
+  return s;
+}
+
 // ── Action resolution ───────────────────────────────────────
 
 function discardActions(state, playerId, idsToDiscard) {
@@ -421,7 +446,7 @@ export function planGhostAction(state, ghostId, rng = Math.random) {
   if (["use_vowel", "use_consonant", "use_letter"].includes(card.actionId)) {
     const id = pickRandomBoardCardId(state.centralBoard, rng);
     const boardCard = state.centralBoard.find((c) => c.id === id);
-    payload = { letter: boardCard?.letter };
+    payload = { letter: boardCard?.letter, cardId: boardCard?.id };
   }
 
   const nextState = {
@@ -780,6 +805,7 @@ export function advanceToNextBaza(state) {
     dealerId: nextDealerId,
     trickActions: [],
     pendingEffectsOnUser: [],
+    shieldedPlayers: [],
     forcedRules: {},
     scoreModifiers: {},
     userWord: [],
