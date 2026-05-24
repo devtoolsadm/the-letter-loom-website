@@ -1,23 +1,4 @@
-// Unified score validation for round end and scoreboard
-function validateScores(players, scores) {
-  let missing = false;
-  let oddPlayer = null;
-  let outOfRangePlayer = null;
-  for (const player of players) {
-    const value = scores[String(player.id)];
-    if (isRoundScoreEmpty(value)) {
-      missing = true;
-      continue;
-    }
-    const num = Number(value);
-    if (!Number.isFinite(num) || num < MIN_ROUND_SCORE || num > MAX_ROUND_SCORE) {
-      if (!outOfRangePlayer) outOfRangePlayer = player;
-    } else if (Math.abs(num % 2) === 1 && !oddPlayer) {
-      oddPlayer = player;
-    }
-  }
-  return { missing, oddPlayer, outOfRangePlayer };
-}
+// → ui/match/scoreboard.js (validateScores)
 import { IS_LOCAL, IS_PREVIEW, IS_PROD } from "../../lib/env.js";
 import { getSession, getAccessToken, requestOtp, verifyOtp, onAuthStateChange, signOut, getStoredEmail, saveStoredEmail, checkFirstSignup, saveOnboarding, updateProfile, getProfile } from "../../lib/auth.js";
 import { WORKER_BASE, TURNSTILE_SITE_KEY } from "../../lib/config.js";
@@ -63,7 +44,6 @@ import {
   RECORD_AVG_PENALTY_MAX,
   WAKE_LOCK_TIMEOUT_MS,
   WAKE_LOCK_SUCCESS_DEBOUNCE_MS,
-  TRAINING_DIFFICULTY_PRESETS,
 } from "../../core/constants.js";
 import { matchController, validateWordRemote } from "../../core/matchController.js";
 import { openModal, closeModal, closeTopModal, closeAllModals } from "./modal.js";
@@ -74,40 +54,9 @@ import {
   isWakeLockActive,
 } from "../../core/wakeLockManager.js";
 import { loadState, updateState, clearState } from "../../core/stateStore.js";
-import {
-  createTrainingMatch,
-  getTrainingMatch,
-  clearTrainingMatch,
-  initializeRound,
-  revealLetterSlot,
-  tickStrategyTimer,
-  tickCreationTimer,
-  enterActionsPhase,
-  selectActionInStrategy,
-  saveTrainingMatch,
-  planGhostAction,
-  applyPlannedGhostAction,
-  useShieldOnAttack,
-  playUserAction,
-  advanceActionsQueue,
-  userHasShield,
-  playerHasShield,
-  autoDrawForEmptyGhosts,
-  isAttackOnUser,
-  isUserShieldPreSelected,
-  drawEmergencyLetter,
-  userHandHasNoLetters,
-  finalizeUserWord,
-  addToWord,
-  removeFromWord,
-  reorderWord,
-  toggleTildeInWord,
-  setWildcardLetterInWord,
-  submitUserWord,
-  advanceToNextBaza,
-} from "../../core/trainingMatch.js";
-import { ACTION_CARDS } from "../../core/constants.js";
 import { APP_VERSION } from "../../core/version.js";
+import { parseHexColor, toHex, getDealerPalette, darkenHexColor } from "../utils.js";
+import { renderActionCardGrid } from "../components/actionCard.js";
 import { logger, onLog, getLogs } from "../../core/logger.js";
 import { capture, flush, initAnon, initAuth, resetIdentity, identify } from "../../lib/analytics.js";
 import {
@@ -122,6 +71,68 @@ import {
   matchHasRecord,
   loadRecords,
 } from "../../core/matchStorage.js";
+import {
+  initTraining,
+  cleanupTraining,
+  setupTrainingDebugToggle,
+  startTrainingMatch,
+  confirmExitTrainingMatch,
+  finishTrainingTimer,
+  renderTrainingMatch,
+  renderTrainingSetup,
+} from "../match/training.js";
+import {
+  initScoreboard,
+  validateScores,
+  isRoundScoreEmpty,
+  updateRoundEndKeypad,
+  renderRoundEndWinners,
+  updateRoundEndContinueState,
+  updateRoundEndLockState,
+  openRoundEndScreen,
+  openScoreboard,
+  closeScoreboard,
+  renderMatch,
+  renderMatchFromState,
+  applyScoreboardChanges,
+  resetScoreboardDraft,
+  handleRoundEndContinue,
+  openRecords,
+  openRecordsFromWinners,
+  openRecordScoreboard,
+  openRecordWordModal,
+  openRecordWordModalFromScoreboard,
+  buildScoreboardShareCanvas,
+  handleScoreboardShare,
+  updateScoreboardWarnings,
+  updateScoreboardKeypad,
+  openScoreboardKeypad,
+  closeScoreboardKeypad,
+  handleScoreboardKeypadKey,
+  handleScoreboardKeypadNavigate,
+  handleScoreboardRecordCandidateUpdate,
+  renderScoreboardScreen,
+  updateScoreboardActionPadding,
+  openRoundEndKeypad,
+  closeRoundEndKeypad,
+  handleRoundEndKeypadKey,
+  handleRoundEndKeypadNavigate,
+  getRoundEndScore,
+  renderRoundEndScreen,
+  getRoundEndKeypadPlayerId,
+  handleRecordWordSkip,
+  handleRecordWordSave,
+  handleRecordWordToggle,
+  getNextRoundEndId,
+  getRoundEndOrder,
+  getRoundEndSelectedIds,
+  getRoundEndValidationEntry,
+  setRoundEndValidationEntry,
+  clearRoundEndValidationEntry,
+  restoreRoundEndValidation,
+  closeRecordWordModal,
+  updateRecordWordSaveState,
+} from "../match/scoreboard.js";
 
 const urlParams = new URLSearchParams(window.location.search);
 const fromPWA = urlParams.get("fromPWA") === "1";
@@ -231,7 +242,6 @@ let lastWakeLockSuccessAt = 0;
 let winnersModalOpen = false;
 let suppressWinnersPrompt = false;
 let lastWinnersIds = [];
-let scoreboardReturnWinners = false;
 let simulatedStartActive = false;
 let openPlayerColorIndex = null;
 let openPlayerNameIndex = null;
@@ -250,13 +260,6 @@ let tempMatchPlayers = buildTempPlayers(
   tempMatchPrefs.playersCount ?? DEFAULT_PLAYER_COUNT,
   appState.gamePreferences?.players || appState.matchState?.players || []
 );
-let roundEndScores = {};
-let roundEndOrder = [];
-let roundEndUnlocked = new Set();
-let roundEndSelectedWinners = new Set();
-let roundEndKeypadOpen = false;
-let roundEndKeypadPlayerId = null;
-let roundEndValidationByPlayer = new Map();
 let lastMatchWord = "";
 let lastMatchWordFeatures = {
   sameColor: false,
@@ -265,35 +268,10 @@ let lastMatchWordFeatures = {
   plusPoints: false,
   minusPoints: false,
 };
-let recordWordModalState = null;
-let recordWordFeatures = {
-  sameColor: false,
-  usedWildcard: false,
-  doubleScore: false,
-  plusPoints: false,
-  minusPoints: false,
-};
-let recordWordPendingNext = null;
-let recordWordModalStaging = false;
-let recordWordValidating = false;
-let recordWordStatusWord = "";
-let recordWordStatusOk = null;
-let scoreboardWordCandidatesDraft = null;
-let scoreboardWordCandidatesDirty = false;
-let scoreboardWordCandidatesMatchId = null;
-let scoreboardDraft = null;
-let scoreboardBase = null;
-let scoreboardRounds = [];
-let scoreboardPlayers = [];
-let scoreboardDirty = false;
 let scoreboardReadOnly = false;
-let scoreboardInfoText = "";
-let scoreboardRecordHighlight = null;
-let scoreboardReturnScreen = "match";
 let recordsReturnScreen = "scoreboard";
 let recordsTab = "words";
 let recordShareBusy = false;
-let scoreboardShareBusy = false;
 let quickGuideReturnScreen = "help";
 let pausedBeforeGuide = null;
 let pausedBeforeScoreboard = null;
@@ -404,690 +382,21 @@ function normalizePlayerName(value) {
     return String(value || "").trim().toLowerCase();
   }
 
-  function getRoundEndValidationEntry(playerId) {
-    return roundEndValidationByPlayer.get(String(playerId)) || null;
-  }
-
-  function setRoundEndValidationEntry(playerId, entry) {
-    if (!playerId || !entry) return;
-    roundEndValidationByPlayer.set(String(playerId), entry);
-    syncRecordWordStatusFromEntry(playerId, entry);
-  }
-
-  function clearRoundEndValidationEntry(playerId) {
-    if (!playerId) return;
-    roundEndValidationByPlayer.delete(String(playerId));
-    syncRecordWordStatusFromEntry(playerId, null);
-  }
-
-  function syncRecordWordStatusFromEntry(playerId, entry) {
-    if (
-      !recordWordModalState ||
-      recordWordModalState.source !== "round-end" ||
-      String(recordWordModalState.playerId) !== String(playerId)
-    ) {
-      return;
-    }
-    const statusEl = document.getElementById("recordWordValidationStatus");
-    const input = document.getElementById("recordWordInput");
-    if (!statusEl || !input) return;
-    const wordKey = normalizeValidationWord(input.value || "");
-    if (
-      entry &&
-      Number(entry.round) === Number(recordWordModalState.round) &&
-      entry.wordKey === wordKey &&
-      entry.statusText
-    ) {
-      statusEl.textContent = entry.statusText;
-      statusEl.className = `${entry.statusClass} record-word-validation-status`;
-      recordWordStatusWord = wordKey;
-      recordWordStatusOk = entry.ok === true;
-      return;
-    }
-    statusEl.textContent = "";
-    statusEl.className = "match-validation-status record-word-validation-status";
-    recordWordStatusWord = "";
-    recordWordStatusOk = null;
-  }
-
-  function restoreRoundEndValidation(playerId) {
-    const section = validationSections.get("round-keypad");
-    if (!section) return;
-    const entry = getRoundEndValidationEntry(playerId);
-    if (!entry) {
-      clearMatchWordFor("round-keypad", false);
-      clearStatusValidationFor("round-keypad");
-      return;
-    }
-    if (section.input) {
-      section.input.value = entry.word || "";
-      updateValidationControls(section);
-    }
-    if (section.status) {
-      section.status.textContent = entry.statusText || "";
-      section.status.className = entry.statusClass || "match-validation-status";
-    }
-  }
-
-  function getRoundEndWarningTargets() {
-    return [
-      document.getElementById("roundEndWarning"),
-      document.getElementById("roundEndKeypadWarning"),
-    ].filter(Boolean);
-  }
-
-  function canContinueRoundEnd(matchState) {
-    if (!matchState?.scoringEnabled) return false;
-    const players = getActivePlayers(matchState);
-    const { missing, oddPlayer, outOfRangePlayer } = validateScores(players, roundEndScores);
-    return !missing && !oddPlayer && !outOfRangePlayer;
-  }
-
-  function getRoundEndOrderIndex(matchState, playerId) {
-    if (!roundEndOrder.length) {
-      roundEndOrder = buildRoundEndOrder(matchState);
-    }
-    return roundEndOrder.indexOf(String(playerId));
-  }
-
-function updateRoundEndKeypad(matchState) {
-    const keypad = document.getElementById("roundEndKeypad");
-    if (!keypad) return;
-    keypad.classList.toggle("hidden", !roundEndKeypadOpen);
-    keypad.setAttribute("aria-hidden", roundEndKeypadOpen ? "false" : "true");
-    if (!roundEndKeypadOpen) return;
-
-    const playerId = roundEndKeypadPlayerId;
-    const player = (matchState?.players || []).find((p) => String(p.id) === String(playerId));
-    if (!player) return;
-
-    const palette = getDealerPalette(player.color || "#d9c79f");
-    const playerEl = document.getElementById("roundEndKeypadPlayer");
-    if (playerEl) {
-      playerEl.style.setProperty("--player-color", player.color || "#d9c79f");
-      playerEl.style.setProperty("--player-border", palette.border);
-      playerEl.style.setProperty("--player-text", palette.text);
-    }
-
-    const orderIndex = getPlayerIndexMap(matchState).get(String(playerId)) ?? 0;
-    const orderPrefix = shellTexts.matchRoundPlayerPrefix;
-    const orderEl = document.getElementById("roundEndKeypadOrder");
-    const nameEl = document.getElementById("roundEndKeypadName");
-    if (orderEl) orderEl.textContent = `${orderPrefix}${orderIndex + 1}`;
-    if (nameEl) nameEl.textContent = player.name || "";
-
-    const valueEl = document.getElementById("roundEndKeypadValue");
-    if (valueEl) {
-      const value = roundEndScores[String(playerId)];
-      const textValue = isRoundScoreEmpty(value) ? "" : formatRoundEndScoreDisplay(value);
-      const points = getScoreNumber(value);
-      const invalid = !isScoreValidForRecord(value, { requireEven: true });
-      const records = loadRecords() || {};
-      const showRecord = !invalid && canEnterWordRecords(points, records);
-      valueEl.textContent = "";
-      const span = document.createElement("span");
-      span.className = "round-end-keypad-value-text";
-      span.textContent = textValue;
-      valueEl.appendChild(span);
-      const badge = document.createElement("span");
-      badge.className = "round-end-keypad-record";
-      badge.classList.toggle("hidden", !showRecord);
-      valueEl.appendChild(badge);
-      valueEl.classList.toggle("is-negative", Number(value) < 0);
-      valueEl.classList.toggle("is-editing", true);
-    }
-
-    const prevBtn = document.getElementById("roundEndKeypadPrevBtn");
-    const nextBtn = document.getElementById("roundEndKeypadNextBtn");
-    const idx = getRoundEndOrderIndex(matchState, playerId);
-    const prevId = idx > 0 ? roundEndOrder[idx - 1] : null;
-    const nextId = idx >= 0 && idx < roundEndOrder.length - 1 ? roundEndOrder[idx + 1] : null;
-    if (prevBtn) prevBtn.disabled = !prevId;
-    if (nextBtn) {
-      setI18nById(
-        "roundEndKeypadNextBtn",
-        nextId ? "matchRoundKeypadNext" : "matchRoundKeypadFinish"
-      );
-    }
-  }
-
-  function openRoundEndKeypad(playerId) {
-    const st = matchController.getState();
-    if (!st?.scoringEnabled) return;
-    const id = String(playerId || "");
-    if (!id) return;
-    if (!roundEndOrder.length) {
-      roundEndOrder = buildRoundEndOrder(st);
-    }
-    const nextId = getNextRoundEndId(roundEndOrder);
-    const locked = !roundEndUnlocked.has(id) && id !== nextId;
-    if (locked) {
-      showRoundEndLockedWarning();
-      return;
-    }
-    roundEndKeypadOpen = true;
-    roundEndKeypadPlayerId = id;
-    restoreRoundEndValidation(id);
-    clearRoundEndKeypadValidation();
-    updateRoundEndLockState(st);
-    updateRoundEndContinueState(st);
-    updateRoundEndKeypad(st);
-  }
-
-  function closeRoundEndKeypad({ autoAdvance = false } = {}) {
-    const st = matchController.getState();
-    roundEndKeypadOpen = false;
-    roundEndKeypadPlayerId = null;
-    updateRoundEndKeypad(st);
-    if (autoAdvance && st && canContinueRoundEnd(st)) {
-      handleRoundEndContinue();
-    }
-  }
-
-  function getRoundEndKeypadNeighbor(matchState, direction) {
-    const idx = getRoundEndOrderIndex(matchState, roundEndKeypadPlayerId);
-    if (idx < 0) return null;
-    const nextIndex = direction === "prev" ? idx - 1 : idx + 1;
-    if (nextIndex < 0 || nextIndex >= roundEndOrder.length) return null;
-    return roundEndOrder[nextIndex];
-  }
-
-  function applyRoundEndKeypadValue(matchState, playerId, value) {
-    const id = String(playerId);
-    roundEndScores[id] = value;
-    roundEndUnlocked.add(id);
-    clearRoundEndKeypadValidation();
-    updateRoundEndLockState(matchState);
-    updateRoundEndContinueState(matchState);
-    updateRoundEndKeypad(matchState);
-  }
-
-  function clearRoundEndKeypadValidation() {
-    const valueEl = document.getElementById("roundEndKeypadValue");
-    if (valueEl) valueEl.classList.remove("is-invalid");
-    const warnings = getRoundEndWarningTargets();
-    warnings.forEach((warning) => warning.classList.add("hidden"));
-  }
-
-  function validateRoundEndKeypadValue(matchState, playerId) {
-    const id = String(playerId);
-    const raw = roundEndScores[id];
-    const warnings = getRoundEndWarningTargets();
-    const valueEl = document.getElementById("roundEndKeypadValue");
-    const playerLabel = getRoundEndPlayerLabel(matchState, id);
-    const missing = isRoundScoreEmpty(raw);
-    const odd = !missing && isOddScore(raw);
-    const outOfRange = !missing && isScoreOutOfRange(raw);
-    if (valueEl) valueEl.classList.toggle("is-invalid", odd || outOfRange || missing);
-    if (!warnings.length) {
-      return { valid: !(missing || odd || outOfRange) };
-    }
-    if (odd) {
-      playValidationResultSound(false);
-      warnings.forEach((warning) => {
-        setI18n(warning, "matchRoundScoresOdd", { vars: { player: playerLabel } });
-        warning.classList.toggle("hidden", false);
-      });
-      return { valid: false };
-    }
-    if (outOfRange) {
-      playValidationResultSound(false);
-      warnings.forEach((warning) => {
-        setI18n(warning, "matchRoundScoresOutOfRange", {
-          vars: { player: playerLabel, min: MIN_ROUND_SCORE, max: MAX_ROUND_SCORE },
-        });
-        warning.classList.toggle("hidden", false);
-      });
-      return { valid: false };
-    }
-    if (missing) {
-      playValidationResultSound(false);
-      warnings.forEach((warning) => {
-        setI18n(warning, "matchRoundScoresMissing");
-        warning.classList.toggle("hidden", false);
-      });
-      return { valid: false };
-    }
-    warnings.forEach((warning) => warning.classList.add("hidden"));
-    return { valid: true };
-  }
-
-  function handleRoundEndKeypadKey(key) {
-    const st = matchController.getState();
-    if (!st?.scoringEnabled || !roundEndKeypadPlayerId) return;
-    const id = String(roundEndKeypadPlayerId);
-    const current = roundEndScores[id] ?? "";
-
-    if (key === "back") {
-      const negative = current.startsWith("-");
-      const digits = current.replace("-", "");
-      if (digits.length <= 1) {
-        applyRoundEndKeypadValue(st, id, "");
-        return;
-      }
-      const nextDigits = digits.slice(0, -1);
-      const nextNum = Number(nextDigits) * (negative ? -1 : 1);
-      applyRoundEndKeypadValue(st, id, String(nextNum));
-      return;
-    }
-
-    if (key === "minus") {
-      const num = Number(current) || 0;
-      const next = num * -1;
-      applyRoundEndKeypadValue(st, id, String(next));
-      return;
-    }
-
-    if (key >= "0" && key <= "9") {
-      const negative = current.startsWith("-");
-      let digits = current.replace("-", "");
-      if (digits === "0" || digits === "") {
-        digits = key;
-      } else {
-        digits = `${digits}${key}`;
-      }
-      const nextNum = Number(digits) * (negative ? -1 : 1);
-      applyRoundEndKeypadValue(st, id, String(nextNum));
-    }
-  }
-
-  function handleRoundEndKeypadNavigate(direction) {
-    const st = matchController.getState();
-    if (!st?.scoringEnabled) return;
-    const currentId = roundEndKeypadPlayerId;
-    if (currentId && isRoundScoreEmpty(roundEndScores[String(currentId)])) {
-      if (ROUND_KEYPAD_AUTO_ZERO_ON_NAV) {
-        applyRoundEndKeypadValue(st, currentId, "0");
-      }
-    }
-    if (currentId) {
-      const isEmpty = isRoundScoreEmpty(roundEndScores[String(currentId)]);
-      if (!(direction === "prev" && isEmpty)) {
-        const validation = validateRoundEndKeypadValue(st, currentId);
-        if (!validation.valid) {
-          return;
-        }
-      }
-      const raw = roundEndScores[String(currentId)];
-      const points = Number(raw);
-      const invalid = !isScoreValidForRecord(raw, { requireEven: true });
-      const roundNumber = st.round;
-      const records = loadRecords() || {};
-      if (!invalid && canEnterWordRecords(points, records)) {
-        const candidate = getWordCandidate(st.matchId, currentId, roundNumber);
-        const shouldPrompt =
-          !candidate ||
-          candidate.ignored ||
-          !candidate.word ||
-          Number(candidate.points) !== points;
-        if (shouldPrompt) {
-          const nextId = getRoundEndKeypadNeighbor(st, direction);
-          openRecordWordModal(
-            {
-              matchId: st.matchId,
-              playerId: currentId,
-              round: roundNumber,
-              points,
-              when: Date.now(),
-              source: "round-end",
-            },
-            { pendingNext: { nextId, autoAdvance: !nextId && direction === "next" } }
-          );
-          return;
-        }
-      }
-    }
-    const nextId = getRoundEndKeypadNeighbor(st, direction);
-    if (nextId) {
-      openRoundEndKeypad(nextId);
-      return;
-    }
-    closeRoundEndKeypad({
-      autoAdvance: direction === "next" && AUTO_CONTINUE_ROUND_END,
-    });
-  }
-
 function getFirstOddRoundScore(matchState) {
   const players = getActivePlayers(matchState);
   for (const player of players) {
-    const value = roundEndScores[String(player.id)];
+    const value = getRoundEndScore(player.id);
     if (isRoundScoreEmpty(value)) continue;
     if (isOddScore(value)) return player;
   }
   return null;
 }
 
-function formatScoreboardScoreDisplay(value) {
-  if (!isScoreFilled(value)) return shellTexts.matchRoundScorePlaceholder;
-  return String(value);
-}
+// → ui/match/scoreboard.js (formatScoreboardScoreDisplay, getScoreboardPlayerLabel, buildScoreboardKeypadOrder, getScoreboardKeypadIndex, getScoreboardOddScore, getScoreboardOutOfRangeScore, getScoreboardMissingScore)
 
-function getScoreboardPlayerLabel(playerId) {
-  const players = scoreboardPlayers || [];
-  const idx = players.findIndex((p) => String(p.id) === String(playerId));
-  if (idx < 0) return "";
-  const orderPrefix = shellTexts.matchRoundPlayerPrefix;
-  const name = players[idx]?.name?.trim() || "";
-  return name ? `${orderPrefix}${idx + 1} ${name}` : `${orderPrefix}${idx + 1}`;
-}
+// → ui/match/scoreboard.js (updateScoreboardWarnings, updateScoreboardKeypad, openScoreboardKeypad, closeScoreboardKeypad, handleScoreboardRecordCandidateUpdate, applyScoreboardKeypadValue, handleScoreboardKeypadKey, handleScoreboardKeypadNavigate)
 
-function buildScoreboardKeypadOrder() {
-  const order = [];
-  const rounds = scoreboardRounds || [];
-  const players = scoreboardPlayers || [];
-  rounds.forEach((round) => {
-    players.forEach((player) => {
-      order.push({ playerId: String(player.id), round });
-    });
-  });
-  return order;
-}
-
-function getScoreboardKeypadIndex(playerId, round) {
-  if (!scoreboardKeypadOrder.length) {
-    scoreboardKeypadOrder = buildScoreboardKeypadOrder();
-  }
-  return scoreboardKeypadOrder.findIndex(
-    (item) => item.playerId === String(playerId) && item.round === Number(round)
-  );
-}
-
-function getScoreboardOddScore() {
-  const rounds = scoreboardRounds || [];
-  const players = scoreboardPlayers || [];
-  for (const round of rounds) {
-    for (const player of players) {
-      const value = scoreboardDraft?.[String(player.id)]?.[round];
-      if (!isScoreFilled(value)) continue;
-      if (isOddScore(value)) {
-        return { playerId: String(player.id), round };
-      }
-    }
-  }
-  return null;
-}
-
-function getScoreboardOutOfRangeScore() {
-  const rounds = scoreboardRounds || [];
-  const players = scoreboardPlayers || [];
-  for (const round of rounds) {
-    for (const player of players) {
-      const value = scoreboardDraft?.[String(player.id)]?.[round];
-      if (!isScoreFilled(value)) continue;
-      const num = getScoreNumber(value);
-      if (num < MIN_ROUND_SCORE || num > MAX_ROUND_SCORE) {
-        return { playerId: String(player.id), round };
-      }
-    }
-  }
-  return null;
-}
-
-function getScoreboardMissingScore() {
-  const rounds = scoreboardRounds || [];
-  const players = scoreboardPlayers || [];
-  for (const round of rounds) {
-    for (const player of players) {
-      const value = scoreboardDraft?.[String(player.id)]?.[round];
-      if (!isScoreFilled(value)) {
-        return { playerId: String(player.id), round };
-      }
-    }
-  }
-  return null;
-}
-
-function updateScoreboardWarnings() {
-  const note = document.getElementById("scoreboardNote");
-  const saveBtn = document.getElementById("scoreboardSaveBtn");
-  if (!note) return;
-  if (scoreboardReadOnly) {
-    note.classList.add("hidden");
-    if (saveBtn) saveBtn.disabled = true;
-    return;
-  }
-  const odd = getScoreboardOddScore();
-  const outOfRange = getScoreboardOutOfRangeScore();
-  const missing = getScoreboardMissingScore();
-  if (odd) {
-    setI18n(note, "matchScoreboardOdd", {
-      vars: {
-        player: getScoreboardPlayerLabel(odd.playerId),
-        round: odd.round,
-      },
-    });
-    note.classList.remove("hidden");
-    note.classList.add("has-icon");
-  } else if (outOfRange) {
-    setI18n(note, "matchScoreboardScoresOutOfRange", {
-      vars: {
-        player: getScoreboardPlayerLabel(outOfRange.playerId),
-        round: outOfRange.round,
-        min: MIN_ROUND_SCORE,
-        max: MAX_ROUND_SCORE,
-      },
-    });
-    note.classList.remove("hidden");
-    note.classList.add("has-icon");
-  } else if (missing) {
-    setI18n(note, "matchScoreboardScoresMissing", {
-      vars: {
-        player: getScoreboardPlayerLabel(missing.playerId),
-        round: missing.round,
-      },
-    });
-    note.classList.remove("hidden");
-    note.classList.add("has-icon");
-  } else {
-    note.classList.add("hidden");
-    note.classList.remove("has-icon");
-  }
-  if (saveBtn) saveBtn.disabled = !!odd || !!outOfRange || !!missing;
-  updateScoreboardActionPadding();
-}
-
-function updateScoreboardKeypad(matchState) {
-  const keypad = document.getElementById("scoreboardKeypad");
-  if (!keypad) return;
-  keypad.classList.toggle("hidden", !scoreboardKeypadOpen);
-  keypad.setAttribute("aria-hidden", scoreboardKeypadOpen ? "false" : "true");
-  if (!scoreboardKeypadOpen) return;
-
-  const playerId = scoreboardKeypadPlayerId;
-  const round = scoreboardKeypadRound;
-  const player = (scoreboardPlayers || []).find((p) => String(p.id) === String(playerId));
-  if (!player) return;
-
-  const palette = getDealerPalette(player.color || "#d9c79f");
-  const playerEl = document.getElementById("scoreboardKeypadPlayer");
-  if (playerEl) {
-    playerEl.style.setProperty("--player-color", player.color || "#d9c79f");
-    playerEl.style.setProperty("--player-border", palette.border);
-    playerEl.style.setProperty("--player-text", palette.text);
-  }
-
-  const orderIndex =
-    scoreboardPlayers.findIndex((p) => String(p.id) === String(playerId)) ?? 0;
-  const orderPrefix = shellTexts.matchRoundPlayerPrefix;
-  const orderEl = document.getElementById("scoreboardKeypadOrder");
-  const nameEl = document.getElementById("scoreboardKeypadName");
-  if (orderEl) orderEl.textContent = `${orderPrefix}${orderIndex + 1}`;
-  if (nameEl) nameEl.textContent = player.name || "";
-
-  const valueEl = document.getElementById("scoreboardKeypadValue");
-  if (valueEl) {
-    const value = scoreboardDraft?.[String(playerId)]?.[Number(round)];
-    const textValue = isScoreFilled(value) ? String(value) : "";
-    const points = getScoreNumber(value);
-    const invalid = !isScoreValidForRecord(value, { requireEven: true });
-    const records = loadRecords() || {};
-    const showRecord = !invalid && canEnterWordRecords(points, records);
-    valueEl.textContent = "";
-    const span = document.createElement("span");
-    span.className = "round-end-keypad-value-text";
-    span.textContent = textValue;
-    valueEl.appendChild(span);
-    const badge = document.createElement("span");
-    badge.className = "round-end-keypad-record";
-    badge.classList.toggle("hidden", !showRecord);
-    valueEl.appendChild(badge);
-    valueEl.classList.toggle("is-negative", Number(value) < 0);
-    valueEl.classList.toggle("is-editing", true);
-  }
-}
-
-function openScoreboardKeypad(playerId, round) {
-  if (scoreboardReadOnly) return;
-  if (!scoreboardDraft) return;
-  scoreboardKeypadOpen = true;
-  scoreboardKeypadPlayerId = String(playerId);
-  scoreboardKeypadRound = Number(round);
-  scoreboardKeypadInitialValue =
-    scoreboardDraft?.[String(playerId)]?.[Number(round)] ?? "";
-  if (!scoreboardKeypadOrder.length) {
-    scoreboardKeypadOrder = buildScoreboardKeypadOrder();
-  }
-  updateScoreboardKeypad(matchController.getState());
-}
-
-function closeScoreboardKeypad({ restore = false } = {}) {
-  const id = scoreboardKeypadPlayerId;
-  const round = scoreboardKeypadRound;
-  const initialValue = scoreboardKeypadInitialValue;
-  scoreboardKeypadOpen = false;
-  scoreboardKeypadPlayerId = null;
-  scoreboardKeypadRound = null;
-  scoreboardKeypadInitialValue = null;
-  if (restore && id != null && round != null && scoreboardDraft) {
-    applyScoreboardKeypadValue(matchController.getState(), id, round, initialValue ?? "");
-  }
-  if (!restore && id != null && round != null) {
-    handleScoreboardRecordCandidateUpdate(matchController.getState(), id, round, initialValue);
-  }
-  updateScoreboardKeypad(matchController.getState());
-}
-
-function handleScoreboardRecordCandidateUpdate(matchState, playerId, round, initialValue) {
-  if (!matchState || scoreboardReadOnly) return;
-  if (!scoreboardDraft) return;
-  const matchId = matchState.matchId;
-  if (!matchId) return;
-  ensureScoreboardWordCandidatesDraft(matchState);
-  const id = String(playerId);
-  const rnd = Number(round);
-  const current = scoreboardDraft?.[id]?.[rnd] ?? "";
-  const previous = initialValue ?? "";
-  if (String(current) === String(previous)) return;
-  const invalid = !isScoreValidForRecord(current, { requireEven: true });
-  const points = getScoreNumber(current);
-  const records = loadRecords() || {};
-  if (invalid || !canEnterWordRecords(points, records)) {
-    removeScoreboardWordCandidate(matchId, id, rnd);
-    return;
-  }
-  const existing = getScoreboardWordCandidate(matchId, id, rnd);
-  if (!existing || existing.ignored || !existing.word) {
-    openRecordWordModalFromScoreboard(
-      {
-        matchId,
-        playerId: id,
-        round: rnd,
-        points,
-        when: Date.now(),
-        source: "scoreboard",
-      },
-      { pendingNext: null }
-    );
-    return;
-  }
-  upsertScoreboardWordCandidate(matchId, {
-    ...existing,
-    points,
-    when: Date.now(),
-    ignored: false,
-  });
-}
-
-function applyScoreboardKeypadValue(matchState, playerId, round, value) {
-  if (!scoreboardDraft) return;
-  const id = String(playerId);
-  const rnd = Number(round);
-  if (!scoreboardDraft[id]) scoreboardDraft[id] = {};
-  scoreboardDraft[id][rnd] = value;
-  updateScoreboardDirty();
-  updateScoreboardIndicators();
-  updateScoreboardWarnings();
-  updateScoreboardKeypad(matchState);
-}
-
-function handleScoreboardKeypadKey(key) {
-  const st = matchController.getState();
-  if (!scoreboardKeypadPlayerId || scoreboardKeypadRound == null) return;
-  const id = String(scoreboardKeypadPlayerId);
-  const round = Number(scoreboardKeypadRound);
-  const current = scoreboardDraft?.[id]?.[round] ?? "";
-
-  if (key === "back") {
-    const negative = current.startsWith("-");
-    const digits = current.replace("-", "");
-    if (digits.length <= 1) {
-      applyScoreboardKeypadValue(st, id, round, "");
-      return;
-    }
-    const nextDigits = digits.slice(0, -1);
-    const nextNum = Number(nextDigits) * (negative ? -1 : 1);
-    applyScoreboardKeypadValue(st, id, round, String(nextNum));
-    return;
-  }
-
-  if (key === "minus") {
-    const num = Number(current) || 0;
-    const next = num * -1;
-    applyScoreboardKeypadValue(st, id, round, String(next));
-    return;
-  }
-
-  if (key >= "0" && key <= "9") {
-    const negative = current.startsWith("-");
-    let digits = current.replace("-", "");
-    if (digits === "0" || digits === "") {
-      digits = key;
-    } else {
-      digits = `${digits}${key}`;
-    }
-    const nextNum = Number(digits) * (negative ? -1 : 1);
-    applyScoreboardKeypadValue(st, id, round, String(nextNum));
-  }
-}
-
-function handleScoreboardKeypadNavigate(direction) {
-  if (scoreboardKeypadPlayerId != null && scoreboardKeypadRound != null) {
-    handleScoreboardRecordCandidateUpdate(
-      matchController.getState(),
-      scoreboardKeypadPlayerId,
-      scoreboardKeypadRound,
-      scoreboardKeypadInitialValue
-    );
-  }
-  const idx = getScoreboardKeypadIndex(scoreboardKeypadPlayerId, scoreboardKeypadRound);
-  if (idx < 0) {
-    closeScoreboardKeypad();
-    return;
-  }
-  const nextIndex = direction === "prev" ? idx - 1 : idx + 1;
-  if (nextIndex < 0 || nextIndex >= scoreboardKeypadOrder.length) {
-    closeScoreboardKeypad();
-    return;
-  }
-  const next = scoreboardKeypadOrder[nextIndex];
-  if (next) {
-    openScoreboardKeypad(next.playerId, next.round);
-  }
-}
-
-function isRoundScoreEmpty(value) {
-  return value == null || String(value).trim() === "";
-}
+// → ui/match/scoreboard.js (isRoundScoreEmpty)
 
 function isScoreValidForRecord(value, { requireEven = true } = {}) {
   if (!isScoreFilled(value)) return false;
@@ -1097,224 +406,12 @@ function isScoreValidForRecord(value, { requireEven = true } = {}) {
   return true;
 }
 
-function buildRoundEndOrder(matchState) {
-  const players = getActivePlayers(matchState);
-  if (!players.length) return [];
-  const dealerIndex = getDealerIndex(matchState);
-  const startIndex =
-    dealerIndex >= 0 ? (dealerIndex + 1) % players.length : 0;
-  const order = [];
-  for (let i = 0; i < players.length; i += 1) {
-    order.push(String(players[(startIndex + i) % players.length].id));
-  }
-  return order;
-}
-
-function getRoundEndOrderMap(order) {
-  const map = new Map();
-  order.forEach((id, idx) => map.set(String(id), idx));
-  return map;
-}
-
-function getNextRoundEndId(order) {
-  if (!order.length) return null;
-  for (let i = 0; i < order.length; i += 1) {
-    if (!roundEndUnlocked.has(order[i])) return order[i];
-  }
-  return null;
-}
-
-function updateRoundEndContinueState(matchState) {
-  const warning = document.getElementById("roundEndWarning");
-  const continueBtn = document.getElementById("roundEndContinueBtn");
-  const tieActions = document.getElementById("roundEndTieActions");
-  const scoringEnabled = !!matchState?.scoringEnabled;
-  const tieBreakPending =
-    Array.isArray(matchState?.tieBreakPending?.players) &&
-    matchState.tieBreakPending.players.length > 0;
-  const roundsTarget = matchState.roundsTarget ?? DEFAULT_ROUNDS_TARGET;
-  const roundsMode = matchState.mode === MATCH_MODE_ROUNDS;
-  const manualSelection =
-    !scoringEnabled &&
-    (matchState.mode === MATCH_MODE_POINTS ||
-      matchState.tieBreak ||
-      matchState.round >= roundsTarget);
-  const selectionCount = roundEndSelectedWinners.size;
-  const showTieActions = tieBreakPending || (manualSelection && selectionCount > 1);
-  const showContinue = !showTieActions;
-  let disableContinue = false;
-
-  if (continueBtn) {
-    continueBtn.classList.toggle("hidden", !showContinue);
-  }
-  if (tieActions) {
-    tieActions.classList.toggle("hidden", !showTieActions);
-  }
-
-  if (!scoringEnabled) {
-    if (warning) warning.classList.add("hidden");
-    if (manualSelection && roundsMode && selectionCount === 0) {
-      disableContinue = true;
-    }
-    if (continueBtn) continueBtn.disabled = disableContinue;
-    return;
-  }
-
-  if (tieBreakPending) {
-    if (warning) warning.classList.add("hidden");
-    return;
-  }
-
-  const players = getActivePlayers(matchState);
-  const { missing, oddPlayer, outOfRangePlayer } = validateScores(players, roundEndScores);
-  if (continueBtn) continueBtn.disabled = missing || !!oddPlayer || !!outOfRangePlayer;
-  if (warning) {
-    if (oddPlayer) {
-      setI18n(warning, "matchRoundScoresOdd", {
-        vars: { player: getRoundEndPlayerLabel(matchState, oddPlayer.id) },
-      });
-      warning.classList.toggle("hidden", false);
-    } else if (outOfRangePlayer) {
-      setI18n(warning, "matchRoundScoresOutOfRange", {
-        vars: { player: getRoundEndPlayerLabel(matchState, outOfRangePlayer.id), min: MIN_ROUND_SCORE, max: MAX_ROUND_SCORE },
-      });
-      warning.classList.toggle("hidden", false);
-    } else {
-      setI18n(warning, "matchRoundScoresMissing");
-      warning.classList.toggle("hidden", !missing);
-    }
-  }
-  document.querySelectorAll(".round-end-score-row").forEach((row) => {
-    const id = row.dataset.playerId;
-    row.classList.toggle("is-empty", isRoundScoreEmpty(roundEndScores[id]));
-    row.classList.toggle("is-odd", isOddScore(roundEndScores[id]));
-    const pill = row.querySelector(".round-end-score-pill");
-    if (pill) {
-      pill.textContent = formatRoundEndScoreDisplay(roundEndScores[id]);
-    }
-  });
-}
-
-function updateRoundEndLockState(matchState) {
-  roundEndOrder = buildRoundEndOrder(matchState);
-  const order = roundEndOrder;
-  const playerIndexMap = new Map();
-  matchState.players.forEach((player, idx) => {
-    playerIndexMap.set(String(player.id), idx);
-  });
-  const nextId = getNextRoundEndId(order);
-  document.querySelectorAll(".round-end-score-row").forEach((row) => {
-    const id = row.dataset.playerId;
-    const unlocked = roundEndUnlocked.has(id) || id === nextId;
-    row.classList.toggle("is-locked", !unlocked);
-    const scoreBtn = row.querySelector(".round-end-score-pill");
-    if (scoreBtn) scoreBtn.setAttribute("aria-disabled", unlocked ? "false" : "true");
-  });
-}
-
-function shouldShowRoundEndWinners(matchState) {
-  if (!matchState) return false;
-  if (matchState.tieBreakPending?.players?.length) return true;
-  if (matchState.scoringEnabled) return false;
-  const roundsTarget = matchState.roundsTarget ?? DEFAULT_ROUNDS_TARGET;
-  if (matchState.mode === MATCH_MODE_ROUNDS) {
-    return matchState.tieBreak || matchState.round >= roundsTarget;
-  }
-  return true;
-}
-
-function getRoundEndWinnerCandidates(matchState) {
-  if (matchState?.tieBreakPending?.players?.length) {
-    return getPlayersByIds(matchState, matchState.tieBreakPending.players);
-  }
-  return getActivePlayers(matchState);
-}
-
-function renderRoundEndWinners(matchState) {
-  const section = document.getElementById("roundEndWinnersSection");
-  const listEl = document.getElementById("roundEndWinnersList");
-  const titleEl = document.getElementById("roundEndWinnersTitle");
-  if (!section || !listEl) return;
-  const show = shouldShowRoundEndWinners(matchState);
-  section.classList.toggle("hidden", !show);
-  listEl.innerHTML = "";
-  if (!show) return;
-
-  const tiePending = !!matchState?.tieBreakPending?.players?.length;
-  const roundsTarget = matchState.roundsTarget ?? DEFAULT_ROUNDS_TARGET;
-  const isPoints = matchState.mode === MATCH_MODE_POINTS;
-  const allowSelection = !matchState.scoringEnabled;
-  const candidates = getRoundEndWinnerCandidates(matchState);
-  const playerIndexMap = getPlayerIndexMap(matchState);
-
-  if (titleEl) {
-    if (tiePending) {
-      setI18n(titleEl, "matchRoundTiePrompt");
-    } else if (!matchState.scoringEnabled && isPoints) {
-      setI18n(titleEl, "matchRoundSelectReached", {
-        vars: { points: matchState.pointsTarget ?? DEFAULT_POINTS_TARGET },
-      });
-    } else {
-      setI18n(titleEl, "matchRoundSelectTop", {
-        vars: { rounds: roundsTarget },
-      });
-    }
-  }
-
-  if (tiePending) {
-    roundEndSelectedWinners = new Set(
-      matchState.tieBreakPending.players.map((id) => String(id))
-    );
-  }
-
-  candidates.forEach((player) => {
-    const playerId = String(player.id);
-    const item = document.createElement("button");
-    item.type = "button";
-    item.className = "round-end-winner-item";
-    item.dataset.playerId = playerId;
-    if (roundEndSelectedWinners.has(playerId)) {
-      item.classList.add("is-selected");
-    }
-    if (!allowSelection) {
-      item.disabled = true;
-      item.classList.add("is-locked");
-    }
-    const palette = getDealerPalette(player.color || "#d9c79f");
-    item.style.setProperty("--player-color", player.color || "#d9c79f");
-    item.style.setProperty("--player-border", palette.border);
-    item.style.setProperty("--player-text", palette.text);
-
-    const badge = document.createElement("span");
-    badge.className = "round-end-winner-order";
-    const orderIndex = playerIndexMap.get(playerId);
-    badge.textContent = `${shellTexts.matchRoundPlayerPrefix}${(orderIndex ?? 0) + 1}`;
-
-    const name = document.createElement("span");
-    name.className = "round-end-winner-name";
-    name.textContent = player.name || "";
-
-    item.append(badge, name);
-    if (allowSelection) {
-      item.addEventListener("click", () => {
-        if (roundEndSelectedWinners.has(playerId)) {
-          roundEndSelectedWinners.delete(playerId);
-          item.classList.remove("is-selected");
-        } else {
-          roundEndSelectedWinners.add(playerId);
-          item.classList.add("is-selected");
-        }
-        updateRoundEndContinueState(matchState);
-      });
-    }
-    listEl.appendChild(item);
-  });
-}
+// → ui/match/scoreboard.js (getRoundEndOrderMap, updateRoundEndContinueState, updateRoundEndLockState, shouldShowRoundEndWinners, getRoundEndWinnerCandidates, renderRoundEndWinners)
 
 function showRoundEndLockedWarning() {
   const st = matchController.getState();
   if (!st) return;
-  const nextId = getNextRoundEndId(roundEndOrder);
+  const nextId = getNextRoundEndId(getRoundEndOrder());
   const nextIndex = st.players.findIndex(
     (p) => String(p.id) === String(nextId)
   );
@@ -2184,390 +1281,9 @@ function removeWordCandidateFromList(list, playerId, round) {
   return list;
 }
 
-function ensureScoreboardWordCandidatesDraft(matchState) {
-  const matchId = matchState?.matchId;
-  if (!matchId) return;
-  if (scoreboardWordCandidatesMatchId === matchId && scoreboardWordCandidatesDraft) {
-    return;
-  }
-  const map = loadWordCandidatesMap();
-  scoreboardWordCandidatesDraft = cloneWordCandidatesList(
-    getWordCandidatesListFromMap(map, matchId)
-  );
-  scoreboardWordCandidatesDirty = false;
-  scoreboardWordCandidatesMatchId = matchId;
-}
+// → ui/match/scoreboard.js (ensureScoreboardWordCandidatesDraft, getScoreboardWordCandidate, upsertScoreboardWordCandidate, removeScoreboardWordCandidate, persistScoreboardWordCandidatesDraft, discardScoreboardWordCandidatesDraft)
 
-function getScoreboardWordCandidate(matchId, playerId, round) {
-  if (scoreboardWordCandidatesMatchId === matchId && scoreboardWordCandidatesDraft) {
-    return getWordCandidateFromList(scoreboardWordCandidatesDraft, playerId, round);
-  }
-  return getWordCandidate(matchId, playerId, round);
-}
-
-function upsertScoreboardWordCandidate(matchId, candidate) {
-  if (!matchId) return;
-  if (scoreboardWordCandidatesMatchId !== matchId || !scoreboardWordCandidatesDraft) {
-    ensureScoreboardWordCandidatesDraft({ matchId });
-  }
-  if (!scoreboardWordCandidatesDraft) return;
-  upsertWordCandidateInList(scoreboardWordCandidatesDraft, candidate);
-  scoreboardWordCandidatesDirty = true;
-}
-
-function removeScoreboardWordCandidate(matchId, playerId, round) {
-  if (!matchId) return;
-  if (scoreboardWordCandidatesMatchId !== matchId || !scoreboardWordCandidatesDraft) {
-    ensureScoreboardWordCandidatesDraft({ matchId });
-  }
-  if (!scoreboardWordCandidatesDraft) return;
-  removeWordCandidateFromList(scoreboardWordCandidatesDraft, playerId, round);
-  scoreboardWordCandidatesDirty = true;
-}
-
-function persistScoreboardWordCandidatesDraft() {
-  const matchId = scoreboardWordCandidatesMatchId;
-  if (!matchId || !scoreboardWordCandidatesDirty) return;
-  const map = loadWordCandidatesMap();
-  map[matchId] = cloneWordCandidatesList(scoreboardWordCandidatesDraft || []);
-  saveWordCandidatesMap(map);
-  scoreboardWordCandidatesDirty = false;
-}
-
-function discardScoreboardWordCandidatesDraft(matchState) {
-  const matchId = matchState?.matchId || scoreboardWordCandidatesMatchId;
-  if (!matchId) return;
-  const map = loadWordCandidatesMap();
-  scoreboardWordCandidatesDraft = cloneWordCandidatesList(
-    getWordCandidatesListFromMap(map, matchId)
-  );
-  scoreboardWordCandidatesDirty = false;
-  scoreboardWordCandidatesMatchId = matchId;
-}
-
-function openRecordWordModal(candidate, { pendingNext = null } = {}) {
-  const input = document.getElementById("recordWordInput");
-  const statusEl = document.getElementById("recordWordValidationStatus");
-  recordWordModalState = candidate;
-  recordWordPendingNext = pendingNext;
-  recordWordModalStaging = false;
-  recordWordStatusWord = "";
-  recordWordStatusOk = null;
-  recordWordFeatures = {
-    sameColor: false,
-    usedWildcard: false,
-    doubleScore: false,
-    plusPoints: false,
-    minusPoints: false,
-  };
-  if (candidate?.matchId && candidate?.playerId != null && candidate?.round != null) {
-    const existing = getWordCandidate(candidate.matchId, candidate.playerId, candidate.round);
-    if (existing?.features) {
-      recordWordFeatures = { ...recordWordFeatures, ...existing.features };
-    }
-    if (existing?.word) {
-      candidate.word = existing.word;
-    }
-    if (candidate?.source === "round-end") {
-      const entry = getRoundEndValidationEntry(candidate.playerId);
-      if (entry?.word && Number(entry.round) === Number(candidate.round)) {
-        candidate.word = entry.word;
-      }
-    }
-  }
-  document.querySelectorAll(".record-word-chip").forEach((btn) => {
-    const key = btn.dataset.feature;
-    btn.classList.toggle("active", !!recordWordFeatures[key]);
-  });
-  if (input) {
-    input.value = candidate?.word || "";
-    input.focus();
-  }
-  if (statusEl) {
-    statusEl.textContent = "";
-    statusEl.className = "match-validation-status record-word-validation-status";
-  }
-  if (candidate?.source === "round-end" && candidate?.playerId != null) {
-    const entry = getRoundEndValidationEntry(candidate.playerId);
-    if (entry) syncRecordWordStatusFromEntry(candidate.playerId, entry);
-  }
-  updateRecordWordSaveState();
-  openModal("record-word", { closable: true });
-}
-
-function openRecordWordModalFromScoreboard(candidate, { pendingNext = null } = {}) {
-  const input = document.getElementById("recordWordInput");
-  const statusEl = document.getElementById("recordWordValidationStatus");
-  recordWordModalState = candidate;
-  recordWordPendingNext = pendingNext;
-  recordWordModalStaging = true;
-  recordWordStatusWord = "";
-  recordWordStatusOk = null;
-  recordWordFeatures = {
-    sameColor: false,
-    usedWildcard: false,
-    doubleScore: false,
-    plusPoints: false,
-    minusPoints: false,
-  };
-  if (candidate?.matchId && candidate?.playerId != null && candidate?.round != null) {
-    const existing = getScoreboardWordCandidate(
-      candidate.matchId,
-      candidate.playerId,
-      candidate.round
-    );
-    if (existing?.features) {
-      recordWordFeatures = { ...recordWordFeatures, ...existing.features };
-    }
-    if (existing?.word) {
-      candidate.word = existing.word;
-    }
-  }
-  document.querySelectorAll(".record-word-chip").forEach((btn) => {
-    const key = btn.dataset.feature;
-    btn.classList.toggle("active", !!recordWordFeatures[key]);
-  });
-  if (input) {
-    input.value = candidate?.word || "";
-    input.focus();
-  }
-  if (statusEl) {
-    statusEl.textContent = "";
-    statusEl.className = "match-validation-status record-word-validation-status";
-  }
-  if (candidate?.source === "round-end" && candidate?.playerId != null) {
-    const entry = getRoundEndValidationEntry(candidate.playerId);
-    if (entry) syncRecordWordStatusFromEntry(candidate.playerId, entry);
-  }
-  updateRecordWordSaveState();
-  openModal("record-word", { closable: true });
-}
-
-function closeRecordWordModal({ continuePending = true } = {}) {
-  closeModal("record-word", { reason: "action" });
-  const pending = continuePending ? recordWordPendingNext : null;
-  recordWordPendingNext = null;
-  recordWordModalState = null;
-  recordWordModalStaging = false;
-  if (pending?.nextId) {
-    openRoundEndKeypad(pending.nextId);
-    return;
-  }
-  if (pending?.autoAdvance) {
-    closeRoundEndKeypad({ autoAdvance: true });
-  }
-}
-
-function handleRecordWordToggle(e) {
-  const btn = e.currentTarget;
-  const key = btn?.dataset?.feature;
-  if (!key) return;
-  recordWordFeatures[key] = !recordWordFeatures[key];
-  btn.classList.toggle("active", recordWordFeatures[key]);
-}
-
-function handleRecordWordSkip() {
-  if (recordWordModalState?.matchId) {
-    if (recordWordModalStaging) {
-      upsertScoreboardWordCandidate(recordWordModalState.matchId, {
-        ...recordWordModalState,
-        ignored: true,
-      });
-    } else {
-      upsertWordCandidate(recordWordModalState.matchId, {
-        ...recordWordModalState,
-        ignored: true,
-      });
-    }
-  }
-  closeRecordWordModal({ continuePending: true });
-}
-
-function setRecordWordValidating(isValidating) {
-  recordWordValidating = isValidating;
-  const statusEl = document.getElementById("recordWordValidationStatus");
-  if (statusEl) statusEl.classList.toggle("is-validating", isValidating);
-  const spinner = document.getElementById("recordWordSpinner");
-  if (spinner) spinner.classList.toggle("hidden", !isValidating);
-}
-
-async function handleRecordWordSave() {
-  const input = document.getElementById("recordWordInput");
-  const word = String(input?.value || "").trim();
-  if (!recordWordModalState || !recordWordModalState.matchId) return;
-  if (!word) {
-    if (input) input.focus();
-    return;
-  }
-  if (recordWordValidating) return;
-  const st = matchController.getState();
-  const requiresValidation =
-    recordWordModalState?.source === "round-end" &&
-    st?.matchId === recordWordModalState?.matchId &&
-    st?.scoringEnabled &&
-    st?.validateRecordWords !== false;
-  if (requiresValidation) {
-    const entry = getRoundEndValidationEntry(recordWordModalState?.playerId);
-    const valid =
-      !!entry?.ok &&
-      Number(entry?.round) === Number(recordWordModalState?.round) &&
-      entry.wordKey === normalizeValidationWord(word);
-    if (!valid) {
-      const statusEl = document.getElementById("recordWordValidationStatus");
-      const saveBtn = document.getElementById("recordWordSaveBtn");
-      setRecordWordValidating(true);
-      if (saveBtn) {
-        saveBtn.disabled = true;
-        saveBtn.classList.add("disabled");
-      }
-      try {
-        const rulesText = getValidationRules();
-        const result = await matchController.validateWord(word, rulesText);
-        const ok = !!result?.isValid;
-        const base = ok ? shellTexts.matchValidateOk : shellTexts.matchValidateFail;
-        const reason = result?.reason ? ` ${result.reason}` : "";
-        if (statusEl) {
-          statusEl.textContent = `${base}${reason}`;
-          statusEl.className = `match-validation-status record-word-validation-status ${ok ? "ok" : "fail"}`;
-        }
-        recordWordStatusWord = normalizeValidationWord(word);
-        recordWordStatusOk = ok;
-        playValidationResultSound(ok);
-        if (!ok) {
-          if (recordWordModalState?.playerId) {
-            setRoundEndValidationEntry(recordWordModalState.playerId, {
-              word,
-              wordKey: normalizeValidationWord(word),
-              ok: false,
-              round: recordWordModalState.round,
-              statusText: `${base}${reason}`,
-              statusClass: "match-validation-status fail",
-            });
-          }
-          updateRecordWordSaveState();
-          if (input) input.focus();
-          return;
-        }
-        if (recordWordModalState?.playerId) {
-          setRoundEndValidationEntry(recordWordModalState.playerId, {
-            word,
-            wordKey: normalizeValidationWord(word),
-            ok: true,
-            round: recordWordModalState.round,
-            statusText: `${base}${reason}`,
-            statusClass: "match-validation-status ok",
-          });
-        }
-      } catch (e) {
-        logger.error("Record word validation failed", e);
-        if (statusEl) {
-          statusEl.textContent = shellTexts.matchValidateError;
-          statusEl.className = "match-validation-status record-word-validation-status fail";
-        }
-        recordWordStatusWord = normalizeValidationWord(word);
-        recordWordStatusOk = false;
-        playValidationResultSound(false);
-        if (recordWordModalState?.playerId) {
-          setRoundEndValidationEntry(recordWordModalState.playerId, {
-            word,
-            wordKey: normalizeValidationWord(word),
-            ok: false,
-            round: recordWordModalState.round,
-            statusText: shellTexts.matchValidateError,
-            statusClass: "match-validation-status fail",
-          });
-        }
-        if (input) input.focus();
-        return;
-      } finally {
-        setRecordWordValidating(false);
-        updateRecordWordSaveState();
-      }
-    }
-  }
-  if (recordWordModalStaging) {
-    upsertScoreboardWordCandidate(recordWordModalState.matchId, {
-      ...recordWordModalState,
-      word,
-      features: { ...recordWordFeatures },
-      ignored: false,
-    });
-  } else {
-    upsertWordCandidate(recordWordModalState.matchId, {
-      ...recordWordModalState,
-      word,
-      features: { ...recordWordFeatures },
-      ignored: false,
-    });
-  }
-  closeRecordWordModal({ continuePending: true });
-}
-
-function updateRecordWordSaveState() {
-  const input = document.getElementById("recordWordInput");
-  const saveBtn = document.getElementById("recordWordSaveBtn");
-  const clearBtn = document.getElementById("recordWordClearBtn");
-  const statusEl = document.getElementById("recordWordValidationStatus");
-  if (!saveBtn) return;
-  const rawWord = String(input?.value || "");
-  const word = rawWord.trim();
-  const wordKey = normalizeValidationWord(word);
-  if (recordWordModalState?.source === "round-end" && recordWordModalState?.playerId) {
-    if (!word) {
-      clearRoundEndValidationEntry(recordWordModalState.playerId);
-    } else {
-      const entry = getRoundEndValidationEntry(recordWordModalState.playerId);
-      const key = normalizeValidationWord(word);
-      if (!entry || entry.wordKey !== key) {
-        setRoundEndValidationEntry(recordWordModalState.playerId, {
-          word,
-          wordKey: key,
-          ok: false,
-          round: recordWordModalState.round,
-          statusText: "",
-          statusClass: "match-validation-status",
-        });
-      }
-    }
-    const section = validationSections.get("round-keypad");
-    if (section?.input) {
-      section.input.value = word;
-      updateValidationControls(section);
-    }
-    const entry = getRoundEndValidationEntry(recordWordModalState.playerId);
-    if (section?.status) {
-      if (entry?.ok && entry.wordKey === normalizeValidationWord(word)) {
-        section.status.textContent = entry.statusText || "";
-        section.status.className = entry.statusClass || "match-validation-status ok";
-      } else {
-        section.status.textContent = "";
-        section.status.className = "match-validation-status";
-      }
-    }
-    if (entry) syncRecordWordStatusFromEntry(recordWordModalState.playerId, entry);
-  }
-  const hasWord = word.length > 0;
-  const st = matchController.getState();
-  const requiresValidation =
-    recordWordModalState?.source === "round-end" &&
-    st?.matchId === recordWordModalState?.matchId &&
-    st?.scoringEnabled &&
-    st?.validateRecordWords !== false;
-  const hasFailedValidation =
-    requiresValidation &&
-    recordWordStatusWord &&
-    recordWordStatusWord === wordKey &&
-    recordWordStatusOk === false;
-  saveBtn.disabled = !hasWord || recordWordValidating || hasFailedValidation;
-  saveBtn.classList.toggle("disabled", !hasWord || recordWordValidating || hasFailedValidation);
-  if (clearBtn) clearBtn.classList.toggle("hidden", !hasWord);
-  if (statusEl && recordWordStatusWord && wordKey !== recordWordStatusWord) {
-    statusEl.textContent = "";
-    statusEl.className = "match-validation-status record-word-validation-status";
-    recordWordStatusWord = "";
-    recordWordStatusOk = null;
-  }
-}
+// → ui/match/scoreboard.js (openRecordWordModal, openRecordWordModalFromScoreboard)
 
 function saveWordCandidatesMap(map) {
   localStorage.setItem(WORD_CANDIDATES_KEY, JSON.stringify(map || {}));
@@ -2632,11 +1348,11 @@ function createValidationSection(mountId, key) {
     refs.input.addEventListener("input", () => {
       sanitizeValidationInput(refs);
       clearStatusValidationFor(key);
-      if (key === "round-keypad" && roundEndKeypadPlayerId) {
+      if (key === "round-keypad" && getRoundEndKeypadPlayerId()) {
         const word = refs.input.value || "";
         const keyWord = normalizeValidationWord(word);
         if (keyWord) {
-          setRoundEndValidationEntry(roundEndKeypadPlayerId, {
+          setRoundEndValidationEntry(getRoundEndKeypadPlayerId(), {
             word,
             wordKey: keyWord,
             ok: false,
@@ -2645,7 +1361,7 @@ function createValidationSection(mountId, key) {
             statusClass: "match-validation-status",
           });
         } else {
-          clearRoundEndValidationEntry(roundEndKeypadPlayerId);
+          clearRoundEndValidationEntry(getRoundEndKeypadPlayerId());
         }
       }
       updateValidationControls(refs);
@@ -3447,15 +2163,18 @@ function setupNavigation() {
     }],
     ["trainingBackBtn", () => showScreen("splash")],
     ["trainingSettingsBtn", () => openSettingsModal()],
-    ["trainingCardEasy",   () => startTrainingMatch("easy")],
-    ["trainingCardNormal", () => startTrainingMatch("normal")],
-    ["trainingCardHard",   () => startTrainingMatch("hard")],
-    ["trainingRulesBtn",   () => openRulesModal()],
+    ["trainingCardWords",     () => startTrainingMatch("words")],
+    ["trainingCardTimeTrial", () => startTrainingMatch("timeTrial")],
+    ["trainingCardEasy",      () => startTrainingMatch("easy")],
+    ["trainingCardNormal",    () => startTrainingMatch("normal")],
+    ["trainingCardHard",      () => startTrainingMatch("hard")],
+    ["trainingRulesBtn",   () => openTrainingRulesNotice()],
     ["trainingGalleryBtn", () => openQuickGuide("strategy-cards-all")],
     ["trainingMatchBackBtn",     () => confirmExitTrainingMatch()],
     ["trainingMatchExitBtn",     () => confirmExitTrainingMatch()],
     ["trainingMatchSettingsBtn", () => openSettingsModal()],
     ["trainingTimerDoneBtn",     () => finishTrainingTimer()],
+    ["trainingValidateBtn",      () => finishTrainingTimer()],
     ["resumeMatchBtn", () => showScreen("match")],
     ["splashHelpBtn", () => showScreen("help")],
     ["helpBtn", () => showScreen("help")],
@@ -3498,9 +2217,6 @@ function setupNavigation() {
     ["matchCreationFinishBtn", () => confirmFinishPhase("creation")],
     ["matchNextRoundBtn", () => openRoundEndScreen()],
     ["roundEndBackBtn", () => {
-      roundEndScores = {};
-      roundEndUnlocked = new Set();
-      roundEndSelectedWinners = new Set();
       showScreen("match");
     }],
     ["roundEndSettingsBtn", () => openSettingsModal()],
@@ -3544,6 +2260,94 @@ function setupNavigation() {
   });
 
   setupDelegatedControls();
+  initTraining({
+    showScreen,
+    playClickFeedback,
+    openConfirm,
+    playClockLoop,
+    stopClockLoop,
+    setI18nById,
+    triggerTimeUpEffects,
+    playLowTimeTick,
+  });
+  initScoreboard({
+    showScreen,
+    playClickFeedback,
+    openConfirm,
+    setI18nById,
+    setI18n,
+    scaleGame,
+    renderMatchPlayers,
+    getActivePlayers,
+    getDealerIndex,
+    getDealerInfo,
+    saveRecords,
+    loadRecords,
+    triggerHapticFeedback,
+    createValidationSection,
+    clearMatchWordFor,
+    clearStatusValidationFor,
+    getKnownPlayerNames,
+    maybeRecordWordScores,
+    recordMatchAverages,
+    finalizeWordRecordCandidates,
+    upsertWordRecord,
+    upsertMatchRecord,
+    canEnterWordRecords,
+    canEnterMatchRecords,
+    getWordRecordThreshold,
+    getMatchRecordThreshold,
+    formatRecordDate,
+    formatSeconds,
+    escapeHtml,
+    sortRecords,
+    deleteRecordEntry,
+    persistActiveMatchSnapshot,
+    showMatchWinners,
+    renderRecordsScreen,
+    stopMatchTimer,
+    stopClockLoop,
+    startMatchPhase,
+    playValidationResultSound,
+    getValidationRules,
+    updateValidationControls,
+    getValidationSections: () => validationSections,
+    renderMatch: () => renderMatchInner(),
+    renderMatchFromState: renderMatchFromStateInner,
+    updateActionOverlayStates,
+    currentScreen: () => currentScreen,
+    pausedBeforeScoreboard: { get value() { return pausedBeforeScoreboard; }, set value(v) { pausedBeforeScoreboard = v; } },
+    winnersModalOpen: { get value() { return winnersModalOpen; }, set value(v) { winnersModalOpen = v; } },
+    suppressWinnersPrompt: { get value() { return suppressWinnersPrompt; }, set value(v) { suppressWinnersPrompt = v; } },
+    lastWinnersIds: { get value() { return lastWinnersIds; }, set value(v) { lastWinnersIds = v; } },
+    normalizeValidationWord,
+    getPlayerIndexMap,
+    clampRoundScore,
+    isOddScore,
+    formatRoundEndScoreDisplay,
+    getRoundEndPlayerLabel,
+    buildRecordDateMessage,
+    applyShareIcon,
+    updateHorizontalScrollHintState,
+    updateScrollHintState,
+    matchHasAnyScores,
+    // Canvas helpers
+    createShareCanvas,
+    drawRoundedRect,
+    truncateText,
+    drawShareCardFrame,
+    drawShareCardTitle,
+    drawIconWithOutline,
+    getCenteredTextBaseline,
+    formatShareMessage,
+    formatShareName,
+    formatShareWord,
+    loadImageElement,
+    canvasToBlob,
+    shareImageBlob,
+    buildShareFileName,
+    formatRecordPoints,
+  });
   setupTrainingDebugToggle();
 
   const matchScoreboard = document.getElementById("matchScoreboard");
@@ -3831,21 +2635,7 @@ function setupNavigation() {
     });
 }
 
-function setupTrainingDebugToggle() {
-  let pressTimer = null;
-  const el = document.getElementById("trainingRoundLabel");
-  if (!el) return;
-  el.addEventListener("pointerdown", () => {
-    pressTimer = setTimeout(() => {
-      debugMode = !debugMode;
-      const badge = document.getElementById("trainingDebugBadge");
-      if (badge) badge.classList.toggle("hidden", !debugMode);
-      renderTrainingMatch();
-    }, 800);
-  });
-  el.addEventListener("pointerup",     () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } });
-  el.addEventListener("pointercancel", () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } });
-}
+// → ui/match/training.js (setupTrainingDebugToggle)
 
 function setupDelegatedControls() {
   if (delegatedControlsBound) return;
@@ -3998,35 +2788,7 @@ function renderQuickGuideRichText(targetEl, text) {
   if (lastIndex === 0) targetEl.textContent = text;
 }
 
-function renderActionCardGrid() {
-  const grid = document.createElement("div");
-  grid.className = "quick-guide-action-grid";
-  const groupOrder = { self: 0, all: 1, one: 2 };
-  const sorted = ACTION_CARDS
-    .slice()
-    .sort((a, b) => (groupOrder[a.target] ?? 9) - (groupOrder[b.target] ?? 9));
-  sorted.forEach((def) => {
-    const item = document.createElement("div");
-    item.className = "quick-guide-action-item";
-
-    const cardEl = renderActionCard({ actionId: def.id }, { selectable: false });
-    cardEl.style.cssText = "pointer-events:none;flex-shrink:0;";
-    item.appendChild(cardEl);
-
-    const nameEl = document.createElement("div");
-    nameEl.className = "quick-guide-action-item-name";
-    nameEl.textContent = actionLabel(def.id);
-    item.appendChild(nameEl);
-
-    const descEl = document.createElement("div");
-    descEl.className = "quick-guide-action-item-desc";
-    descEl.textContent = actionDesc(def.id);
-    item.appendChild(descEl);
-
-    grid.appendChild(item);
-  });
-  return grid;
-}
+// renderQuickGuideActionCardGrid → renderActionCardGrid in ui/components/actionCard.js
 
 function renderQuickGuide() {
   const indexList = document.getElementById("quickGuideIndexList");
@@ -4104,9 +2866,7 @@ function renderQuickGuide() {
       if (imagesWrap.children.length) sectionEl.appendChild(imagesWrap);
     }
 
-    if (!skipBullets && section.id === "strategy-cards-all") {
-      sectionEl.appendChild(renderActionCardGrid());
-    } else if (!skipBullets && Array.isArray(section.bullets) && section.bullets.length) {
+    if (!skipBullets && Array.isArray(section.bullets) && section.bullets.length) {
       const ul = document.createElement("ul");
       ul.className = "quick-guide-list";
       section.bullets.forEach((item) => {
@@ -4116,6 +2876,20 @@ function renderQuickGuide() {
         ul.appendChild(li);
       });
       sectionEl.appendChild(ul);
+    }
+
+    if (Array.isArray(section.afterBullets)) {
+      section.afterBullets.forEach((text) => {
+        if (!text) return;
+        const p = document.createElement("p");
+        p.className = "quick-guide-text";
+        renderQuickGuideRichText(p, text);
+        sectionEl.appendChild(p);
+      });
+    }
+
+    if (section.id === "strategy-cards-all") {
+      sectionEl.appendChild(renderActionCardGrid());
     }
 
     if (Array.isArray(section.faq) && section.faq.length) {
@@ -4425,64 +3199,7 @@ function getDealerIndex(matchState) {
   return 0;
 }
 
-function parseHexColor(hex) {
-  if (typeof hex !== "string") return null;
-  const raw = hex.trim().replace("#", "");
-  const value =
-    raw.length === 3
-      ? raw
-          .split("")
-          .map((c) => c + c)
-          .join("")
-      : raw;
-  if (!/^[0-9a-fA-F]{6}$/.test(value)) return null;
-  const r = parseInt(value.slice(0, 2), 16);
-  const g = parseInt(value.slice(2, 4), 16);
-  const b = parseInt(value.slice(4, 6), 16);
-  return { r, g, b };
-}
-
-function toHex({ r, g, b }) {
-  const clamp = (v) => Math.max(0, Math.min(255, Math.round(v)));
-  return `#${[clamp(r), clamp(g), clamp(b)]
-    .map((v) => v.toString(16).padStart(2, "0"))
-    .join("")}`;
-}
-
-function getDealerPalette(color) {
-  const rgb = parseHexColor(color);
-  const forcedText =
-    typeof document !== "undefined"
-      ? getComputedStyle(document.documentElement)
-          .getPropertyValue("--player-name-color")
-          .trim()
-      : "";
-  if (!rgb) {
-    return {
-      bg: "#d9c79f",
-      border: "#c5af7d",
-      text: forcedText || "#2f1b12",
-    };
-  }
-  const luminance = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b) / 255;
-  const text = forcedText || (luminance > 0.62 ? "#2f1b12" : "#ffffff");
-  const border = toHex({
-    r: rgb.r * 0.7,
-    g: rgb.g * 0.7,
-    b: rgb.b * 0.7,
-  });
-  return { bg: color, border, text };
-}
-
-function darkenHexColor(color, factor = 0.75) {
-  const rgb = parseHexColor(color);
-  if (!rgb) return color;
-  return toHex({
-    r: rgb.r * factor,
-    g: rgb.g * factor,
-    b: rgb.b * factor,
-  });
-}
+// parseHexColor, toHex, getDealerPalette, darkenHexColor → ui/utils.js
 
 function getDealerInfo(matchState) {
   const players = getActivePlayers(matchState);
@@ -4505,36 +3222,7 @@ function formatScoreboardName(name) {
   return `${trimmed.slice(0, mid)}\u200B${trimmed.slice(mid)}`;
 }
 
-function cloneScoreboardValues(values) {
-  return JSON.parse(JSON.stringify(values || {}));
-}
-
-function buildScoreboardData(matchState) {
-  const players = Array.isArray(matchState?.players) ? matchState.players : [];
-  const roundSet = new Set();
-  players.forEach((player) => {
-    (player.rounds || []).forEach((entry) => {
-      if (Number.isFinite(Number(entry.round))) {
-        roundSet.add(Number(entry.round));
-      }
-    });
-  });
-  const rounds = Array.from(roundSet).sort((a, b) => b - a);
-  const values = {};
-  players.forEach((player) => {
-    const map = {};
-    rounds.forEach((round) => {
-      map[round] = "";
-    });
-    (player.rounds || []).forEach((entry) => {
-      if (rounds.includes(entry.round)) {
-        map[entry.round] = String(entry.points ?? 0);
-      }
-    });
-    values[String(player.id)] = map;
-  });
-  return { rounds, players, values };
-}
+// → ui/match/scoreboard.js (cloneScoreboardValues, buildScoreboardData)
 
 function isScoreFilled(value) {
   return String(value ?? "").trim() !== "";
@@ -4551,336 +3239,9 @@ function isScoreOutOfRange(value) {
   return num < MIN_ROUND_SCORE || num > MAX_ROUND_SCORE;
 }
 
-function getScoreboardTotals(players, rounds, values) {
-  const totals = new Map();
-  players.forEach((player) => {
-    const id = String(player.id);
-    const row = values[id] || {};
-    const total = rounds.reduce((sum, round) => {
-      const value = row[round];
-      if (!isScoreFilled(value) || isScoreOutOfRange(value)) return sum;
-      return sum + getScoreNumber(value);
-    }, 0);
-    totals.set(id, total);
-  });
-  return totals;
-}
+// → ui/match/scoreboard.js (getScoreboardTotals, getScoreboardRoundMax, getScoreboardOverallMax, updateScoreboardDirty, updateScoreboardIndicators)
 
-function getScoreboardRoundMax(rounds, players, values) {
-  const maxMap = new Map();
-  rounds.forEach((round) => {
-    let max = null;
-    players.forEach((player) => {
-      const value = values[String(player.id)]?.[round];
-      if (!isScoreFilled(value)) return;
-      const num = getScoreNumber(value);
-      if (max === null || num > max) max = num;
-    });
-    if (max !== null) maxMap.set(round, max);
-  });
-  return maxMap;
-}
-
-function getScoreboardOverallMax(rounds, players, values) {
-  let overall = null;
-  rounds.forEach((round) => {
-    players.forEach((player) => {
-      const value = values[String(player.id)]?.[round];
-      if (!isScoreFilled(value)) return;
-      const num = getScoreNumber(value);
-      if (overall === null || num > overall) overall = num;
-    });
-  });
-  return overall;
-}
-
-function updateScoreboardDirty() {
-  if (!scoreboardBase || !scoreboardDraft) return;
-  let dirty = false;
-  Object.keys(scoreboardDraft).forEach((playerId) => {
-    const baseRow = scoreboardBase[playerId] || {};
-    const draftRow = scoreboardDraft[playerId] || {};
-    Object.keys(draftRow).forEach((round) => {
-      if (String(baseRow[round] ?? "") !== String(draftRow[round] ?? "")) {
-        dirty = true;
-      }
-    });
-  });
-  scoreboardDirty = dirty;
-  const actionButtons = document.getElementById("scoreboardActionButtons");
-  if (actionButtons) {
-    actionButtons.classList.toggle("hidden", scoreboardReadOnly || !scoreboardDirty);
-  }
-  updateScoreboardWarnings();
-}
-
-function updateScoreboardIndicators() {
-  const table = document.getElementById("scoreboardTable");
-  const tableLeft = document.getElementById("scoreboardTableLeftCol");
-  if (!table || !scoreboardDraft) return;
-  const players = scoreboardPlayers || [];
-  const rounds = scoreboardRounds || [];
-  const totals = getScoreboardTotals(players, rounds, scoreboardDraft);
-  const maxTotal = Math.max(...Array.from(totals.values()), 0);
-  const roundMax = getScoreboardRoundMax(rounds, players, scoreboardDraft);
-  const overallMax = getScoreboardOverallMax(rounds, players, scoreboardDraft);
-
-  if (tableLeft) {
-    tableLeft.querySelectorAll(".scoreboard-player-cell").forEach((cell) => {
-      const playerId = cell.dataset.playerId;
-      if (!playerId) return;
-      const totalEl = cell.querySelector(".scoreboard-player-total");
-      if (totalEl) {
-        totalEl.textContent = String(totals.get(playerId) ?? 0);
-      }
-        cell.classList.toggle(
-          "is-leader",
-          maxTotal > 0 && totals.get(playerId) === maxTotal && maxTotal > 0
-        );
-    });
-  }
-
-  table.querySelectorAll(".scoreboard-score-cell").forEach((cell) => {
-    const round = Number(cell.dataset.round);
-    const playerId = cell.dataset.playerId;
-    if (!playerId || !Number.isFinite(round)) return;
-    const value = scoreboardDraft[playerId]?.[round];
-    const roundMaxValue = roundMax.get(round);
-      const scoreNum = getScoreNumber(value);
-      const isValid = isScoreFilled(value) && !isScoreOutOfRange(value);
-      const isRoundMax =
-        roundMaxValue != null &&
-        isValid &&
-        scoreNum === roundMaxValue && scoreNum > 0;
-      const isOverallMax =
-        overallMax != null &&
-        isValid &&
-        scoreNum === overallMax && scoreNum > 0;
-      cell.classList.toggle("is-round-max", isRoundMax);
-      cell.classList.toggle("is-overall-max", isOverallMax);
-
-    const pill = cell.querySelector(".scoreboard-score-pill");
-    if (pill) {
-      pill.textContent = formatScoreboardScoreDisplay(value);
-      pill.classList.toggle("is-empty", !isScoreFilled(value));
-      pill.classList.toggle("is-odd", isOddScore(value));
-      pill.classList.toggle("is-negative", isScoreFilled(value) && getScoreNumber(value) < 0);
-      pill.classList.toggle("is-invalid", isScoreOutOfRange(value));
-    }
-    const label = cell.querySelector(".scoreboard-score-value");
-    if (label) {
-      label.textContent = isScoreFilled(value)
-        ? String(value)
-        : shellTexts.matchRoundScorePlaceholder;
-      label.classList.toggle("is-negative", isScoreFilled(value) && getScoreNumber(value) < 0);
-      label.classList.toggle("is-invalid", isScoreOutOfRange(value));
-    }
-  });
-}
-
-function renderScoreboardScreen(matchState) {
-  const table = document.getElementById("scoreboardTable");
-  const tableHeader = document.getElementById("scoreboardTableHeaderRow");
-  const tableLeft = document.getElementById("scoreboardTableLeftCol");
-  const tableCorner = document.getElementById("scoreboardTableCorner");
-  const tableShell = document.getElementById("scoreboardTableShell");
-  const tableWrap = document.getElementById("scoreboardTableWrap");
-  const editHint = document.getElementById("scoreboardEditHint");
-  const note = document.getElementById("scoreboardNote");
-  const actionButtons = document.getElementById("scoreboardActionButtons");
-  const shareBtn = document.getElementById("scoreboardShareBtn");
-  if (!table || !tableHeader || !tableLeft || !tableCorner || !tableShell) return;
-  let emptyEl = document.getElementById("scoreboardEmpty");
-  if (!emptyEl) {
-    emptyEl = document.createElement("div");
-    emptyEl.id = "scoreboardEmpty";
-    emptyEl.className = "scoreboard-empty hidden";
-    tableShell.appendChild(emptyEl);
-  }
-
-  if (!scoreboardDraft) {
-    const data = buildScoreboardData(matchState);
-    scoreboardRounds = data.rounds;
-    scoreboardPlayers = data.players;
-    scoreboardBase = cloneScoreboardValues(data.values);
-    scoreboardDraft = cloneScoreboardValues(data.values);
-    scoreboardDirty = false;
-  }
-  if (!scoreboardReadOnly) {
-    ensureScoreboardWordCandidatesDraft(matchState);
-  }
-
-  const rounds = scoreboardRounds || [];
-  const players = scoreboardPlayers || [];
-  tableShell.style.setProperty("--scoreboard-rounds", Math.max(1, rounds.length).toString());
-  table.innerHTML = "";
-  tableHeader.innerHTML = "";
-  tableLeft.innerHTML = "";
-
-  if (actionButtons) {
-    actionButtons.classList.toggle("hidden", scoreboardReadOnly || !scoreboardDirty);
-  }
-  const dateText =
-    scoreboardInfoText ||
-    (matchState?.matchOver
-      ? buildRecordDateMessage(matchState.updatedAt || matchState.lastSavedAt || Date.now())
-      : "");
-  const showDateMeta = !!dateText;
-  if (editHint) {
-    if (showDateMeta) {
-      editHint.textContent = dateText;
-      editHint.classList.remove("hidden");
-    } else if (scoreboardReadOnly) {
-      editHint.classList.add("hidden");
-    } else {
-      editHint.textContent = shellTexts.matchScoreboardEditHint || "";
-      editHint.classList.remove("hidden");
-    }
-  }
-  if (shareBtn) {
-    applyShareIcon(shareBtn, shellTexts.scoreboardShare || "Compartir");
-    shareBtn.classList.toggle("hidden", !showDateMeta);
-  }
-
-  if (!rounds.length || !players.length) {
-    if (editHint) editHint.classList.add("hidden");
-    if (shareBtn) shareBtn.classList.add("hidden");
-    tableCorner.textContent = "";
-    tableShell.classList.add("is-empty");
-    tableCorner.style.display = "none";
-    tableHeader.style.display = "none";
-    tableLeft.style.display = "none";
-    if (tableWrap) tableWrap.style.display = "none";
-    setI18n(emptyEl, "matchScoreboardEmpty");
-    emptyEl.classList.remove("hidden");
-    return;
-  }
-  if (shareBtn) shareBtn.classList.remove("hidden");
-  tableShell.classList.remove("is-empty");
-  tableCorner.style.display = "";
-  tableHeader.style.display = "";
-  tableLeft.style.display = "";
-  if (tableWrap) tableWrap.style.display = "";
-  emptyEl.classList.add("hidden");
-
-  tableCorner.className =
-    "scoreboard-cell scoreboard-header scoreboard-player-cell scoreboard-corner";
-  setI18n(tableCorner, "matchScoreboardPlayerHeader");
-  rounds.forEach((round) => {
-    const header = document.createElement("div");
-    header.className = "scoreboard-cell scoreboard-header";
-    const label = shellTexts.matchScoreboardRoundShort.replace("{round}", round);
-    header.textContent = label;
-    tableHeader.appendChild(header);
-  });
-
-  const totals = getScoreboardTotals(players, rounds, scoreboardDraft);
-  const maxTotal = Math.max(...Array.from(totals.values()), 0);
-  const roundMax = getScoreboardRoundMax(rounds, players, scoreboardDraft);
-  const overallMax = getScoreboardOverallMax(rounds, players, scoreboardDraft);
-  const orderPrefix = shellTexts.matchRoundPlayerPrefix;
-
-  players.forEach((player, idx) => {
-    const id = String(player.id);
-    const palette = getDealerPalette(player.color || "#d9c79f");
-    const playerCell = document.createElement("div");
-    playerCell.className = "scoreboard-cell scoreboard-player-cell";
-    playerCell.dataset.playerId = id;
-    playerCell.style.setProperty("--player-color", player.color || "#d9c79f");
-    playerCell.style.setProperty("--player-border", palette.border);
-    playerCell.style.setProperty("--player-text", palette.text);
-    playerCell.style.setProperty("--points-pill-bg", darkenHexColor(player.color || "#d9c79f", 0.92));
-    playerCell.style.setProperty(
-      "--points-pill-border",
-      darkenHexColor(player.color || "#d9c79f", 0.8)
-    );
-    playerCell.classList.toggle(
-      "is-leader",
-      maxTotal > 0 && totals.get(id) === maxTotal && maxTotal > 0
-    );
-
-    const info = document.createElement("div");
-    info.className = "scoreboard-player-info";
-    const order = document.createElement("span");
-    order.className = "scoreboard-player-order";
-    order.textContent = `${orderPrefix}${idx + 1}`;
-    const name = document.createElement("span");
-    name.className = "scoreboard-player-name";
-    name.textContent = player.name || `${shellTexts.playerLabel} ${idx + 1}`;
-    info.append(order, name);
-
-    const total = document.createElement("span");
-    total.className = "scoreboard-player-total";
-    total.textContent = String(totals.get(id) ?? 0);
-
-    const leaderBadge = document.createElement("span");
-    leaderBadge.className = "scoreboard-player-leader";
-    leaderBadge.setAttribute("aria-hidden", "true");
-
-    playerCell.append(info, total, leaderBadge);
-    tableLeft.appendChild(playerCell);
-
-    rounds.forEach((round) => {
-      const cell = document.createElement("div");
-      cell.className = "scoreboard-cell scoreboard-score-cell";
-      cell.dataset.playerId = id;
-      cell.dataset.round = String(round);
-      const value = scoreboardDraft[id]?.[round] ?? "";
-      const scoreNum = getScoreNumber(value);
-      const isValid = isScoreFilled(value) && !isScoreOutOfRange(value);
-      const isRoundMax =
-        roundMax.get(round) != null &&
-        isValid &&
-        scoreNum === roundMax.get(round) && scoreNum > 0;
-      const isOverallMax =
-        overallMax != null &&
-        isValid &&
-        scoreNum === overallMax && scoreNum > 0;
-      cell.classList.toggle("is-round-max", isRoundMax);
-      cell.classList.toggle("is-overall-max", isOverallMax);
-      const pill = document.createElement("button");
-      pill.type = "button";
-      pill.className = "scoreboard-score-pill";
-      pill.textContent = formatScoreboardScoreDisplay(value);
-      pill.classList.toggle("is-empty", !isScoreFilled(value));
-      pill.classList.toggle("is-odd", isOddScore(value));
-      pill.classList.toggle("is-negative", isScoreFilled(value) && getScoreNumber(value) < 0);
-      pill.classList.toggle("is-invalid", isScoreOutOfRange(value));
-      if (scoreboardReadOnly) {
-        pill.disabled = true;
-        pill.classList.add("is-readonly");
-      }
-      const isRecord =
-        scoreboardRecordHighlight &&
-        String(matchState?.matchId || "") === String(scoreboardRecordHighlight.matchId) &&
-        String(scoreboardRecordHighlight.playerId) === id &&
-        Number(scoreboardRecordHighlight.round) === Number(round);
-      if (isRecord) {
-        cell.classList.add("is-record");
-        pill.classList.add("is-record");
-      }
-      cell.appendChild(pill);
-      table.appendChild(cell);
-    });
-  });
-  updateScoreboardWarnings();
-  updateScoreboardHintBounds();
-  const hintOverlay = document.getElementById("scoreboardHints");
-  if (tableWrap) {
-    requestAnimationFrame(() => {
-      updateHorizontalScrollHintState(tableWrap, hintOverlay || tableShell);
-      updateScrollHintState(tableWrap, null, null, hintOverlay || tableShell);
-      const config = tableWrap.closest(".scoreboard-config");
-      if (config) updateScrollHintState(tableWrap, null, null, config);
-      const header = document.getElementById("scoreboardTableHeader");
-      const left = document.getElementById("scoreboardTableLeft");
-      const leftCol = document.getElementById("scoreboardTableLeftCol");
-      if (header) header.scrollLeft = tableWrap.scrollLeft;
-      if (leftCol) leftCol.style.transform = "";
-      if (left) left.scrollTop = tableWrap.scrollTop;
-    });
-  }
-}
+// → ui/match/scoreboard.js (renderScoreboardScreen)
 
 function renderMatchScoreboard(matchState) {
   const board = document.getElementById("matchScoreboard");
@@ -5023,118 +3384,10 @@ function clampPhaseSeconds(val) {
   return Math.min(MAX_PHASE_SECONDS, Math.max(MIN_PHASE_SECONDS, Math.round(num)));
 }
 
-function renderMatch() {
-  renderMatchFromState(matchController.getState());
+function renderMatchInner() {
+  renderMatchFromStateInner(matchController.getState());
 }
 
-function renderRoundEndScreen() {
-  const matchState = matchController.getState();
-  if (!matchState) return;
-
-  const scoringSection = document.getElementById("roundEndScoringSection");
-  const validationSection = document.getElementById("roundEndValidationMount")?.parentElement;
-  const scoringList = document.getElementById("roundEndScoringList");
-  const scoringEnabled = !!matchState.scoringEnabled;
-  const tieBreakPending =
-    Array.isArray(matchState?.tieBreakPending?.players) &&
-    matchState.tieBreakPending.players.length > 0;
-
-  if (validationSection) {
-    validationSection.classList.toggle("hidden", scoringEnabled);
-    if (scoringEnabled) {
-      clearMatchWordFor("match", false);
-      clearStatusValidationFor("match");
-    }
-  }
-
-  if (!scoringEnabled || tieBreakPending) {
-    roundEndKeypadOpen = false;
-    roundEndKeypadPlayerId = null;
-  }
-
-  if (scoringSection) {
-    scoringSection.classList.toggle("hidden", !scoringEnabled || tieBreakPending);
-  }
-
-  if (!scoringList) return;
-  scoringList.innerHTML = "";
-  if (!scoringEnabled || tieBreakPending) {
-    renderRoundEndWinners(matchState);
-    updateRoundEndContinueState(matchState);
-    return;
-  }
-
-  roundEndOrder = buildRoundEndOrder(matchState);
-  const activePlayers = getActivePlayers(matchState);
-  const activeMap = new Map(activePlayers.map((player) => [String(player.id), player]));
-  const displayOrder = (matchState.players || [])
-    .map((player) => String(player.id))
-    .filter((id) => activeMap.has(id));
-  const dealerIndex = getDealerIndex(matchState);
-  const dealerId = activePlayers[dealerIndex] ? String(activePlayers[dealerIndex].id) : null;
-  const orderPrefix = shellTexts.matchRoundPlayerPrefix;
-  const playerIndexMap = getPlayerIndexMap(matchState);
-  displayOrder.forEach((playerId) => {
-    const player = activeMap.get(String(playerId));
-    if (!player) return;
-    const id = String(player.id);
-    const row = document.createElement("div");
-    row.className = "round-end-score-row";
-    row.dataset.playerId = id;
-    if (id === dealerId) {
-      row.classList.add("is-dealer");
-    }
-    const palette = getDealerPalette(player.color || "#d9c79f");
-    row.style.setProperty("--player-color", player.color || "#d9c79f");
-    row.style.setProperty("--player-border", palette.border);
-    row.style.setProperty("--player-text", palette.text);
-    row.style.setProperty("--points-pill-bg", darkenHexColor(player.color || "#d9c79f", 0.92));
-    row.style.setProperty(
-      "--points-pill-border",
-      darkenHexColor(player.color || "#d9c79f", 0.8)
-    );
-    if (id === dealerId) {
-      row.style.setProperty("--dealer-bg", palette.bg);
-      row.style.setProperty("--dealer-border", palette.border);
-      row.style.setProperty("--dealer-text", palette.text);
-    }
-
-    const header = document.createElement("div");
-    header.className = "round-end-score-header";
-
-    const orderBadge = document.createElement("span");
-    orderBadge.className = "round-end-score-order";
-    const orderIndex = playerIndexMap.get(id);
-    orderBadge.textContent = `${orderPrefix}${(orderIndex ?? 0) + 1}`;
-
-    const nameEl = document.createElement("div");
-    nameEl.className = "round-end-score-name";
-    nameEl.textContent = player.name || "";
-
-    header.append(orderBadge, nameEl);
-
-    const dealerBadge = document.createElement("span");
-    dealerBadge.className = "round-end-score-dealer";
-    dealerBadge.textContent = shellTexts.matchDealerLabel;
-    if (id === dealerId) {
-      header.appendChild(dealerBadge);
-    }
-
-    const scoreBtn = document.createElement("button");
-    scoreBtn.type = "button";
-    scoreBtn.className = "round-end-score-pill";
-    scoreBtn.textContent = formatRoundEndScoreDisplay(roundEndScores[id]);
-    scoreBtn.setAttribute("aria-label", player.name || "");
-
-    row.append(header, scoreBtn);
-    scoringList.appendChild(row);
-  });
-  updateRoundEndLockState(matchState);
-  renderRoundEndWinners(matchState);
-  updateRoundEndContinueState(matchState);
-  updateRoundEndKeypad(matchState);
-  updateActionOverlayStates();
-}
 
 /* Timer border progress helper (disabled for now).
 function setTimerProgress(card, remaining, total) {
@@ -5203,7 +3456,7 @@ function updateMatchTick() {
   }
 }
 
-function renderMatchFromState(matchState) {
+function renderMatchFromStateInner(matchState) {
   const strategyVal = document.getElementById("matchStrategyValue");
   const creationVal = document.getElementById("matchCreationValue");
   const playersVal = document.getElementById("matchPlayersValue");
@@ -5682,35 +3935,7 @@ function scrollByClamped(scrollEl, { top = 0, left = 0 } = {}) {
   });
 }
 
-function updateScoreboardActionPadding() {
-  const shell = document.getElementById("scoreboardTableShell");
-  const actions = document.getElementById("scoreboardActions");
-  const wrap = document.getElementById("scoreboardTableWrap");
-  if (!shell || !actions || !wrap) return;
-  const note = document.getElementById("scoreboardNote");
-  const buttons = document.getElementById("scoreboardActionButtons");
-  const hasContent =
-    (note && !note.classList.contains("hidden")) ||
-    (buttons && !buttons.classList.contains("hidden"));
-  const isPortrait = window.matchMedia
-    ? window.matchMedia("(orientation: portrait)").matches
-    : window.innerHeight > window.innerWidth;
-  const playerCount = (scoreboardPlayers || []).length;
-  const allowPad = !isPortrait || playerCount > 6;
-  let pad = 0;
-  if (hasContent && allowPad) {
-    const hintBase = actions.offsetHeight;
-    if (isPortrait) {
-      pad = hintBase;
-    } else {
-      const wrapRect = wrap.getBoundingClientRect();
-      const actionsRect = actions.getBoundingClientRect();
-      const overlaps = actionsRect.top < wrapRect.bottom - 1;
-      pad = overlaps ? hintBase : 0;
-    }
-  }
-  shell.style.setProperty("--scoreboard-actions-pad", `${pad}px`);
-}
+// → ui/match/scoreboard.js (updateScoreboardActionPadding)
 
 function updateActionOverlayStates() {
   const matchConfigBlock = document.getElementById("matchConfigBlock");
@@ -6481,9 +4706,9 @@ async function handleValidateSection(key = "match") {
     status.textContent = `${base}${reason}`;
     status.className = `match-validation-status ${ok ? "ok" : "fail"}`;
     showValidationResult(ok ? "ok" : "fail", `${base}${reason}`);
-    if (key === "round-keypad" && roundEndKeypadPlayerId) {
+    if (key === "round-keypad" && getRoundEndKeypadPlayerId()) {
       const st = matchController.getState();
-      setRoundEndValidationEntry(roundEndKeypadPlayerId, {
+      setRoundEndValidationEntry(getRoundEndKeypadPlayerId(), {
         word,
         wordKey: normalizeValidationWord(word),
         ok,
@@ -6507,9 +4732,9 @@ async function handleValidateSection(key = "match") {
     status.textContent = shellTexts.matchValidateError;
     status.className = "match-validation-status error";
     showValidationResult("error", shellTexts.matchValidateError);
-    if (key === "round-keypad" && roundEndKeypadPlayerId) {
+    if (key === "round-keypad" && getRoundEndKeypadPlayerId()) {
       const st = matchController.getState();
-      setRoundEndValidationEntry(roundEndKeypadPlayerId, {
+      setRoundEndValidationEntry(getRoundEndKeypadPlayerId(), {
         word,
         wordKey: normalizeValidationWord(word),
         ok: false,
@@ -6783,102 +5008,9 @@ function advanceMatchRound() {
   renderMatch();
 }
 
-function openRoundEndScreen() {
-  const st = matchController.getState();
-  if (!st) return;
-  roundEndScores = {};
-  roundEndOrder = buildRoundEndOrder(st);
-  roundEndUnlocked = new Set();
-  roundEndSelectedWinners = new Set();
-  roundEndValidationByPlayer = new Map();
-  roundEndKeypadOpen = false;
-  roundEndKeypadPlayerId = null;
-  const activePlayers = getActivePlayers(st);
-  activePlayers.forEach((player) => {
-    roundEndScores[String(player.id)] = "";
-  });
-  stopMatchTimer();
-  stopClockLoop(false);
-  showScreen("round-end");
-  if (st.scoringEnabled && roundEndOrder.length) {
-    const firstId = getNextRoundEndId(roundEndOrder);
-    if (firstId) {
-      openRoundEndKeypad(firstId);
-    }
-  }
-}
+// → ui/match/scoreboard.js (openRoundEndScreen)
 
-function openScoreboard({ readOnly = false } = {}) {
-  const st = matchController.getState();
-  if (!st) return;
-  pausedBeforeScoreboard = null;
-  if (st.phase === "strategy-run") {
-    pausedBeforeScoreboard = "strategy";
-    matchController.pause();
-    stopClockLoop(false);
-  } else if (st.phase === "creation-run") {
-    pausedBeforeScoreboard = "creation";
-    matchController.pause();
-    stopClockLoop(false);
-  }
-  const data = buildScoreboardData(st);
-  scoreboardRounds = data.rounds;
-  scoreboardPlayers = data.players;
-  scoreboardBase = cloneScoreboardValues(data.values);
-  scoreboardDraft = cloneScoreboardValues(data.values);
-  scoreboardDirty = false;
-  scoreboardReadOnly = readOnly;
-  scoreboardInfoText = "";
-  scoreboardReturnScreen = currentScreen || "match";
-  scoreboardReturnWinners = winnersModalOpen;
-  scoreboardKeypadOpen = false;
-  scoreboardKeypadPlayerId = null;
-  scoreboardKeypadRound = null;
-  scoreboardKeypadOrder = [];
-  scoreboardKeypadInitialValue = null;
-  if (winnersModalOpen) {
-    suppressWinnersPrompt = true;
-    closeModal("match-winners", { reason: "scoreboard" });
-  }
-  renderScoreboardScreen(st);
-  showScreen("scoreboard");
-  scaleGame();
-}
-
-function closeScoreboard() {
-  const resumePhase = pausedBeforeScoreboard;
-  pausedBeforeScoreboard = null;
-  scoreboardDraft = null;
-  scoreboardBase = null;
-  scoreboardRounds = [];
-  scoreboardPlayers = [];
-  scoreboardDirty = false;
-  scoreboardReadOnly = false;
-  scoreboardInfoText = "";
-  scoreboardRecordHighlight = null;
-  scoreboardKeypadOpen = false;
-  scoreboardKeypadPlayerId = null;
-  scoreboardKeypadRound = null;
-  scoreboardKeypadOrder = [];
-  scoreboardKeypadInitialValue = null;
-  showScreen(scoreboardReturnScreen || "match");
-  scaleGame();
-  if (scoreboardReturnWinners && lastWinnersIds.length) {
-    suppressWinnersPrompt = false;
-    scoreboardReturnWinners = false;
-    showMatchWinners(lastWinnersIds);
-  } else {
-    scoreboardReturnWinners = false;
-  }
-  if (resumePhase) {
-    const st = matchController.getState();
-    if (resumePhase === "strategy" && st?.phase === "strategy-paused") {
-      startMatchPhase("strategy");
-    } else if (resumePhase === "creation" && st?.phase === "creation-paused") {
-      startMatchPhase("creation");
-    }
-  }
-}
+// → ui/match/scoreboard.js (openScoreboard, closeScoreboard)
 
 function formatRecordDate(value) {
   if (!value) return "";
@@ -7683,207 +5815,7 @@ async function buildRecordShareCanvas(record, kind, position = null) {
   return canvas;
 }
 
-async function buildScoreboardShareCanvas(matchState) {
-  if (document?.fonts?.ready) {
-    try {
-      await document.fonts.ready;
-    } catch {}
-  }
-  let { canvas, ctx } = createShareCanvas(SHARE_CARD_WIDTH, SHARE_CARD_HEIGHT);
-
-  const cardX = SHARE_CARD_MARGIN;
-  const cardY = SHARE_CARD_MARGIN;
-  const cardW = SHARE_CARD_WIDTH - SHARE_CARD_MARGIN * 2;
-  let cardH = SHARE_CARD_HEIGHT - 160;
-
-  const logo = await loadImageElement("assets/img/logo-letters.png");
-  const headerIcon = await loadImageElement("assets/img/podium.svg");
-  const logoWidth = 340;
-  const ratio = logo?.height ? logo.width / logo.height : 1;
-  const logoHeight = logoWidth / ratio;
-  const logoX = cardX + (cardW - logoWidth) / 2;
-  const logoY = cardY + 18;
-  let logoBottom = cardY + 20;
-  if (logo) {
-    ctx.drawImage(logo, logoX, logoY, logoWidth, logoHeight);
-    logoBottom = logoY + logoHeight;
-  }
-
-  const headerTop = logoBottom + 36;
-  const headerLabel = shellTexts.scoreboardShareTitle;
-  const headerBottom = drawShareCardTitle(
-    ctx,
-    cardX,
-    cardW,
-    headerTop,
-    headerIcon,
-    headerLabel
-  );
-  let cursorY = headerBottom + 22;
-
-  const rounds = scoreboardRounds || [];
-  const players = scoreboardPlayers || [];
-  const values = scoreboardDraft || scoreboardBase || {};
-  const totals = getScoreboardTotals(players, rounds, values);
-  const rows = players
-    .map((player) => ({
-      name: player.name || shellTexts.playerLabel,
-      total: totals.get(String(player.id)) ?? 0,
-      color: player.color || "#d9c79f",
-    }))
-    .sort((a, b) => Number(b.total) - Number(a.total));
-
-  const rowHeight = 92;
-  const rowGap = 14;
-  const listX = cardX + 50;
-  const listW = cardW - 100;
-  const cellW = Math.round(listW * 0.75);
-  const cellX = listX + (listW - cellW) / 2;
-  ctx.textBaseline = "middle";
-  const maxRows = Math.floor((cardY + cardH - cursorY - 20) / (rowHeight + rowGap));
-  const maxItems = Math.max(1, maxRows);
-
-  const visibleCount = Math.min(rows.length, maxItems);
-  const listH = visibleCount * rowHeight + Math.max(0, visibleCount - 1) * rowGap + 24;
-
-  const dateLabel = formatRecordDate(Date.now());
-  const roundsCount = Array.isArray(scoreboardRounds) ? scoreboardRounds.length : 0;
-  const roundsLabel =
-    shellTexts.matchModeRounds || shellTexts.recordsRoundsHeader || "Bazas";
-  const dateLine = dateLabel
-    ? roundsCount
-      ? `${dateLabel} · ${roundsCount} ${roundsLabel}`
-      : dateLabel
-    : "";
-  const dateBlockH = dateLine ? 48 : 0;
-
-  cardH = (cursorY - cardY) + listH + (dateBlockH ? dateBlockH + 18 : 0) + 24;
-  const desiredHeight = cardY + cardH + SHARE_CARD_MARGIN;
-  const finalHeight = Math.min(SHARE_CARD_HEIGHT, desiredHeight);
-  if (finalHeight !== SHARE_CARD_HEIGHT) {
-    ({ canvas, ctx } = createShareCanvas(SHARE_CARD_WIDTH, finalHeight));
-  }
-  ctx.fillStyle = "#f7ead1";
-  ctx.fillRect(0, 0, SHARE_CARD_WIDTH, finalHeight);
-  drawShareCardFrame(ctx, cardX, cardY, cardW, cardH);
-  if (logo) {
-    ctx.drawImage(logo, logoX, logoY, logoWidth, logoHeight);
-  }
-  drawShareCardTitle(ctx, cardX, cardW, headerTop, headerIcon, headerLabel);
-
-  drawRoundedRect(ctx, listX - 12, cursorY - 8, listW + 24, listH, 18);
-  ctx.fillStyle = "rgba(255, 248, 233, 0.55)";
-  ctx.fill();
-
-  const winnerIcon = await loadImageElement("assets/img/leader.svg");
-  const maxTotal = rows.length ? rows[0].total : null;
-  const visibleRows = rows.slice(0, maxItems);
-  const pointsPadX = 16;
-  const pointsPillH = 52;
-  ctx.font = `900 52px "Fredoka", "Montserrat", sans-serif`;
-  const maxPointsWidth = visibleRows.reduce((acc, row) => {
-    const w = ctx.measureText(String(row.total)).width;
-    return Math.max(acc, w);
-  }, 0);
-  const pointsPillWFixed = Math.max(maxPointsWidth + pointsPadX * 2, 90);
-
-  visibleRows.forEach((row, index) => {
-    const x = cellX;
-    const y = cursorY + index * (rowHeight + rowGap);
-    const palette = getDealerPalette(row.color || "#d9c79f");
-    drawRoundedRect(ctx, x, y + 3, cellW, rowHeight, 12);
-    ctx.fillStyle = "rgba(0, 0, 0, 0.18)";
-    ctx.fill();
-
-    drawRoundedRect(ctx, x, y, cellW, rowHeight, 12);
-    ctx.fillStyle = row.color || "#d9c79f";
-    ctx.fill();
-    ctx.strokeStyle = palette.border;
-    ctx.lineWidth = 3;
-    ctx.stroke();
-
-    const posText = `#${index + 1}`;
-    ctx.textAlign = "left";
-    ctx.font = `900 52px "Fredoka", "Montserrat", sans-serif`;
-    ctx.strokeStyle = "rgba(0, 0, 0, 0.6)";
-    ctx.lineWidth = 3;
-    ctx.textBaseline = "alphabetic";
-    const posBaseline = getCenteredTextBaseline(ctx, y, rowHeight, posText);
-    ctx.strokeText(posText, x + 12, posBaseline);
-    ctx.fillStyle = "#ffe26f";
-    ctx.fillText(posText, x + 12, posBaseline);
-
-    ctx.textAlign = "center";
-    ctx.font = `900 52px "Fredoka", "Montserrat", sans-serif`;
-    const pointsText = String(row.total);
-    const pointsPillW = pointsPillWFixed;
-    const pointsPillX = x + cellW - 12 - pointsPillW;
-    const pointsPillY = y + (rowHeight - pointsPillH) / 2;
-    const isWinner = maxTotal != null && row.total === maxTotal;
-    drawRoundedRect(ctx, pointsPillX, pointsPillY, pointsPillW, pointsPillH, 14);
-    if (isWinner) {
-      const pointsGradient = ctx.createLinearGradient(
-        0,
-        pointsPillY,
-        0,
-        pointsPillY + pointsPillH
-      );
-      pointsGradient.addColorStop(0, "#ffe26f");
-      pointsGradient.addColorStop(1, "#ffc94f");
-      ctx.fillStyle = pointsGradient;
-      ctx.fill();
-      ctx.strokeStyle = "rgba(107, 60, 29, 0.45)";
-      ctx.lineWidth = 3;
-      ctx.stroke();
-      ctx.fillStyle = "#6b3c1d";
-    } else {
-      const darker = darkenHexColor(row.color || "#d9c79f", 0.92);
-      ctx.fillStyle = darker;
-      ctx.fill();
-      ctx.strokeStyle = darkenHexColor(row.color || "#d9c79f", 0.78);
-      ctx.lineWidth = 3;
-      ctx.stroke();
-      ctx.fillStyle = "#ffffff";
-      ctx.strokeStyle = "rgba(0, 0, 0, 0.7)";
-      ctx.lineWidth = 3;
-    }
-    ctx.textBaseline = "alphabetic";
-    const pointsBaseline = getCenteredTextBaseline(ctx, pointsPillY, pointsPillH, pointsText);
-    if (!isWinner) {
-      ctx.strokeText(pointsText, pointsPillX + pointsPillW / 2, pointsBaseline);
-    }
-    ctx.fillText(pointsText, pointsPillX + pointsPillW / 2, pointsBaseline);
-
-    const nameMaxW = Math.max(40, pointsPillX - (x + 90) - 16);
-    ctx.textAlign = "left";
-    ctx.font = `800 56px "Fredoka", "Montserrat", sans-serif`;
-    const name = truncateText(ctx, formatShareName(row.name), nameMaxW);
-    ctx.strokeStyle = "rgba(0, 0, 0, 0.6)";
-    ctx.lineWidth = 3;
-    const nameBaseline = getCenteredTextBaseline(ctx, y, rowHeight, name);
-    ctx.strokeText(name, x + 90, nameBaseline);
-    ctx.fillStyle = palette.text;
-    ctx.fillText(name, x + 90, nameBaseline);
-
-    if (winnerIcon && maxTotal != null && row.total === maxTotal) {
-      const iconSize = 80;
-      const iconX = x + 90;
-      const iconY = y - iconSize / 2;
-      drawIconWithOutline(ctx, winnerIcon, iconX, iconY, iconSize, "#111111");
-    }
-  });
-
-  if (dateLine) {
-    ctx.font = `800 40px "Fredoka", "Montserrat", sans-serif`;
-    ctx.fillStyle = "#c9a56c";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    const dateY = cursorY + listH + 18 + 20;
-    ctx.fillText(dateLine, cardX + cardW / 2, dateY);
-  }
-
-  return canvas;
-}
+// → ui/match/scoreboard.js (buildScoreboardShareCanvas)
 
 async function handleRecordShare(record, kind, position = null) {
   if (!record || recordShareBusy) return;
@@ -7938,47 +5870,7 @@ async function handleRecordShare(record, kind, position = null) {
   }
 }
 
-async function handleScoreboardShare() {
-  if (scoreboardShareBusy) return;
-  const matchState = matchController.getState();
-  if (!scoreboardRounds?.length || !scoreboardPlayers?.length) return;
-  scoreboardShareBusy = true;
-  try {
-    const canvas = await buildScoreboardShareCanvas(matchState);
-    if (!canvas) return;
-    const dateLabel = formatRecordDate(Date.now());
-    const filename = buildShareFileName("scoreboard", dateLabel, "match");
-    const appName = shellTexts.appTitle || "The Letter Loom";
-    const shareMessage = formatShareMessage(shellTexts.scoreboardShareMessage, {
-      app: appName,
-    }).trim();
-    const parts = [shareMessage];
-    if (dateLabel) parts.push(dateLabel);
-    const rounds = scoreboardRounds || [];
-    const players = scoreboardPlayers || [];
-    const values = scoreboardDraft || scoreboardBase || {};
-    const totals = getScoreboardTotals(players, rounds, values);
-    const winner = players
-      .map((player) => ({
-        name: formatShareName(player.name || shellTexts.playerLabel || ""),
-        total: totals.get(String(player.id)) ?? 0,
-      }))
-      .sort((a, b) => Number(b.total) - Number(a.total))[0];
-    if (winner?.name) {
-      const winnerLabel = (shellTexts.scoreboardShareWinnerLabel || "Ganador").toUpperCase();
-      parts.push(`${winnerLabel} ${winner.name}`);
-    }
-    const text = parts.filter(Boolean).join(" · ");
-    const blob = await canvasToBlob(canvas);
-    await shareImageBlob(blob, { filename, title: shareMessage, text });
-    capture('scoreboard_shared', { player_count: (scoreboardPlayers || []).length })
-    flush()
-  } catch (err) {
-    logger.warn("Share scoreboard failed", err);
-  } finally {
-    scoreboardShareBusy = false;
-  }
-}
+// → ui/match/scoreboard.js (handleScoreboardShare)
 
 function buildRecordDateMessage(dateValue) {
   const date = formatRecordDate(dateValue);
@@ -7986,79 +5878,7 @@ function buildRecordDateMessage(dateValue) {
   return template.replace("{date}", date || "");
 }
 
-function openRecordScoreboard(record, { highlightWord = false } = {}) {
-  if (!record || !record.matchId) {
-    logger.warn("openRecordScoreboard: missing record or matchId", record || null);
-    return;
-  }
-  const archive = loadArchive();
-  const entry = archive?.byId?.[String(record.matchId)];
-  if (!entry) {
-    logger.warn("openRecordScoreboard: archive entry missing", {
-      matchId: record.matchId,
-      archiveCount: Array.isArray(archive?.order) ? archive.order.length : 0,
-    });
-    return;
-  }
-  if (!entry.matchState) {
-    logger.warn("openRecordScoreboard: matchState missing in archive entry", {
-      matchId: record.matchId,
-      savedAt: entry.savedAt || null,
-      status: entry.status || null,
-    });
-    return;
-  }
-  let matchState = entry.matchState;
-  const players = Array.isArray(matchState.players) ? matchState.players : [];
-  const roundsTotal = players.reduce(
-    (sum, player) => sum + (Array.isArray(player.rounds) ? player.rounds.length : 0),
-    0
-  );
-  if (roundsTotal === 0) {
-    const active = loadActiveMatch();
-    if (
-      active?.matchState?.matchId &&
-      String(active.matchState.matchId) === String(record.matchId) &&
-      matchHasAnyScores(active.matchState)
-    ) {
-      matchState = active.matchState;
-    } else {
-      logger.warn("openRecordScoreboard: matchState has no rounds", {
-        matchId: record.matchId,
-        players: players.length,
-        round: matchState.round ?? null,
-        phase: matchState.phase || null,
-      });
-    }
-  }
-  scoreboardRounds = [];
-  scoreboardPlayers = [];
-  scoreboardBase = null;
-  scoreboardDraft = null;
-  scoreboardDirty = false;
-  scoreboardReadOnly = true;
-  scoreboardInfoText = buildRecordDateMessage(
-    record.when || entry.savedAt || entry.matchState?.updatedAt
-  );
-  scoreboardRecordHighlight =
-    highlightWord && record.playerId != null && record.round != null
-      ? {
-          matchId: String(record.matchId),
-          playerId: String(record.playerId),
-          round: Number(record.round),
-        }
-      : null;
-  scoreboardReturnScreen = "records";
-  scoreboardReturnWinners = false;
-  scoreboardKeypadOpen = false;
-  scoreboardKeypadPlayerId = null;
-  scoreboardKeypadRound = null;
-  scoreboardKeypadOrder = [];
-  scoreboardKeypadInitialValue = null;
-  renderScoreboardScreen(matchState);
-  showScreen("scoreboard");
-  scaleGame();
-}
+// → ui/match/scoreboard.js (openRecordScoreboard)
 
 function renderRecordsList({ listId, records, emptyText, showWord = false } = {}) {
   const list = document.getElementById(listId);
@@ -8286,19 +6106,7 @@ function renderRecordsScreen() {
   setRecordsTab(recordsTab || "words");
 }
 
-function openRecords() {
-  const records = loadRecords() || {};
-  const hasWordRecords = Array.isArray(records.bestWord) && records.bestWord.length > 0;
-  const hasMatchRecords = Array.isArray(records.bestMatch) && records.bestMatch.length > 0;
-  if (!hasWordRecords && hasMatchRecords) {
-    recordsTab = "matches";
-  } else {
-    recordsTab = "words";
-  }
-  recordsReturnScreen = currentScreen || "scoreboard";
-  showScreen("records");
-  scaleGame();
-}
+// → ui/match/scoreboard.js (openRecords)
 
 function closeRecords() {
   if (recordsReturnScreen === "match-winners" && lastWinnersIds.length) {
@@ -8329,132 +6137,9 @@ function setRecordsTab(nextTab) {
   }
 }
 
-function applyScoreboardChanges() {
-  const st = matchController.getState();
-  if (!st || !scoreboardDraft) return;
-  const odd = getScoreboardOddScore();
-  if (odd) {
-    updateScoreboardWarnings();
-    return;
-  }
-  scoreboardRounds.forEach((round) => {
-    const scores = {};
-    scoreboardPlayers.forEach((player) => {
-      const raw = scoreboardDraft[player.id]?.[round];
-      const value = isScoreFilled(raw) ? clampRoundScore(raw) : 0;
-      scores[player.id] = value;
-    });
-    matchController.updateRoundScores(round, scores);
-  });
-  persistScoreboardWordCandidatesDraft();
-  const nextState = matchController.getState();
-  const data = buildScoreboardData(nextState);
-  scoreboardRounds = data.rounds;
-  scoreboardPlayers = data.players;
-  scoreboardBase = cloneScoreboardValues(data.values);
-  scoreboardDraft = cloneScoreboardValues(data.values);
-  scoreboardDirty = false;
-  persistActiveMatchSnapshot(nextState);
-  renderScoreboardScreen(nextState);
-  updateScoreboardDirty();
-}
+// → ui/match/scoreboard.js (applyScoreboardChanges, resetScoreboardDraft)
 
-function resetScoreboardDraft(matchState) {
-  if (!scoreboardBase) return;
-  scoreboardDraft = cloneScoreboardValues(scoreboardBase);
-  scoreboardDirty = false;
-  discardScoreboardWordCandidatesDraft(matchState || matchController.getState());
-  renderScoreboardScreen(matchState || matchController.getState());
-  updateScoreboardDirty();
-  updateScoreboardIndicators();
-  updateScoreboardWarnings();
-}
-
-function handleRoundEndContinue() {
-  const st = matchController.getState();
-  if (!st) return;
-  if (st.scoringEnabled) {
-    const activePlayers = getActivePlayers(st);
-    const oddPlayer = getFirstOddRoundScore(st);
-    const missing = activePlayers.some((player) =>
-      isRoundScoreEmpty(roundEndScores[String(player.id)])
-    );
-    if (missing || oddPlayer) {
-      updateRoundEndContinueState(st);
-      return;
-    }
-    const scores = {};
-    activePlayers.forEach((player) => {
-      const raw = roundEndScores[String(player.id)];
-      scores[player.id] = clampRoundScore(raw);
-    });
-    const roundNumber = st.round;
-    matchController.addRoundScores(scores);
-    const nextState = matchController.getState();
-    persistActiveMatchSnapshot(nextState);
-    if (nextState?.matchOver) {
-      roundEndScores = {};
-      roundEndUnlocked = new Set();
-      roundEndSelectedWinners = new Set();
-      clearMatchWordFor("match");
-      stopClockLoop(false);
-      showScreen("match");
-      renderMatch();
-      showMatchWinners(nextState.winnerIds || []);
-      flush()
-      return;
-    }
-    if (nextState?.tieBreakPending?.players?.length) {
-      renderRoundEndScreen();
-      return;
-    }
-  } else {
-    const roundsMode = st.mode === MATCH_MODE_ROUNDS;
-    const roundsTarget = st.roundsTarget ?? DEFAULT_ROUNDS_TARGET;
-    const selected = [...roundEndSelectedWinners];
-
-    if (!st.tieBreak && roundsMode && st.round < roundsTarget) {
-      matchController.nextRound();
-    } else if (!selected.length) {
-      if (roundsMode) {
-        updateRoundEndContinueState(st);
-        return;
-      }
-      matchController.nextRound();
-    } else if (selected.length === 1) {
-      matchController.declareWinners(selected);
-      const nextState = matchController.getState();
-      if (nextState?.matchOver) {
-        roundEndScores = {};
-        roundEndUnlocked = new Set();
-        roundEndSelectedWinners = new Set();
-        clearMatchWordFor("match");
-        stopClockLoop(false);
-        showScreen("match");
-        renderMatch();
-        showMatchWinners(nextState.winnerIds || []);
-        return;
-      }
-    } else {
-      updateRoundEndContinueState(st);
-      return;
-    }
-  }
-  roundEndScores = {};
-  roundEndUnlocked = new Set();
-  roundEndSelectedWinners = new Set();
-  clearMatchWordFor("match");
-  stopClockLoop(false);
-  showScreen("match");
-  renderMatch();
-}
-
-function getRoundEndSelectedIds(matchState) {
-  if (matchState?.tieBreakPending?.players?.length) {
-    return matchState.tieBreakPending.players.map((id) => String(id));
-  }
-  return [...roundEndSelectedWinners];
-}
+// → ui/match/scoreboard.js (handleRoundEndContinue)
 
 function handleRoundEndAllWin() {
   const st = matchController.getState();
@@ -8464,9 +6149,6 @@ function handleRoundEndAllWin() {
   matchController.declareWinners(selected);
   const nextState = matchController.getState();
   if (nextState?.matchOver) {
-    roundEndScores = {};
-    roundEndUnlocked = new Set();
-    roundEndSelectedWinners = new Set();
     clearMatchWordFor("match");
     stopClockLoop(false);
     showScreen("match");
@@ -8474,9 +6156,6 @@ function handleRoundEndAllWin() {
     showMatchWinners(nextState.winnerIds || []);
     return;
   }
-  roundEndScores = {};
-  roundEndUnlocked = new Set();
-  roundEndSelectedWinners = new Set();
   clearMatchWordFor("match");
   stopClockLoop(false);
   showScreen("match");
@@ -8489,9 +6168,6 @@ function handleRoundEndTieBreak() {
   const selected = getRoundEndSelectedIds(st);
   if (selected.length < 2) return;
   matchController.startTieBreak(selected);
-  roundEndScores = {};
-  roundEndUnlocked = new Set();
-  roundEndSelectedWinners = new Set();
   clearMatchWordFor("match");
   stopClockLoop(false);
   showScreen("match");
@@ -8528,9 +6204,6 @@ function restartMatchWithSameSettings() {
     word_record_validation_enabled: _rst.validateRecordWords,
     is_rematch: true,
   })
-  roundEndScores = {};
-  roundEndUnlocked = new Set();
-  roundEndSelectedWinners = new Set();
   clearMatchWordFor("match");
   stopClockLoop(false);
   showScreen("match");
@@ -8545,6 +6218,16 @@ function promptMatchPlayAgain() {
     cancelText: "matchPlayAgainNo",
     onConfirm: () => restartMatchWithSameSettings(),
     onCancel: () => showScreen("splash"),
+  });
+}
+
+function openTrainingRulesNotice() {
+  playClickFeedback();
+  openConfirm({
+    title: "trainingRulesNoticeTitle",
+    body: "trainingRulesNoticeBody",
+    acceptText: "ok",
+    hideCancel: true,
   });
 }
 
@@ -8665,14 +6348,7 @@ function formatNameListHtml(names, lang = "es") {
   return `${head} ${conj} ${tail}`;
 }
 
-function openRecordsFromWinners() {
-  if (winnersModalOpen) {
-    suppressWinnersPrompt = true;
-    closeModal("match-winners", { reason: "records" });
-  }
-  openRecords();
-  recordsReturnScreen = "match-winners";
-}
+// → ui/match/scoreboard.js (openRecordsFromWinners)
 
 function finishMatchPhase(kind) {
   const st = matchController.getState();
@@ -8788,2258 +6464,11 @@ function handleConfirmCancel() {
   closeModal("confirm", { reason: "cancel" });
 }
 
-// ── Training mode picker ────────────────────────────────────
-// User picks one of three difficulty presets — no other config. Best score
-// per difficulty is tracked in stateStore.training.stats.
-
-function renderTrainingSetup() {
-  const state = loadState();
-  const stats = state.training?.stats || {};
-  for (const diff of ["easy", "normal", "hard"]) {
-    const preset = TRAINING_DIFFICULTY_PRESETS[diff];
-    const cap = diff[0].toUpperCase() + diff.slice(1);
-    setI18nById(`trainingCard${cap}Players`, "trainingCardPlayers", {
-      vars: { opponents: preset.opponents },
-    });
-    setI18nById(`trainingCard${cap}Timers`, "trainingCardTimers", {
-      vars: { strategy: preset.strategySeconds, creation: preset.creationSeconds },
-    });
-    const best = stats[diff]?.best;
-    const statEl = document.getElementById(`trainingCard${cap}Stat`);
-    if (best != null) {
-      setI18nById(`trainingCard${cap}Stat`, "trainingCardBest", { vars: { points: best } });
-      statEl?.classList.remove("hidden");
-    } else {
-      statEl?.classList.add("hidden");
-    }
-  }
-}
-
-function startTrainingMatch(difficulty) {
-  playClickFeedback();
-  const preset = TRAINING_DIFFICULTY_PRESETS[difficulty];
-  if (!preset) return;
-  const nickname = loadState().settings?.knownPlayerNames?.[0] || null;
-  const state = createTrainingMatch(difficulty, { userNickname: nickname });
-  logger.info("Training match created", { matchId: state.matchId, difficulty });
-  lastFlashedPhase = null;
-  showScreen("training");
-}
-
-// ── Training match rendering (Block 1: skeleton + placeholders) ──
-
-function renderTrainingMatch() {
-  let state = getTrainingMatch();
-  if (!state) {
-    showScreen("training-setup");
-    return;
-  }
-  // Deal central board + action cards on first render of a fresh round.
-  if (state.centralBoard.length === 0) {
-    state = initializeRound(state);
-  }
-
-  setI18nById("trainingMatchTitle", `trainingDifficulty${capitalizeStr(state.difficulty)}`);
-  setI18nById("trainingBoardLabel", "trainingBoardLabel");
-  setI18nById("trainingHandLabel", "trainingHandLabel");
-  setI18nById("trainingRoundLabel", "trainingRoundLabel", {
-    vars: { round: state.round, total: state.roundsTarget },
-  });
-  setI18nById("trainingPhaseLabel", `trainingPhase${capitalizeStr(state.phase)}`);
-  const _debugBadge = document.getElementById("trainingDebugBadge");
-  if (_debugBadge) _debugBadge.classList.toggle("hidden", !debugMode);
-  renderTrainingPrompt(state);
-
-  renderTrainingScoreboard(state);
-  renderTrainingForcedRules(state);
-  renderTrainingWordStrip(state);
-  renderTrainingBoard(state);
-  renderTrainingHand(state);
-  renderTrainingActions(state);
-  renderTrainingTimer(state);
-  renderTrainingResult(state);
-  const isResultOrDone = state.phase === "result" || state.phase === "done";
-  // During result/done: hide the game content sections so the result panel can expand.
-  [".training-section.is-board", ".training-section:not(.is-board)"].forEach((sel) => {
-    const el = document.querySelector(sel);
-    if (el) el.classList.toggle("hidden", isResultOrDone);
-  });
-  if (state.phase === "strategy" || state.phase === "creation") {
-    ensureTrainingTimer();
-  } else {
-    stopTrainingTimer();
-  }
-  const userId = state.players[0].id;
-  const isUserTurn = state.actionsQueue?.[0] === userId && state.userActionIndex == null;
-  if (state.phase === "actions" && (state.actionsQueue?.length ?? 0) > 0 && !isUserTurn
-      && !actionsDriverBusy && !actionsDriverTimeout) {
-    scheduleActionsDriver();
-  }
-  if (state.phase !== "strategy" && focusedActionIndex != null) { focusedActionIndex = null; lastActionTapIndex = null; }
-  if (state.phase !== "actions") clearActionBanner();
-  maybeStartUserTurnTimer(state);
-  maybeShowPhaseFlash(state);
-  if (state.phase === "creation") {
-    // Safety net: if the user reached creation with an empty hand somehow,
-    // give them an emergency letter (manual rule).
-    maybeOfferEmergencyDraw();
-  }
-}
-
-function capitalizeStr(s) {
-  return s ? s.charAt(0).toUpperCase() + s.slice(1) : "";
-}
-
-// Shows the contextual prompt above the row that needs the user's attention,
-// and hides the top instruction (or vice-versa for non-interactive phases).
-function renderTrainingPrompt(state) {
-  const topInstr    = document.getElementById("trainingInstruction");
-  const timerPrompt = document.getElementById("trainingTimerPrompt");
-  const doneBtn     = document.getElementById("trainingTimerDoneBtn");
-  if (!topInstr || !timerPrompt || !doneBtn) return;
-
-  // All phase prompts now share the slot below the timer.
-  topInstr.classList.add("hidden");
-  timerPrompt.classList.add("hidden");
-  timerPrompt.classList.remove("is-collapsed");
-  doneBtn.classList.add("hidden");
-
-  const userId = state.players[0].id;
-  let key = null;
-  let showDone = false;
-
-  if (state.phase === "dealing") {
-    key = "trainingInstrDealing";
-  } else if (state.phase === "strategy") {
-    key = "trainingInstrStrategy";
-    showDone = true;
-  } else if (state.phase === "creation") {
-    // Strip label "TU PALABRA" is enough — collapse the timer prompt to
-    // free vertical space, but keep the Listo button visible.
-    timerPrompt.classList.add("is-collapsed");
-    showDone = true;
-  } else if (state.phase === "actions"
-      && state.actionsQueue?.[0] === userId
-      && state.userActionIndex == null
-      && !state.userActionResolved) {
-    key = "trainingInstrUserTurn";
-  } else if (state.phase === "actions") {
-    key = "trainingInstrActions";
-  } else if (state.phase === "result") {
-    key = "trainingInstrResult";
-  }
-
-  if (key) {
-    setI18nById("trainingTimerPrompt", key);
-    timerPrompt.classList.remove("hidden");
-  }
-  if (showDone) {
-    doneBtn.setAttribute("aria-label", shellTexts.trainingTimerDone || "");
-    doneBtn.classList.remove("hidden");
-  }
-}
-
-// Phase-transition flash banner. Triggered when entering strategy or creation.
-let lastFlashedPhase = null;
-function maybeShowPhaseFlash(state) {
-  const phase = state.phase;
-  if (phase === lastFlashedPhase) return;
-  if (phase === "strategy" || phase === "creation") {
-    const flash = document.getElementById("trainingPhaseFlash");
-    if (!flash) {
-      lastFlashedPhase = phase;
-      return;
-    }
-    const key = `trainingPhase${capitalizeStr(phase)}`;
-    flash.textContent = shellTexts[key] || phase.toUpperCase();
-    flash.classList.remove("hidden");
-    flash.style.animation = "none";
-    void flash.offsetWidth;
-    flash.style.animation = "";
-    clearTimeout(flash._hideTimer);
-    flash._hideTimer = setTimeout(() => {
-      flash.classList.add("hidden");
-    }, 1200);
-  }
-  lastFlashedPhase = phase;
-}
-
-function renderTrainingScoreboard(state) {
-  const root = document.getElementById("trainingScoreboard");
-  if (!root) return;
-  root.innerHTML = "";
-
-  const currentActorId = state.phase === "actions" ? (state.actionsQueue?.[0] ?? null) : null;
-
-  for (const p of state.players) {
-    const hand = state.hands?.[p.id];
-    const letters = hand && hand !== "<hidden>" ? (hand.letters ?? []).filter(Boolean) : [];
-    const hasShield = p.isGhost
-      ? (state.shieldedPlayers ?? []).includes(p.id)
-      : isUserShieldPreSelected(state);
-    const isDealer = p.id === state.dealerId;
-    const isActive = p.id === currentActorId;
-
-    const pill = document.createElement("div");
-    let pillClass = "training-score-pill" + (p.isGhost ? "" : " is-user");
-    if (hasShield) pillClass += " has-shield";
-    if (isDealer) pillClass += " is-dealer";
-    if (isActive) pillClass += " is-active";
-    pill.className = pillClass;
-    pill.dataset.playerId = p.id;
-
-    const name = document.createElement("span");
-    name.className = "training-score-pill-name";
-    name.textContent = p.name;
-
-    const value = document.createElement("span");
-    value.className = "training-score-pill-value";
-    value.textContent = String(p.score);
-
-    // Card count: one dot per actual letter in hand (no fixed cap)
-    const dots = document.createElement("div");
-    dots.className = "training-score-pill-cards";
-    const dotCount = Math.max(letters.length, 1); // at least 1 slot so pill doesn't collapse
-    for (let i = 0; i < dotCount; i++) {
-      const dot = document.createElement("span");
-      if (i < letters.length) dot.className = letters[i].kind === "vowel" ? "is-vowel" : "is-consonant";
-      dots.appendChild(dot);
-    }
-
-    if (isActive) {
-      const turnIcon = document.createElement("img");
-      turnIcon.src = "assets/img/turn.svg";
-      turnIcon.alt = "";
-      turnIcon.className = "pill-badge pill-badge-turn";
-      pill.appendChild(turnIcon);
-    }
-    if (hasShield) {
-      const shieldIcon = document.createElement("img");
-      shieldIcon.src = "assets/img/shield.svg";
-      shieldIcon.alt = "";
-      shieldIcon.className = "pill-badge pill-badge-shield";
-      pill.appendChild(shieldIcon);
-    }
-    if (isDealer) {
-      const dealIcon = document.createElement("img");
-      dealIcon.src = "assets/img/actions/gallery.svg";
-      dealIcon.alt = "";
-      dealIcon.className = "pill-badge pill-badge-deal";
-      pill.appendChild(dealIcon);
-    }
-
-    pill.append(name, value, dots);
-    root.appendChild(pill);
-  }
-  attachActionBubble();
-}
-
-function renderTrainingBoard(state) {
-  const root = document.getElementById("trainingBoard");
-  if (!root) return;
-  root.innerHTML = "";
-  const slots = state.centralBoard.length
-    ? state.centralBoard
-    : Array.from({ length: 5 }, () => null);
-  const isCreation = state.phase === "creation";
-  const wordIds = new Set((state.userWord ?? []).map((s) => s.cardId));
-  const requiredCardIds = collectRequiredCardIds(state);
-  for (const card of slots) {
-    const el = renderLetterCard(card);
-    if (card && requiredCardIds.has(card.id)) {
-      el.classList.add("is-required-letter");
-    }
-    if (card && isCreation) attachCardSelectableBehavior(el, card, "board", wordIds.has(card.id));
-    root.appendChild(el);
-  }
-}
-
-function collectRequiredCardIds(state) {
-  const userId = state.players[0].id;
-  const effects = state.forcedRules?.[userId] ?? [];
-  const ids = new Set();
-  for (const e of effects) {
-    if (["use_vowel", "use_consonant", "use_letter"].includes(e.actionId)) {
-      if (e.payload?.cardId) ids.add(e.payload.cardId);
-    }
-  }
-  return ids;
-}
-
-function renderTrainingForcedRules(state) {
-  const root = document.getElementById("trainingForcedRules");
-  if (!root) return;
-  root.innerHTML = "";
-  const userId = state.players[0].id;
-  const effects = state.forcedRules?.[userId] ?? [];
-  if (effects.length === 0 || (state.phase !== "creation" && state.phase !== "strategy")) {
-    root.classList.add("hidden");
-    return;
-  }
-  for (const e of effects) {
-    const chip = document.createElement("div");
-    chip.className = "training-forced-chip";
-    let text = "";
-    if (e.actionId === "philologist") {
-      text = shellTexts.trainingForcedTilde || "";
-    } else if (e.actionId === "brain_squeeze") {
-      text = shellTexts.trainingForcedSyllables || "";
-    } else if (["use_vowel", "use_consonant", "use_letter"].includes(e.actionId)) {
-      const tpl = shellTexts.trainingForcedUseLetter || "Usa {letter}";
-      text = tpl.replace("{letter}", e.payload?.letter || "?");
-    } else {
-      continue;
-    }
-    chip.textContent = text;
-    root.appendChild(chip);
-  }
-  root.classList.toggle("hidden", root.children.length === 0);
-}
-
-function renderTrainingHand(state) {
-  const root = document.getElementById("trainingHand");
-  if (!root) return;
-  root.innerHTML = "";
-  const userId = state.players[0].id;
-  const userHand = state.hands[userId];
-  const letters = userHand && userHand !== "<hidden>" ? userHand.letters : [null, null, null];
-  const actions = userHand && userHand !== "<hidden>" ? userHand.actions : [null, null];
-  const isDealing = state.phase === "dealing";
-  const isCreation = state.phase === "creation";
-  const isStrategy = state.phase === "strategy";
-  const isUserTurn = state.phase === "actions"
-    && (state.actionsQueue?.[0] === userId)
-    && state.userActionIndex == null;
-  const tappable = isStrategy || isUserTurn;
-  const wordIds = new Set((state.userWord ?? []).map((s) => s.cardId));
-  letters.forEach((card, idx) => {
-    if (!card && isDealing) {
-      root.appendChild(renderDealPickerCard(idx));
-    } else {
-      const el = renderLetterCard(card, { faceDown: isDealing });
-      if (card && isCreation) attachCardSelectableBehavior(el, card, "hand", wordIds.has(card.id));
-      root.appendChild(el);
-    }
-  });
-  if (!isCreation && state.phase !== "result" && state.phase !== "done") {
-    actions.forEach((card, idx) => {
-      const isFocused = isStrategy && focusedActionIndex === idx;
-      const clickHandler = tappable && card ? () => {
-        if (isStrategy) {
-          const now = Date.now();
-          const isDoubleTap = lastActionTapIndex === idx && (now - lastActionTapTime) < DOUBLE_TAP_MS;
-          lastActionTapIndex = idx;
-          lastActionTapTime = now;
-          if (isDoubleTap) {
-            focusedActionIndex = null;
-            lastActionTapIndex = null;
-            handleUserPickAction(idx);
-          } else {
-            focusedActionIndex = focusedActionIndex === idx ? null : idx;
-            renderTrainingMatch();
-          }
-        } else {
-          handleUserPickAction(idx);
-        }
-      } : null;
-      const hasFocus = isStrategy && focusedActionIndex != null;
-      const cardEl = renderActionCard(card, {
-        selectable: tappable && !!card,
-        selected: false,
-        focused: isFocused,
-        dimmed: hasFocus && !isFocused,
-        faceDown: isDealing,
-        onClick: clickHandler,
-      });
-      if (!isDealing && card) {
-        const wrap = document.createElement("div");
-        wrap.className = "tcard-action-wrap";
-        wrap.appendChild(cardEl);
-        const label = document.createElement("span");
-        label.className = "tcard-action-label";
-        label.textContent = actionLabel(card.actionId);
-        if (clickHandler) label.addEventListener("click", clickHandler);
-        wrap.appendChild(label);
-        root.appendChild(wrap);
-      } else {
-        root.appendChild(cardEl);
-      }
-    });
-  }
-  renderActionFocusPanel(state);
-}
-
-function renderActionFocusPanel(state) {
-  const panel = document.getElementById("trainingActionFocusPanel");
-  if (!panel) return;
-  const nameEl = document.getElementById("trainingActionFocusName");
-  const descEl = document.getElementById("trainingActionFocusDesc");
-  const playBtn = document.getElementById("trainingActionFocusPlay");
-
-  const isStrategy = state?.phase === "strategy";
-  if (!isStrategy || focusedActionIndex == null) {
-    panel.classList.add("hidden");
-    return;
-  }
-  const userId = state.players[0].id;
-  const card = state.hands[userId]?.actions?.[focusedActionIndex];
-  if (!card) {
-    panel.classList.add("hidden");
-    return;
-  }
-  panel.classList.remove("hidden");
-  nameEl.textContent = actionLabel(card.actionId);
-  descEl.textContent = actionDesc(card.actionId);
-  playBtn.textContent = "Jugar esta carta";
-  playBtn.onclick = () => {
-    handleUserPickAction(focusedActionIndex);
-    focusedActionIndex = null;
-  };
-}
-
-function attachCardSelectableBehavior(el, card, source, isAlreadyInWord) {
-  if (isAlreadyInWord) {
-    el.classList.add("is-in-word");
-    return;
-  }
-  el.classList.add("is-tappable");
-  el.addEventListener("click", () => handleWordCardTap(card, source));
-}
-
-function handleWordCardTap(card, source) {
-  playClickFeedback();
-  const state = getTrainingMatch();
-  if (!state || state.phase !== "creation") return;
-  if (card.isWildcard) {
-    openTrainingPicker({
-      titleKey: "trainingPickWildcardTitle",
-      options: wildcardLetterOptions(card),
-      onPick: (letter) => {
-        addToWord(state, card.id, source, { chosenLetter: letter });
-        renderTrainingMatch();
-      },
-    });
-    return;
-  }
-  if (card.tildeValue != null) {
-    // Tilde-capable: ask whether to use it with or without tilde.
-    openTildeChoice(card, (withTilde) => {
-      addToWord(state, card.id, source, { tilde: withTilde });
-      renderTrainingMatch();
-    });
-    return;
-  }
-  addToWord(state, card.id, source);
-  renderTrainingMatch();
-}
-
-function openTildeChoice(card, onPick) {
-  const overlay = document.createElement("div");
-  overlay.className = "training-picker-overlay";
-  const cardEl = document.createElement("div");
-  cardEl.className = "training-picker-card";
-  const title = document.createElement("div");
-  title.className = "training-picker-title";
-  title.textContent = shellTexts.trainingTildeChoiceTitle || "";
-  cardEl.appendChild(title);
-
-  const options = document.createElement("div");
-  options.className = "training-tilde-options";
-  const tildedLetter = card.tildeForm || TILDE_FORMS[card.letter] || card.letter;
-  const isDiaeresis = card.tildeKind === "diaeresis";
-  const withKey    = isDiaeresis ? "trainingDiaeresisWithLabel"    : "trainingTildeWithLabel";
-  const withoutKey = isDiaeresis ? "trainingDiaeresisWithoutLabel" : "trainingTildeWithoutLabel";
-
-  options.appendChild(
-    buildTildeOption({
-      letter: card.letter,
-      value: card.value,
-      label: shellTexts[withoutKey] || "",
-      color: card.color,
-      onClick: () => {
-        document.body.removeChild(overlay);
-        onPick(false);
-      },
-    }),
-  );
-  options.appendChild(
-    buildTildeOption({
-      letter: tildedLetter,
-      value: card.tildeValue,
-      label: shellTexts[withKey] || "",
-      color: card.color,
-      onClick: () => {
-        document.body.removeChild(overlay);
-        onPick(true);
-      },
-    }),
-  );
-
-  cardEl.appendChild(options);
-  overlay.appendChild(cardEl);
-  document.body.appendChild(overlay);
-}
-
-function buildTildeOption({ letter, value, label, color, onClick }) {
-  const btn = document.createElement("button");
-  btn.type = "button";
-  btn.className = "training-tilde-option";
-  const cardFace = document.createElement("div");
-  cardFace.className = "tcard training-tilde-option-card";
-  cardFace.dataset.color = color || "none";
-  const letterSpan = document.createElement("span");
-  letterSpan.className = "tcard-letter";
-  letterSpan.textContent = letter;
-  const valueSpan = document.createElement("span");
-  valueSpan.className = "tcard-value";
-  valueSpan.textContent = String(value);
-  cardFace.append(letterSpan, valueSpan);
-  const labelEl = document.createElement("div");
-  labelEl.className = "training-tilde-option-label";
-  labelEl.textContent = label;
-  btn.append(cardFace, labelEl);
-  btn.addEventListener("click", onClick);
-  return btn;
-}
-
-const TILDE_FORMS = { A: "Á", E: "É", I: "Í", O: "Ó", U: "Ú" };
-const VOWEL_LETTERS = ["A", "E", "I", "O", "U"];
-const CONSONANT_LETTERS = [
-  "B","C","D","F","G","H","J","K","L","M","N","Ñ","P","Q","R","S","T","V","W","X","Y","Z",
-];
-function wildcardLetterOptions(card) {
-  // Action wildcard (gold) can stand for any letter; vowel/consonant wildcards
-  // are restricted to their kind.
-  let letters;
-  if (card.kind === "vowel") letters = VOWEL_LETTERS;
-  else if (card.kind === "consonant") letters = CONSONANT_LETTERS;
-  else letters = [...VOWEL_LETTERS, ...CONSONANT_LETTERS];
-  return letters.map((l) => ({ id: l, label: l }));
-}
-
-function renderTrainingWordStrip(state) {
-  const root = document.getElementById("trainingWordStrip");
-  const cardsRoot = document.getElementById("trainingWordStripCards");
-  const label = document.getElementById("trainingWordStripLabel");
-  if (!root || !cardsRoot || !label) return;
-  const visible = state.phase === "creation";
-  root.classList.toggle("hidden", !visible);
-  if (!visible) return;
-  setI18nById("trainingWordStripLabel", "trainingWordStripLabel");
-  cardsRoot.innerHTML = "";
-  const word = state.userWord ?? [];
-  if (word.length === 0) {
-    const empty = document.createElement("div");
-    empty.className = "training-word-strip-empty";
-    empty.textContent = shellTexts.trainingWordStripEmpty || "";
-    cardsRoot.appendChild(empty);
-    return;
-  }
-  const allCards = buildAllCardsIndex(state);
-  word.forEach((slot, idx) => {
-    const card = allCards.get(slot.cardId);
-    if (!card) return;
-    const wrapper = document.createElement("div");
-    wrapper.className = "training-word-slot";
-    wrapper.draggable = true;
-    wrapper.dataset.index = String(idx);
-    wrapper.addEventListener("dragstart", handleWordDragStart);
-    wrapper.addEventListener("dragover", handleWordDragOver);
-    wrapper.addEventListener("dragleave", handleWordDragLeave);
-    wrapper.addEventListener("drop", handleWordDrop);
-    wrapper.addEventListener("dragend", handleWordDragEnd);
-
-    // Render the underlying card with chosen letter (wildcards) or tilded
-    // form (when the tilde toggle is active for a tilde-capable card).
-    let displayLetter = card.letter;
-    if (slot.chosen) {
-      displayLetter = slot.chosen;
-    } else if (slot.tilde && card.tildeValue != null) {
-      displayLetter = card.tildeForm || TILDE_FORMS[card.letter] || card.letter;
-    }
-    const displayCard = { ...card, letter: displayLetter };
-    const cardEl = renderLetterCard(displayCard);
-    if (slot.tilde && card.tildeValue != null) {
-      cardEl.classList.add("is-tilde-active");
-    }
-    cardEl.classList.add("is-tappable");
-    cardEl.addEventListener("click", (ev) => {
-      ev.stopPropagation();
-      handleWordSlotTap(slot.cardId);
-    });
-    wrapper.appendChild(cardEl);
-    cardsRoot.appendChild(wrapper);
-  });
-}
-
-function buildAllCardsIndex(state) {
-  const map = new Map();
-  for (const c of state.centralBoard ?? []) map.set(c.id, c);
-  const userHand = state.hands?.[state.players[0].id];
-  if (userHand && userHand !== "<hidden>") {
-    for (const c of userHand.letters ?? []) if (c) map.set(c.id, c);
-  }
-  return map;
-}
-
-function handleWordSlotTap(cardId) {
-  playClickFeedback();
-  const state = getTrainingMatch();
-  if (!state || state.phase !== "creation") return;
-  removeFromWord(state, cardId);
-  renderTrainingMatch();
-}
-
-function handleWordSlotToggleTilde(cardId) {
-  playClickFeedback();
-  const state = getTrainingMatch();
-  if (!state || state.phase !== "creation") return;
-  toggleTildeInWord(state, cardId);
-  renderTrainingMatch();
-}
-
-let wordDragFromIndex = null;
-function handleWordDragStart(ev) {
-  wordDragFromIndex = Number(ev.currentTarget.dataset.index);
-  ev.currentTarget.classList.add("is-dragging");
-  if (ev.dataTransfer) {
-    ev.dataTransfer.effectAllowed = "move";
-    ev.dataTransfer.setData("text/plain", String(wordDragFromIndex));
-  }
-}
-function handleWordDragOver(ev) {
-  ev.preventDefault();
-  if (ev.dataTransfer) ev.dataTransfer.dropEffect = "move";
-  ev.currentTarget.classList.add("is-drop-target");
-}
-function handleWordDragLeave(ev) {
-  ev.currentTarget.classList.remove("is-drop-target");
-}
-function handleWordDrop(ev) {
-  ev.preventDefault();
-  ev.currentTarget.classList.remove("is-drop-target");
-  const toIdx = Number(ev.currentTarget.dataset.index);
-  const fromIdx = wordDragFromIndex;
-  if (fromIdx == null || fromIdx === toIdx) return;
-  const state = getTrainingMatch();
-  if (!state) return;
-  reorderWord(state, fromIdx, toIdx);
-  renderTrainingMatch();
-}
-function handleWordDragEnd(ev) {
-  ev.currentTarget.classList.remove("is-dragging");
-  wordDragFromIndex = null;
-}
-
-function renderDealPickerCard(slotIndex) {
-  const el = document.createElement("div");
-  el.className = "tcard is-deal-picker";
-  const vowelBtn = document.createElement("button");
-  vowelBtn.type = "button";
-  vowelBtn.className = "tcard-pick-half tcard-pick-vowel";
-  vowelBtn.textContent = "V";
-  vowelBtn.setAttribute("aria-label", "vocal");
-  vowelBtn.addEventListener("click", () => handleDealPick(slotIndex, "vowel"));
-  const consonantBtn = document.createElement("button");
-  consonantBtn.type = "button";
-  consonantBtn.className = "tcard-pick-half tcard-pick-consonant";
-  consonantBtn.textContent = "C";
-  consonantBtn.setAttribute("aria-label", "consonant");
-  consonantBtn.addEventListener("click", () => handleDealPick(slotIndex, "consonant"));
-  el.append(vowelBtn, consonantBtn);
-  return el;
-}
-
-function handleDealPick(slotIndex, kind) {
-  playClickFeedback();
-  const state = getTrainingMatch();
-  if (!state || state.phase !== "dealing") return;
-  revealLetterSlot(state, slotIndex, kind);
-  renderTrainingMatch();
-}
-
-function renderTrainingActions(state) {
-  // Action cards are now rendered inside renderTrainingHand alongside letter cards.
-  const root = document.getElementById("trainingActionsHand");
-  if (root) root.innerHTML = "";
-}
-
-function renderLetterCard(card, opts = {}) {
-  const el = document.createElement("div");
-  if (!card) {
-    el.className = "tcard is-empty";
-    const l = document.createElement("span");
-    l.className = "tcard-letter";
-    l.textContent = "?";
-    el.appendChild(l);
-    return el;
-  }
-  if (opts.faceDown) {
-    el.className = "tcard is-face-down " + (card.kind === "vowel" ? "back-vowel" : "back-consonant");
-    el.textContent = card.kind === "vowel" ? "V" : "C";
-    return el;
-  }
-  if (card.isWildcard) {
-    el.className = "tcard is-wildcard";
-    const kind = card.isActionWildcard ? "action" : card.kind;
-    el.dataset.kind = kind;
-    // Center: chosen letter if any, otherwise the wildcard star.
-    const letter = document.createElement("span");
-    letter.className = "tcard-letter";
-    letter.textContent = card.letter && card.letter !== "*" ? card.letter : "★";
-    // Bottom-left: small wildcard star icon (always present on wildcards).
-    const star = document.createElement("span");
-    star.className = "tcard-wildcard-star";
-    star.textContent = "★";
-    // Bottom-right: value (0 for letter wildcards, +6 for action wildcard).
-    const value = document.createElement("span");
-    value.className = "tcard-value";
-    value.textContent = card.isActionWildcard ? "+6" : "0";
-    el.append(letter, star, value);
-    // Top-left: V or C tag, only on letter wildcards (not action).
-    if (kind === "vowel" || kind === "consonant") {
-      const tag = document.createElement("span");
-      tag.className = "tcard-kind-tag";
-      tag.textContent = kind === "vowel" ? "V" : "C";
-      el.appendChild(tag);
-    }
-    return el;
-  }
-  el.className = "tcard";
-  el.dataset.color = card.color || "none";
-  const letter = document.createElement("span");
-  letter.className = "tcard-letter";
-  letter.textContent = card.letter;
-  if (card.tildeValue != null) {
-    // Tilde-capable card: two corner badges — tildeValue (left), base (right)
-    const tildeBadge = document.createElement("span");
-    tildeBadge.className = "tcard-value-tilde";
-    tildeBadge.textContent = String(card.tildeValue);
-    const baseBadge = document.createElement("span");
-    baseBadge.className = "tcard-value-base";
-    baseBadge.textContent = String(card.value);
-    el.append(letter, tildeBadge, baseBadge);
-  } else {
-    const value = document.createElement("span");
-    value.className = "tcard-value";
-    value.textContent = String(card.value ?? 0);
-    el.append(letter, value);
-  }
-  return el;
-}
-
-function renderActionCard(card, opts = {}) {
-  const el = document.createElement("div");
-  if (!card) {
-    el.className = "tcard is-action is-empty";
-    el.textContent = "?";
-    return el;
-  }
-  if (opts.faceDown) {
-    el.className = "tcard is-face-down back-action";
-    const img = document.createElement("img");
-    img.src = "assets/img/action.svg";
-    img.alt = "";
-    img.className = "tcard-action-back-icon";
-    el.appendChild(img);
-    return el;
-  }
-  el.className = "tcard is-action";
-  if (opts.selectable) el.classList.add("is-selectable");
-  if (opts.selected)   el.classList.add("is-selected");
-  if (opts.focused)    el.classList.add("is-focused");
-  if (opts.dimmed)     el.classList.add("is-dimmed");
-  el.appendChild(makeActionIconEl(card.actionId, "tcard-action-icon"));
-  if (opts.onClick) {
-    el.addEventListener("click", opts.onClick);
-  }
-  return el;
-}
-
-function renderTrainingTimer(state) {
-  const el = document.getElementById("trainingTimerValue");
-  const card = document.getElementById("trainingMatchTimerCard");
-  if (!el) return;
-  const s = Math.max(0, state.remaining || 0);
-  const mm = String(Math.floor(s / 60)).padStart(2, "0");
-  const ss = String(s % 60).padStart(2, "0");
-  el.textContent = `${mm}:${ss}`;
-  if (card) {
-    const running = state.phase === "strategy" || state.phase === "creation";
-    card.classList.toggle("time-pressure", running && s <= LOW_TIME_THRESHOLD && s > 5);
-    card.classList.toggle("time-pressure-urgent", running && s <= 5 && s > 0);
-    card.classList.toggle("timeup", running && s === 0);
-  }
-}
-
-function renderTrainingResult(state) {
-  const panel = document.getElementById("trainingResultPanel");
-  if (!panel) return;
-  const isResult = state.phase === "result";
-  const isDone   = state.phase === "done";
-  if (!isResult && !isDone) {
-    panel.classList.add("hidden");
-    return;
-  }
-  panel.classList.remove("hidden");
-  panel.innerHTML = "";
-
-  if (isDone) {
-    renderTrainingDonePanel(panel, state);
-    return;
-  }
-
-  // ── Baza result ──────────────────────────────────────────────
-  const result = state.userWordResult;
-  if (result) {
-    const validityRow = document.createElement("div");
-    validityRow.className = "training-result-validity";
-    const badge = document.createElement("div");
-    badge.className = "training-result-badge " + (result.valid ? "is-valid" : "is-invalid");
-    badge.textContent = result.valid
-      ? (shellTexts.trainingResultValidWord || "✓ Válida")
-      : (shellTexts.trainingResultInvalidWord || "✗ No válida");
-    validityRow.appendChild(badge);
-    panel.appendChild(validityRow);
-
-    const wordEl = document.createElement("div");
-    wordEl.className = "training-result-word" + (result.valid ? "" : " is-invalid");
-    wordEl.textContent = result.word || "—";
-    panel.appendChild(wordEl);
-
-    if (!result.valid && result.reason) {
-      const reasonEl = document.createElement("div");
-      reasonEl.className = "training-result-reason";
-      const reasonKey = {
-        too_short:     "trainingResultReasonTooShort",
-        missing_source: "trainingResultReasonSource",
-        forced_rule:   "trainingResultReasonForcedRule",
-      }[result.reason];
-      reasonEl.textContent = (reasonKey ? shellTexts[reasonKey] : result.reason) || result.reason;
-      panel.appendChild(reasonEl);
-    }
-  }
-
-  // Scores table (this baza)
-  const table = document.createElement("table");
-  table.className = "training-result-table";
-  const thead = document.createElement("thead");
-  const headerRow = document.createElement("tr");
-  ["", shellTexts.trainingResultThisRound || "Esta baza", shellTexts.trainingResultTotal || "Total"].forEach((text, i) => {
-    const th = document.createElement("th");
-    th.textContent = text;
-    if (i > 0) th.className = i === 1 ? "col-round" : "col-total";
-    headerRow.appendChild(th);
-  });
-  thead.appendChild(headerRow);
-  table.appendChild(thead);
-  const tbody = document.createElement("tbody");
-  for (const p of state.players) {
-    const roundEntry = (p.rounds ?? []).find((r) => r.round === state.round);
-    const roundPts = roundEntry != null ? roundEntry.points : "—";
-    const tr = document.createElement("tr");
-    if (!p.isGhost) tr.classList.add("is-user");
-    const nameTd = document.createElement("td");
-    nameTd.textContent = p.name;
-    const roundTd = document.createElement("td");
-    roundTd.className = "col-round";
-    roundTd.textContent = typeof roundPts === "number" ? String(roundPts) : roundPts;
-    const totalTd = document.createElement("td");
-    totalTd.className = "col-total";
-    totalTd.textContent = String(p.score ?? 0);
-    tr.append(nameTd, roundTd, totalTd);
-    tbody.appendChild(tr);
-  }
-  table.appendChild(tbody);
-  panel.appendChild(table);
-
-  const actionsDiv = document.createElement("div");
-  actionsDiv.className = "training-result-actions";
-  const nextBtn = document.createElement("button");
-  nextBtn.type = "button";
-  nextBtn.className = "training-result-btn";
-  nextBtn.textContent = shellTexts.trainingNextBaza || "Siguiente baza";
-  nextBtn.addEventListener("click", handleNextBaza);
-  actionsDiv.appendChild(nextBtn);
-  panel.appendChild(actionsDiv);
-}
-
-function saveTrainingStats(state) {
-  const prev = loadState().training?.stats?.[state.difficulty] ?? {};
-  const userWon = state.players[0].score >= Math.max(...state.players.map((p) => p.score));
-  updateState({
-    training: {
-      stats: {
-        [state.difficulty]: {
-          played: (prev.played || 0) + 1,
-          wins: (prev.wins || 0) + (userWon ? 1 : 0),
-          best: Math.max(prev.best || 0, state.players[0].score ?? 0),
-          streak: userWon ? (prev.streak || 0) + 1 : 0,
-        },
-      },
-    },
-  });
-}
-
-function renderTrainingDonePanel(panel, state) {
-  if (!state.statsSaved) {
-    saveTrainingMatch({ ...state, statsSaved: true });
-    saveTrainingStats(state);
-  }
-
-  // Title
-  const title = document.createElement("div");
-  title.className = "training-result-done-title";
-  title.textContent = shellTexts.trainingMatchDoneTitle || "¡Fin del entrenamiento!";
-  panel.appendChild(title);
-
-  // Win / lose / draw badge
-  const userId = state.players[0].id;
-  const userScore = state.players[0].score ?? 0;
-  const maxScore = Math.max(...state.players.map((p) => p.score ?? 0));
-  const winners = state.players.filter((p) => (p.score ?? 0) === maxScore);
-  const userWon  = !state.players[0].isGhost && winners.some((p) => p.id === userId);
-  const isDraw   = winners.length > 1 && userWon;
-  const outcomeKey = isDraw ? "trainingResultDraw" : userWon ? "trainingResultWon" : "trainingResultLost";
-  const outcomeBadge = document.createElement("div");
-  outcomeBadge.className = "training-result-badge " + (userWon ? "is-valid" : "is-invalid");
-  outcomeBadge.textContent = shellTexts[outcomeKey] || (userWon ? "¡Has ganado!" : "¡Bien jugado!");
-  const badgeRow = document.createElement("div");
-  badgeRow.className = "training-result-validity";
-  badgeRow.appendChild(outcomeBadge);
-  panel.appendChild(badgeRow);
-
-  // Final standings label
-  const standingsLabel = document.createElement("div");
-  standingsLabel.className = "training-result-standings-label";
-  standingsLabel.textContent = shellTexts.trainingResultFinalStandings || "Clasificación final";
-  panel.appendChild(standingsLabel);
-
-  // Final standings table (sorted by score desc)
-  const sorted = state.players.slice().sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
-  const table = document.createElement("table");
-  table.className = "training-result-table";
-  const thead = document.createElement("thead");
-  const headerRow = document.createElement("tr");
-  ["#", shellTexts.trainingResultTotal || "Total"].forEach((text, i) => {
-    const th = document.createElement("th");
-    th.textContent = text;
-    if (i === 1) th.className = "col-total";
-    else th.style.width = "24px";
-    headerRow.appendChild(th);
-  });
-  thead.appendChild(headerRow);
-  table.appendChild(thead);
-  const tbody = document.createElement("tbody");
-  let rank = 1;
-  sorted.forEach((p, idx) => {
-    if (idx > 0 && (sorted[idx - 1].score ?? 0) > (p.score ?? 0)) rank = idx + 1;
-    const tr = document.createElement("tr");
-    if (!p.isGhost) tr.classList.add("is-user");
-    const rankTd = document.createElement("td");
-    rankTd.textContent = String(rank);
-    rankTd.style.color = rank === 1 ? "#ffe566" : "rgba(255,255,255,0.5)";
-    rankTd.style.width = "24px";
-    const nameTd = document.createElement("td");
-    nameTd.textContent = p.name;
-    const totalTd = document.createElement("td");
-    totalTd.className = "col-total";
-    totalTd.textContent = String(p.score ?? 0);
-    tr.append(rankTd, nameTd, totalTd);
-    tbody.appendChild(tr);
-  });
-  table.appendChild(tbody);
-  panel.appendChild(table);
-
-  const actionsDiv = document.createElement("div");
-  actionsDiv.className = "training-result-actions";
-  const playAgainBtn = document.createElement("button");
-  playAgainBtn.type = "button";
-  playAgainBtn.className = "training-result-btn is-play-again";
-  playAgainBtn.textContent = shellTexts.trainingMatchPlayAgain || "Jugar otra";
-  playAgainBtn.addEventListener("click", handleTrainingPlayAgain);
-  actionsDiv.appendChild(playAgainBtn);
-  panel.appendChild(actionsDiv);
-}
-
-function handleNextBaza() {
-  playClickFeedback();
-  const state = getTrainingMatch();
-  if (!state || state.phase !== "result") return;
-  advanceToNextBaza(state);
-  lastFlashedPhase = null; // allow phase flash for new baza
-  renderTrainingMatch();
-}
-
-function handleTrainingPlayAgain() {
-  playClickFeedback();
-  trainingClockPhase = null;
-  stopClockLoop(false);
-  clearTrainingMatch();
-  showScreen("training-setup");
-}
-
-function exitTrainingMatch() {
-  stopTrainingTimer();
-  stopActionsDriver();
-  stopUserTurnTimer();
-  trainingClockPhase = null;
-  stopClockLoop(false);
-  clearTrainingMatch();
-  showScreen("training-setup");
-}
-
-function finishTrainingTimer() {
-  playClickFeedback();
-  const state = getTrainingMatch();
-  if (!state) return;
-  if (state.phase === "strategy") {
-    stopTrainingTimer();
-    trainingClockPhase = null;
-    stopClockLoop(false);
-    enterActionsPhase(state);
-    renderTrainingMatch();
-    return;
-  }
-  if (state.phase === "creation") {
-    stopTrainingTimer();
-    trainingClockPhase = null;
-    stopClockLoop(false);
-    finalizeUserWord(state, shellLanguage);
-    renderTrainingMatch();
-    return;
-  }
-}
-
-// ── Actions phase driver ───────────────────────────────────
-// Walks the actionsQueue, resolving one player per ~600ms tick. Ghost turns
-// auto-resolve; user turn pauses and waits for input. ESCUDO interrupt may
-// pop a modal mid-resolution.
-
-let actionsDriverTimeout = null;
-let actionsDriverBusy = false;
-let debugMode = ["localhost", "127.0.0.1"].includes(window.location.hostname);
-let focusedActionIndex = null;
-let lastActionTapIndex = null;
-let lastActionTapTime = 0;
-const DOUBLE_TAP_MS = 400;
-
-function stopActionsDriver() {
-  if (actionsDriverTimeout) {
-    clearTimeout(actionsDriverTimeout);
-    actionsDriverTimeout = null;
-  }
-  actionsDriverBusy = false;
-}
-
-function scheduleActionsDriver(delay = 1800) {
-  stopActionsDriver();
-  actionsDriverTimeout = setTimeout(processNextActionsTurn, delay);
-}
-
-function processNextActionsTurn() {
-  actionsDriverTimeout = null;
-  if (actionsDriverBusy) return;
-  const state = getTrainingMatch();
-  if (!state || state.phase !== "actions") return;
-  const queue = state.actionsQueue ?? [];
-  if (queue.length === 0) {
-    renderTrainingMatch();
-    return;
-  }
-  const nextActorId = queue[0];
-  const userId = state.players[0].id;
-
-  if (nextActorId === userId) {
-    if (state.userActionResolved) {
-      // Already resolved (shield interrupt or pre-played). Skip turn.
-      const next = advanceActionsQueue(state);
-      renderTrainingMatch();
-      if (next.phase === "actions") scheduleActionsDriver();
-      return;
-    }
-    if (state.userActionIndex != null && !debugMode) {
-      // Pre-selected during strategy: play it now. If it needs a target or
-      // a board letter, ask the user at this moment (not when they picked
-      // the card during strategy).
-      const userHand = state.hands[userId];
-      const card = userHand !== "<hidden>" ? userHand?.actions?.[state.userActionIndex] : null;
-      if (!card) {
-        renderTrainingMatch();
-        return;
-      }
-      // Shield pre-selected but no ghost attack arrived — discard and pass.
-      if (card.actionId === "shield_total") {
-        const allActions = (userHand?.actions ?? []).filter(Boolean);
-        let s = { ...state,
-          hands: { ...state.hands, [userId]: { ...userHand, actions: [] } },
-          discards: { ...state.discards, actions: [...state.discards.actions, ...allActions] },
-          userActionResolved: true,
-        };
-        saveTrainingMatch(s);
-        s = advanceActionsQueue(s);
-        renderTrainingMatch();
-        if (s.phase === "actions") scheduleActionsDriver();
-        return;
-      }
-      actionsDriverBusy = true;
-      pickTargetAndPayloadForUser(state, card, (targetId, payload) => {
-        actionsDriverBusy = false;
-        let s = playUserAction(getTrainingMatch(), state.userActionIndex, targetId, payload);
-        showActionToast(s, {
-          playerId: userId,
-          actionId: card.actionId,
-          targetId,
-          payload,
-        });
-        s = advanceActionsQueue(s);
-        renderTrainingMatch();
-        if (s.phase === "actions") scheduleActionsDriver();
-      });
-      return;
-    }
-    // Debug: bypass hand and let user pick any action card
-    if (debugMode) {
-      const mvpCards = ACTION_CARDS.filter((c) => c.inMVP);
-      actionsDriverBusy = true;
-      openTrainingPicker({
-        titleKey: null,
-        context: { label: "🐛 Tú juegas:", kind: "self" },
-        options: mvpCards.map((c) => ({ id: c.id, label: humanActionName(c.id) })),
-        onPick: (actionId) => {
-          actionsDriverBusy = false;
-          const cardDef = ACTION_CARDS.find((c) => c.id === actionId);
-          const fakeCard = { id: "debug-card", type: "action", ...cardDef, actionId: cardDef.id };
-          stopUserTurnTimer();
-          pickTargetAndPayloadForUser(state, fakeCard, (targetId, payload) => {
-            const fakeLog = { playerId: userId, actionId, targetId, payload };
-            let s = applyPlannedGhostAction(getTrainingMatch(), fakeLog);
-            showActionToast(s, fakeLog);
-            // Clear user action hand (applyPlannedGhostAction skips this unlike playUserAction)
-            const userH = s.hands[userId];
-            if (userH) {
-              const actionCards = (userH.actions ?? []).filter(Boolean);
-              s = { ...s,
-                hands: { ...s.hands, [userId]: { ...userH, actions: [] } },
-                discards: { ...s.discards, actions: [...s.discards.actions, ...actionCards] },
-              };
-            }
-            s = { ...s, userActionResolved: true };
-            saveTrainingMatch(s);
-            s = advanceActionsQueue(s);
-            renderTrainingMatch();
-            if (s.phase === "actions") scheduleActionsDriver();
-          });
-        },
-      });
-      return;
-    }
-    // Wait for user input (renderTrainingActions made action cards tappable).
-    renderTrainingMatch();
-    return;
-  }
-
-  // Debug mode: let user choose which card the ghost plays
-  if (debugMode) {
-    const ghostName = state.players.find((p) => p.id === nextActorId)?.name || nextActorId;
-    const mvpCards = ACTION_CARDS.filter((c) => c.inMVP);
-    actionsDriverBusy = true;
-    openTrainingPicker({
-      titleKey: null,
-      context: { label: `🐛 ${ghostName} juega:`, kind: "forced" },
-      options: mvpCards.map((c) => ({ id: c.id, label: humanActionName(c.id) })),
-      onPick: (actionId) => {
-        const cardDef = ACTION_CARDS.find((c) => c.id === actionId);
-        const fakeCard = { id: "debug-ghost-card", type: "action", ...cardDef, actionId: cardDef.id };
-
-        function applyDebugGhost(targetId, payload = {}) {
-          actionsDriverBusy = false;
-          const fakeLog = { playerId: nextActorId, actionId, targetId, payload };
-          const isAtk = isAttackOnUser(cardDef, targetId, userId);
-          if (isAtk && userHasShield(state) && !isUserShieldPreSelected(state)) {
-            actionsDriverBusy = true;
-            promptShield({ source: nextActorId, card: cardDef }, fakeLog);
-          } else {
-            let s = applyPlannedGhostAction(state, fakeLog);
-            showActionToast(s, fakeLog);
-            s = advanceActionsQueue(s);
-            renderTrainingMatch();
-            if (maybeOfferEmergencyDraw(() => {
-              const cur = getTrainingMatch();
-              if (cur?.phase === "actions") scheduleActionsDriver();
-            })) return;
-            if (s.phase === "actions") scheduleActionsDriver();
-          }
-        }
-
-        pickTargetAndPayloadForUser(state, fakeCard, (targetId, payload) => {
-          applyDebugGhost(targetId, payload);
-        }, `🐛 ${ghostName}`, nextActorId);
-      },
-    });
-    return;
-  }
-  // Ghost turn (normal)
-  const planned = planGhostAction(state, nextActorId);
-  if (!planned.log) {
-    advanceActionsQueue(planned.state);
-    renderTrainingMatch();
-    scheduleActionsDriver();
-    return;
-  }
-
-  saveTrainingMatch(planned.state);
-
-  // Auto-shield: user pre-selected ESCUDO TOTAL during strategy and a
-  // ghost just attacked. Block automatically without prompting.
-  if (planned.autoShield) {
-    let s = useShieldOnAttack(planned.state, planned.autoShield.source);
-    s = applyPlannedGhostAction(s, planned.log, { shielded: true });
-    showActionToast(s, planned.log, { blocked: true });
-    s = advanceActionsQueue(s);
-    renderTrainingMatch();
-    if (s.phase === "actions") scheduleActionsDriver();
-    return;
-  }
-
-  // discard_one targeting user → user picks which card to discard
-  if (planned.log.actionId === "discard_one" && planned.log.targetId === userId) {
-    actionsDriverBusy = true;
-    promptDiscardOne(planned.state, planned.log);
-    return;
-  }
-
-  if (planned.shieldOpportunity) {
-    actionsDriverBusy = true;
-    promptShield(planned.shieldOpportunity, planned.log);
-    return;
-  }
-
-  // No shield prompt: apply and advance.
-  let s = applyPlannedGhostAction(planned.state, planned.log);
-  showActionToast(s, planned.log);
-  s = advanceActionsQueue(s);
-  renderTrainingMatch();
-  if (maybeOfferEmergencyDraw(() => {
-    const cur = getTrainingMatch();
-    if (cur?.phase === "actions") scheduleActionsDriver();
-  })) return;
-  if (s.phase === "actions") scheduleActionsDriver();
-}
-
-function promptShield(opportunity, log) {
-  const sourcePlayer = (getTrainingMatch().players ?? []).find((p) => p.id === opportunity.source);
-  const sourceName = sourcePlayer?.name || opportunity.source;
-  const attackLabel = humanActionName(opportunity.card.actionId);
-  const bodyTpl = shellTexts.trainingShieldPromptBody || "{source} → {action}";
-  const subtitle = bodyTpl.replace("{source}", sourceName).replace("{action}", attackLabel);
-  openTrainingPicker({
-    titleKey: "trainingShieldPromptTitle",
-    context: { label: `🛡 ¿Usas escudo?`, kind: "shield" },
-    subtitle,
-    options: [
-      { id: "use",  label: shellTexts.optInConfirmActivate || "🛡" },
-      { id: "skip", label: shellTexts.optInConfirmSkip    || "✗"  },
-    ],
-    timeoutMs: PICKER_TIMEOUT_MS,
-    onPick: (choice) => {
-      actionsDriverBusy = false;
-      if (choice === "use") {
-        let s = getTrainingMatch();
-        s = useShieldOnAttack(s, opportunity.source);
-        s = applyPlannedGhostAction(s, log, { shielded: true });
-        showActionToast(s, log, { blocked: true });
-        s = advanceActionsQueue(s);
-        renderTrainingMatch();
-        if (s.phase === "actions") scheduleActionsDriver();
-      } else {
-        let s = getTrainingMatch();
-        s = applyPlannedGhostAction(s, log);
-        showActionToast(s, log);
-        s = advanceActionsQueue(s);
-        renderTrainingMatch();
-        if (maybeOfferEmergencyDraw(() => {
-          const cur = getTrainingMatch();
-          if (cur?.phase === "actions") scheduleActionsDriver();
-        })) return;
-        if (s.phase === "actions") scheduleActionsDriver();
-      }
-    },
-  });
-}
-
-function promptDiscardOne(state, log) {
-  const userId = state.players[0].id;
-  const hand = state.hands[userId];
-  const letters = hand && hand !== "<hidden>" ? (hand.letters ?? []).filter(Boolean) : [];
-  const attacker = state.players.find((p) => p.id === log.playerId);
-  if (letters.length === 0) {
-    actionsDriverBusy = false;
-    let s = advanceActionsQueue(state);
-    renderTrainingMatch();
-    if (s.phase === "actions") scheduleActionsDriver();
-    return;
-  }
-  const attackerName = attacker?.name || log.playerId;
-  openTrainingPicker({
-    titleKey: "trainingDiscardOneTitle",
-    context: { label: `⚡ ${attackerName}: Deshazte de una`, kind: "forced" },
-    options: letters.map((c) => ({ id: c.id, label: c.letter })),
-    timeoutMs: PICKER_TIMEOUT_MS,
-    onPick: (cardId) => {
-      actionsDriverBusy = false;
-      let s = applyPlannedGhostAction(state, { ...log, payload: { cardId } });
-      showActionToast(s, log);
-      s = advanceActionsQueue(s);
-      renderTrainingMatch();
-      if (maybeOfferEmergencyDraw(() => {
-        const cur = getTrainingMatch();
-        if (cur?.phase === "actions") scheduleActionsDriver();
-      })) return;
-      if (s.phase === "actions") scheduleActionsDriver();
-    },
-  });
-}
-
-// Single source of truth for action card icon + description.
-// svg: path to SVG in assets/img/actions/ (drop in new SVGs to replace emoji).
-// icon: emoji fallback shown when no SVG exists yet.
-// desc: canonical description — used in gallery, focus panel, AND quick guide.
-const ACTION_CARD_META = {
-  boost_total:   { svg: null, icon: "⬆️",  desc: "Suma 6 puntos extra a tu palabra." },
-  extra_card:    { svg: null, icon: "🃏",  desc: "Roba una vocal o consonante de los mazos de letras." },
-  wildcard:      { svg: null, icon: "🌟",  desc: "Úsalo como vocal o consonante y suma 6 puntos extra." },
-  shield_total:  { svg: null, icon: "🛡️", desc: "Un ataque contra ti o contra todos no te afecta en esta baza." },
-  change_cards:  { svg: null, icon: "🔄",  desc: "Cambia las letras que quieras." },
-  use_vowel:     { svg: null, icon: "🅰️", desc: "Todos deben usar la vocal del Tablero Central que elijas." },
-  use_consonant: { svg: null, icon: "🔤",  desc: "Todos deben usar la consonante del Tablero Central que elijas." },
-  use_letter:    { svg: null, icon: "📌",  desc: "Todos deben usar la vocal o consonante del Tablero Central que elijas." },
-  two_to_center: { svg: null, icon: "🎯",  desc: "Roba una carta a cada jugador y coloca 2 en el Tablero Central." },
-  out_one:       { svg: null, icon: "💥",  desc: "Roba una carta a cada jugador y ponlas en el mazo." },
-  great_heist:   { svg: null, icon: "🦹",  desc: "Roba una carta a cada jugador." },
-  steal_letter:  { svg: null, icon: "✂️", desc: "Roba una letra a otro jugador." },
-  renew_board:   { svg: null, icon: "♻️", desc: "Quita las 5 letras y pon 5 nuevas." },
-  swap_all:      { svg: null, icon: "🔀",  desc: "Cambia tus letras con las de otro jugador." },
-  swap_one:      { svg: null, icon: "↔️", desc: "Cambia una letra tuya por otra de otro jugador." },
-  solo_mia:      { svg: null, icon: "🔒",  desc: "Roba una letra del Tablero Central; solo tú puedes usarla." },
-  one_for_all:   { svg: null, icon: "🤝",  desc: "Pon una letra de otro jugador en el Tablero Central." },
-  philologist:   { svg: null, icon: "📖",  desc: "Obliga a un jugador a formar una palabra con tilde." },
-  brain_squeeze: { svg: null, icon: "🧠",  desc: "Obliga a un jugador a formar una palabra de al menos tres sílabas." },
-  explosion:     { svg: null, icon: "💣",  desc: "Resta 4 puntos a un jugador en esta baza." },
-  discard_one:   { svg: null, icon: "🗑️", desc: "Un jugador debe dejar una letra en el mazo." },
-  in_english:    { svg: null, icon: "🇬🇧",  desc: "Si formas la palabra en inglés, sumas 10 puntos extra." },
-};
-
-function actionIcon(actionId) {
-  return ACTION_CARD_META[actionId]?.icon ?? "🎴";
-}
-
-function actionDesc(actionId) {
-  return ACTION_CARD_META[actionId]?.desc ?? "";
-}
-
-// Returns an <img> if a custom SVG path is set, otherwise a <span> with the emoji.
-function makeActionIconEl(actionId, className = "tcard-action-icon") {
-  const meta = ACTION_CARD_META[actionId];
-  if (meta?.svg) {
-    const img = document.createElement("img");
-    img.src = meta.svg;
-    img.alt = "";
-    img.className = className;
-    img.style.cssText = "width:1em;height:1em;object-fit:contain;";
-    return img;
-  }
-  const span = document.createElement("span");
-  span.className = className;
-  span.textContent = meta?.icon ?? "🎴";
-  return span;
-}
-
-function openActionGallery() {
-  const mvpCards = ACTION_CARDS.filter((c) => c.inMVP);
-  const overlay = document.createElement("div");
-  overlay.className = "training-picker-overlay";
-  overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
-
-  const card = document.createElement("div");
-  card.className = "training-picker-card";
-  card.style.cssText = "max-width:360px;width:92vw;max-height:80vh;overflow-y:auto;";
-
-  const title = document.createElement("div");
-  title.className = "training-picker-title";
-  const galleryIcon = document.createElement("img");
-  galleryIcon.src = "assets/img/actions/gallery.svg";
-  galleryIcon.alt = "";
-  galleryIcon.style.cssText = "width:20px;height:20px;vertical-align:middle;margin-right:6px;";
-  title.appendChild(galleryIcon);
-  title.appendChild(document.createTextNode("Cartas de acción"));
-  card.appendChild(title);
-
-  const grid = document.createElement("div");
-  grid.className = "training-gallery-grid";
-
-  mvpCards.forEach((def) => {
-    const item = document.createElement("div");
-    item.className = "training-gallery-item";
-
-    const fakeCard = { actionId: def.id };
-    const cardEl = renderActionCard(fakeCard, { selectable: false });
-    cardEl.style.cssText = "pointer-events:none;flex-shrink:0;";
-    item.appendChild(cardEl);
-
-    const nameEl = document.createElement("div");
-    nameEl.className = "training-gallery-item-name";
-    nameEl.textContent = actionLabel(def.id);
-    item.appendChild(nameEl);
-
-    const descEl = document.createElement("div");
-    descEl.className = "training-gallery-item-desc";
-    descEl.textContent = actionDesc(def.id);
-    item.appendChild(descEl);
-
-    grid.appendChild(item);
-  });
-
-  card.appendChild(grid);
-
-  const closeBtn = document.createElement("button");
-  closeBtn.type = "button";
-  closeBtn.className = "training-picker-option";
-  closeBtn.textContent = "✕ Cerrar";
-  closeBtn.style.cssText = "background:#eee;color:#333;margin-top:8px;";
-  closeBtn.addEventListener("click", () => overlay.remove());
-  card.appendChild(closeBtn);
-
-  overlay.appendChild(card);
-  document.body.appendChild(overlay);
-}
-
-function humanActionName(actionId) {
-  return actionLabel(actionId).toUpperCase();
-}
-
-function actionLabel(actionId) {
-  return shellTexts[`actName_${actionId}`] || actionId.replace(/_/g, " ");
-}
-
-// Manual rule: when the user's hand is emptied by ghost actions, they get
-// to draw 1 letter (vowel or consonant) before continuing. Returns true if
-// the prompt was shown (caller should pause its loop).
-function maybeOfferEmergencyDraw(onPicked) {
-  let state = getTrainingMatch();
-  if (!state) return false;
-  // Auto-draw for any ghost with empty hand first
-  const after = autoDrawForEmptyGhosts(state);
-  if (after !== state) {
-    saveTrainingMatch(after);
-    state = after;
-    renderTrainingMatch();
-  }
-  // Then check if the user also needs to draw
-  if (!userHandHasNoLetters(state)) return false;
-  actionsDriverBusy = true;
-  openTrainingPicker({
-    titleKey: "trainingEmergencyDrawTitle",
-    context: { label: `⚡ Robo de emergencia`, kind: "forced" },
-    options: [
-      { id: "vowel",     label: shellTexts.trainingEmergencyDrawVowel || "Vocal" },
-      { id: "consonant", label: shellTexts.trainingEmergencyDrawConsonant || "Consonante" },
-    ],
-    timeoutMs: PICKER_TIMEOUT_MS,
-    onPick: (kind) => {
-      drawEmergencyLetter(getTrainingMatch(), kind);
-      actionsDriverBusy = false;
-      renderTrainingMatch();
-      if (typeof onPicked === "function") onPicked();
-    },
-  });
-  return true;
-}
-
-// ── 5s auto-select countdown when user's turn starts in actions phase ─
-const USER_TURN_DURATION_MS = 10000;
-let userTurnTimerInterval = null;
-let userTurnRemainingMs = 0;
-
-function stopUserTurnTimer() {
-  if (userTurnTimerInterval) {
-    clearInterval(userTurnTimerInterval);
-    userTurnTimerInterval = null;
-  }
-  const wrap = document.getElementById("trainingActionBarWrap");
-  if (wrap) wrap.classList.add("hidden");
-}
-
-function startUserTurnTimer() {
-  stopUserTurnTimer();
-  userTurnRemainingMs = USER_TURN_DURATION_MS;
-  const wrap = document.getElementById("trainingActionBarWrap");
-  const bar = document.getElementById("trainingActionBar");
-  if (wrap) wrap.classList.remove("hidden");
-  if (bar) bar.style.width = "100%";
-  userTurnTimerInterval = setInterval(() => {
-    userTurnRemainingMs -= 100;
-    const pct = Math.max(0, (userTurnRemainingMs / USER_TURN_DURATION_MS) * 100);
-    const barEl = document.getElementById("trainingActionBar");
-    if (barEl) barEl.style.width = pct + "%";
-    if (userTurnRemainingMs <= 0) {
-      stopUserTurnTimer();
-      autoPickUserAction();
-    }
-  }, 100);
-}
-
-function maybeStartUserTurnTimer(state) {
-  const userId = state.players[0].id;
-  const isUserTurn = state.phase === "actions"
-    && state.actionsQueue?.[0] === userId
-    && state.userActionIndex == null
-    && !state.userActionResolved;
-  if (isUserTurn) {
-    if (!userTurnTimerInterval) startUserTurnTimer();
-  } else {
-    stopUserTurnTimer();
-  }
-}
-
-function autoPickUserAction() {
-  if (actionsDriverBusy) return;
-  const state = getTrainingMatch();
-  if (!state || state.phase !== "actions") return;
-  const userId = state.players[0].id;
-  if (state.actionsQueue?.[0] !== userId) return;
-  if (state.userActionIndex != null || state.userActionResolved) return;
-  const hand = state.hands[userId];
-  if (!hand || hand === "<hidden>") return;
-  const firstIdx = hand.actions.findIndex((c) => c != null);
-  if (firstIdx < 0) return;
-  const card = hand.actions[firstIdx];
-
-  // Pick random target/payload as ghosts do when the action requires one.
-  let targetId = null;
-  let payload = {};
-  if (card.target === "one") {
-    const candidates = state.players.filter((p) => p.id !== userId);
-    if (candidates.length > 0) {
-      targetId = candidates[Math.floor(Math.random() * candidates.length)].id;
-    }
-  }
-  if (["use_vowel", "use_consonant", "use_letter"].includes(card.actionId)) {
-    const letters = (state.centralBoard ?? []).filter((c) => {
-      if (card.actionId === "use_vowel") return c.kind === "vowel";
-      if (card.actionId === "use_consonant") return c.kind === "consonant";
-      return true;
-    });
-    if (letters.length > 0) {
-      const picked = letters[Math.floor(Math.random() * letters.length)];
-      payload = { letter: picked.letter, cardId: picked.id };
-    }
-  }
-
-  let s = playUserAction(state, firstIdx, targetId, payload);
-  showActionToast(s, { playerId: userId, actionId: card.actionId, targetId, payload });
-  s = advanceActionsQueue(s);
-  renderTrainingMatch();
-  if (s.phase === "actions") scheduleActionsDriver();
-}
-
-// ── User action selection ──────────────────────────────────
-// Strategy phase: pre-commit, close timer, enter actions phase. The action
-// auto-plays when the user's turn arrives (unless interrupted by ESCUDO).
-// Actions phase (user's turn): play immediately and advance the queue.
-function handleUserPickAction(actionIndex) {
-  playClickFeedback();
-  const state = getTrainingMatch();
-  if (!state) return;
-  const userId = state.players[0].id;
-  const card = state.hands[userId]?.actions?.[actionIndex];
-  if (!card) return;
-
-  if (state.phase === "strategy") {
-    // No target/payload picker here — that's resolved at the user's actual
-    // turn in the actions phase. The other action card is discarded.
-    stopTrainingTimer();
-    const after = selectActionInStrategy(state, actionIndex);
-    renderTrainingMatch();
-    if (after.phase === "actions") scheduleActionsDriver();
-    return;
-  }
-
-  if (state.phase === "actions" && state.actionsQueue?.[0] === userId && state.userActionIndex == null) {
-    stopUserTurnTimer();
-    actionsDriverBusy = true;
-    pickTargetAndPayloadForUser(state, card, (targetId, payload) => {
-      actionsDriverBusy = false;
-      let s = playUserAction(getTrainingMatch(), actionIndex, targetId, payload);
-      showActionToast(s, { playerId: userId, actionId: card.actionId, targetId, payload });
-      s = advanceActionsQueue(s);
-      renderTrainingMatch();
-      if (s.phase === "actions") scheduleActionsDriver();
-    });
-  }
-}
-
-function openChangeCardsPicker(letters, titleKey, onConfirm, context = null) {
-  const overlay = document.createElement("div");
-  overlay.className = "training-picker-overlay";
-  const card = document.createElement("div");
-  card.className = "training-picker-card";
-  const title = document.createElement("div");
-  title.className = "training-picker-title";
-  title.textContent = shellTexts[titleKey] || "¿Qué cartas cambias?";
-  card.appendChild(title);
-  if (context) {
-    const ctx = document.createElement("div");
-    ctx.className = "training-picker-context is-" + context.kind;
-    ctx.textContent = context.label;
-    card.insertBefore(ctx, title);
-  }
-
-  const selected = new Set(letters.map((l) => l.id)); // start all selected
-
-  const list = document.createElement("div");
-  list.className = "training-picker-options";
-  const btns = {};
-  for (const l of letters) {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "training-picker-option is-selected";
-    btn.textContent = l.letter;
-    btns[l.id] = btn;
-    btn.addEventListener("click", () => {
-      if (selected.has(l.id)) {
-        selected.delete(l.id);
-        btn.classList.remove("is-selected");
-      } else {
-        selected.add(l.id);
-        btn.classList.add("is-selected");
-      }
-      const count = selected.size;
-      confirmBtn.textContent =
-        (shellTexts.trainingChangeCardsConfirm || "Cambiar") +
-        (count > 0 ? ` (${count})` : "");
-    });
-    list.appendChild(btn);
-  }
-  card.appendChild(list);
-
-  const confirmBtn = document.createElement("button");
-  confirmBtn.type = "button";
-  confirmBtn.className = "training-picker-confirm-btn";
-  confirmBtn.textContent =
-    (shellTexts.trainingChangeCardsConfirm || "Cambiar") + ` (${letters.length})`;
-  confirmBtn.addEventListener("click", () => {
-    if (document.body.contains(overlay)) document.body.removeChild(overlay);
-    onConfirm([...selected]);
-  });
-  card.appendChild(confirmBtn);
-
-  overlay.appendChild(card);
-  document.body.appendChild(overlay);
-}
-
-// ── Ghost dorso (back-of-card) helpers ────────────────────────
-// Generate N simulated card backs (V/C) for a ghost's hidden hand.
-// ~35% vowels, 65% consonants (Spanish distribution).
-function generateGhostBacks(count = 3) {
-  return Array.from({ length: count }, () => ({
-    kind: Math.random() < 0.35 ? "vowel" : "consonant",
-  }));
-}
-
-// Show a dorso (back-of-card) picker for a ghost's simulated hand.
-// backs = [{kind}], onPick(kind) called with chosen kind.
-function openDorsoPicker({ backs, context, onPick, timeoutMs = 0 }) {
-  const overlay = document.createElement("div");
-  overlay.className = "training-picker-overlay";
-  const card = document.createElement("div");
-  card.className = "training-picker-card";
-  if (context) {
-    const ctx = document.createElement("div");
-    ctx.className = "training-picker-context is-" + context.kind;
-    ctx.textContent = context.label;
-    card.appendChild(ctx);
-  }
-  const title = document.createElement("div");
-  title.className = "training-picker-title";
-  title.textContent = shellTexts.trainingPickDorsoTitle || "¿Qué carta robas?";
-  card.appendChild(title);
-
-  let timerInterval = null;
-  let remaining = timeoutMs;
-
-  function dismiss(kind) {
-    if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
-    if (document.body.contains(overlay)) document.body.removeChild(overlay);
-    onPick(kind);
-  }
-
-  if (timeoutMs > 0 && backs.length > 0) {
-    const timerWrap = document.createElement("div");
-    timerWrap.className = "training-picker-timer-wrap";
-    const timerBar = document.createElement("div");
-    timerBar.className = "training-picker-timer-bar";
-    timerBar.style.width = "100%";
-    timerWrap.appendChild(timerBar);
-    card.appendChild(timerWrap);
-    timerInterval = setInterval(() => {
-      remaining -= 100;
-      const pct = Math.max(0, (remaining / timeoutMs) * 100);
-      timerBar.style.width = pct + "%";
-      if (remaining <= 0) {
-        clearInterval(timerInterval);
-        timerInterval = null;
-        dismiss(backs[0].kind);
-      }
-    }, 100);
-  }
-
-  const list = document.createElement("div");
-  list.className = "training-picker-options";
-  for (const b of backs) {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = `training-picker-option is-dorso is-dorso-${b.kind === "vowel" ? "vowel" : "consonant"}`;
-    btn.textContent = b.kind === "vowel" ? "V" : "C";
-    btn.addEventListener("click", () => dismiss(b.kind));
-    list.appendChild(btn);
-  }
-  card.appendChild(list);
-  overlay.appendChild(card);
-  document.body.appendChild(overlay);
-}
-
-// Returns dorso backs for a player: real kinds if hand is visible, random if hidden.
-function getPlayerBacks(state, playerId) {
-  const hand = state.hands[playerId];
-  if (!hand || hand === "<hidden>") return generateGhostBacks(3);
-  const letters = (hand.letters ?? []).filter(Boolean);
-  if (letters.length === 0) return generateGhostBacks(3);
-  return letters.map((c) => ({ kind: c.kind }));
-}
-
-// Reorder players clockwise starting from the player AFTER actorId.
-function inTurnOrder(players, actorId) {
-  const n = players.length;
-  const idx = players.findIndex((p) => p.id === actorId);
-  if (idx < 0) return players;
-  const result = [];
-  for (let i = 1; i < n; i++) result.push(players[(idx + i) % n]);
-  return result;
-}
-
-// Pick from each victim sequentially (for out_one, great_heist, two_to_center).
-// victims = [player], context = context badge object.
-// onAllPicked([{ playerId, kind }]) called when all victims processed.
-function pickFromEachGhostSequential(victims, count, context, onAllPicked, state = null) {
-  const picks = [];
-  function pickNext(idx) {
-    if (idx >= victims.length) { onAllPicked(picks); return; }
-    const victim = victims[idx];
-    const backs = state ? getPlayerBacks(state, victim.id) : generateGhostBacks(count);
-    openDorsoPicker({
-      backs,
-      context: { label: context.label + " " + victim.name, kind: context.kind },
-      timeoutMs: PICKER_TIMEOUT_MS,
-      onPick: (kind) => {
-        picks.push({ playerId: victim.id, kind });
-        pickNext(idx + 1);
-      },
-    });
-  }
-  pickNext(0);
-}
-
-function pickTargetAndPayloadForUser(state, card, done, actorLabel = null, actorId = null) {
-  const userId = state.players[0].id;
-  const actor_id = actorId || userId;
-  const cardDisplayName = humanActionName(card.actionId);
-  const actor = actorLabel || "Tú";
-  const selfCtx    = { label: `🎯 ${actor}: ${cardDisplayName}`, kind: actorLabel ? "forced" : "self"   };
-  const attackCtx  = { label: `⚔️ ${actor} ataca: ${cardDisplayName}`, kind: actorLabel ? "forced" : "attack" };
-  // Filter out shielded players from attack candidate lists
-  const unshielded = (players) => players.filter((p) => !playerHasShield(state, p.id));
-
-  // one_for_all: pick a target, then pick from their V/C backs
-  if (card.actionId === "one_for_all") {
-    const candidates = unshielded(inTurnOrder(state.players, actor_id));
-    if (candidates.length === 0) { done(null, {}); return; }
-    openTrainingPicker({
-      titleKey: "trainingPickTargetTitle",
-      context: attackCtx,
-      options: candidates.map((p) => ({ id: p.id, label: p.name })),
-      timeoutMs: PICKER_TIMEOUT_MS,
-      onPick: (targetId) => {
-        const backs = getPlayerBacks(state, targetId);
-        openDorsoPicker({
-          backs,
-          context: attackCtx,
-          timeoutMs: PICKER_TIMEOUT_MS,
-          onPick: (targetKind) => done(targetId, { targetKind }),
-        });
-      },
-    });
-    return;
-  }
-
-  // steal_letter: pick target, then pick from their V/C backs
-  if (card.actionId === "steal_letter") {
-    const candidates = unshielded(inTurnOrder(state.players, actor_id));
-    if (candidates.length === 0) { done(null, {}); return; }
-    openTrainingPicker({
-      titleKey: "trainingPickTargetTitle",
-      context: attackCtx,
-      options: candidates.map((p) => ({ id: p.id, label: p.name })),
-      timeoutMs: PICKER_TIMEOUT_MS,
-      onPick: (targetId) => {
-        const backs = getPlayerBacks(state, targetId);
-        openDorsoPicker({
-          backs,
-          context: attackCtx,
-          timeoutMs: PICKER_TIMEOUT_MS,
-          onPick: (targetKind) => done(targetId, { targetKind }),
-        });
-      },
-    });
-    return;
-  }
-
-  // out_one: pick from each victim sequentially by V/C backs (exclude actor)
-  if (card.actionId === "out_one") {
-    const victims = unshielded(inTurnOrder(state.players, actor_id));
-    if (victims.length === 0) { done(null, {}); return; }
-    pickFromEachGhostSequential(victims, 3, attackCtx, (picks) => {
-      done(null, { picks });
-    }, state);
-    return;
-  }
-
-  // great_heist: pick from each victim sequentially by V/C backs (exclude actor)
-  if (card.actionId === "great_heist") {
-    const victims = unshielded(inTurnOrder(state.players, actor_id));
-    if (victims.length === 0) { done(null, {}); return; }
-    pickFromEachGhostSequential(victims, 3, attackCtx, (picks) => {
-      done(null, { picks });
-    }, state);
-    return;
-  }
-
-  // two_to_center: pick from each victim sequentially by V/C backs (exclude actor)
-  if (card.actionId === "two_to_center") {
-    const victims = unshielded(inTurnOrder(state.players, actor_id));
-    if (victims.length === 0) { done(null, {}); return; }
-    pickFromEachGhostSequential(victims, 3, attackCtx, (picks) => {
-      done(null, { picks });
-    }, state);
-    return;
-  }
-  // extra_card: pick vowel or consonant
-  if (card.actionId === "extra_card") {
-    openTrainingPicker({
-      titleKey: "trainingPickKindTitle",
-      context: selfCtx,
-      options: [
-        { id: "vowel",     label: shellTexts.trainingEmergencyDrawVowel     || "Vocal" },
-        { id: "consonant", label: shellTexts.trainingEmergencyDrawConsonant || "Consonante" },
-      ],
-      onPick: (kind) => done(null, { kind }),
-      timeoutMs: PICKER_TIMEOUT_MS,
-    });
-    return;
-  }
-  // solo_mia: pick which board card to take
-  if (card.actionId === "solo_mia") {
-    const boardCards = (state.centralBoard ?? []).filter(Boolean);
-    if (boardCards.length === 0) { done(null, {}); return; }
-    openTrainingPicker({
-      titleKey: "trainingPickBoardCardTitle",
-      context: selfCtx,
-      options: boardCards.map((c) => ({ id: c.id, label: c.letter })),
-      onPick: (cardId) => done(null, { cardId }),
-      timeoutMs: PICKER_TIMEOUT_MS,
-    });
-    return;
-  }
-  // change_cards: multi-select which of the ACTOR's cards to discard, then vowel/consonant per card
-  if (card.actionId === "change_cards") {
-    const actorHand = state.hands[actor_id];
-    const letters = actorHand && actorHand !== "<hidden>"
-      ? (actorHand.letters ?? []).filter(Boolean) : [];
-    if (letters.length === 0) { done(null, {}); return; }
-    openChangeCardsPicker(letters, "trainingChangeCardsTitle", (selectedIds) => {
-      if (selectedIds.length === 0) { done(null, {}); return; }
-      const kinds = {};
-      function askKindFor(idx) {
-        if (idx >= selectedIds.length) {
-          done(null, { cardIds: selectedIds, kinds });
-          return;
-        }
-        const cId = selectedIds[idx];
-        const letterChar = letters.find((l) => l.id === cId)?.letter || "?";
-        openTrainingPicker({
-          titleKey: "trainingPickKindTitle",
-          context: selfCtx,
-          subtitle: letterChar,
-          options: [
-            { id: "vowel",     label: shellTexts.trainingEmergencyDrawVowel     || "Vocal"       },
-            { id: "consonant", label: shellTexts.trainingEmergencyDrawConsonant || "Consonante"  },
-          ],
-          timeoutMs: PICKER_TIMEOUT_MS,
-          onPick: (kind) => {
-            kinds[cId] = kind;
-            askKindFor(idx + 1);
-          },
-        });
-      }
-      askKindFor(0);
-    }, selfCtx);
-    return;
-  }
-
-  // swap_all: pick target then pick which of ACTOR's own letters to give
-  if (card.actionId === "swap_all") {
-    const candidates = unshielded(inTurnOrder(state.players, actor_id));
-    if (candidates.length === 0) { done(null, {}); return; }
-    openTrainingPicker({
-      titleKey: "trainingPickTargetTitle",
-      context: attackCtx,
-      options: candidates.map((p) => ({ id: p.id, label: p.name })),
-      timeoutMs: PICKER_TIMEOUT_MS,
-      onPick: (targetId) => {
-        const actorHand = state.hands[actor_id];
-        const letters = actorHand && actorHand !== "<hidden>"
-          ? (actorHand.letters ?? []).filter(Boolean) : [];
-        if (letters.length === 0) { done(targetId, { fromIds: [] }); return; }
-        openChangeCardsPicker(letters, "trainingSwapAllPickTitle", (fromIds) => {
-          done(targetId, { fromIds });
-        }, attackCtx);
-      },
-    });
-    return;
-  }
-
-  // swap_one: pick target, then pick which of ACTOR's own letters to give, then pick target's V/C back
-  if (card.actionId === "swap_one") {
-    const candidates = unshielded(inTurnOrder(state.players, actor_id));
-    if (candidates.length === 0) { done(null, {}); return; }
-    openTrainingPicker({
-      titleKey: "trainingPickTargetTitle",
-      context: attackCtx,
-      options: candidates.map((p) => ({ id: p.id, label: p.name })),
-      timeoutMs: PICKER_TIMEOUT_MS,
-      onPick: (targetId) => {
-        const actorHand = state.hands[actor_id];
-        const letters = actorHand && actorHand !== "<hidden>"
-          ? (actorHand.letters ?? []).filter(Boolean) : [];
-        if (letters.length === 0) { done(targetId, {}); return; }
-        openTrainingPicker({
-          titleKey: "trainingSwapOnePickTitle",
-          context: attackCtx,
-          subtitle: shellTexts.trainingSwapOnePickSubtitle || null,
-          options: letters.map((c) => ({ id: c.id, label: c.letter })),
-          timeoutMs: PICKER_TIMEOUT_MS,
-          onPick: (fromId) => {
-            const backs = getPlayerBacks(state, targetId);
-            openDorsoPicker({
-              backs,
-              context: attackCtx,
-              timeoutMs: PICKER_TIMEOUT_MS,
-              onPick: (targetKind) => done(targetId, { fromId, targetKind }),
-            });
-          },
-        });
-      },
-    });
-    return;
-  }
-
-  // Player-target actions
-  if (card.target === "one") {
-    const candidates = unshielded(inTurnOrder(state.players, actor_id));
-    openTrainingPicker({
-      titleKey: "trainingPickTargetTitle",
-      context: attackCtx,
-      options: candidates.map((p) => ({ id: p.id, label: p.name })),
-      onPick: (targetId) => done(targetId, {}),
-      timeoutMs: PICKER_TIMEOUT_MS,
-    });
-    return;
-  }
-  // Letter payload for use_vowel / use_consonant / use_letter
-  if (["use_vowel", "use_consonant", "use_letter"].includes(card.actionId)) {
-    const letters = (state.centralBoard ?? []).filter((c) => {
-      if (c.isWildcard) return false; // wildcards have no fixed letter
-      if (card.actionId === "use_vowel") return c.kind === "vowel";
-      if (card.actionId === "use_consonant") return c.kind === "consonant";
-      return true;
-    });
-    if (letters.length === 0) { done(null, {}); return; }
-    openTrainingPicker({
-      titleKey: "trainingPickLetterTitle",
-      context: selfCtx,
-      options: letters.map((c) => ({ id: c.id, label: c.letter })),
-      onPick: (id) => {
-        const lc = letters.find((c) => c.id === id);
-        done(null, { letter: lc?.letter, cardId: lc?.id });
-      },
-      timeoutMs: PICKER_TIMEOUT_MS,
-    });
-    return;
-  }
-  done(null, {});
-}
-
-const PICKER_TIMEOUT_MS = 7000;
-
-// Simple picker modal — reuses openConfirm shape with custom buttons.
-// Pass timeoutMs to show a countdown bar and auto-pick the first option on expiry.
-// Pass subtitle (string) to render a body line below the title.
-function openTrainingPicker({ titleKey, subtitle, context, options, onPick, timeoutMs = 0 }) {
-  const overlay = document.createElement("div");
-  overlay.className = "training-picker-overlay";
-  const card = document.createElement("div");
-  card.className = "training-picker-card";
-  const title = document.createElement("div");
-  title.className = "training-picker-title";
-  title.textContent = shellTexts[titleKey] || "";
-  card.appendChild(title);
-  if (subtitle) {
-    const sub = document.createElement("div");
-    sub.className = "training-picker-subtitle";
-    sub.textContent = subtitle;
-    card.appendChild(sub);
-  }
-  if (context) {
-    const ctx = document.createElement("div");
-    ctx.className = "training-picker-context is-" + context.kind;
-    ctx.textContent = context.label;
-    card.insertBefore(ctx, title); // context badge goes ABOVE the title
-  }
-
-  let timerInterval = null;
-  let remaining = timeoutMs;
-
-  function dismiss(id) {
-    if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
-    if (document.body.contains(overlay)) document.body.removeChild(overlay);
-    onPick(id);
-  }
-
-  if (timeoutMs > 0 && options.length > 0) {
-    const timerWrap = document.createElement("div");
-    timerWrap.className = "training-picker-timer-wrap";
-    const timerBar = document.createElement("div");
-    timerBar.className = "training-picker-timer-bar";
-    timerBar.style.width = "100%";
-    timerWrap.appendChild(timerBar);
-    card.appendChild(timerWrap);
-    timerInterval = setInterval(() => {
-      remaining -= 100;
-      const pct = Math.max(0, (remaining / timeoutMs) * 100);
-      timerBar.style.width = pct + "%";
-      if (remaining <= 0) {
-        clearInterval(timerInterval);
-        timerInterval = null;
-        dismiss(options[0].id);
-      }
-    }, 100);
-  }
-
-  const list = document.createElement("div");
-  list.className = "training-picker-options";
-  for (const opt of options) {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "training-picker-option";
-    btn.textContent = opt.label;
-    btn.addEventListener("click", () => dismiss(opt.id));
-    list.appendChild(btn);
-  }
-  card.appendChild(list);
-  overlay.appendChild(card);
-  document.body.appendChild(overlay);
-}
-
-// ── Action speech bubble (attached to acting player's pill) ─
-// State persists across re-renders; renderTrainingScoreboard re-attaches it.
-let currentActionBubble = null;
-let bubbleAutoHideTimeout = null;
-const BUBBLE_AUTOHIDE_MS = 2800;
-
-let attackBannerTimeout = null;
-
-function triggerAttackBanner(attackerName, actionName) {
-  const banner = document.getElementById("trainingAttackBanner");
-  if (!banner) return;
-  if (attackBannerTimeout) { clearTimeout(attackBannerTimeout); attackBannerTimeout = null; }
-  banner.textContent = `⚠ ${attackerName}: ${actionName}`;
-  banner.classList.remove("hidden", "is-hiding");
-  banner.classList.add("is-visible");
-  // Add shake to user pill
-  const userPill = document.querySelector(".training-score-pill.is-user");
-  if (userPill) {
-    userPill.classList.remove("is-under-attack");
-    void userPill.offsetWidth; // force reflow to restart animation
-    userPill.classList.add("is-under-attack");
-    setTimeout(() => userPill.classList.remove("is-under-attack"), 700);
-  }
-  attackBannerTimeout = setTimeout(() => {
-    banner.classList.add("is-hiding");
-    setTimeout(() => {
-      banner.classList.add("hidden");
-      banner.classList.remove("is-visible", "is-hiding");
-    }, 300);
-    attackBannerTimeout = null;
-  }, 3000);
-}
-
-function showActionToast(state, log, opts = {}) {
-  if (!log) return;
-  if (bubbleAutoHideTimeout) clearTimeout(bubbleAutoHideTimeout);
-  const userId = state?.players?.[0]?.id;
-  const ALL_TARGET_ATTACK_IDS = new Set(["out_one", "great_heist", "swap_all", "two_to_center"]);
-  let isAttackTarget = false;
-  if (userId && log.playerId !== userId && !opts.blocked) {
-    isAttackTarget = log.targetId === userId || ALL_TARGET_ATTACK_IDS.has(log.actionId);
-  }
-  currentActionBubble = {
-    playerId: log.playerId,
-    text: humanActionName(log.actionId),
-    blocked: !!opts.blocked,
-    isAttackOnUser: isAttackTarget,
-    isNew: true,
-  };
-  if (isAttackTarget) {
-    const attacker = (state.players ?? []).find((p) => p.id === log.playerId);
-    triggerAttackBanner(attacker?.name || log.playerId, humanActionName(log.actionId));
-  }
-  attachActionBubble();
-  bubbleAutoHideTimeout = setTimeout(() => {
-    clearActionBanner();
-  }, BUBBLE_AUTOHIDE_MS);
-}
-
-function clearActionBanner() {
-  if (bubbleAutoHideTimeout) {
-    clearTimeout(bubbleAutoHideTimeout);
-    bubbleAutoHideTimeout = null;
-  }
-  currentActionBubble = null;
-  document.querySelectorAll(".training-action-bubble").forEach((el) => el.remove());
-}
-
-function attachActionBubble() {
-  const existing = document.querySelector(".training-action-bubble");
-  if (!currentActionBubble) {
-    if (existing) existing.remove();
-    return;
-  }
-  const targetPill = document.querySelector(
-    `.training-score-pill[data-player-id="${currentActionBubble.playerId}"]`,
-  );
-  if (!targetPill) {
-    if (existing) existing.remove();
-    return;
-  }
-  const expectedKey =
-    `${currentActionBubble.playerId}|${currentActionBubble.text}|${currentActionBubble.blocked ? 1 : 0}|${currentActionBubble.isAttackOnUser ? 1 : 0}`;
-  // Already on the right pill with the right content → leave it (no flicker).
-  if (existing && existing.parentElement === targetPill && existing.dataset.key === expectedKey) {
-    return;
-  }
-  if (existing) existing.remove();
-  const bubble = document.createElement("div");
-  bubble.className = "training-action-bubble"
-    + (currentActionBubble.blocked ? " is-blocked" : "")
-    + (currentActionBubble.isAttackOnUser && !currentActionBubble.blocked ? " is-attack" : "");
-  bubble.dataset.key = expectedKey;
-  bubble.textContent = (currentActionBubble.blocked ? "🛡 " : "") + currentActionBubble.text;
-  if (!currentActionBubble.isNew) {
-    bubble.style.animation = "none";
-  }
-  currentActionBubble.isNew = false;
-  targetPill.appendChild(bubble);
-}
-
-function confirmExitTrainingMatch() {
-  playClickFeedback();
-  const state = getTrainingMatch();
-  // No active match, or match hasn't really started (no cards dealt yet) → exit directly.
-  if (!state || state.centralBoard.length === 0) {
-    exitTrainingMatch();
-    return;
-  }
-  openConfirm({
-    title: "trainingExitConfirmTitle",
-    body: "trainingExitConfirmBody",
-    acceptText: "confirmAccept",
-    cancelText: "cancel",
-    onConfirm: () => exitTrainingMatch(),
-  });
-}
-
-let trainingTimerInterval = null;
-let trainingClockPhase = null;
-
-function stopTrainingTimer() {
-  if (trainingTimerInterval) {
-    clearInterval(trainingTimerInterval);
-    trainingTimerInterval = null;
-  }
-}
-
-function ensureTrainingTimer() {
-  stopTrainingTimer();
-  const state = getTrainingMatch();
-  if (!state) return;
-  const phase = state.phase;
-  if (phase !== "strategy" && phase !== "creation") return;
-  if (trainingClockPhase !== phase) {
-    trainingClockPhase = phase;
-    playClockLoop();
-  }
-  trainingTimerInterval = setInterval(() => {
-    const current = getTrainingMatch();
-    if (!current || (current.phase !== "strategy" && current.phase !== "creation")) {
-      stopTrainingTimer();
-      return;
-    }
-    let next;
-    if (current.phase === "strategy") {
-      next = tickStrategyTimer(current);
-    } else {
-      // Creation phase: tick; if timer ran out, finalize the word with
-      // validation/score and transition to result.
-      next = tickCreationTimer(current);
-      if (current.phase === "creation" && next.phase === "result") {
-        next = finalizeUserWord(current, shellLanguage);
-      }
-    }
-    if (next.phase !== current.phase) {
-      trainingClockPhase = null;
-      saveTrainingMatch(next);
-      stopTrainingTimer();
-      triggerTimeUpEffects("training");
-      renderTrainingMatch();
-      return;
-    }
-    saveTrainingMatch(next);
-    renderTrainingTimer(next);
-    if (next.remaining <= LOW_TIME_THRESHOLD && next.remaining > 0) {
-      playLowTimeTick();
-    }
-  }, 1000);
-}
+// → ui/match/training.js
 
 function showScreen(name) {
   if (name !== "training") {
-    stopTrainingTimer();
-    stopActionsDriver();
-    stopUserTurnTimer();
-    if (trainingClockPhase !== null) {
-      trainingClockPhase = null;
-      stopClockLoop(name !== "match");
-    }
+    cleanupTraining(name !== "match");
   }
   currentScreen = name;
   if (name !== "match") {
@@ -11053,8 +6482,6 @@ function showScreen(name) {
     el.classList.toggle("active", el.id === targetId);
   });
   if (name !== "round-end") {
-    roundEndKeypadOpen = false;
-    roundEndKeypadPlayerId = null;
     const keypad = document.getElementById("roundEndKeypad");
     if (keypad) {
       keypad.classList.add("hidden");
@@ -12393,9 +7820,9 @@ function assignSrcToNodes(nodes, src) {
     initValidationSections();
     renderShellTexts();
     updatePreviewBadge();
-  initMatch();
-  setupLanguageSelector();
   setupNavigation();
+  setupLanguageSelector();
+  initMatch();
   setupActionOverlayListeners();
   setupWakeLockActivityTracking();
   setupCreationTimeupInteractionTracking();

@@ -28,6 +28,8 @@ vi.mock('../stateStore.js', () => {
 })
 
 import {
+  createTrainingMatch,
+  initializeRound,
   getTurnOrder,
   enterActionsPhase,
   selectActionInStrategy,
@@ -44,6 +46,7 @@ import {
   advanceToNextBaza,
   drawEmergencyLetter,
   userHandHasNoLetters,
+  revealLetterSlot,
 } from '../trainingMatch.js'
 import { makeLetter, makeConsonant, makeActionCard, makeState, resetIds } from './helpers.js'
 
@@ -97,6 +100,44 @@ describe('enterActionsPhase', () => {
     })
     const next = enterActionsPhase(state)
     expect(next.userActionIndex).toBe(0)
+  })
+})
+
+describe('word-only training modes', () => {
+  it('creates practice mode without opponents, timer, or action cards', () => {
+    let state = createTrainingMatch('words')
+    state = initializeRound(state)
+
+    expect(state.players).toHaveLength(1)
+    expect(state.hands.p1.actions).toEqual([])
+    expect(state.skipStrategy).toBe(true)
+    expect(state.skipActions).toBe(true)
+    expect(state.untimedCreation).toBe(true)
+  })
+
+  it('starts time trial without opponents or action cards and jumps to creation after dealing letters', () => {
+    let state = createTrainingMatch('timeTrial')
+    state = initializeRound(state)
+    state = {
+      ...state,
+      decks: {
+        ...state.decks,
+        vowelDeck: [
+          makeLetter({ id: 'v1' }),
+          makeLetter({ id: 'v2' }),
+          makeLetter({ id: 'v3' }),
+        ],
+      },
+    }
+
+    state = revealLetterSlot(state, 0, 'vowel')
+    state = revealLetterSlot(state, 1, 'vowel')
+    state = revealLetterSlot(state, 2, 'vowel')
+
+    expect(state.players).toHaveLength(1)
+    expect(state.hands.p1.actions).toEqual([])
+    expect(state.phase).toBe('creation')
+    expect(state.remaining).toBe(60)
   })
 })
 

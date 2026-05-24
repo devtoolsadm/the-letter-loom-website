@@ -14,15 +14,22 @@ export const TEXTS = {
     splashTrain: "Entrenar",
     splashResume: "Reanudar partida guardada",
     trainingSetupTitle: "Entrenar",
+    trainingDifficultyWords: "Practicar",
+    trainingDifficultyTimeTrial: "Contrarreloj",
     trainingDifficultyEasy: "Fácil",
     trainingDifficultyNormal: "Normal",
     trainingDifficultyHard: "Difícil",
     trainingCardSummary: "{opponents} oponentes · ⏱ {strategy}s + {creation}s",
     trainingCardPlayers: "{opponents} oponentes",
+    trainingCardNoOpponents: "Sin oponentes",
     trainingCardTimers: "{strategy}s + {creation}s",
+    trainingCardCreationTimer: "{creation}s",
+    trainingCardNoTimer: "Sin cronómetro",
     trainingCardBest: "Mejor: {points}",
     trainingCardNoBest: "—",
     trainingRulesBtn: "Reglas",
+    trainingRulesNoticeTitle: "Reglas de entrenamiento",
+    trainingRulesNoticeBody: "El entrenamiento usa reglas más flexibles que una partida real. Aquí se valida principalmente que la palabra exista en el diccionario y se aplican solo las reglas necesarias para practicar el nivel. Algunas reglas de mesa pueden simplificarse o revisarse manualmente.",
     trainingComingSoon: "Próximamente — el motor está listo; falta la pantalla de juego.",
     trainingMatchTitle: "Entrenando",
     trainingRoundLabel: "Baza {round}/{total}",
@@ -46,6 +53,10 @@ export const TEXTS = {
     trainingPickLetterTitle: "Elige letra del tablero",
     trainingWordStripLabel: "Tu palabra",
     trainingWordStripEmpty: "Toca cartas para formarla",
+    trainingValidateWord: "Validar",
+    trainingValidateTipMissingBoth: "Usa al menos una letra de tu mano y una del tablero.",
+    trainingValidateTipMissingHand: "Añade al menos una letra de tu mano.",
+    trainingValidateTipMissingBoard: "Añade al menos una letra del tablero.",
     trainingPickWildcardTitle: "Elige una letra para el comodín",
     trainingTildeChoiceTitle: "¿Cómo la usas?",
     trainingTildeWithLabel: "Con tilde",
@@ -240,8 +251,18 @@ export const TEXTS = {
         id: "strategy-cards-all",
         title: "Cartas de Acción",
         body: [
-          "¡Que empiece el caos! El repartidor va primero: si su carta va contra todos, la pone boca arriba junto al Tablero; si va a por un jugador, se la da; si es para él, se la queda. Luego el resto hace lo mismo, uno a uno.",
-          "Al terminar puede que el Tablero haya cambiado y que las letras de los demás ya no sean las mismas... ¡eso es lo divertido! Ojo: nadie puede quedarse sin letras; si los robos te dejan con la mano vacía, tienes derecho a coger una de los mazos."
+          "¡Que empiece el caos!"
+        ],
+        bullets: [
+          "Si tu carta va contra todos, ponla boca arriba junto al Tablero Central o al lado de la carta afectada.",
+          "Si va contra un jugador concreto, dásela y ponedla boca arriba junto a él.",
+          "Si es para ti, ponla boca arriba en tu zona."
+        ],
+        afterBullets: [
+          "Luego el resto de jugadores hace lo mismo, uno a uno.",
+          "Al terminar puede que el Tablero haya cambiado y que las letras de los demás ya no sean las mismas... ¡eso es lo divertido!",
+          "Ojo: nadie puede quedarse sin letras; si los robos te dejan con la mano vacía, tienes derecho a coger una de los mazos.",
+          "Después de todo ello, estas son las cartas:"
         ]
       },
       {
@@ -446,7 +467,7 @@ export const TEXTS = {
     recordWordPlus: "+ puntos",
     recordWordMinus: "- puntos",
     recordWordFeaturesHint: "Si usaste extras para puntuar, anótalos",
-    recordWordSkip: "Ahora no",
+    recordWordSkip: "No",
     recordWordSave: "Guardar",
     recordsViewMatch: "Ver partida",
     recordsShare: "Compartir",
@@ -589,15 +610,22 @@ export const TEXTS = {
     splashTrain: "Train",
     splashResume: "Resume saved match",
     trainingSetupTitle: "Train",
+    trainingDifficultyWords: "Practice",
+    trainingDifficultyTimeTrial: "Time trial",
     trainingDifficultyEasy: "Easy",
     trainingDifficultyNormal: "Normal",
     trainingDifficultyHard: "Hard",
     trainingCardSummary: "{opponents} opponents · ⏱ {strategy}s + {creation}s",
     trainingCardPlayers: "{opponents} opponents",
+    trainingCardNoOpponents: "No opponents",
     trainingCardTimers: "{strategy}s + {creation}s",
+    trainingCardCreationTimer: "{creation}s",
+    trainingCardNoTimer: "No timer",
     trainingCardBest: "Best: {points}",
     trainingCardNoBest: "—",
     trainingRulesBtn: "Rules",
+    trainingRulesNoticeTitle: "Training rules",
+    trainingRulesNoticeBody: "Training uses more flexible rules than a real match. Here, validation mainly checks that the word exists in the dictionary and only applies the rules needed for the selected level. Some table rules may be simplified or checked manually.",
     trainingComingSoon: "Coming soon — the engine is ready; the match screen is next.",
     trainingMatchTitle: "Training",
     trainingRoundLabel: "Trick {round}/{total}",
@@ -621,6 +649,10 @@ export const TEXTS = {
     trainingPickLetterTitle: "Pick board letter",
     trainingWordStripLabel: "Your word",
     trainingWordStripEmpty: "Tap cards to form it",
+    trainingValidateWord: "Validate",
+    trainingValidateTipMissingBoth: "Use at least one letter from your hand and one from the board.",
+    trainingValidateTipMissingHand: "Add at least one letter from your hand.",
+    trainingValidateTipMissingBoard: "Add at least one letter from the board.",
     trainingPickWildcardTitle: "Pick a letter for the wildcard",
     trainingTildeChoiceTitle: "How are you using it?",
     trainingTildeWithLabel: "With accent",
@@ -736,23 +768,22 @@ export const TEXTS = {
         id: "intro",
         title: "The Letter Loom",
         body: [
-          "A game of Action cards where you build words and score points.",
-          "Build words with the highest score you can.",
-          "Use Action cards to help yourself or mess with others.",
-          "First player to reach the goal wins.",
-          "This app only helps with players, timers, scoreboard and totals."
+          "The word game that will leave you speechless.",
+          "Build words with the highest score possible.",
+          "Remember! The longest word does not win; the best-scoring one does.",
+          "First player to reach the agreed rounds or points goal wins."
         ],
         bullets: [
           "Vowels and consonants: letters with values.",
-          "Action: special cards that change the trick. [See cards](#strategy-cards-all)."
+          "Use Action cards to help yourself or mess with others. [See cards](#strategy-cards-all)."
         ]
       },
       {
         id: "start",
         title: "Start a game",
         body: [
-          "Heads up: you do not play here. You play with the physical game.",
-          "The app only supports the match.",
+          "Heads up: this app only supports the match. You play with the physical game.",
+          "With this app you can manage player names, turn order and player count, set the Strategy and Word Creation phase timers, keep score, validate doubtful words and share your records on social media...",
           "Don't have it? [Buy the game](action:buy)."
         ]
       },
@@ -761,6 +792,10 @@ export const TEXTS = {
         title: "Trick setup",
         body: [
           "Get everything ready before strategy."
+        ],
+        images: [
+          { src: "assets/img/quick-guide-round1.png", alt: "Round setup 1" },
+          { src: "assets/img/quick-guide-round2.png", alt: "Round setup 2" }
         ],
         bullets: [
           "Place the Central Board with 5 letters face up.",
@@ -771,7 +806,7 @@ export const TEXTS = {
         id: "strategy",
         title: "Strategy phase",
         body: [
-          "This is where you set up your play."
+          "Prepare your play."
         ],
         bullets: [
           "Start one shared strategy timer for everyone.",
@@ -796,7 +831,7 @@ export const TEXTS = {
         id: "scoring",
         title: "Scoring and next round",
         body: [
-          "Log the points and pass the deal."
+          "Scores are entered and the deal passes on."
         ],
         bullets: [
           "Enter the scores in the app.",
@@ -812,8 +847,18 @@ export const TEXTS = {
         id: "strategy-cards-all",
         title: "Action cards",
         body: [
-          "Let the chaos begin! The dealer goes first: if the card targets everyone, it goes face-up next to the Central Board; if it targets one player, they hand it over; if it's a self-benefit, they keep it. Then each player does the same, one by one.",
-          "By the time everyone has played... the Central Board may have changed and players might have totally different letters! That's the fun part. Note: no player can be left without letters — if steals leave you empty-handed, you get to draw one from the decks."
+          "Let the chaos begin!"
+        ],
+        bullets: [
+          "If your card targets everyone, place it face up next to the Central Board or beside the affected card.",
+          "If it targets one specific player, give it to them and place it face up next to them.",
+          "If it helps you, place it face up in your area."
+        ],
+        afterBullets: [
+          "Then the rest of the players do the same, one by one.",
+          "When everyone is done, the board may have changed and the other players' letters may no longer be the same... that's the fun part!",
+          "Note: no player can be left without letters; if steals leave you empty-handed, you get to draw one from the decks.",
+          "After all that, these are the cards:"
         ]
       },
       {
@@ -1018,7 +1063,7 @@ export const TEXTS = {
     recordWordPlus: "+ points",
     recordWordMinus: "- points",
     recordWordFeaturesHint: "If you used scoring extras, note them",
-    recordWordSkip: "Not now",
+    recordWordSkip: "No",
     recordWordSave: "Save",
     recordsViewMatch: "View match",
     recordsShare: "Share",

@@ -106,6 +106,9 @@ export function createTrainingMatch(difficulty, { userNickname } = {}) {
     strategySeconds: preset.strategySeconds,
     creationSeconds: preset.creationSeconds,
     roundsTarget: preset.roundsTarget,
+    skipStrategy: !!preset.skipStrategy,
+    skipActions: !!preset.skipActions,
+    untimedCreation: !!preset.untimedCreation,
     round: 1,
     phase: "dealing", // dealing | strategy | actions | creation | result | done
     remaining: preset.strategySeconds,
@@ -161,11 +164,13 @@ export function initializeRound(state) {
   );
 
   // Actions for the user
-  const actionsResult = drawActions(
-    state.decks.actionDeck,
-    state.discards.actions,
-    TRAINING_HAND_ACTIONS,
-  );
+  const actionsResult = state.skipActions
+    ? { deck: state.decks.actionDeck, discard: state.discards.actions, drawn: [] }
+    : drawActions(
+        state.decks.actionDeck,
+        state.discards.actions,
+        TRAINING_HAND_ACTIONS,
+      );
 
   const userId = state.players[0].id;
   const userHand = state.hands[userId];
@@ -607,6 +612,7 @@ export function setWildcardLetterInWord(state, cardId, letter) {
 
 export function tickCreationTimer(state) {
   if (state.phase !== "creation") return state;
+  if (state.untimedCreation) return state;
   const newRemaining = Math.max(0, (state.remaining || 0) - 1);
   if (newRemaining === 0) {
     return { ...state, remaining: 0, phase: "result", updatedAt: Date.now() };
@@ -744,6 +750,12 @@ export function revealLetterSlot(state, slotIndex, kind) {
   const newLetters = hand.letters.slice();
   newLetters[slotIndex] = result.card;
   const allFilled = newLetters.every((c) => c != null);
+  const nextPhase = allFilled
+    ? (state.skipStrategy ? "creation" : "strategy")
+    : state.phase;
+  const nextRemaining = allFilled
+    ? (state.skipStrategy ? state.creationSeconds : state.strategySeconds)
+    : state.remaining;
 
   const next = {
     ...state,
@@ -754,8 +766,8 @@ export function revealLetterSlot(state, slotIndex, kind) {
     },
     discards: result.discards,
     hands: { ...state.hands, [userId]: { ...hand, letters: newLetters } },
-    phase: allFilled ? "strategy" : state.phase,
-    remaining: allFilled ? state.strategySeconds : state.remaining,
+    phase: nextPhase,
+    remaining: nextRemaining,
     updatedAt: Date.now(),
   };
   saveTrainingMatch(next);

@@ -618,6 +618,26 @@
           </div>
 
           <div class="training-picker">
+            <button class="training-card" type="button" id="trainingCardWords" data-difficulty="words">
+              <span class="training-card-badge" data-i18n="trainingDifficultyWords"></span>
+              <span class="training-card-summary">
+                <span id="trainingCardWordsPlayers"></span>
+                <span class="training-card-sep">·</span>
+                <span class="training-card-clock" aria-hidden="true">⏱</span>
+                <span id="trainingCardWordsTimers"></span>
+              </span>
+              <span class="training-card-stat" id="trainingCardWordsStat"></span>
+            </button>
+            <button class="training-card" type="button" id="trainingCardTimeTrial" data-difficulty="timeTrial">
+              <span class="training-card-badge" data-i18n="trainingDifficultyTimeTrial"></span>
+              <span class="training-card-summary">
+                <span id="trainingCardTimeTrialPlayers"></span>
+                <span class="training-card-sep">·</span>
+                <span class="training-card-clock" aria-hidden="true">⏱</span>
+                <span id="trainingCardTimeTrialTimers"></span>
+              </span>
+              <span class="training-card-stat" id="trainingCardTimeTrialStat"></span>
+            </button>
             <button class="training-card" type="button" id="trainingCardEasy" data-difficulty="easy">
               <span class="training-card-badge" data-i18n="trainingDifficultyEasy"></span>
               <span class="training-card-summary">
@@ -729,6 +749,11 @@
             <div class="training-section is-board">
               <div class="training-section-label" id="trainingBoardLabel"></div>
               <div class="training-board" id="trainingBoard"></div>
+            </div>
+
+            <div class="training-validate-wrap hidden" id="trainingValidateWrap">
+              <button class="training-validate-btn" type="button" id="trainingValidateBtn"></button>
+              <div class="training-validate-tip" id="trainingValidateTip"></div>
             </div>
 
             <div class="training-result-panel hidden" id="trainingResultPanel"></div>
