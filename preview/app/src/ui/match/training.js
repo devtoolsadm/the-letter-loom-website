@@ -31,6 +31,7 @@ import {
   advanceToNextBaza,
 } from "../../core/trainingMatch.js";
 import { ACTION_CARDS, TRAINING_DIFFICULTIES, TRAINING_DIFFICULTY_PRESETS } from "../../core/constants.js";
+import { findHints } from "../../core/hintSolver.js";
 import { updateState, loadState } from "../../core/stateStore.js";
 import { logger } from "../../core/logger.js";
 import { TEXTS, getShellLanguage } from "../../i18n/texts.js";
@@ -89,7 +90,7 @@ let bubbleAutoHideTimeout = null;
 const BUBBLE_AUTOHIDE_MS = 2800;
 let trainingTimerInterval = null;
 let trainingClockPhase = null;
-let debugMode = ["localhost", "127.0.0.1"].includes(window.location.hostname);
+let debugMode = false;
 let lastFlashedPhase = null;
 let wordDragFromIndex = null;
 let userTurnTimerInterval = null;
@@ -104,6 +105,8 @@ const VOWEL_LETTERS = ["A", "E", "I", "O", "U"];
 const CONSONANT_LETTERS = [
   "B","C","D","F","G","H","J","K","L","M","N","Ñ","P","Q","R","S","T","V","W","X","Y","Z",
 ];
+const TRAINING_SECTION_MAX_CARD_SIZE = 56;
+const TRAINING_SECTION_CARD_GAP = 5;
 
 function setupTrainingDebugToggle() {
   let pressTimer = null;
@@ -119,6 +122,35 @@ function setupTrainingDebugToggle() {
   });
   el.addEventListener("pointerup",     () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } });
   el.addEventListener("pointercancel", () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } });
+
+  // Long-press on the phase label (REPARTO/CREACIÓN/etc.) reveals the hint
+  // button in non-practice difficulties. In "words" (Practicar) the hint button
+  // is always visible.
+  let hintPressTimer = null;
+  const phaseEl = document.getElementById("trainingPhaseLabel");
+  if (phaseEl) {
+    phaseEl.addEventListener("pointerdown", () => {
+      hintPressTimer = setTimeout(() => {
+        hintRevealedByLongPress = !hintRevealedByLongPress;
+        updateHintButtonVisibility();
+      }, 800);
+    });
+    phaseEl.addEventListener("pointerup",     () => { if (hintPressTimer) { clearTimeout(hintPressTimer); hintPressTimer = null; } });
+    phaseEl.addEventListener("pointercancel", () => { if (hintPressTimer) { clearTimeout(hintPressTimer); hintPressTimer = null; } });
+  }
+}
+
+// Hint button visibility — always shown in PRACTICAR (words); in other modes
+// it stays hidden until the user long-presses the phase pill.
+let hintRevealedByLongPress = false;
+
+function updateHintButtonVisibility() {
+  const btn = document.getElementById("trainingHintBtn");
+  if (!btn) return;
+  const state = getTrainingMatch();
+  const isPractice = state?.difficulty === "words";
+  const show = isPractice || hintRevealedByLongPress;
+  btn.classList.toggle("hidden", !show);
 }
 
 function renderTrainingSetup() {
@@ -200,6 +232,7 @@ function renderTrainingMatch() {
     if (el) el.classList.toggle("hidden", isResultOrDone);
   });
   document.getElementById("trainingValidateWrap")?.classList.toggle("hidden", isResultOrDone || !(state.phase === "creation" && state.untimedCreation));
+  updateHintButtonVisibility();
   if (state.phase === "strategy" || state.phase === "creation") {
     ensureTrainingTimer();
   } else {
@@ -237,18 +270,21 @@ function renderTrainingPrompt(state) {
   // All phase prompts now share the slot below the timer.
   topInstr.classList.add("hidden");
   timerPrompt.classList.add("hidden");
-  timerPrompt.classList.remove("is-collapsed");
+  timerPrompt.classList.remove("is-collapsed", "is-action-required", "is-info");
   doneBtn.classList.add("hidden");
 
   const userId = state.players[0].id;
   let key = null;
   let showDone = false;
+  let promptKind = "is-info";
 
   if (state.phase === "dealing") {
     key = "trainingInstrDealing";
+    promptKind = "is-action-required";
   } else if (state.phase === "strategy") {
     key = "trainingInstrStrategy";
     showDone = true;
+    promptKind = "is-action-required";
   } else if (state.phase === "creation") {
     // Strip label "TU PALABRA" is enough — collapse the timer prompt to
     // free vertical space, but keep the Listo button visible.
@@ -257,8 +293,10 @@ function renderTrainingPrompt(state) {
   } else if (state.phase === "actions"
       && state.actionsQueue?.[0] === userId
       && state.userActionIndex == null
-      && !state.userActionResolved) {
+      && !state.userActionResolved
+      && !isUserTurnBlockedByActionBubble(state)) {
     key = "trainingInstrUserTurn";
+    promptKind = "is-action-required";
   } else if (state.phase === "actions") {
     key = "trainingInstrActions";
   } else if (state.phase === "result") {
@@ -267,6 +305,7 @@ function renderTrainingPrompt(state) {
 
   if (key) {
     _shell.setI18nById("trainingTimerPrompt", key);
+    timerPrompt.classList.add(promptKind);
     timerPrompt.classList.remove("hidden");
   }
   if (showDone) {
@@ -305,6 +344,16 @@ function renderTrainingScoreboard(state) {
   root.innerHTML = "";
 
   const currentActorId = state.phase === "actions" ? (state.actionsQueue?.[0] ?? null) : null;
+  const userId = state.players?.[0]?.id ?? null;
+  const userTurnBlockedByBubble = isUserTurnBlockedByActionBubble(state);
+  const waitingForUserAction = state.phase === "actions"
+    && currentActorId === userId
+    && state.userActionIndex == null
+    && !state.userActionResolved
+    && !userTurnBlockedByBubble;
+  const bubbleActorId = state.phase === "actions" && !waitingForUserAction
+    ? (currentActionBubble?.playerId ?? null)
+    : null;
 
   for (const p of state.players) {
     const hand = state.hands?.[p.id];
@@ -313,7 +362,7 @@ function renderTrainingScoreboard(state) {
       ? (state.shieldedPlayers ?? []).includes(p.id)
       : isUserShieldPreSelected(state);
     const isDealer = p.id === state.dealerId;
-    const isActive = p.id === currentActorId;
+    const isActive = bubbleActorId ? p.id === bubbleActorId : p.id === currentActorId;
 
     const pill = document.createElement("div");
     let pillClass = "training-score-pill" + (p.isGhost ? "" : " is-user");
@@ -387,6 +436,7 @@ function renderTrainingBoard(state) {
     if (card && isCreation) attachCardSelectableBehavior(el, card, "board", wordIds.has(card.id));
     root.appendChild(el);
   }
+  applyTwoRowCardLayout(root, slots.length);
 }
 
 function getTrainingWordSources(state) {
@@ -452,24 +502,40 @@ function renderTrainingForcedRules(state) {
     root.classList.add("hidden");
     return;
   }
+  const messages = [];
+  const requiredLetters = [];
   for (const e of effects) {
-    const chip = document.createElement("div");
-    chip.className = "training-forced-chip";
-    let text = "";
     if (e.actionId === "philologist") {
-      text = t("trainingForcedTilde") || "";
+      messages.push(t("trainingForcedTilde") || "");
     } else if (e.actionId === "brain_squeeze") {
-      text = t("trainingForcedSyllables") || "";
+      messages.push(t("trainingForcedSyllables") || "");
     } else if (["use_vowel", "use_consonant", "use_letter"].includes(e.actionId)) {
-      const tpl = t("trainingForcedUseLetter") || "Usa {letter}";
-      text = tpl.replace("{letter}", e.payload?.letter || "?");
-    } else {
-      continue;
+      requiredLetters.push(e.payload?.letter || "?");
     }
-    chip.textContent = text;
-    root.appendChild(chip);
   }
-  root.classList.toggle("hidden", root.children.length === 0);
+  if (requiredLetters.length === 1) {
+    const tpl = t("trainingForcedUseLetter") || "Usa la letra {letter}";
+    messages.unshift(tpl.replace("{letter}", requiredLetters[0]));
+  } else if (requiredLetters.length > 1) {
+    const tpl = t("trainingForcedUseLetters") || "Usa las letras {letters}";
+    messages.unshift(tpl.replace("{letters}", formatForcedLetters(requiredLetters)));
+  }
+  if (messages.length === 0) {
+    root.classList.add("hidden");
+    return;
+  }
+  const chip = document.createElement("div");
+  chip.className = "training-forced-chip";
+  chip.textContent = messages.join(" · ");
+  root.appendChild(chip);
+  root.classList.remove("hidden");
+}
+
+function formatForcedLetters(letters) {
+  const unique = [...new Set(letters.filter(Boolean))];
+  if (unique.length <= 1) return unique[0] || "?";
+  const conj = getShellLanguage() === "en" ? " and " : " y ";
+  return unique.slice(0, -1).join(", ") + conj + unique.at(-1);
 }
 
 function renderTrainingHand(state) {
@@ -486,7 +552,7 @@ function renderTrainingHand(state) {
   const isUserTurn = state.phase === "actions"
     && (state.actionsQueue?.[0] === userId)
     && state.userActionIndex == null;
-  const tappable = isStrategy || isUserTurn;
+  const tappable = isStrategy || (isUserTurn && !isUserTurnBlockedByActionBubble(state));
   const wordIds = new Set((state.userWord ?? []).map((s) => s.cardId));
   letters.forEach((card, idx) => {
     if (!card && isDealing) {
@@ -542,7 +608,35 @@ function renderTrainingHand(state) {
       }
     });
   }
+  applyTwoRowCardLayout(root, root.children.length);
   renderActionFocusPanel(state);
+}
+
+function applyTwoRowCardLayout(root, cardCount) {
+  if (!root) return;
+  if (cardCount <= 10) {
+    root.style.setProperty("--training-section-card-size", `${TRAINING_SECTION_MAX_CARD_SIZE}px`);
+    return;
+  }
+  const columns = cardCount > 10 ? Math.ceil(cardCount / 2) : Math.min(cardCount, 5);
+  if (!columns) {
+    root.style.removeProperty("--training-section-card-size");
+    return;
+  }
+  const width = root.clientWidth || root.getBoundingClientRect().width || 0;
+  const gaps = Math.max(0, columns - 1) * TRAINING_SECTION_CARD_GAP;
+  if (width > 0) {
+    const size = Math.min(
+      TRAINING_SECTION_MAX_CARD_SIZE,
+      Math.floor((width - gaps) / columns),
+    );
+    root.style.setProperty("--training-section-card-size", `${Math.max(34, size)}px`);
+    return;
+  }
+  root.style.setProperty(
+    "--training-section-card-size",
+    `min(${TRAINING_SECTION_MAX_CARD_SIZE}px, calc((100% - ${gaps}px) / ${columns}))`,
+  );
 }
 
 function renderActionFocusPanel(state) {
@@ -1126,6 +1220,11 @@ function processNextActionsTurn() {
   const userId = state.players[0].id;
 
   if (nextActorId === userId) {
+    if (isUserTurnBlockedByActionBubble(state)) {
+      renderTrainingMatch();
+      scheduleActionsDriver(250);
+      return;
+    }
     if (state.userActionResolved) {
       // Already resolved (shield interrupt or pre-played). Skip turn.
       const next = advanceActionsQueue(state);
@@ -1453,12 +1552,21 @@ function maybeStartUserTurnTimer(state) {
   const isUserTurn = state.phase === "actions"
     && state.actionsQueue?.[0] === userId
     && state.userActionIndex == null
-    && !state.userActionResolved;
+    && !state.userActionResolved
+    && !isUserTurnBlockedByActionBubble(state);
   if (isUserTurn) {
     if (!userTurnTimerInterval) startUserTurnTimer();
   } else {
     stopUserTurnTimer();
   }
+}
+
+function isUserTurnBlockedByActionBubble(state) {
+  if (!state || state.phase !== "actions" || !currentActionBubble) return false;
+  const userId = state.players?.[0]?.id;
+  return !!userId
+    && state.actionsQueue?.[0] === userId
+    && currentActionBubble.playerId !== userId;
 }
 
 function autoPickUserAction() {
@@ -1538,7 +1646,7 @@ function handleUserPickAction(actionIndex) {
   }
 }
 
-function openChangeCardsPicker(letters, titleKey, onConfirm, context = null) {
+function openChangeCardsPicker(letters, titleKey, onConfirm, context = null, timeoutMs = PICKER_TIMEOUT_MS) {
   const overlay = document.createElement("div");
   overlay.className = "training-picker-overlay";
   const card = document.createElement("div");
@@ -1554,7 +1662,33 @@ function openChangeCardsPicker(letters, titleKey, onConfirm, context = null) {
     card.insertBefore(ctx, title);
   }
 
-  const selected = new Set(letters.map((l) => l.id)); // start all selected
+  const selected = new Set();
+  let timerInterval = null;
+  let remaining = timeoutMs;
+
+  function confirmSelection() {
+    if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+    if (document.body.contains(overlay)) document.body.removeChild(overlay);
+    onConfirm(selected.size > 0 ? [...selected] : letters.map((l) => l.id));
+  }
+
+  if (timeoutMs > 0 && letters.length > 0) {
+    const timerWrap = document.createElement("div");
+    timerWrap.className = "training-picker-timer-wrap";
+    const timerBar = document.createElement("div");
+    timerBar.className = "training-picker-timer-bar";
+    timerBar.style.width = "100%";
+    timerWrap.appendChild(timerBar);
+    card.appendChild(timerWrap);
+    timerInterval = setInterval(() => {
+      remaining -= 100;
+      const pct = Math.max(0, (remaining / timeoutMs) * 100);
+      timerBar.style.width = pct + "%";
+      if (remaining <= 0) {
+        confirmSelection();
+      }
+    }, 100);
+  }
 
   const list = document.createElement("div");
   list.className = "training-picker-options";
@@ -1562,7 +1696,7 @@ function openChangeCardsPicker(letters, titleKey, onConfirm, context = null) {
   for (const l of letters) {
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.className = "training-picker-option is-selected";
+    btn.className = "training-picker-option";
     btn.textContent = l.letter;
     btns[l.id] = btn;
     btn.addEventListener("click", () => {
@@ -1585,12 +1719,8 @@ function openChangeCardsPicker(letters, titleKey, onConfirm, context = null) {
   const confirmBtn = document.createElement("button");
   confirmBtn.type = "button";
   confirmBtn.className = "training-picker-confirm-btn";
-  confirmBtn.textContent =
-    (t("trainingChangeCardsConfirm") || "Cambiar") + ` (${letters.length})`;
-  confirmBtn.addEventListener("click", () => {
-    if (document.body.contains(overlay)) document.body.removeChild(overlay);
-    onConfirm([...selected]);
-  });
+  confirmBtn.textContent = t("trainingChangeCardsConfirm") || "Cambiar";
+  confirmBtn.addEventListener("click", confirmSelection);
   card.appendChild(confirmBtn);
 
   overlay.appendChild(card);
@@ -2192,6 +2322,69 @@ export function cleanupTraining(stopClock) {
   }
 }
 
+async function requestTrainingHints() {
+  const state = getTrainingMatch();
+  const body = document.getElementById("hintsModalBody");
+  const btn = document.getElementById("trainingHintBtn");
+  if (!body || !state) return;
+
+  // Map UI training difficulty → solver difficulty profile.
+  const uiDiff = state.difficulty || "normal";
+  let solverDiff = "normal";
+  if (uiDiff === "hard") solverDiff = "hard";
+  else if (uiDiff === "normal") solverDiff = "normal";
+  else solverDiff = "easy";
+
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "Buscando…";
+  }
+  body.innerHTML = '<div class="hint-empty">Buscando…</div>';
+  openModal("hints", { closable: true });
+
+  let hints = [];
+  const t0 = performance.now();
+  try {
+    hints = await findHints(state, { count: 5, difficulty: solverDiff });
+  } catch (err) {
+    logger.warn("[hints] solver failed", err);
+  }
+  const elapsed = Math.round(performance.now() - t0);
+
+  if (btn) {
+    btn.disabled = false;
+    btn.textContent = "💡 Sugerir";
+  }
+
+  if (hints.length === 0) {
+    body.innerHTML = '<div class="hint-empty">No se han encontrado palabras</div>';
+    return;
+  }
+
+  const items = hints.map((h) => renderHintItem(h)).join("");
+  body.innerHTML = `<ol class="hints-list">${items}</ol><div class="hints-meta">${hints.length} resultado${hints.length === 1 ? "" : "s"} · ${elapsed} ms</div>`;
+}
+
+function renderHintItem(hint) {
+  // Render letter-by-letter so wildcards can carry a marker below.
+  const letters = (hint.cards ?? []).map((card) => {
+    const shown = card.isWildcard
+      ? (card.chosenLetter || "?").toUpperCase()
+      : (card.usingTilde && card.tildeChar)
+        ? card.tildeChar
+        : (card.letter || "").toUpperCase();
+    const cls = card.isWildcard ? "hint-letter is-wild" : "hint-letter";
+    return `<span class="${cls}">${escapeHtml(shown)}</span>`;
+  }).join("");
+  return `<li><span class="hint-word">${letters}</span><span class="hint-score">${hint.score}</span></li>`;
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  }[c]));
+}
+
 // Exports used by main.js
 export {
   setupTrainingDebugToggle,
@@ -2200,4 +2393,5 @@ export {
   finishTrainingTimer,
   renderTrainingMatch,
   renderTrainingSetup,
+  requestTrainingHints,
 };

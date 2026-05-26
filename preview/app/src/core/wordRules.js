@@ -33,10 +33,11 @@ function isVowelChar(ch) {
 
 export function countSyllables(word, lang = "es") {
   if (!word) return 0;
+  if (lang === "en") return countEnglishSyllables(word);
   if (lang !== "es") {
-    // Fallback: count vowel groups for non-Spanish.
-    const groups = word.toUpperCase().match(/[AEIOUÁÉÍÓÚÜ]+/g);
-    return groups ? groups.length : 0;
+    // Generic fallback: count vowel groups including accented vowels.
+    const groups = word.toUpperCase().match(/[AEIOUYÁÉÍÓÚÜÀÈÌÒÙÂÊÎÔÛÄËÏÖÜ]+/g);
+    return groups ? Math.max(1, groups.length) : 0;
   }
   const w = word.toUpperCase();
   let count = 0;
@@ -52,6 +53,27 @@ export function countSyllables(word, lang = "es") {
     count += syllableCountForVowelGroup(group);
   }
   return count;
+}
+
+// English syllable count — heuristic that handles the most common patterns:
+//   1. Words ending in consonant+"le" treat the "le" as one syllable, separately.
+//   2. Otherwise drop a silent trailing "e".
+//   3. Count vowel groups (consecutive aeiouy as 1 group) in what remains.
+function countEnglishSyllables(word) {
+  if (!word) return 0;
+  let w = word.toLowerCase();
+  const endsLe = w.length > 2 && /[^aeiouy]le$/.test(w);
+  if (endsLe) {
+    // Drop the trailing "e" (the "le" becomes its own syllable, added below).
+    w = w.slice(0, -1);
+  } else if (w.length > 2 && w.endsWith("e")) {
+    // Silent trailing "e" (e.g. "make", "house").
+    w = w.slice(0, -1);
+  }
+  const groups = w.match(/[aeiouy]+/g);
+  let count = groups ? groups.length : 0;
+  if (endsLe) count += 1;
+  return Math.max(1, count);
 }
 
 function syllableCountForVowelGroup(group) {

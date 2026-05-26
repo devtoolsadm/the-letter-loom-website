@@ -150,11 +150,68 @@ describe('change_cards', () => {
 // ── Shield ──────────────────────────────────────────────────────────────────
 
 describe('shield_total', () => {
-  it('returns state unchanged (shield is handled by turn manager)', () => {
+  it('registers the source player in shieldedPlayers', () => {
     const state = makeState()
     const action = makeActionCard({ actionId: 'shield_total' })
     const next = applyActionEffect(state, action, 'p1', null, {})
+    expect(next.shieldedPlayers).toContain('p1')
+  })
+
+  it('is idempotent — re-applying does not add a duplicate', () => {
+    const state = { ...makeState(), shieldedPlayers: ['p1'] }
+    const action = makeActionCard({ actionId: 'shield_total' })
+    const next = applyActionEffect(state, action, 'p1', null, {})
     expect(next).toBe(state)
+  })
+
+  it('shields a target from explosion (no score modifier applied)', () => {
+    const state = { ...makeState(), shieldedPlayers: ['p1'] }
+    const action = makeActionCard({ actionId: 'explosion' })
+    const next = applyActionEffect(state, action, 'p2', 'p1', {})
+    expect(next).toBe(state)
+    expect(next.scoreModifiers?.p1 ?? 0).toBe(0)
+  })
+
+  it('shields a target from steal_letter', () => {
+    const state = {
+      ...makeState({
+        hands: {
+          p1: { letters: [makeLetter({ id: 'l1', letter: 'A' })], actions: [] },
+          p2: { letters: [], actions: [] },
+        },
+      }),
+      shieldedPlayers: ['p1'],
+    }
+    const action = makeActionCard({ actionId: 'steal_letter' })
+    const next = applyActionEffect(state, action, 'p2', 'p1', {})
+    expect(next.hands.p1.letters).toHaveLength(1) // unchanged
+    expect(next.hands.p2.letters).toHaveLength(0)
+  })
+
+  it('shields a target from philologist (no forced rule added)', () => {
+    const state = { ...makeState(), shieldedPlayers: ['p1'] }
+    const action = makeActionCard({ actionId: 'philologist' })
+    const next = applyActionEffect(state, action, 'p2', 'p1', {})
+    expect(next.forcedRules?.p1 ?? []).toHaveLength(0)
+  })
+
+  it('shielded players are skipped by great_heist (per-player attack)', () => {
+    const state = {
+      ...makeState({
+        hands: {
+          p1: { letters: [makeLetter({ id: 'l1' })], actions: [] },
+          p2: { letters: [], actions: [] },
+          p3: { letters: [makeLetter({ id: 'l3' })], actions: [] },
+        },
+      }),
+      shieldedPlayers: ['p1'],
+    }
+    const action = makeActionCard({ actionId: 'great_heist' })
+    const next = applyActionEffect(state, action, 'p2', null, {})
+    // p1 is shielded → keeps its letter
+    expect(next.hands.p1.letters).toHaveLength(1)
+    // p3 is not shielded → loses its letter
+    expect(next.hands.p3.letters).toHaveLength(0)
   })
 })
 

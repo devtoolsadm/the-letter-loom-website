@@ -25,6 +25,14 @@ function ensureHand(state, playerId) {
   return h;
 }
 
+// A player is shielded for the current trick if shield_total was applied to
+// them (either proactively or as a reactive interrupt). Attacks must skip
+// shielded targets — see actionEffects.test.js and trainingMatch.js's
+// SHIELDABLE_ATTACK_IDS for the full list of attacks affected.
+function isShielded(state, playerId) {
+  return (state.shieldedPlayers ?? []).includes(playerId);
+}
+
 function addForcedRule(state, targetPlayerId, actionId, source, payload) {
   const prev = state.forcedRules?.[targetPlayerId] ?? [];
   return {
@@ -183,6 +191,7 @@ export function applyActionEffect(state, action, sourcePlayerId, targetPlayerId,
         let st = state;
         const drawn = [];
         for (const pick of payload.picks) {
+          if (isShielded(st, pick.playerId)) continue;
           const h = ensureHand(st, pick.playerId);
           const { taken, hand } = takeLetterByKind(h, pick.kind, rng);
           if (taken) {
@@ -210,6 +219,7 @@ export function applyActionEffect(state, action, sourcePlayerId, targetPlayerId,
       const taken = [];
       for (const pid of Object.keys(state.hands)) {
         if (pid === sourcePlayerId) continue;
+        if (isShielded(st, pid)) continue;
         const h = ensureHand(st, pid);
         const { taken: card, hand } = takeRandomLetter(h, rng);
         if (card) taken.push(card);
@@ -285,6 +295,7 @@ export function applyActionEffect(state, action, sourcePlayerId, targetPlayerId,
         const newVowels = st.decks.vowelDeck.slice();
         const newConsonants = st.decks.consonantDeck.slice();
         for (const pick of payload.picks) {
+          if (isShielded(st, pick.playerId)) continue;
           const h = ensureHand(st, pick.playerId);
           const { taken, hand } = takeLetterByKind(h, pick.kind, rng);
           if (taken) {
@@ -304,6 +315,7 @@ export function applyActionEffect(state, action, sourcePlayerId, targetPlayerId,
       const newConsonants = st.decks.consonantDeck.slice();
       for (const pid of Object.keys(state.hands)) {
         if (pid === sourcePlayerId) continue;
+        if (isShielded(st, pid)) continue;
         const h = ensureHand(st, pid);
         const { taken, hand } = takeRandomLetter(h, rng);
         if (taken) {
@@ -323,6 +335,7 @@ export function applyActionEffect(state, action, sourcePlayerId, targetPlayerId,
         let st = state;
         const stolen = [];
         for (const pick of payload.picks) {
+          if (isShielded(st, pick.playerId)) continue;
           const h = ensureHand(st, pick.playerId);
           const { taken, hand } = takeLetterByKind(h, pick.kind, rng);
           if (taken) {
@@ -341,6 +354,7 @@ export function applyActionEffect(state, action, sourcePlayerId, targetPlayerId,
       const stolen = [];
       for (const pid of Object.keys(state.hands)) {
         if (pid === sourcePlayerId) continue;
+        if (isShielded(st, pid)) continue;
         const h = ensureHand(st, pid);
         const { taken, hand } = takeRandomLetter(h, rng);
         if (taken) stolen.push(taken);
@@ -354,6 +368,7 @@ export function applyActionEffect(state, action, sourcePlayerId, targetPlayerId,
     }
 
     case "steal_letter": {
+      if (isShielded(state, targetPlayerId)) return state;
       const targetHand = ensureHand(state, targetPlayerId);
       let taken, restLetters;
       if (payload.cardId) {
@@ -377,6 +392,7 @@ export function applyActionEffect(state, action, sourcePlayerId, targetPlayerId,
     }
 
     case "swap_all": {
+      if (isShielded(state, targetPlayerId)) return state;
       const sourceHand = ensureHand(state, sourcePlayerId);
       const targetHand = ensureHand(state, targetPlayerId);
       if (payload.fromIds && payload.fromIds.length > 0) {
@@ -404,6 +420,7 @@ export function applyActionEffect(state, action, sourcePlayerId, targetPlayerId,
     }
 
     case "swap_one": {
+      if (isShielded(state, targetPlayerId)) return state;
       const sourceHand = ensureHand(state, sourcePlayerId);
       const targetHand = ensureHand(state, targetPlayerId);
       const fromCard = payload.fromId
@@ -436,9 +453,11 @@ export function applyActionEffect(state, action, sourcePlayerId, targetPlayerId,
     }
 
     case "explosion":
+      if (isShielded(state, targetPlayerId)) return state;
       return addScoreModifier(state, targetPlayerId, ACTION_POINTS.explosion);
 
     case "discard_one": {
+      if (isShielded(state, targetPlayerId)) return state;
       // Target must put 1 letter back in the deck (random if no payload).
       const targetHand = ensureHand(state, targetPlayerId);
       const cardId = payload.cardId
@@ -468,6 +487,7 @@ export function applyActionEffect(state, action, sourcePlayerId, targetPlayerId,
     }
     case "philologist":
     case "brain_squeeze":
+      if (isShielded(state, targetPlayerId)) return state;
       return addForcedRule(state, targetPlayerId, action.actionId, sourcePlayerId, {});
 
     case "one_for_all": {
@@ -508,7 +528,7 @@ export function getActiveEffectsFor(state, playerId) {
   };
 }
 
-// Clear per-trick state (forced rules, score modifiers). Call at end of trick.
+// Clear per-trick state (forced rules, score modifiers, shields). Call at end of trick.
 export function clearTrickState(state) {
-  return { ...state, forcedRules: {}, scoreModifiers: {} };
+  return { ...state, forcedRules: {}, scoreModifiers: {}, shieldedPlayers: [] };
 }

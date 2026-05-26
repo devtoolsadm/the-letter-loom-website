@@ -16,6 +16,18 @@ import {
 import { loadState, updateState } from "./stateStore.js";
 import { logger } from "./logger.js";
 import { workerFetch } from "../lib/worker.js";
+import { validateWord as validateWordLayered, setAiValidator } from "./wordValidator.js";
+
+// Wire the AI layer of the multi-layer validator to use the existing remote
+// worker endpoint. Local dictionary is tried first (instant), then AI fallback.
+setAiValidator(async (word, language, ctx) => {
+  try {
+    const res = await validateWordRemote({ word, language, customRules: ctx?.customRules });
+    return { valid: !!res.isValid, raw: res };
+  } catch (err) {
+    throw err;
+  }
+});
 
 function clamp(val, min, max) {
   return Math.min(max, Math.max(min, val));
@@ -449,14 +461,22 @@ class MatchController {
   }
 
   async validateWord(word, customRules) {
-    if (!this._validator) {
-      logger.warn("No validator set");
-      return null;
-    }
     try {
       const rulesToUse = customRules !== undefined ? customRules : this._state.preferencesRef?.rules;
-      const result = await this._validator(word, rulesToUse);
-      this._emit("validationResult", result || {});
+      const language = this._state.language || "es";
+      // Multi-layer: local dictionary first (instant), AI fallback. The local
+      // dictionary covers common words without hitting the worker; rare words
+      // (proper nouns, neologisms, technical terms) still go to AI.
+      const out = await validateWordLayered(word, {
+        language,
+        layers: ["local", "ai"],
+        aiContext: { customRules: rulesToUse },
+      });
+      // Build a result shape compatible with existing callers (isValid, reason).
+      const result = out.raw && typeof out.raw === "object"
+        ? { ...out.raw, isValid: out.valid, source: out.source }
+        : { isValid: out.valid, reason: null, source: out.source };
+      this._emit("validationResult", result);
       return result;
     } catch (err) {
       this._emit("validationError", err);
