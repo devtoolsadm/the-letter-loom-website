@@ -3593,6 +3593,29 @@ body.splash-ready #splashLoadingBlock {
   font-family: var(--font-heading);
   letter-spacing: 0.3px;
 }
+.validator-debug-engines {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+  font-family: var(--font-heading);
+  font-size: 14px;
+  color: #2f1b12;
+}
+.validator-debug-engines label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+.validator-debug-results {
+  margin: 12px 0;
+  padding: 10px;
+  background: rgba(255, 252, 240, 0.94);
+  border: 2px solid #a36500;
+  border-radius: 10px;
+  min-height: 60px;
+}
 .training-word-slot .tcard-letter {
   font-size: clamp(18px, 50cqw, 34px);
 }

@@ -32,7 +32,7 @@ import {
 } from "../../core/trainingMatch.js";
 import { ACTION_CARDS, TRAINING_DIFFICULTIES, TRAINING_DIFFICULTY_PRESETS } from "../../core/constants.js";
 import { findHints } from "../../core/hintSolver.js";
-import { validateWord as validateWordLayered } from "../../core/wordValidator.js";
+import { validateWord as validateWordLayered, LAYER_PRESETS } from "../../core/wordValidator.js";
 import { updateState, loadState } from "../../core/stateStore.js";
 import { logger } from "../../core/logger.js";
 import { TEXTS, getShellLanguage } from "../../i18n/texts.js";
@@ -1351,7 +1351,7 @@ async function validateAndUpdateUserWord(state) {
   try {
     result = await validateWordLayered(word, {
       language,
-      layers: ["local", "ai"],
+      layers: LAYER_PRESETS.training,
     });
   } catch (err) {
     logger.warn("[training] dictionary validation failed", err);

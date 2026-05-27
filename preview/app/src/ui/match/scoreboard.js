@@ -1,4 +1,5 @@
 import { matchController, validateWordRemote } from "../../core/matchController.js";
+import { validateWordDebug, LAYER_PRESETS } from "../../core/wordValidator.js";
 import {
   loadActiveMatch,
   saveActiveMatch,
@@ -6650,6 +6651,7 @@ function createValidationSection(mountId, key) {
   }
   if (refs.validateBtn) {
     refs.validateBtn.addEventListener("click", () => handleValidateSection(key));
+    attachValidatorDebugLongPress(refs.validateBtn, refs);
   }
   if (refs.rulesBtn) {
     refs.rulesBtn.addEventListener("click", () => openRulesModal());
@@ -7898,6 +7900,164 @@ export function setupMatchEventListeners() {
       default: break;
     }
   });
+}
+
+// ─── Validator debug inspector ───────────────────────────────────────────────
+// Long-press on the "validate" button (in the help screen's validator widget,
+// or any other validation section) opens a modal that lets you select which
+// engines to run and shows the verdict from each independently.
+//
+// Selection is persisted in localStorage; on localhost development the
+// inspector starts with all three engines enabled by default.
+
+const VALIDATOR_DEBUG_STORAGE_KEY = "ll-validator-debug-layers";
+let validatorDebugSourceRefs = null; // refs of the validation section that opened the modal
+
+function isLocalDevHost() {
+  if (typeof location === "undefined") return false;
+  return location.hostname === "localhost" || location.hostname === "127.0.0.1";
+}
+
+function getValidatorDebugLayers() {
+  try {
+    const raw = localStorage.getItem(VALIDATOR_DEBUG_STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return isLocalDevHost()
+    ? LAYER_PRESETS.debug
+    : LAYER_PRESETS.match;
+}
+
+function setValidatorDebugLayers(layers) {
+  try { localStorage.setItem(VALIDATOR_DEBUG_STORAGE_KEY, JSON.stringify(layers)); } catch {}
+}
+
+function attachValidatorDebugLongPress(btn, refs) {
+  let timer = null;
+  let firedLongPress = false;
+  const start = (ev) => {
+    firedLongPress = false;
+    clearTimeout(timer);
+    try { btn.setPointerCapture(ev.pointerId); } catch {}
+    timer = setTimeout(() => {
+      timer = null;
+      firedLongPress = true;
+      openValidatorDebugModal(refs);
+    }, 700);
+  };
+  const cancel = () => {
+    if (timer) { clearTimeout(timer); timer = null; }
+  };
+  btn.addEventListener("pointerdown", start);
+  btn.addEventListener("pointerup", cancel);
+  btn.addEventListener("pointercancel", cancel);
+  // Note: do NOT listen on pointerleave — mobile browsers often fire it while
+  // the finger is still pressed if it drifts a few px outside the bounding box.
+  // The click handler is suppressed when the long-press fired.
+  btn.addEventListener("click", (ev) => {
+    if (firedLongPress) {
+      ev.stopImmediatePropagation();
+      ev.preventDefault();
+      firedLongPress = false;
+    }
+  }, true); // capture phase so we run before the validation click handler
+}
+
+let validatorDebugWired = false;
+function ensureValidatorDebugWired() {
+  if (validatorDebugWired) return;
+  const btn = document.getElementById("validatorDebugRunBtn");
+  if (btn) {
+    btn.addEventListener("click", runValidatorDebug);
+    validatorDebugWired = true;
+  }
+}
+
+function openValidatorDebugModal(refs) {
+  validatorDebugSourceRefs = refs;
+  ensureValidatorDebugWired();
+  const layers = getValidatorDebugLayers();
+  const cbLocal  = document.getElementById("validatorDebugLocal");
+  const cbPublic = document.getElementById("validatorDebugPublic");
+  const cbAi     = document.getElementById("validatorDebugAi");
+  if (cbLocal)  cbLocal.checked  = layers.includes("local");
+  if (cbPublic) cbPublic.checked = layers.includes("public");
+  if (cbAi)     cbAi.checked     = layers.includes("ai");
+  const results = document.getElementById("validatorDebugResults");
+  if (results) results.innerHTML = '<div class="hint-empty">Pulsa "Probar" para ejecutar los motores seleccionados.</div>';
+  openModal("validator-debug", { closable: true });
+}
+
+async function runValidatorDebug() {
+  if (!validatorDebugSourceRefs) return;
+  const input = validatorDebugSourceRefs.input;
+  const word = (input?.value || "").trim();
+  const results = document.getElementById("validatorDebugResults");
+  if (!word) {
+    if (results) results.innerHTML = '<div class="hint-empty">Escribe una palabra en el campo y vuelve a abrir el inspector.</div>';
+    return;
+  }
+  const cbLocal  = document.getElementById("validatorDebugLocal");
+  const cbPublic = document.getElementById("validatorDebugPublic");
+  const cbAi     = document.getElementById("validatorDebugAi");
+  const layers = [];
+  if (cbLocal?.checked)  layers.push("local");
+  if (cbPublic?.checked) layers.push("public");
+  if (cbAi?.checked)     layers.push("ai");
+  if (layers.length === 0) {
+    if (results) results.innerHTML = '<div class="hint-empty">Selecciona al menos un motor.</div>';
+    return;
+  }
+  setValidatorDebugLayers(layers);
+
+  const language = matchController.getState()?.language || "es";
+  const rulesText = typeof getValidationRules === "function" ? getValidationRules() : "";
+
+  if (results) results.innerHTML = '<div class="hint-empty">Consultando motores…</div>';
+  let out;
+  try {
+    out = await validateWordDebug(word, {
+      language,
+      layers,
+      aiContext: { customRules: rulesText },
+    });
+  } catch (err) {
+    if (results) results.innerHTML = `<div class="hint-empty">Error: ${err?.message || err}</div>`;
+    return;
+  }
+  renderValidatorDebugResults(word, out);
+}
+
+function renderValidatorDebugResults(word, out) {
+  const root = document.getElementById("validatorDebugResults");
+  if (!root) return;
+  const ICONS = { accepted: "✓", rejected: "✗", unknown: "?", skipped: "—" };
+  const COLORS = {
+    accepted: "#1e7f34",
+    rejected: "#992d22",
+    unknown:  "#7a6020",
+    skipped:  "#666",
+  };
+  const rows = out.layers.map((r) => {
+    const icon = ICONS[r.result] || "?";
+    const color = COLORS[r.result] || "#666";
+    const extra = r.error ? ` <span style="opacity:0.7">(${escapeForHtml(r.error)})</span>` : "";
+    const ms = r.elapsedMs != null ? ` <span style="opacity:0.6">${r.elapsedMs}ms</span>` : "";
+    return `<li style="color:${color}"><b>${icon} ${r.layer}</b>: ${r.result}${extra}${ms}</li>`;
+  }).join("");
+  root.innerHTML = `
+    <div style="margin-bottom:6px;font-family:var(--font-heading);font-weight:700;color:#2f1b12;">
+      <span style="text-transform:uppercase;letter-spacing:0.5px;">${escapeForHtml(word)}</span>
+      <span style="opacity:0.6;font-size:11px;margin-left:6px;">[${out.language}]</span>
+    </div>
+    <ul style="list-style:none;padding:0;margin:0;font-family:var(--font-heading);font-size:14px;line-height:1.7;">${rows}</ul>
+  `;
+}
+
+function escapeForHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  }[c]));
 }
 
 export {

@@ -1079,6 +1079,27 @@
         </div>
       </div>
     </div>
+    <div class="modal-overlay" data-modal="validator-debug" data-closable="1">
+      <div class="frame-panel">
+        <div class="modal-stitch"></div>
+        <div class="modal-ribbon"><span class="title-primary">DEPURAR VALIDACIÓN</span></div>
+        <button class="modal-close" data-modal-close="validator-debug" aria-label="Close"></button>
+        <div class="modal-canvas">
+          <div class="modal-content">
+            <div class="validator-debug-engines">
+              <label><input type="checkbox" id="validatorDebugLocal" /> Diccionario local</label>
+              <label><input type="checkbox" id="validatorDebugPublic" /> API pública (RAE / dictionaryapi)</label>
+              <label><input type="checkbox" id="validatorDebugAi" /> IA (worker)</label>
+            </div>
+            <div class="validator-debug-results" id="validatorDebugResults"></div>
+            <div class="settings-actions">
+              <button class="game-btn ghost" type="button" data-modal-close="validator-debug">Cerrar</button>
+              <button class="game-btn primary" type="button" id="validatorDebugRunBtn">Probar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
     <div class="modal-overlay" data-modal="validation-result" data-closable="1">
       <div class="frame-panel result-panel">
         <div class="modal-stitch"></div>

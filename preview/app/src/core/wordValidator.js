@@ -28,10 +28,79 @@
 const DICT_BASE_PATH = "assets/dict";
 const dictCache = new Map(); // lang -> { set: Set<string>, ready: Promise }
 
+// Centralised layer presets, picked by call-site context. Change them here to
+// adjust validator behaviour globally without touching every caller.
+//   - training: local dictionary + Wiktionary (no AI → zero cost on practice
+//     mode, where players may submit many words per session).
+//   - match:    local dictionary + AI worker (AI is the authority during real
+//     multiplayer scoring, and rules of the manual exclude trademarks/brands
+//     that Wiktionary might let through).
+//   - debug:    everything, used only by the long-press inspector.
+export const LAYER_PRESETS = Object.freeze({
+  training: ["local", "public"],
+  match:    ["local", "ai"],
+  debug:    ["local", "public", "ai"],
+});
+
 // Public API endpoints per language.
+//   check(word) → fetches the endpoint and returns one of
+//                 "accepted" | "rejected" | "unknown".
+//
+// We use Wiktionary's MediaWiki API (NOT the REST API which blocks browsers):
+//   https://es.wiktionary.org/w/api.php?action=query&titles=WORD&format=json&origin=*
+// The "&origin=*" param activates CORS for browsers. The response always
+// returns HTTP 200; we determine existence by checking whether the page id
+// is positive (found) or -1 with a "missing" field (not found).
+//
+// Wiktionary covers BOTH languages with the same API shape and includes
+// inflected/conjugated forms (was, be, estaba, papá, corriendo, etc.).
+// License: content is CC-BY-SA/GFDL, commercial use permitted.
+
+// Wiktionary is case-sensitive AND accent-sensitive: "halito" ≠ "hálito".
+// To honour the asymmetric accent rule (user without accents accepts either
+// form), we do two queries when needed:
+//   1. exact title query — fast path.
+//   2. If user typed no accents and exact query is missing → opensearch
+//      (Wiktionary's autocomplete is accent-tolerant). Accept if any single-
+//      word suggestion matches the query once both are accent-stripped.
+async function wiktionaryCheck(word, langPrefix) {
+  if (!_fetch) return "unknown";
+  const baseUrl = `https://${langPrefix}.wiktionary.org/w/api.php`;
+
+  // 1. Exact title query.
+  const url1 = `${baseUrl}?action=query&titles=${encodeURIComponent(word)}&format=json&origin=*`;
+  const r1 = await _fetch(url1, { cache: "no-store" });
+  if (!r1.ok) return "unknown";
+  const d1 = await r1.json();
+  const pages = d1?.query?.pages;
+  if (pages && typeof pages === "object") {
+    for (const key of Object.keys(pages)) {
+      if (key !== "-1" && !("missing" in (pages[key] || {}))) return "accepted";
+    }
+  }
+
+  // If user typed accents → exact match is required by rule.
+  if (hasAccentChar(word)) return "rejected";
+
+  // 2. User typed no accents → ask opensearch for accent-tolerant suggestions.
+  const url2 = `${baseUrl}?action=opensearch&search=${encodeURIComponent(word)}&limit=10&format=json&origin=*`;
+  const r2 = await _fetch(url2, { cache: "no-store" });
+  if (!r2.ok) return "unknown";
+  const d2 = await r2.json();
+  const titles = Array.isArray(d2) ? d2[1] : null;
+  if (!Array.isArray(titles)) return "unknown";
+  const normQuery = normalizeForLookup(word);
+  for (const t of titles) {
+    if (typeof t !== "string") continue;
+    if (t.includes(" ")) continue; // skip multi-word locutions
+    if (normalizeForLookup(t) === normQuery) return "accepted";
+  }
+  return "rejected";
+}
+
 const PUBLIC_ENDPOINTS = {
-  es: (word) => `https://rae-api.com/api/words/${encodeURIComponent(word.toLowerCase())}`,
-  en: (word) => `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word.toLowerCase())}`,
+  es: { check: (word) => wiktionaryCheck(word, "es") },
+  en: { check: (word) => wiktionaryCheck(word, "en") },
 };
 
 // Injected by the host app (e.g. main.js) so this module does not import the
@@ -57,16 +126,37 @@ export function setFetchImpl(fn) {
 
 // ─── Local dictionary loading ───────────────────────────────────────────────
 
+// Normalise for accent-insensitive lookup: lowercase + strip accents from
+// vowels, keep ñ. "Hálito" → "halito", "vergüenza" → "verguenza", "España"
+// stays "españa". Used for the asymmetric lookup rule:
+//   - user typed WITH accents  → exact match only against the original set
+//   - user typed WITHOUT accents → match against the normalised set
+function normalizeForLookup(word) {
+  return (word || "")
+    .toLowerCase()
+    .replace(/[áàâä]/g, "a")
+    .replace(/[éèêë]/g, "e")
+    .replace(/[íìîï]/g, "i")
+    .replace(/[óòôö]/g, "o")
+    .replace(/[úùûü]/g, "u");
+}
+
+function hasAccentChar(word) {
+  return /[áéíóúüàèìòùâêîôûäëïö]/i.test(word);
+}
+
 async function loadLocalDict(lang) {
   if (dictCache.has(lang)) return dictCache.get(lang).ready;
-  const entry = { set: null, ready: null };
+  const entry = { exact: null, normalized: null, ready: null };
   entry.ready = (async () => {
     if (!_fetch) throw new Error("No fetch implementation");
     const res = await _fetch(`${DICT_BASE_PATH}/${lang}.txt`, { cache: "force-cache" });
     if (!res.ok) throw new Error(`HTTP ${res.status} loading ${lang} dict`);
     const text = await res.text();
-    entry.set = new Set(text.split("\n").map((w) => w.trim().toLowerCase()).filter(Boolean));
-    return entry.set;
+    const lines = text.split("\n").map((w) => w.trim().toLowerCase()).filter(Boolean);
+    entry.exact = new Set(lines);
+    entry.normalized = new Set(lines.map(normalizeForLookup));
+    return entry;
   })();
   dictCache.set(lang, entry);
   return entry.ready;
@@ -81,8 +171,16 @@ export function _resetCache() {
 
 async function tryLocal(word, lang) {
   try {
-    const set = await loadLocalDict(lang);
-    if (set.has(word.toLowerCase())) return { result: "accepted", source: "local" };
+    const { exact, normalized } = await loadLocalDict(lang);
+    const lower = word.toLowerCase();
+    if (hasAccentChar(lower)) {
+      // User wrote accents → require an exact match against the dictionary.
+      if (exact.has(lower)) return { result: "accepted", source: "local" };
+    } else {
+      // No accents typed → accept any dictionary entry whose accent-less form
+      // matches (so "halito" finds "hálito", "PAPA" finds "papá" or "papa").
+      if (normalized.has(lower)) return { result: "accepted", source: "local" };
+    }
     return { result: "unknown", source: "local" };
   } catch (err) {
     return { result: "unknown", source: "local", error: err.message };
@@ -90,15 +188,13 @@ async function tryLocal(word, lang) {
 }
 
 async function tryPublic(word, lang) {
-  const builder = PUBLIC_ENDPOINTS[lang];
-  if (!builder) return { result: "unknown", source: "public", error: "no endpoint" };
+  const endpoint = PUBLIC_ENDPOINTS[lang];
+  if (!endpoint) return { result: "unknown", source: "public", error: "no endpoint" };
   if (!_fetch) return { result: "unknown", source: "public", error: "no fetch" };
   if (!isOnline()) return { result: "unknown", source: "public", error: "offline" };
   try {
-    const res = await _fetch(builder(word), { cache: "no-store" });
-    if (res.status === 200) return { result: "accepted", source: "public" };
-    if (res.status === 404) return { result: "rejected", source: "public" };
-    return { result: "unknown", source: "public", error: `HTTP ${res.status}` };
+    const result = await endpoint.check(word);
+    return { result, source: "public" };
   } catch (err) {
     return { result: "unknown", source: "public", error: err.message };
   }
@@ -167,6 +263,30 @@ export async function validateWord(word, opts = {}) {
 
   // All layers returned unknown → conservatively reject.
   return { valid: false, source: "none", elapsedMs: Date.now() - start, traces };
+}
+
+/**
+ * Debug variant: run every requested layer independently and return the per-
+ * layer outcome without short-circuiting. Useful for the dev/help inspector
+ * where you want to see what each engine says about the same word.
+ *
+ * @returns {Promise<{ language, layers: Array<{ layer, result, source, error, elapsedMs }> }>}
+ */
+export async function validateWordDebug(word, opts = {}) {
+  const { language = "es", layers = ["local", "public", "ai"], aiContext = null } = opts;
+  if (!word || typeof word !== "string") {
+    return { language, layers: layers.map((l) => ({ layer: l, result: "skipped", error: "empty" })) };
+  }
+  const runs = await Promise.all(
+    layers.map(async (layerName) => {
+      const layer = LAYERS[layerName];
+      if (!layer) return { layer: layerName, result: "skipped", error: "unknown layer" };
+      const t0 = Date.now();
+      const out = await layer(word, language, aiContext);
+      return { layer: layerName, ...out, elapsedMs: Date.now() - t0 };
+    }),
+  );
+  return { language, layers: runs };
 }
 
 // Exported for tests / advanced usage.

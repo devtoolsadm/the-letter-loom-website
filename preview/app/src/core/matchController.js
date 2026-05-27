@@ -16,7 +16,7 @@ import {
 import { loadState, updateState } from "./stateStore.js";
 import { logger } from "./logger.js";
 import { workerFetch } from "../lib/worker.js";
-import { validateWord as validateWordLayered, setAiValidator } from "./wordValidator.js";
+import { validateWord as validateWordLayered, setAiValidator, LAYER_PRESETS } from "./wordValidator.js";
 
 // Wire the AI layer of the multi-layer validator to use the existing remote
 // worker endpoint. Local dictionary is tried first (instant), then AI fallback.
@@ -469,7 +469,7 @@ class MatchController {
       // (proper nouns, neologisms, technical terms) still go to AI.
       const out = await validateWordLayered(word, {
         language,
-        layers: ["local", "ai"],
+        layers: LAYER_PRESETS.match,
         aiContext: { customRules: rulesToUse },
       });
       // Build a result shape compatible with existing callers (isValid, reason).

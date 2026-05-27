@@ -29,6 +29,18 @@ const DICT_BASE_PATH = "assets/dict";
 const dictCache = new Map(); // lang -> { words: string[], ready: Promise }
 
 const VOWEL_RE = /[aeiouáéíóúü]/i;
+const ACCENTED_RE = /[áéíóúüÁÉÍÓÚÜ]/;
+
+function hasAccentedChar(word) { return ACCENTED_RE.test(word); }
+
+function stripAccents(word) {
+  return word
+    .replace(/[áÁ]/g, (c) => c === "á" ? "a" : "A")
+    .replace(/[éÉ]/g, (c) => c === "é" ? "e" : "E")
+    .replace(/[íÍ]/g, (c) => c === "í" ? "i" : "I")
+    .replace(/[óÓ]/g, (c) => c === "ó" ? "o" : "O")
+    .replace(/[úüÚÜ]/g, (c) => (c === "ú" || c === "ü") ? "u" : "U");
+}
 
 // Default scan limits per difficulty profile.
 const SCAN_LIMITS = {
@@ -369,7 +381,19 @@ export async function findHints(state, options = {}) {
   for (let i = 0; i < limit; i++) {
     const word = dict[i].toUpperCase();
     if (!preFilter(word, ctx)) continue;
-    const composition = tryComposeWord(word, ctx);
+    // First try the exact word (with whatever accents the dictionary has).
+    let composition = tryComposeWord(word, ctx);
+    // If the user can't form the accented version but the word is real, also
+    // accept the non-accented form (rule: real dictionary word counts, even
+    // if the player can't or doesn't include the accent).
+    if (!composition && hasAccentedChar(word)) {
+      const stripped = stripAccents(word);
+      // Re-check pre-filter against the stripped form: philologist requires
+      // a tilde, so the stripped form would not pass that check.
+      if (preFilter(stripped, ctx)) {
+        composition = tryComposeWord(stripped, ctx);
+      }
+    }
     if (!composition) continue;
     found.push({ ...composition, _rank: i });
     // For easy/normal we can early-exit once we have enough candidates of
