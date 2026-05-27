@@ -32,6 +32,7 @@ import {
 } from "../../core/trainingMatch.js";
 import { ACTION_CARDS, TRAINING_DIFFICULTIES, TRAINING_DIFFICULTY_PRESETS } from "../../core/constants.js";
 import { findHints } from "../../core/hintSolver.js";
+import { validateWord as validateWordLayered } from "../../core/wordValidator.js";
 import { updateState, loadState } from "../../core/stateStore.js";
 import { logger } from "../../core/logger.js";
 import { TEXTS, getShellLanguage } from "../../i18n/texts.js";
@@ -92,7 +93,6 @@ let trainingTimerInterval = null;
 let trainingClockPhase = null;
 let debugMode = false;
 let lastFlashedPhase = null;
-let wordDragFromIndex = null;
 let userTurnTimerInterval = null;
 let userTurnRemainingMs = 0;
 let attackBannerTimeout = null;
@@ -140,17 +140,58 @@ function setupTrainingDebugToggle() {
   }
 }
 
-// Hint button visibility — always shown in PRACTICAR (words); in other modes
-// it stays hidden until the user long-presses the phase pill.
+// Hint button visibility:
+//   - PRACTICAR (words): hidden during creation phase, auto-reveals after
+//     PRACTICE_HINT_DELAY_MS of idle thinking (no validation submitted yet).
+//   - Other modes: hidden until the user long-presses the phase pill.
+const PRACTICE_HINT_DELAY_MS = 46_000;
 let hintRevealedByLongPress = false;
+let practiceHintTimer = null;
+let practiceHintRevealed = false;
+let practiceHintKey = null;
+
+function resetPracticeHintTimer() {
+  if (practiceHintTimer) {
+    clearTimeout(practiceHintTimer);
+    practiceHintTimer = null;
+  }
+  practiceHintRevealed = false;
+  practiceHintKey = null;
+}
 
 function updateHintButtonVisibility() {
   const btn = document.getElementById("trainingHintBtn");
   if (!btn) return;
   const state = getTrainingMatch();
   const isPractice = state?.difficulty === "words";
-  const show = isPractice || hintRevealedByLongPress;
-  btn.classList.toggle("hidden", !show);
+  const inCreation = state?.phase === "creation";
+
+  if (isPractice) {
+    if (inCreation) {
+      // First time we see this (round, phase) → start the 46s reveal timer.
+      const key = `${state.round}-${state.phase}`;
+      if (key !== practiceHintKey) {
+        practiceHintKey = key;
+        practiceHintRevealed = false;
+        if (practiceHintTimer) clearTimeout(practiceHintTimer);
+        practiceHintTimer = setTimeout(() => {
+          practiceHintRevealed = true;
+          practiceHintTimer = null;
+          const b = document.getElementById("trainingHintBtn");
+          if (b) b.classList.remove("hidden");
+        }, PRACTICE_HINT_DELAY_MS);
+      }
+      btn.classList.toggle("hidden", !practiceHintRevealed);
+    } else {
+      // Left creation phase (validated, next baza, etc.) → reset for next round.
+      resetPracticeHintTimer();
+      btn.classList.add("hidden");
+    }
+    return;
+  }
+
+  // Non-practice modes: visibility driven solely by long-press toggle.
+  btn.classList.toggle("hidden", !hintRevealedByLongPress);
 }
 
 function renderTrainingSetup() {
@@ -806,13 +847,8 @@ function renderTrainingWordStrip(state) {
     if (!card) return;
     const wrapper = document.createElement("div");
     wrapper.className = "training-word-slot";
-    wrapper.draggable = true;
     wrapper.dataset.index = String(idx);
-    wrapper.addEventListener("dragstart", handleWordDragStart);
-    wrapper.addEventListener("dragover", handleWordDragOver);
-    wrapper.addEventListener("dragleave", handleWordDragLeave);
-    wrapper.addEventListener("drop", handleWordDrop);
-    wrapper.addEventListener("dragend", handleWordDragEnd);
+    wrapper.addEventListener("pointerdown", handleWordSlotPointerDown);
 
     // Render the underlying card with chosen letter (wildcards) or tilded
     // form (when the tilde toggle is active for a tilde-capable card).
@@ -830,6 +866,7 @@ function renderTrainingWordStrip(state) {
     cardEl.classList.add("is-tappable");
     cardEl.addEventListener("click", (ev) => {
       ev.stopPropagation();
+      if (suppressNextWordSlotClick) return;
       handleWordSlotTap(slot.cardId);
     });
     wrapper.appendChild(cardEl);
@@ -863,36 +900,129 @@ function handleWordSlotToggleTilde(cardId) {
   renderTrainingMatch();
 }
 
-function handleWordDragStart(ev) {
-  wordDragFromIndex = Number(ev.currentTarget.dataset.index);
-  ev.currentTarget.classList.add("is-dragging");
-  if (ev.dataTransfer) {
-    ev.dataTransfer.effectAllowed = "move";
-    ev.dataTransfer.setData("text/plain", String(wordDragFromIndex));
+// ── Word slot reordering (Pointer Events) ───────────────────────────────────
+// HTML5 native drag-and-drop is broken on iOS Safari (renders a black ghost
+// and is hard to drop accurately). Pointer Events work uniformly across
+// desktop, iOS, and Android — we manage the ghost element ourselves and do
+// hit-testing with document.elementFromPoint.
+const DRAG_THRESHOLD_PX = 6;
+let wordDragState = null;
+let suppressNextWordSlotClick = false;
+
+function handleWordSlotPointerDown(ev) {
+  if (ev.button !== undefined && ev.button !== 0) return;
+  const wrapper = ev.currentTarget;
+  wordDragState = {
+    wrapper,
+    fromIndex: Number(wrapper.dataset.index),
+    startX: ev.clientX,
+    startY: ev.clientY,
+    pointerId: ev.pointerId,
+    dragging: false,
+    ghost: null,
+  };
+  try { wrapper.setPointerCapture(ev.pointerId); } catch {}
+  document.addEventListener("pointermove", handleWordSlotPointerMove);
+  document.addEventListener("pointerup", handleWordSlotPointerUp);
+  document.addEventListener("pointercancel", handleWordSlotPointerUp);
+}
+
+function handleWordSlotPointerMove(ev) {
+  if (!wordDragState || wordDragState.pointerId !== ev.pointerId) return;
+  const dx = ev.clientX - wordDragState.startX;
+  const dy = ev.clientY - wordDragState.startY;
+
+  if (!wordDragState.dragging) {
+    if (Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return;
+    wordDragState.dragging = true;
+    const orig = wordDragState.wrapper;
+    const rect = orig.getBoundingClientRect();
+    const ghost = orig.cloneNode(true);
+    ghost.classList.add("training-word-ghost");
+    ghost.style.position = "fixed";
+    ghost.style.left = rect.left + "px";
+    ghost.style.top = rect.top + "px";
+    ghost.style.width = rect.width + "px";
+    ghost.style.height = rect.height + "px";
+    ghost.style.pointerEvents = "none";
+    ghost.style.zIndex = "9999";
+    ghost.style.transformOrigin = "center center";
+    document.body.appendChild(ghost);
+    wordDragState.ghost = ghost;
+    orig.classList.add("is-dragging");
   }
-}
-function handleWordDragOver(ev) {
+
+  if (wordDragState.ghost) {
+    wordDragState.ghost.style.transform = `translate3d(${dx}px, ${dy}px, 0) scale(1.12)`;
+  }
+  document.querySelectorAll(".training-word-slot.is-drop-target")
+    .forEach((el) => el.classList.remove("is-drop-target"));
+  const target = findWordSlotAt(ev.clientX, ev.clientY);
+  if (target && target !== wordDragState.wrapper) {
+    target.classList.add("is-drop-target");
+  }
+  // Prevent the page from scrolling under the finger.
   ev.preventDefault();
-  if (ev.dataTransfer) ev.dataTransfer.dropEffect = "move";
-  ev.currentTarget.classList.add("is-drop-target");
 }
-function handleWordDragLeave(ev) {
-  ev.currentTarget.classList.remove("is-drop-target");
+
+function handleWordSlotPointerUp(ev) {
+  if (!wordDragState || wordDragState.pointerId !== ev.pointerId) return;
+  const orig = wordDragState.wrapper;
+  const wasDragging = wordDragState.dragging;
+  let didReorder = false;
+
+  if (wasDragging) {
+    const target = findWordSlotAt(ev.clientX, ev.clientY);
+    if (target && target !== orig) {
+      const toIdx = Number(target.dataset.index);
+      const state = getTrainingMatch();
+      if (state && !Number.isNaN(toIdx) && toIdx !== wordDragState.fromIndex) {
+        reorderWord(state, wordDragState.fromIndex, toIdx);
+        didReorder = true;
+      }
+    }
+  }
+
+  document.querySelectorAll(".training-word-slot.is-drop-target")
+    .forEach((el) => el.classList.remove("is-drop-target"));
+  if (wordDragState.ghost) wordDragState.ghost.remove();
+  orig.classList.remove("is-dragging");
+  try { orig.releasePointerCapture(wordDragState.pointerId); } catch {}
+  document.removeEventListener("pointermove", handleWordSlotPointerMove);
+  document.removeEventListener("pointerup", handleWordSlotPointerUp);
+  document.removeEventListener("pointercancel", handleWordSlotPointerUp);
+  wordDragState = null;
+
+  if (wasDragging) {
+    // Stop the synthetic click that would fire on the inner card (which would
+    // otherwise remove the slot from the word).
+    suppressNextWordSlotClick = true;
+    setTimeout(() => { suppressNextWordSlotClick = false; }, 350);
+  }
+  if (didReorder) renderTrainingMatch();
 }
-function handleWordDrop(ev) {
-  ev.preventDefault();
-  ev.currentTarget.classList.remove("is-drop-target");
-  const toIdx = Number(ev.currentTarget.dataset.index);
-  const fromIdx = wordDragFromIndex;
-  if (fromIdx == null || fromIdx === toIdx) return;
-  const state = getTrainingMatch();
-  if (!state) return;
-  reorderWord(state, fromIdx, toIdx);
-  renderTrainingMatch();
-}
-function handleWordDragEnd(ev) {
-  ev.currentTarget.classList.remove("is-dragging");
-  wordDragFromIndex = null;
+
+function findWordSlotAt(x, y) {
+  const el = document.elementFromPoint(x, y);
+  const direct = el ? el.closest(".training-word-slot") : null;
+  if (direct) return direct;
+
+  // Edge fallback: if the pointer is to the left of the first slot or to the
+  // right of the last slot (within the word-strip's vertical band), treat it
+  // as a drop on the corresponding edge slot.
+  const stripCards = document.getElementById("trainingWordStripCards");
+  if (!stripCards) return null;
+  const slots = stripCards.querySelectorAll(".training-word-slot");
+  if (slots.length === 0) return null;
+  const stripRect = stripCards.getBoundingClientRect();
+  // Vertical tolerance so the user doesn't have to drag pixel-perfect.
+  const vTolerance = 24;
+  if (y < stripRect.top - vTolerance || y > stripRect.bottom + vTolerance) return null;
+  const first = slots[0];
+  const last = slots[slots.length - 1];
+  if (x < first.getBoundingClientRect().left) return first;
+  if (x > last.getBoundingClientRect().right) return last;
+  return null;
 }
 
 function renderDealPickerCard(slotIndex) {
@@ -972,27 +1102,36 @@ function renderTrainingResult(state) {
     const validityRow = document.createElement("div");
     validityRow.className = "training-result-validity";
     const badge = document.createElement("div");
-    badge.className = "training-result-badge " + (result.valid ? "is-valid" : "is-invalid");
-    badge.textContent = result.valid
-      ? (t("trainingResultValidWord") || "✓ Válida")
-      : (t("trainingResultInvalidWord") || "✗ No válida");
+    if (result.checking) {
+      badge.className = "training-result-badge is-checking";
+      badge.textContent = t("trainingResultChecking") || "⏳ Validando…";
+    } else {
+      badge.className = "training-result-badge " + (result.valid ? "is-valid" : "is-invalid");
+      badge.textContent = result.valid
+        ? (t("trainingResultValidWord") || "✓ Válida")
+        : (t("trainingResultInvalidWord") || "✗ No válida");
+    }
     validityRow.appendChild(badge);
     panel.appendChild(validityRow);
 
     const wordEl = document.createElement("div");
-    wordEl.className = "training-result-word" + (result.valid ? "" : " is-invalid");
+    wordEl.className = "training-result-word" + (!result.checking && !result.valid ? " is-invalid" : "");
     wordEl.textContent = result.word || "—";
     panel.appendChild(wordEl);
 
-    if (!result.valid && result.reason) {
+    if (!result.checking && !result.valid && result.reason) {
       const reasonEl = document.createElement("div");
       reasonEl.className = "training-result-reason";
       const reasonKey = {
-        too_short:     "trainingResultReasonTooShort",
-        missing_source: "trainingResultReasonSource",
-        forced_rule:   "trainingResultReasonForcedRule",
+        too_short:          "trainingResultReasonTooShort",
+        missing_source:     "trainingResultReasonSource",
+        forced_rule:        "trainingResultReasonForcedRule",
+        not_in_dictionary:  "trainingResultReasonNotInDictionary",
       }[result.reason];
-      reasonEl.textContent = (reasonKey ? t(reasonKey) : result.reason) || result.reason;
+      const fallback = result.reason === "not_in_dictionary"
+        ? "No existe en el diccionario"
+        : result.reason;
+      reasonEl.textContent = (reasonKey ? t(reasonKey) : fallback) || fallback;
       panel.appendChild(reasonEl);
     }
   }
@@ -1182,10 +1321,98 @@ function finishTrainingTimer() {
     stopTrainingTimer();
     trainingClockPhase = null;
     _shell.stopClockLoop(false);
-    finalizeUserWord(state, getShellLanguage());
+    const finalized = finalizeUserWord(state, getShellLanguage());
+    renderTrainingMatch();
+    if (finalized.userWordResult?.valid && finalized.userWordResult?.word) {
+      validateAndUpdateUserWord(finalized);
+    }
+    return;
+  }
+}
+
+// Async word-existence validation. Runs AFTER finalizeUserWord (which only
+// checks structural rules). If the word doesn't exist in the dictionary (and
+// AI also rejects it), we revert the user's score for the round to 0 and
+// mark the result as invalid. Network-dependent; rendered as "validando…"
+// while in flight.
+async function validateAndUpdateUserWord(state) {
+  const word = state.userWordResult?.word;
+  if (!word) return;
+  const language = getShellLanguage();
+  // Mark as "checking" so the UI can show a transient state.
+  const checking = {
+    ...state,
+    userWordResult: { ...state.userWordResult, checking: true },
+  };
+  saveTrainingMatch(checking);
+  renderTrainingMatch();
+
+  let result;
+  try {
+    result = await validateWordLayered(word, {
+      language,
+      layers: ["local", "ai"],
+    });
+  } catch (err) {
+    logger.warn("[training] dictionary validation failed", err);
+    // On error, leave the structural verdict intact (don't penalise).
+    const current = getTrainingMatch();
+    if (!current?.userWordResult) return;
+    const cleared = {
+      ...current,
+      userWordResult: { ...current.userWordResult, checking: false },
+    };
+    saveTrainingMatch(cleared);
     renderTrainingMatch();
     return;
   }
+
+  const current = getTrainingMatch();
+  if (!current?.userWordResult) return;
+  // If the word changed between submit and validation (next baza already
+  // started), abort the update.
+  if (current.userWordResult.word !== word) return;
+
+  if (result.valid) {
+    // Dictionary confirmed; clear the checking flag.
+    const cleared = {
+      ...current,
+      userWordResult: {
+        ...current.userWordResult,
+        checking: false,
+        validationSource: result.source,
+      },
+    };
+    saveTrainingMatch(cleared);
+    renderTrainingMatch();
+    return;
+  }
+
+  // Word doesn't exist → invalidate and revert the user's score.
+  const userId = current.players[0].id;
+  const previousScore = current.userWordResult.score ?? 0;
+  const newPlayers = current.players.map((p) => {
+    if (p.id !== userId) return p;
+    const rounds = (p.rounds ?? []).slice();
+    if (rounds.length > 0) {
+      rounds[rounds.length - 1] = { ...rounds[rounds.length - 1], points: 0 };
+    }
+    return { ...p, rounds, score: Math.max(0, (p.score ?? 0) - previousScore) };
+  });
+  const updated = {
+    ...current,
+    players: newPlayers,
+    userWordResult: {
+      ...current.userWordResult,
+      valid: false,
+      reason: "not_in_dictionary",
+      score: 0,
+      checking: false,
+      validationSource: result.source,
+    },
+  };
+  saveTrainingMatch(updated);
+  renderTrainingMatch();
 }
 
 // ── Actions phase driver ───────────────────────────────────
@@ -2293,6 +2520,10 @@ function ensureTrainingTimer() {
       next = tickCreationTimer(current);
       if (current.phase === "creation" && next.phase === "result") {
         next = finalizeUserWord(current, getShellLanguage());
+        if (next.userWordResult?.valid && next.userWordResult?.word) {
+          // Fire-and-forget; updates UI when the dictionary verdict returns.
+          validateAndUpdateUserWord(next);
+        }
       }
     }
     if (next.phase !== current.phase) {

@@ -3421,8 +3421,29 @@ body.splash-ready #splashLoadingBlock {
   aspect-ratio: 1;
   max-width: 68px;
   container-type: inline-size;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+.training-word-slot.is-dragging {
+  opacity: 0.35;
+}
+.training-word-slot.is-drop-target {
+  outline: 3px dashed #f7b500;
+  outline-offset: 2px;
+  border-radius: 11px;
 }
 .training-word-slot .tcard {
+  width: 100%;
+  height: 100%;
+  border-radius: 11px;
+}
+.training-word-ghost {
+  filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.35));
+  transition: none;
+}
+.training-word-ghost .tcard {
   width: 100%;
   height: 100%;
   border-radius: 11px;
@@ -8808,6 +8829,13 @@ body.splash-ready #splashLoadingBlock {
   color: #ffd5d5;
   border: 1.5px solid #c0392b;
   box-shadow: 0 2px 8px rgba(192, 57, 43, 0.4);
+}
+
+.training-result-badge.is-checking {
+  background: linear-gradient(135deg, #4a4a8a, #6868c0);
+  color: #e9ecff;
+  border: 1.5px solid #6868c0;
+  box-shadow: 0 2px 8px rgba(104, 104, 192, 0.4);
 }
 
 .training-result-word {
