@@ -25,6 +25,8 @@
  *   - Multiplayer (authoritative): layers: ["ai"]
  */
 
+import { decodeDict } from "./dictCodec.js";
+
 const DICT_BASE_PATH = "assets/dict";
 const dictCache = new Map(); // lang -> { set: Set<string>, ready: Promise }
 
@@ -37,7 +39,7 @@ const dictCache = new Map(); // lang -> { set: Set<string>, ready: Promise }
 //     that Wiktionary might let through).
 //   - debug:    everything, used only by the long-press inspector.
 export const LAYER_PRESETS = Object.freeze({
-  training: ["local", "public"],
+  training: ["local"],
   match:    ["local", "ai"],
   debug:    ["local", "public", "ai"],
 });
@@ -150,9 +152,10 @@ async function loadLocalDict(lang) {
   const entry = { exact: null, normalized: null, ready: null };
   entry.ready = (async () => {
     if (!_fetch) throw new Error("No fetch implementation");
-    const res = await _fetch(`${DICT_BASE_PATH}/${lang}.txt`, { cache: "force-cache" });
+    const res = await _fetch(`${DICT_BASE_PATH}/${lang}.bin`, { cache: "force-cache" });
     if (!res.ok) throw new Error(`HTTP ${res.status} loading ${lang} dict`);
-    const text = await res.text();
+    const buf = await res.arrayBuffer();
+    const text = await decodeDict(buf);
     const lines = text.split("\n").map((w) => w.trim().toLowerCase()).filter(Boolean);
     entry.exact = new Set(lines);
     entry.normalized = new Set(lines.map(normalizeForLookup));

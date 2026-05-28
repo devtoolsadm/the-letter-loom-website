@@ -24,6 +24,7 @@ import {
   hasTilde,
   containsLetter,
 } from "./wordRules.js";
+import { decodeDict } from "./dictCodec.js";
 
 const DICT_BASE_PATH = "assets/dict";
 const dictCache = new Map(); // lang -> { words: string[], ready: Promise }
@@ -55,9 +56,10 @@ async function loadDict(lang) {
   if (dictCache.has(lang)) return dictCache.get(lang).ready;
   const entry = { words: null, ready: null };
   entry.ready = (async () => {
-    const res = await fetch(`${DICT_BASE_PATH}/${lang}.txt`, { cache: "force-cache" });
+    const res = await fetch(`${DICT_BASE_PATH}/${lang}.bin`, { cache: "force-cache" });
     if (!res.ok) throw new Error(`Could not load dictionary for ${lang}: HTTP ${res.status}`);
-    const text = await res.text();
+    const buf = await res.arrayBuffer();
+    const text = await decodeDict(buf);
     entry.words = text.split("\n").filter(Boolean);
     return entry.words;
   })();

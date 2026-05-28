@@ -1085,10 +1085,24 @@ function renderTrainingResult(state) {
   const isResult = state.phase === "result";
   const isDone   = state.phase === "done";
   if (!isResult && !isDone) {
-    panel.classList.add("hidden");
+    closeModal("training-result");
     return;
   }
-  panel.classList.remove("hidden");
+  // Update title ribbon: "BAZA n/N" for per-baza result, end-of-match label
+  // for the done view.
+  const titleEl = document.getElementById("trainingResultTitle");
+  const totalRounds = state.roundsTarget ?? state.rounds ?? null;
+  if (titleEl) {
+    if (isDone) {
+      titleEl.textContent = t("trainingMatchDoneTitle") || "¡Fin del entrenamiento!";
+    } else {
+      const tpl = t("trainingBazaCount") || "Baza {round}{slash}{total}";
+      titleEl.textContent = totalRounds
+        ? tpl.replace("{round}", state.round).replace("{slash}", "/").replace("{total}", totalRounds)
+        : `Baza ${state.round}`;
+    }
+  }
+  openModal("training-result", { closable: false });
   panel.innerHTML = "";
 
   if (isDone) {
@@ -1173,8 +1187,8 @@ function renderTrainingResult(state) {
   actionsDiv.className = "training-result-actions";
   const nextBtn = document.createElement("button");
   nextBtn.type = "button";
-  nextBtn.className = "training-result-btn";
-  nextBtn.textContent = t("trainingNextBaza") || "Siguiente baza";
+  nextBtn.className = "game-btn primary";
+  nextBtn.textContent = t("trainingNextBaza") || "Siguiente";
   nextBtn.addEventListener("click", handleNextBaza);
   actionsDiv.appendChild(nextBtn);
   panel.appendChild(actionsDiv);
@@ -1203,15 +1217,8 @@ function renderTrainingDonePanel(panel, state) {
     saveTrainingStats(state);
   }
 
-  // Title
-  const title = document.createElement("div");
-  title.className = "training-result-done-title";
-  title.textContent = t("trainingMatchDoneTitle") || "¡Fin del entrenamiento!";
-  panel.appendChild(title);
-
-  // Win / lose / draw badge
+  // Win / lose / draw badge (title is already in the modal ribbon)
   const userId = state.players[0].id;
-  const userScore = state.players[0].score ?? 0;
   const maxScore = Math.max(...state.players.map((p) => p.score ?? 0));
   const winners = state.players.filter((p) => (p.score ?? 0) === maxScore);
   const userWon  = !state.players[0].isGhost && winners.some((p) => p.id === userId);
@@ -1234,16 +1241,19 @@ function renderTrainingDonePanel(panel, state) {
   // Final standings table (sorted by score desc)
   const sorted = state.players.slice().sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
   const table = document.createElement("table");
-  table.className = "training-result-table";
+  table.className = "training-result-table training-result-table-done";
   const thead = document.createElement("thead");
   const headerRow = document.createElement("tr");
-  ["#", t("trainingResultTotal") || "Total"].forEach((text, i) => {
-    const th = document.createElement("th");
-    th.textContent = text;
-    if (i === 1) th.className = "col-total";
-    else th.style.width = "24px";
-    headerRow.appendChild(th);
-  });
+  const thRank = document.createElement("th");
+  thRank.className = "col-rank";
+  thRank.textContent = "#";
+  const thName = document.createElement("th");
+  thName.className = "col-name";
+  thName.textContent = t("trainingResultPlayer") || "Jugador";
+  const thTotal = document.createElement("th");
+  thTotal.className = "col-total";
+  thTotal.textContent = t("trainingResultTotal") || "Total";
+  headerRow.append(thRank, thName, thTotal);
   thead.appendChild(headerRow);
   table.appendChild(thead);
   const tbody = document.createElement("tbody");
@@ -1252,11 +1262,12 @@ function renderTrainingDonePanel(panel, state) {
     if (idx > 0 && (sorted[idx - 1].score ?? 0) > (p.score ?? 0)) rank = idx + 1;
     const tr = document.createElement("tr");
     if (!p.isGhost) tr.classList.add("is-user");
+    if (rank === 1) tr.classList.add("is-top");
     const rankTd = document.createElement("td");
+    rankTd.className = "col-rank";
     rankTd.textContent = String(rank);
-    rankTd.style.color = rank === 1 ? "#ffe566" : "rgba(255,255,255,0.5)";
-    rankTd.style.width = "24px";
     const nameTd = document.createElement("td");
+    nameTd.className = "col-name";
     nameTd.textContent = p.name;
     const totalTd = document.createElement("td");
     totalTd.className = "col-total";
@@ -1271,7 +1282,7 @@ function renderTrainingDonePanel(panel, state) {
   actionsDiv.className = "training-result-actions";
   const playAgainBtn = document.createElement("button");
   playAgainBtn.type = "button";
-  playAgainBtn.className = "training-result-btn is-play-again";
+  playAgainBtn.className = "game-btn primary";
   playAgainBtn.textContent = t("trainingMatchPlayAgain") || "Jugar otra";
   playAgainBtn.addEventListener("click", handleTrainingPlayAgain);
   actionsDiv.appendChild(playAgainBtn);
@@ -1291,6 +1302,7 @@ function handleTrainingPlayAgain() {
   _shell.playClickFeedback();
   trainingClockPhase = null;
   _shell.stopClockLoop(false);
+  closeModal("training-result");
   clearTrainingMatch();
   _shell.showScreen("training-setup");
 }
@@ -1301,6 +1313,7 @@ function exitTrainingMatch() {
   stopUserTurnTimer();
   trainingClockPhase = null;
   _shell.stopClockLoop(false);
+  closeModal("training-result");
   clearTrainingMatch();
   _shell.showScreen("training-setup");
 }

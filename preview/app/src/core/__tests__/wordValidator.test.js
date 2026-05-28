@@ -5,6 +5,7 @@ import {
   setFetchImpl,
   _resetCache,
 } from "../wordValidator.js";
+import { encodeDict } from "../dictCodec.js";
 
 // ─── Test helpers ────────────────────────────────────────────────────────────
 
@@ -13,11 +14,20 @@ import {
 //   { "<word>": "found" } for exact-title hits, and
 //   { _open: { "<query>": ["title1","title2"] } } for opensearch suggestions.
 function makeFakeFetch({ dicts = {}, wiktionary = {} } = {}) {
+  // Pre-encode dictionaries so the fake fetch can serve them as the real
+  // wordValidator expects (binary, gzip+xor).
+  const encodedDicts = {};
   return async (url) => {
-    // Local dictionary file
-    for (const [lang, content] of Object.entries(dicts)) {
-      if (url.endsWith(`/${lang}.txt`)) {
-        return { ok: true, status: 200, text: async () => content };
+    // Local dictionary file (binary, encoded)
+    for (const lang of Object.keys(dicts)) {
+      if (url.endsWith(`/${lang}.bin`)) {
+        if (!encodedDicts[lang]) encodedDicts[lang] = await encodeDict(dicts[lang]);
+        const bytes = encodedDicts[lang];
+        return {
+          ok: true,
+          status: 200,
+          arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
+        };
       }
     }
     // Wiktionary — exact title

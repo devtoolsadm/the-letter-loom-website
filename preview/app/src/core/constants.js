@@ -165,11 +165,11 @@ export const GHOST_DEFAULT_LEVEL = "normal";
 // Full presets for the training modes (the only thing the user picks).
 // Adjust as we tune the game.
 export const TRAINING_DIFFICULTY_PRESETS = {
-  words:   { opponents: 0, strategySeconds: 0,  creationSeconds: 0,  roundsTarget: 6, ghostLevel: "easy", skipStrategy: true, skipActions: true, untimedCreation: true },
-  timeTrial: { opponents: 0, strategySeconds: 0,  creationSeconds: 60, roundsTarget: 6, ghostLevel: "easy", skipStrategy: true, skipActions: true },
-  easy:   { opponents: 2, strategySeconds: 30, creationSeconds: 60, roundsTarget: 6, ghostLevel: "easy"   },
-  normal: { opponents: 3, strategySeconds: 20, creationSeconds: 40, roundsTarget: 6, ghostLevel: "normal" },
-  hard:   { opponents: 4, strategySeconds: 10, creationSeconds: 30, roundsTarget: 6, ghostLevel: "hard"   },
+  words:   { opponents: 0, strategySeconds: 0,  creationSeconds: 0,  roundsTarget: 3, ghostLevel: "easy", skipStrategy: true, skipActions: true, untimedCreation: true },
+  timeTrial: { opponents: 0, strategySeconds: 0,  creationSeconds: 60, roundsTarget: 3, ghostLevel: "easy", skipStrategy: true, skipActions: true },
+  easy:   { opponents: 2, strategySeconds: 30, creationSeconds: 60, roundsTarget: 3, ghostLevel: "easy"   },
+  normal: { opponents: 3, strategySeconds: 20, creationSeconds: 40, roundsTarget: 3, ghostLevel: "normal" },
+  hard:   { opponents: 4, strategySeconds: 10, creationSeconds: 30, roundsTarget: 3, ghostLevel: "hard"   },
 };
 export const TRAINING_DIFFICULTIES = ["words", "timeTrial", "easy", "normal", "hard"];
 
