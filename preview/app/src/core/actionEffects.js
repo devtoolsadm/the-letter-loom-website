@@ -478,9 +478,11 @@ export function applyActionEffect(state, action, sourcePlayerId, targetPlayerId,
     case "use_consonant":
     case "use_letter": {
       // Forces every other player to include payload.letter in their word.
+      // Shielded players are excluded.
       let st = state;
       for (const pid of Object.keys(state.hands)) {
         if (pid === sourcePlayerId) continue;
+        if (isShielded(st, pid)) continue;
         st = addForcedRule(st, pid, action.actionId, sourcePlayerId, { letter: payload.letter, cardId: payload.cardId });
       }
       return st;
@@ -491,6 +493,7 @@ export function applyActionEffect(state, action, sourcePlayerId, targetPlayerId,
       return addForcedRule(state, targetPlayerId, action.actionId, sourcePlayerId, {});
 
     case "one_for_all": {
+      if (isShielded(state, targetPlayerId)) return state;
       const targetHand = ensureHand(state, targetPlayerId);
       const letters = targetHand.letters.filter(Boolean);
       if (letters.length === 0) return state;

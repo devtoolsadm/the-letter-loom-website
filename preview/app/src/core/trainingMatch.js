@@ -35,11 +35,16 @@ import {
 import { loadState, updateState } from "./stateStore.js";
 
 // Action ids that count as "attacks" blockable by ESCUDO TOTAL.
-// USE_VOWEL/CONSONANT/ANY_SAY are global rules and NOT blockable.
+// Per the manual ESCUDO TOTAL says "un ataque contra ti o contra todos no
+// te afectará en esta baza" — so global rule-forcing cards (use_vowel/
+// use_consonant/use_letter) are also blockable, since they affect every
+// other player.
 const SHIELDABLE_ATTACK_IDS = new Set([
   "steal_letter", "explosion", "out_one", "great_heist",
   "swap_all", "swap_one", "discard_one", "two_to_center",
   "philologist", "brain_squeeze",
+  "use_vowel", "use_consonant", "use_letter",
+  "one_for_all",
 ]);
 
 export function isAttackOnUser(action, targetId, userId) {

@@ -213,6 +213,142 @@ describe('shield_total', () => {
     // p3 is not shielded → loses its letter
     expect(next.hands.p3.letters).toHaveLength(0)
   })
+
+  it('shielded player is not affected by use_vowel forced rule', () => {
+    const state = { ...makeState(), shieldedPlayers: ['p1'] }
+    const action = makeActionCard({ actionId: 'use_vowel' })
+    const next = applyActionEffect(state, action, 'p2', null, { letter: 'A' })
+    // p1 (shielded) → no forced rule
+    expect(next.forcedRules?.p1 ?? []).toHaveLength(0)
+    // p3 (not shielded) → forced rule applied
+    expect(next.forcedRules?.p3 ?? []).toHaveLength(1)
+    expect(next.forcedRules.p3[0].actionId).toBe('use_vowel')
+  })
+
+  it('shielded player is not affected by use_letter forced rule', () => {
+    const state = { ...makeState(), shieldedPlayers: ['p1'] }
+    const action = makeActionCard({ actionId: 'use_letter' })
+    const next = applyActionEffect(state, action, 'p2', null, { letter: 'X' })
+    expect(next.forcedRules?.p1 ?? []).toHaveLength(0)
+    expect(next.forcedRules?.p3 ?? []).toHaveLength(1)
+  })
+
+  it('shielded target is unaffected by one_for_all (card stays in hand)', () => {
+    const state = {
+      ...makeState({
+        hands: {
+          p1: { letters: [makeLetter({ id: 'l1' })], actions: [] },
+          p2: { letters: [], actions: [] },
+        },
+      }),
+      shieldedPlayers: ['p1'],
+    }
+    const action = makeActionCard({ actionId: 'one_for_all' })
+    const next = applyActionEffect(state, action, 'p2', 'p1', {})
+    expect(next).toBe(state)
+    expect(next.hands.p1.letters).toHaveLength(1)
+    expect(next.centralBoard ?? []).toHaveLength(0)
+  })
+
+  it('shielded target is unaffected by swap_all', () => {
+    const state = {
+      ...makeState({
+        hands: {
+          p1: { letters: [makeLetter({ id: 'l1', letter: 'A' })], actions: [] },
+          p2: { letters: [makeLetter({ id: 'l2', letter: 'B' })], actions: [] },
+        },
+      }),
+      shieldedPlayers: ['p1'],
+    }
+    const action = makeActionCard({ actionId: 'swap_all' })
+    const next = applyActionEffect(state, action, 'p2', 'p1', {})
+    expect(next).toBe(state)
+    // Hands remain intact
+    expect(next.hands.p1.letters[0].id).toBe('l1')
+    expect(next.hands.p2.letters[0].id).toBe('l2')
+  })
+
+  it('shielded target is unaffected by swap_one', () => {
+    const state = {
+      ...makeState({
+        hands: {
+          p1: { letters: [makeLetter({ id: 'l1', letter: 'A' })], actions: [] },
+          p2: { letters: [makeLetter({ id: 'l2', letter: 'B' })], actions: [] },
+        },
+      }),
+      shieldedPlayers: ['p1'],
+    }
+    const action = makeActionCard({ actionId: 'swap_one' })
+    const next = applyActionEffect(state, action, 'p2', 'p1', { fromId: 'l2', toId: 'l1' })
+    expect(next).toBe(state)
+  })
+
+  it('shielded target is unaffected by discard_one', () => {
+    const state = {
+      ...makeState({
+        hands: {
+          p1: { letters: [makeLetter({ id: 'l1' })], actions: [] },
+          p2: { letters: [], actions: [] },
+        },
+      }),
+      shieldedPlayers: ['p1'],
+    }
+    const action = makeActionCard({ actionId: 'discard_one' })
+    const next = applyActionEffect(state, action, 'p2', 'p1', { cardId: 'l1' }, rng0)
+    expect(next).toBe(state)
+    expect(next.hands.p1.letters).toHaveLength(1)
+  })
+
+  it('shielded target is unaffected by brain_squeeze', () => {
+    const state = { ...makeState(), shieldedPlayers: ['p1'] }
+    const action = makeActionCard({ actionId: 'brain_squeeze' })
+    const next = applyActionEffect(state, action, 'p2', 'p1', {})
+    expect(next).toBe(state)
+    expect(next.forcedRules?.p1 ?? []).toHaveLength(0)
+  })
+
+  it('shielded players are skipped by out_one (per-player attack)', () => {
+    const state = {
+      ...makeState({
+        hands: {
+          p1: { letters: [makeLetter({ id: 'l1', kind: 'vowel' })], actions: [] },
+          p2: { letters: [], actions: [] },
+          p3: { letters: [makeLetter({ id: 'l3', kind: 'vowel' })], actions: [] },
+        },
+      }),
+      shieldedPlayers: ['p1'],
+    }
+    const action = makeActionCard({ actionId: 'out_one' })
+    const next = applyActionEffect(state, action, 'p2', null, {}, rng0)
+    expect(next.hands.p1.letters).toHaveLength(1) // shielded → keeps
+    expect(next.hands.p3.letters).toHaveLength(0) // not shielded → loses
+  })
+
+  it('shielded players are skipped by two_to_center (per-player attack)', () => {
+    const state = {
+      ...makeState({
+        hands: {
+          p1: { letters: [makeLetter({ id: 'l1', kind: 'vowel' })], actions: [] },
+          p2: { letters: [], actions: [] },
+          p3: { letters: [makeLetter({ id: 'l3', kind: 'vowel' })], actions: [] },
+        },
+      }),
+      shieldedPlayers: ['p1'],
+    }
+    const action = makeActionCard({ actionId: 'two_to_center' })
+    const next = applyActionEffect(state, action, 'p2', null, {}, rng0)
+    expect(next.hands.p1.letters).toHaveLength(1) // shielded
+    expect(next.hands.p3.letters).toHaveLength(0) // not shielded
+  })
+
+  it('shielded player is not affected by use_consonant forced rule', () => {
+    const state = { ...makeState(), shieldedPlayers: ['p1'] }
+    const action = makeActionCard({ actionId: 'use_consonant' })
+    const next = applyActionEffect(state, action, 'p2', null, { letter: 'S' })
+    expect(next.forcedRules?.p1 ?? []).toHaveLength(0)
+    expect(next.forcedRules?.p3 ?? []).toHaveLength(1)
+    expect(next.forcedRules.p3[0].actionId).toBe('use_consonant')
+  })
 })
 
 // ── Board modifiers ─────────────────────────────────────────────────────────

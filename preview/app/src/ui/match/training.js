@@ -140,6 +140,60 @@ function setupTrainingDebugToggle() {
   }
 }
 
+// ── Debug: swap the action cards dealt to the user ──────────────────────────
+// In debug mode only, long-pressing on one of the user's action cards opens a
+// picker with every MVP action, so the tester can replace the dealt card with
+// a specific one before the strategy phase advances. This lets you set up the
+// exact sequence you want to test without re-shuffling the deck.
+function attachDebugActionSwapLongPress(el, idx) {
+  let pressTimer = null;
+  const start = (ev) => {
+    if (ev.button !== undefined && ev.button !== 0) return;
+    pressTimer = setTimeout(() => {
+      pressTimer = null;
+      openDebugActionSwapPicker(idx);
+    }, 700);
+  };
+  const cancel = () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } };
+  el.addEventListener("pointerdown", start);
+  el.addEventListener("pointerup", cancel);
+  el.addEventListener("pointercancel", cancel);
+  el.addEventListener("pointerleave", cancel);
+}
+
+function openDebugActionSwapPicker(slotIndex) {
+  const state = getTrainingMatch();
+  if (!state) return;
+  const userId = state.players[0].id;
+  const mvpCards = ACTION_CARDS.filter((c) => c.inMVP);
+  openTrainingPicker({
+    titleKey: null,
+    context: { label: "🐛 Cambiar carta:", kind: "self" },
+    options: mvpCards.map((c) => ({ id: c.id, label: humanActionName(c.id) })),
+    onPick: (actionId) => {
+      const cur = getTrainingMatch();
+      if (!cur) return;
+      const userHand = cur.hands[userId];
+      if (!userHand || userHand === "<hidden>") return;
+      const cardDef = ACTION_CARDS.find((c) => c.id === actionId);
+      const newCard = {
+        id: `dbg-${actionId}-${Date.now()}`,
+        type: "action",
+        ...cardDef,
+        actionId: cardDef.id,
+      };
+      const newActions = (userHand.actions ?? []).slice();
+      newActions[slotIndex] = newCard;
+      const next = {
+        ...cur,
+        hands: { ...cur.hands, [userId]: { ...userHand, actions: newActions } },
+      };
+      saveTrainingMatch(next);
+      renderTrainingMatch();
+    },
+  });
+}
+
 // Hint button visibility:
 //   - PRACTICAR (words): hidden during creation phase, auto-reveals after
 //     PRACTICE_HINT_DELAY_MS of idle thinking (no validation submitted yet).
@@ -399,9 +453,8 @@ function renderTrainingScoreboard(state) {
   for (const p of state.players) {
     const hand = state.hands?.[p.id];
     const letters = hand && hand !== "<hidden>" ? (hand.letters ?? []).filter(Boolean) : [];
-    const hasShield = p.isGhost
-      ? (state.shieldedPlayers ?? []).includes(p.id)
-      : isUserShieldPreSelected(state);
+    const hasShield = (state.shieldedPlayers ?? []).includes(p.id)
+      || (!p.isGhost && isUserShieldPreSelected(state));
     const isDealer = p.id === state.dealerId;
     const isActive = bubbleActorId ? p.id === bubbleActorId : p.id === currentActorId;
 
@@ -634,6 +687,12 @@ function renderTrainingHand(state) {
         faceDown: isDealing,
         onClick: clickHandler,
       });
+      // Debug long-press on an action card during the strategy phase opens a
+      // picker to swap it for any other action — useful for testing concrete
+      // sequences without relying on the dealt cards.
+      if (debugMode && (isStrategy || isDealing) && (card || isDealing)) {
+        attachDebugActionSwapLongPress(cardEl, idx);
+      }
       if (!isDealing && card) {
         const wrap = document.createElement("div");
         wrap.className = "tcard-action-wrap";
@@ -1472,7 +1531,7 @@ function processNextActionsTurn() {
       if (next.phase === "actions") scheduleActionsDriver();
       return;
     }
-    if (state.userActionIndex != null && !debugMode) {
+    if (state.userActionIndex != null) {
       // Pre-selected during strategy: play it now. If it needs a target or
       // a board letter, ask the user at this moment (not when they picked
       // the card during strategy).
@@ -1482,15 +1541,22 @@ function processNextActionsTurn() {
         renderTrainingMatch();
         return;
       }
-      // Shield pre-selected but no ghost attack arrived — discard and pass.
+      // Shield pre-selected: play it proactively on the user's turn. The
+      // user joins `shieldedPlayers` so any later attack in this trick skips
+      // them. The action cards are discarded as usual.
       if (card.actionId === "shield_total") {
         const allActions = (userHand?.actions ?? []).filter(Boolean);
+        const alreadyShielded = (state.shieldedPlayers ?? []).includes(userId);
         let s = { ...state,
           hands: { ...state.hands, [userId]: { ...userHand, actions: [] } },
           discards: { ...state.discards, actions: [...state.discards.actions, ...allActions] },
+          shieldedPlayers: alreadyShielded
+            ? state.shieldedPlayers
+            : [...(state.shieldedPlayers ?? []), userId],
           userActionResolved: true,
         };
         saveTrainingMatch(s);
+        showActionToast(s, { playerId: userId, actionId: "shield_total" });
         s = advanceActionsQueue(s);
         renderTrainingMatch();
         if (s.phase === "actions") scheduleActionsDriver();
@@ -1512,43 +1578,10 @@ function processNextActionsTurn() {
       });
       return;
     }
-    // Debug: bypass hand and let user pick any action card
-    if (debugMode) {
-      const mvpCards = ACTION_CARDS.filter((c) => c.inMVP);
-      actionsDriverBusy = true;
-      openTrainingPicker({
-        titleKey: null,
-        context: { label: "🐛 Tú juegas:", kind: "self" },
-        options: mvpCards.map((c) => ({ id: c.id, label: humanActionName(c.id) })),
-        onPick: (actionId) => {
-          actionsDriverBusy = false;
-          const cardDef = ACTION_CARDS.find((c) => c.id === actionId);
-          const fakeCard = { id: "debug-card", type: "action", ...cardDef, actionId: cardDef.id };
-          stopUserTurnTimer();
-          pickTargetAndPayloadForUser(state, fakeCard, (targetId, payload) => {
-            const fakeLog = { playerId: userId, actionId, targetId, payload };
-            let s = applyPlannedGhostAction(getTrainingMatch(), fakeLog);
-            showActionToast(s, fakeLog);
-            // Clear user action hand (applyPlannedGhostAction skips this unlike playUserAction)
-            const userH = s.hands[userId];
-            if (userH) {
-              const actionCards = (userH.actions ?? []).filter(Boolean);
-              s = { ...s,
-                hands: { ...s.hands, [userId]: { ...userH, actions: [] } },
-                discards: { ...s.discards, actions: [...s.discards.actions, ...actionCards] },
-              };
-            }
-            s = { ...s, userActionResolved: true };
-            saveTrainingMatch(s);
-            s = advanceActionsQueue(s);
-            renderTrainingMatch();
-            if (s.phase === "actions") scheduleActionsDriver();
-          });
-        },
-      });
-      return;
-    }
-    // Wait for user input (renderTrainingActions made action cards tappable).
+    // No preselection — wait for user input. In debug mode the user is
+    // expected to have swapped the dealt action cards (long-press during
+    // strategy) and pre-selected one, so this branch is essentially the same
+    // as the non-debug path: cards are tappable and we wait for a click.
     renderTrainingMatch();
     return;
   }
