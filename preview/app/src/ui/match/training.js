@@ -33,6 +33,15 @@ import {
 import { ACTION_CARDS, TRAINING_DIFFICULTIES, TRAINING_DIFFICULTY_PRESETS } from "../../core/constants.js";
 import { findHints } from "../../core/hintSolver.js";
 import { validateWord as validateWordLayered, LAYER_PRESETS } from "../../core/wordValidator.js";
+import {
+  debugLogReset,
+  debugLogPushBazaStart,
+  debugLogPushPreselect,
+  debugLogPushAction,
+  debugLogPushWord,
+  debugLogPushBazaEnd,
+  formatDebugLog,
+} from "./trainingDebugLog.js";
 import { updateState, loadState } from "../../core/stateStore.js";
 import { logger } from "../../core/logger.js";
 import { TEXTS, getShellLanguage } from "../../i18n/texts.js";
@@ -123,6 +132,27 @@ function setupTrainingDebugToggle() {
   el.addEventListener("pointerup",     () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } });
   el.addEventListener("pointercancel", () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } });
 
+  // Click on the 🐛 DEBUG badge → open the debug log modal.
+  const badgeEl = document.getElementById("trainingDebugBadge");
+  if (badgeEl) {
+    badgeEl.style.cursor = "pointer";
+    badgeEl.addEventListener("click", openTrainingDebugLog);
+  }
+  const copyBtn = document.getElementById("trainingDebugLogCopyBtn");
+  if (copyBtn) {
+    copyBtn.addEventListener("click", async () => {
+      const body = document.getElementById("trainingDebugLogBody");
+      if (!body) return;
+      try {
+        await navigator.clipboard.writeText(body.textContent || "");
+        copyBtn.textContent = "✓ Copiado";
+        setTimeout(() => { copyBtn.textContent = "📋 Copiar"; }, 1200);
+      } catch {
+        copyBtn.textContent = "✗ Falló";
+      }
+    });
+  }
+
   // Long-press on the phase label (REPARTO/CREACIÓN/etc.) reveals the hint
   // button in non-practice difficulties. In "words" (Practicar) the hint button
   // is always visible.
@@ -138,6 +168,39 @@ function setupTrainingDebugToggle() {
     phaseEl.addEventListener("pointerup",     () => { if (hintPressTimer) { clearTimeout(hintPressTimer); hintPressTimer = null; } });
     phaseEl.addEventListener("pointercancel", () => { if (hintPressTimer) { clearTimeout(hintPressTimer); hintPressTimer = null; } });
   }
+}
+
+// Called when the user taps the "Listo" button during strategy OR when the
+// strategy timer naturally expires. If a card is focused, it becomes the
+// preselected action; otherwise we just enter the actions phase without
+// preselection.
+function confirmStrategyReady() {
+  const state = getTrainingMatch();
+  if (!state || state.phase !== "strategy") return;
+  stopTrainingTimer();
+  trainingClockPhase = null;
+  _shell.stopClockLoop(false);
+  let after;
+  if (focusedActionIndex != null) {
+    const userId = state.players[0].id;
+    const card = state.hands[userId]?.actions?.[focusedActionIndex];
+    after = selectActionInStrategy(state, focusedActionIndex);
+    if (card) debugLogPushPreselect(after, card.actionId);
+  } else {
+    // No focus → enter actions without preselection.
+    after = enterActionsPhase(state);
+  }
+  focusedActionIndex = null;
+  renderTrainingMatch();
+  if (after.phase === "actions") scheduleActionsDriver();
+}
+
+function openTrainingDebugLog() {
+  const body = document.getElementById("trainingDebugLogBody");
+  if (!body) return;
+  const state = getTrainingMatch();
+  body.textContent = formatDebugLog(state);
+  openModal("training-debug-log", { closable: true });
 }
 
 // ── Debug: swap the action cards dealt to the user ──────────────────────────
@@ -198,7 +261,7 @@ function openDebugActionSwapPicker(slotIndex) {
 //   - PRACTICAR (words): hidden during creation phase, auto-reveals after
 //     PRACTICE_HINT_DELAY_MS of idle thinking (no validation submitted yet).
 //   - Other modes: hidden until the user long-presses the phase pill.
-const PRACTICE_HINT_DELAY_MS = 46_000;
+const PRACTICE_HINT_DELAY_MS = 30_000;
 let hintRevealedByLongPress = false;
 let practiceHintTimer = null;
 let practiceHintRevealed = false;
@@ -283,6 +346,8 @@ function startTrainingMatch(difficulty) {
   const nickname = loadState().settings?.knownPlayerNames?.[0] || null;
   const state = createTrainingMatch(difficulty, { userNickname: nickname });
   logger.info("Training match created", { matchId: state.matchId, difficulty });
+  debugLogReset();
+  debugLogPushBazaStart(state);
   lastFlashedPhase = null;
   _shell.showScreen("training");
 }
@@ -387,7 +452,6 @@ function renderTrainingPrompt(state) {
     showDone = !state.untimedCreation;
   } else if (state.phase === "actions"
       && state.actionsQueue?.[0] === userId
-      && state.userActionIndex == null
       && !state.userActionResolved
       && !isUserTurnBlockedByActionBubble(state)) {
     key = "trainingInstrUserTurn";
@@ -453,8 +517,10 @@ function renderTrainingScoreboard(state) {
   for (const p of state.players) {
     const hand = state.hands?.[p.id];
     const letters = hand && hand !== "<hidden>" ? (hand.letters ?? []).filter(Boolean) : [];
-    const hasShield = (state.shieldedPlayers ?? []).includes(p.id)
-      || (!p.isGhost && isUserShieldPreSelected(state));
+    // Pill is shown only when the player is actually shielded — i.e. the
+    // shield has been activated (reactive prompt accepted or proactively
+    // played on their turn). Preselection alone does NOT light it up.
+    const hasShield = (state.shieldedPlayers ?? []).includes(p.id);
     const isDealer = p.id === state.dealerId;
     const isActive = bubbleActorId ? p.id === bubbleActorId : p.id === currentActorId;
 
@@ -627,9 +693,8 @@ function renderTrainingForcedRules(state) {
 
 function formatForcedLetters(letters) {
   const unique = [...new Set(letters.filter(Boolean))];
-  if (unique.length <= 1) return unique[0] || "?";
-  const conj = getShellLanguage() === "en" ? " and " : " y ";
-  return unique.slice(0, -1).join(", ") + conj + unique.at(-1);
+  // Comma-separated only — keeps the chip compact when multiple rules pile up.
+  return unique.length ? unique.join(", ") : "?";
 }
 
 function renderTrainingHand(state) {
@@ -645,7 +710,7 @@ function renderTrainingHand(state) {
   const isStrategy = state.phase === "strategy";
   const isUserTurn = state.phase === "actions"
     && (state.actionsQueue?.[0] === userId)
-    && state.userActionIndex == null;
+    && !state.userActionResolved;
   const tappable = isStrategy || (isUserTurn && !isUserTurnBlockedByActionBubble(state));
   const wordIds = new Set((state.userWord ?? []).map((s) => s.cardId));
   letters.forEach((card, idx) => {
@@ -659,26 +724,30 @@ function renderTrainingHand(state) {
   });
   if (!isCreation && state.phase !== "result" && state.phase !== "done") {
     actions.forEach((card, idx) => {
-      const isFocused = isStrategy && focusedActionIndex === idx;
+      // Focus persists from strategy through the whole actions phase — the
+      // preselected card stays visually emphasised (with the other one
+      // dimmed) until the user actually plays an action. During strategy
+      // we read the live `focusedActionIndex` (UI state); from the actions
+      // phase onward we read `state.userActionIndex` (committed in strategy).
+      const isInActionsWithPreselect = state.phase === "actions"
+        && state.userActionIndex != null
+        && !state.userActionResolved;
+      const isFocused = (isStrategy && focusedActionIndex === idx)
+        || (isInActionsWithPreselect && state.userActionIndex === idx);
       const clickHandler = tappable && card ? () => {
         if (isStrategy) {
-          const now = Date.now();
-          const isDoubleTap = lastActionTapIndex === idx && (now - lastActionTapTime) < DOUBLE_TAP_MS;
-          lastActionTapIndex = idx;
-          lastActionTapTime = now;
-          if (isDoubleTap) {
-            focusedActionIndex = null;
-            lastActionTapIndex = null;
-            handleUserPickAction(idx);
-          } else {
-            focusedActionIndex = focusedActionIndex === idx ? null : idx;
-            renderTrainingMatch();
-          }
+          // Strategy: single tap toggles focus (read the description). The
+          // focused card becomes the "default pick" if the timer runs out
+          // or the user taps the "Listo" button.
+          focusedActionIndex = focusedActionIndex === idx ? null : idx;
+          renderTrainingMatch();
         } else {
+          // Actions phase, user's turn: tap plays the card immediately.
           handleUserPickAction(idx);
         }
       } : null;
-      const hasFocus = isStrategy && focusedActionIndex != null;
+      const hasFocus = (isStrategy && focusedActionIndex != null)
+        || isInActionsWithPreselect;
       const cardEl = renderActionCard(card, {
         selectable: tappable && !!card,
         selected: false,
@@ -760,11 +829,10 @@ function renderActionFocusPanel(state) {
   panel.classList.remove("hidden");
   nameEl.textContent = actionLabel(card.actionId);
   descEl.textContent = actionDesc(card.actionId);
-  playBtn.textContent = "Jugar esta carta";
-  playBtn.onclick = () => {
-    handleUserPickAction(focusedActionIndex);
-    focusedActionIndex = null;
-  };
+  // During strategy this button shortcuts the timer: closes the phase using
+  // the focused card as the preselection.
+  playBtn.textContent = t("trainingChooseThisCard") || "Listo";
+  playBtn.onclick = () => { confirmStrategyReady(); };
 }
 
 function attachCardSelectableBehavior(el, card, source, isAlreadyInWord) {
@@ -907,7 +975,16 @@ function renderTrainingWordStrip(state) {
     const wrapper = document.createElement("div");
     wrapper.className = "training-word-slot";
     wrapper.dataset.index = String(idx);
+    wrapper.dataset.source = slot.source ?? "";
+    wrapper.dataset.cardId = slot.cardId;
     wrapper.addEventListener("pointerdown", handleWordSlotPointerDown);
+    // Click is bound on the wrapper (not cardEl) because setPointerCapture
+    // redirects the synthetic click to the capture target.
+    wrapper.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      if (suppressNextWordSlotClick) return;
+      handleWordSlotTap(slot.cardId);
+    });
 
     // Render the underlying card with chosen letter (wildcards) or tilded
     // form (when the tilde toggle is active for a tilde-capable card).
@@ -923,11 +1000,6 @@ function renderTrainingWordStrip(state) {
       cardEl.classList.add("is-tilde-active");
     }
     cardEl.classList.add("is-tappable");
-    cardEl.addEventListener("click", (ev) => {
-      ev.stopPropagation();
-      if (suppressNextWordSlotClick) return;
-      handleWordSlotTap(slot.cardId);
-    });
     wrapper.appendChild(cardEl);
     cardsRoot.appendChild(wrapper);
   });
@@ -974,6 +1046,8 @@ function handleWordSlotPointerDown(ev) {
   wordDragState = {
     wrapper,
     fromIndex: Number(wrapper.dataset.index),
+    source: wrapper.dataset.source || "",
+    cardId: wrapper.dataset.cardId || "",
     startX: ev.clientX,
     startY: ev.clientY,
     pointerId: ev.pointerId,
@@ -1014,21 +1088,35 @@ function handleWordSlotPointerMove(ev) {
   if (wordDragState.ghost) {
     wordDragState.ghost.style.transform = `translate3d(${dx}px, ${dy}px, 0) scale(1.12)`;
   }
-  document.querySelectorAll(".training-word-slot.is-drop-target")
-    .forEach((el) => el.classList.remove("is-drop-target"));
+  document.querySelectorAll(".training-word-slot.is-drop-target, .is-origin-drop-target")
+    .forEach((el) => el.classList.remove("is-drop-target", "is-origin-drop-target"));
   const target = findWordSlotAt(ev.clientX, ev.clientY);
   if (target && target !== wordDragState.wrapper) {
     target.classList.add("is-drop-target");
+  } else {
+    const origin = findOriginDropZone(ev.clientX, ev.clientY, wordDragState.source);
+    if (origin) origin.classList.add("is-origin-drop-target");
   }
   // Prevent the page from scrolling under the finger.
   ev.preventDefault();
+}
+
+function findOriginDropZone(x, y, source) {
+  const id = source === "board" ? "trainingBoard" : source === "hand" ? "trainingHand" : null;
+  if (!id) return null;
+  const el = document.getElementById(id);
+  if (!el) return null;
+  const r = el.getBoundingClientRect();
+  const tol = 12;
+  if (x >= r.left - tol && x <= r.right + tol && y >= r.top - tol && y <= r.bottom + tol) return el;
+  return null;
 }
 
 function handleWordSlotPointerUp(ev) {
   if (!wordDragState || wordDragState.pointerId !== ev.pointerId) return;
   const orig = wordDragState.wrapper;
   const wasDragging = wordDragState.dragging;
-  let didReorder = false;
+  let didChange = false;
 
   if (wasDragging) {
     const target = findWordSlotAt(ev.clientX, ev.clientY);
@@ -1037,13 +1125,22 @@ function handleWordSlotPointerUp(ev) {
       const state = getTrainingMatch();
       if (state && !Number.isNaN(toIdx) && toIdx !== wordDragState.fromIndex) {
         reorderWord(state, wordDragState.fromIndex, toIdx);
-        didReorder = true;
+        didChange = true;
+      }
+    } else {
+      const origin = findOriginDropZone(ev.clientX, ev.clientY, wordDragState.source);
+      if (origin && wordDragState.cardId) {
+        const state = getTrainingMatch();
+        if (state && state.phase === "creation") {
+          removeFromWord(state, wordDragState.cardId);
+          didChange = true;
+        }
       }
     }
   }
 
-  document.querySelectorAll(".training-word-slot.is-drop-target")
-    .forEach((el) => el.classList.remove("is-drop-target"));
+  document.querySelectorAll(".training-word-slot.is-drop-target, .is-origin-drop-target")
+    .forEach((el) => el.classList.remove("is-drop-target", "is-origin-drop-target"));
   if (wordDragState.ghost) wordDragState.ghost.remove();
   orig.classList.remove("is-dragging");
   try { orig.releasePointerCapture(wordDragState.pointerId); } catch {}
@@ -1058,7 +1155,7 @@ function handleWordSlotPointerUp(ev) {
     suppressNextWordSlotClick = true;
     setTimeout(() => { suppressNextWordSlotClick = false; }, 350);
   }
-  if (didReorder) renderTrainingMatch();
+  if (didChange) renderTrainingMatch();
 }
 
 function findWordSlotAt(x, y) {
@@ -1242,6 +1339,17 @@ function renderTrainingResult(state) {
   table.appendChild(tbody);
   panel.appendChild(table);
 
+  // Educational suggestions: top 3 words the user could have played with
+  // their hand + the board snapshot at validation time. Skipped in Practicar
+  // (which already exposes the in-creation hint button).
+  if (state.difficulty !== "words") {
+    const suggBox = document.createElement("div");
+    suggBox.className = "training-result-suggestions";
+    suggBox.innerHTML = `<div class="hints-meta">…</div>`;
+    panel.appendChild(suggBox);
+    void renderRoundEndHints(suggBox, state);
+  }
+
   const actionsDiv = document.createElement("div");
   actionsDiv.className = "training-result-actions";
   const nextBtn = document.createElement("button");
@@ -1251,6 +1359,38 @@ function renderTrainingResult(state) {
   nextBtn.addEventListener("click", handleNextBaza);
   actionsDiv.appendChild(nextBtn);
   panel.appendChild(actionsDiv);
+}
+
+async function renderRoundEndHints(box, state) {
+  const uiDiff = state.difficulty || "normal";
+  const solverDiff = uiDiff === "hard" ? "hard" : uiDiff === "normal" ? "normal" : "easy";
+  let hints = [];
+  try {
+    hints = await findHints(state, { count: 3, difficulty: solverDiff });
+  } catch (err) {
+    logger.warn("[round-end hints] solver failed", err);
+  }
+  // Avoid overwriting if the modal was closed before the solver returned.
+  if (!box.isConnected) return;
+
+  const userScore = state.userWordResult?.score ?? 0;
+  const userValid = state.userWordResult?.valid;
+  const top = hints[0];
+  if (!top) {
+    box.innerHTML = "";
+    return;
+  }
+  if (userValid && userScore >= top.score) {
+    box.innerHTML = `<div class="training-result-suggestions-header">🎯 ¡Has sacado la mejor palabra posible!</div>`;
+    return;
+  }
+  // Use the same per-letter rendering as the hints modal so wildcards mark
+  // exactly which letter they're standing in for (★ underneath that letter).
+  const rows = hints.map(renderHintItem).join("");
+  box.innerHTML = `
+    <div class="training-result-suggestions-header">${t("trainingAlsoCould") || "También podías"}</div>
+    <ol class="hints-list">${rows}</ol>
+  `;
 }
 
 function saveTrainingStats(state) {
@@ -1352,7 +1492,10 @@ function handleNextBaza() {
   _shell.playClickFeedback();
   const state = getTrainingMatch();
   if (!state || state.phase !== "result") return;
+  debugLogPushBazaEnd(state);
   advanceToNextBaza(state);
+  const next = getTrainingMatch();
+  if (next && next.phase !== "done") debugLogPushBazaStart(next);
   lastFlashedPhase = null; // allow phase flash for new baza
   renderTrainingMatch();
 }
@@ -1382,11 +1525,9 @@ function finishTrainingTimer() {
   const state = getTrainingMatch();
   if (!state) return;
   if (state.phase === "strategy") {
-    stopTrainingTimer();
-    trainingClockPhase = null;
-    _shell.stopClockLoop(false);
-    enterActionsPhase(state);
-    renderTrainingMatch();
+    // Same path as the user pressing "Listo": close strategy honouring the
+    // currently focused action card (if any) as the preselection.
+    confirmStrategyReady();
     return;
   }
   if (state.phase === "creation") {
@@ -1394,10 +1535,10 @@ function finishTrainingTimer() {
     trainingClockPhase = null;
     _shell.stopClockLoop(false);
     const finalized = finalizeUserWord(state, getShellLanguage());
+    const r = finalized.userWordResult;
+    if (r) debugLogPushWord(finalized, { word: r.word, valid: r.valid, score: r.score, reason: r.reason });
     renderTrainingMatch();
-    if (finalized.userWordResult?.valid && finalized.userWordResult?.word) {
-      validateAndUpdateUserWord(finalized);
-    }
+    if (r?.valid && r?.word) validateAndUpdateUserWord(finalized);
     return;
   }
 }
@@ -1531,57 +1672,10 @@ function processNextActionsTurn() {
       if (next.phase === "actions") scheduleActionsDriver();
       return;
     }
-    if (state.userActionIndex != null) {
-      // Pre-selected during strategy: play it now. If it needs a target or
-      // a board letter, ask the user at this moment (not when they picked
-      // the card during strategy).
-      const userHand = state.hands[userId];
-      const card = userHand !== "<hidden>" ? userHand?.actions?.[state.userActionIndex] : null;
-      if (!card) {
-        renderTrainingMatch();
-        return;
-      }
-      // Shield pre-selected: play it proactively on the user's turn. The
-      // user joins `shieldedPlayers` so any later attack in this trick skips
-      // them. The action cards are discarded as usual.
-      if (card.actionId === "shield_total") {
-        const allActions = (userHand?.actions ?? []).filter(Boolean);
-        const alreadyShielded = (state.shieldedPlayers ?? []).includes(userId);
-        let s = { ...state,
-          hands: { ...state.hands, [userId]: { ...userHand, actions: [] } },
-          discards: { ...state.discards, actions: [...state.discards.actions, ...allActions] },
-          shieldedPlayers: alreadyShielded
-            ? state.shieldedPlayers
-            : [...(state.shieldedPlayers ?? []), userId],
-          userActionResolved: true,
-        };
-        saveTrainingMatch(s);
-        showActionToast(s, { playerId: userId, actionId: "shield_total" });
-        s = advanceActionsQueue(s);
-        renderTrainingMatch();
-        if (s.phase === "actions") scheduleActionsDriver();
-        return;
-      }
-      actionsDriverBusy = true;
-      pickTargetAndPayloadForUser(state, card, (targetId, payload) => {
-        actionsDriverBusy = false;
-        let s = playUserAction(getTrainingMatch(), state.userActionIndex, targetId, payload);
-        showActionToast(s, {
-          playerId: userId,
-          actionId: card.actionId,
-          targetId,
-          payload,
-        });
-        s = advanceActionsQueue(s);
-        renderTrainingMatch();
-        if (s.phase === "actions") scheduleActionsDriver();
-      });
-      return;
-    }
-    // No preselection — wait for user input. In debug mode the user is
-    // expected to have swapped the dealt action cards (long-press during
-    // strategy) and pre-selected one, so this branch is essentially the same
-    // as the non-debug path: cards are tappable and we wait for a click.
+    // Always wait for user input. The user picks their card here (single
+    // tap) — there is no "preselect = auto-play" path anymore. If the user
+    // has a card focused/preselected (from strategy), the UI highlights it
+    // and `playTurnAutoForUser` runs that one if the turn timer expires.
     renderTrainingMatch();
     return;
   }
@@ -1601,13 +1695,24 @@ function processNextActionsTurn() {
 
         function applyDebugGhost(targetId, payload = {}) {
           actionsDriverBusy = false;
+          // Re-read fresh state — closure value may be stale after previous ghosts
+          // in the same baza have modified shieldedPlayers / forcedRules.
+          const fresh = getTrainingMatch();
           const fakeLog = { playerId: nextActorId, actionId, targetId, payload };
-          const isAtk = isAttackOnUser(cardDef, targetId, userId);
-          if (isAtk && userHasShield(state) && !isUserShieldPreSelected(state)) {
+          // NOTE: must pass `fakeCard` (which has `actionId`) to isAttackOnUser
+          // — `cardDef` from constants has `id`, not `actionId`, so the
+          // SHIELDABLE_ATTACK_IDS check silently returned false (and the
+          // shield prompt never appeared).
+          const isAtk = isAttackOnUser(fakeCard, targetId, userId);
+          // Always prompt if the user has a shield in hand and is not yet
+          // shielded. Preselecting the shield in strategy no longer auto-
+          // activates it — it remains reactive on every attack.
+          if (isAtk && userHasShield(fresh) && !(fresh.shieldedPlayers ?? []).includes(userId)) {
             actionsDriverBusy = true;
-            promptShield({ source: nextActorId, card: cardDef }, fakeLog);
+            promptShield({ source: nextActorId, card: fakeCard }, fakeLog);
           } else {
-            let s = applyPlannedGhostAction(state, fakeLog);
+            let s = applyPlannedGhostAction(fresh, fakeLog);
+            debugLogPushAction(s, { actorId: nextActorId, actionId, targetId, payload });
             showActionToast(s, fakeLog);
             s = advanceActionsQueue(s);
             renderTrainingMatch();
@@ -1619,7 +1724,7 @@ function processNextActionsTurn() {
           }
         }
 
-        pickTargetAndPayloadForUser(state, fakeCard, (targetId, payload) => {
+        pickTargetAndPayloadForUser(getTrainingMatch() || state, fakeCard, (targetId, payload) => {
           applyDebugGhost(targetId, payload);
         }, `🐛 ${ghostName}`, nextActorId);
       },
@@ -1637,17 +1742,8 @@ function processNextActionsTurn() {
 
   saveTrainingMatch(planned.state);
 
-  // Auto-shield: user pre-selected ESCUDO TOTAL during strategy and a
-  // ghost just attacked. Block automatically without prompting.
-  if (planned.autoShield) {
-    let s = useShieldOnAttack(planned.state, planned.autoShield.source);
-    s = applyPlannedGhostAction(s, planned.log, { shielded: true });
-    showActionToast(s, planned.log, { blocked: true });
-    s = advanceActionsQueue(s);
-    renderTrainingMatch();
-    if (s.phase === "actions") scheduleActionsDriver();
-    return;
-  }
+  // Shield is now always reactive — if `planned.shieldOpportunity` is set,
+  // the prompt is shown a few lines below. No auto-shield branch needed.
 
   // discard_one targeting user → user picks which card to discard
   if (planned.log.actionId === "discard_one" && planned.log.targetId === userId) {
@@ -1664,6 +1760,7 @@ function processNextActionsTurn() {
 
   // No shield prompt: apply and advance.
   let s = applyPlannedGhostAction(planned.state, planned.log);
+  debugLogPushAction(s, { ...planned.log, actorId: planned.log.playerId });
   showActionToast(s, planned.log);
   s = advanceActionsQueue(s);
   renderTrainingMatch();
@@ -1695,6 +1792,7 @@ function promptShield(opportunity, log) {
         let s = getTrainingMatch();
         s = useShieldOnAttack(s, opportunity.source);
         s = applyPlannedGhostAction(s, log, { shielded: true });
+        debugLogPushAction(s, { ...log, actorId: log.playerId, blocked: true });
         showActionToast(s, log, { blocked: true });
         s = advanceActionsQueue(s);
         renderTrainingMatch();
@@ -1702,6 +1800,7 @@ function promptShield(opportunity, log) {
       } else {
         let s = getTrainingMatch();
         s = applyPlannedGhostAction(s, log);
+        debugLogPushAction(s, { ...log, actorId: log.playerId });
         showActionToast(s, log);
         s = advanceActionsQueue(s);
         renderTrainingMatch();
@@ -1735,7 +1834,9 @@ function promptDiscardOne(state, log) {
     timeoutMs: PICKER_TIMEOUT_MS,
     onPick: (cardId) => {
       actionsDriverBusy = false;
-      let s = applyPlannedGhostAction(state, { ...log, payload: { cardId } });
+      const finalLog = { ...log, payload: { cardId } };
+      let s = applyPlannedGhostAction(state, finalLog);
+      debugLogPushAction(s, { ...finalLog, actorId: finalLog.playerId });
       showActionToast(s, log);
       s = advanceActionsQueue(s);
       renderTrainingMatch();
@@ -1824,7 +1925,6 @@ function maybeStartUserTurnTimer(state) {
   const userId = state.players[0].id;
   const isUserTurn = state.phase === "actions"
     && state.actionsQueue?.[0] === userId
-    && state.userActionIndex == null
     && !state.userActionResolved
     && !isUserTurnBlockedByActionBubble(state);
   if (isUserTurn) {
@@ -1848,12 +1948,40 @@ function autoPickUserAction() {
   if (!state || state.phase !== "actions") return;
   const userId = state.players[0].id;
   if (state.actionsQueue?.[0] !== userId) return;
-  if (state.userActionIndex != null || state.userActionResolved) return;
+  if (state.userActionResolved) return;
   const hand = state.hands[userId];
   if (!hand || hand === "<hidden>") return;
-  const firstIdx = hand.actions.findIndex((c) => c != null);
+  // Prefer the preselected card (userActionIndex set from strategy via focus);
+  // otherwise fall back to the first available card.
+  const preselectedIdx = state.userActionIndex != null
+    && hand.actions?.[state.userActionIndex] != null
+    ? state.userActionIndex
+    : -1;
+  const firstIdx = preselectedIdx >= 0 ? preselectedIdx : hand.actions.findIndex((c) => c != null);
   if (firstIdx < 0) return;
   const card = hand.actions[firstIdx];
+
+  // ESCUDO TOTAL auto-played on timeout — same special handling as the
+  // proactive tap: discard all cards, register the user in shieldedPlayers.
+  if (card.actionId === "shield_total") {
+    const allActions = (hand?.actions ?? []).filter(Boolean);
+    const alreadyShielded = (state.shieldedPlayers ?? []).includes(userId);
+    let s = { ...state,
+      hands: { ...state.hands, [userId]: { ...hand, actions: [] } },
+      discards: { ...state.discards, actions: [...state.discards.actions, ...allActions] },
+      shieldedPlayers: alreadyShielded
+        ? state.shieldedPlayers
+        : [...(state.shieldedPlayers ?? []), userId],
+      userActionResolved: true,
+    };
+    saveTrainingMatch(s);
+    debugLogPushAction(s, { actorId: userId, actionId: "shield_total" });
+    showActionToast(s, { playerId: userId, actionId: "shield_total" });
+    s = advanceActionsQueue(s);
+    renderTrainingMatch();
+    if (s.phase === "actions") scheduleActionsDriver();
+    return;
+  }
 
   // Pick random target/payload as ghosts do when the action requires one.
   let targetId = null;
@@ -1877,16 +2005,17 @@ function autoPickUserAction() {
   }
 
   let s = playUserAction(state, firstIdx, targetId, payload);
+  debugLogPushAction(s, { actorId: userId, actionId: card.actionId, targetId, payload });
   showActionToast(s, { playerId: userId, actionId: card.actionId, targetId, payload });
   s = advanceActionsQueue(s);
   renderTrainingMatch();
   if (s.phase === "actions") scheduleActionsDriver();
 }
 
-// ── User action selection ──────────────────────────────────
-// Strategy phase: pre-commit, close timer, enter actions phase. The action
-// auto-plays when the user's turn arrives (unless interrupted by ESCUDO).
-// Actions phase (user's turn): play immediately and advance the queue.
+// User taps an action card during their own turn → play it immediately. The
+// strategy phase no longer reaches this function; single-tap there just
+// toggles focus (preselection is finalised when the timer expires or the
+// "Listo" button is pressed).
 function handleUserPickAction(actionIndex) {
   _shell.playClickFeedback();
   const state = getTrainingMatch();
@@ -1895,22 +2024,38 @@ function handleUserPickAction(actionIndex) {
   const card = state.hands[userId]?.actions?.[actionIndex];
   if (!card) return;
 
-  if (state.phase === "strategy") {
-    // No target/payload picker here — that's resolved at the user's actual
-    // turn in the actions phase. The other action card is discarded.
-    stopTrainingTimer();
-    const after = selectActionInStrategy(state, actionIndex);
-    renderTrainingMatch();
-    if (after.phase === "actions") scheduleActionsDriver();
-    return;
-  }
-
-  if (state.phase === "actions" && state.actionsQueue?.[0] === userId && state.userActionIndex == null) {
+  if (state.phase === "actions" && state.actionsQueue?.[0] === userId && !state.userActionResolved) {
     stopUserTurnTimer();
+
+    // ESCUDO TOTAL played proactively on the user's turn: discard ALL action
+    // cards in hand, register the player in shieldedPlayers so the remaining
+    // attacks in this trick will skip them.
+    if (card.actionId === "shield_total") {
+      const userHand = state.hands[userId];
+      const allActions = (userHand?.actions ?? []).filter(Boolean);
+      const alreadyShielded = (state.shieldedPlayers ?? []).includes(userId);
+      let s = { ...state,
+        hands: { ...state.hands, [userId]: { ...userHand, actions: [] } },
+        discards: { ...state.discards, actions: [...state.discards.actions, ...allActions] },
+        shieldedPlayers: alreadyShielded
+          ? state.shieldedPlayers
+          : [...(state.shieldedPlayers ?? []), userId],
+        userActionResolved: true,
+      };
+      saveTrainingMatch(s);
+      debugLogPushAction(s, { actorId: userId, actionId: "shield_total" });
+      showActionToast(s, { playerId: userId, actionId: "shield_total" });
+      s = advanceActionsQueue(s);
+      renderTrainingMatch();
+      if (s.phase === "actions") scheduleActionsDriver();
+      return;
+    }
+
     actionsDriverBusy = true;
     pickTargetAndPayloadForUser(state, card, (targetId, payload) => {
       actionsDriverBusy = false;
       let s = playUserAction(getTrainingMatch(), actionIndex, targetId, payload);
+      debugLogPushAction(s, { actorId: userId, actionId: card.actionId, targetId, payload });
       showActionToast(s, { playerId: userId, actionId: card.actionId, targetId, payload });
       s = advanceActionsQueue(s);
       renderTrainingMatch();
@@ -2560,13 +2705,24 @@ function ensureTrainingTimer() {
     let next;
     if (current.phase === "strategy") {
       next = tickStrategyTimer(current);
+      // If strategy just ended and the user had a card focused, treat the
+      // focus as a preselection — the focused card becomes the default play.
+      if (current.phase === "strategy" && next.phase === "actions" && focusedActionIndex != null) {
+        const userId = current.players[0].id;
+        const card = current.hands?.[userId]?.actions?.[focusedActionIndex];
+        next = selectActionInStrategy(current, focusedActionIndex);
+        if (card) debugLogPushPreselect(next, card.actionId);
+        focusedActionIndex = null;
+      }
     } else {
       // Creation phase: tick; if timer ran out, finalize the word with
       // validation/score and transition to result.
       next = tickCreationTimer(current);
       if (current.phase === "creation" && next.phase === "result") {
         next = finalizeUserWord(current, getShellLanguage());
-        if (next.userWordResult?.valid && next.userWordResult?.word) {
+        const r = next.userWordResult;
+        if (r) debugLogPushWord(next, { word: r.word, valid: r.valid, score: r.score, reason: r.reason });
+        if (r?.valid && r?.word) {
           // Fire-and-forget; updates UI when the dictionary verdict returns.
           validateAndUpdateUserWord(next);
         }
@@ -2612,10 +2768,9 @@ async function requestTrainingHints() {
   else if (uiDiff === "normal") solverDiff = "normal";
   else solverDiff = "easy";
 
-  if (btn) {
-    btn.disabled = true;
-    btn.textContent = "Buscando…";
-  }
+  const labelEl = btn?.querySelector(".training-hint-btn-label");
+  if (btn) btn.disabled = true;
+  if (labelEl) labelEl.textContent = "Buscando…";
   body.innerHTML = '<div class="hint-empty">Buscando…</div>';
   openModal("hints", { closable: true });
 
@@ -2628,10 +2783,8 @@ async function requestTrainingHints() {
   }
   const elapsed = Math.round(performance.now() - t0);
 
-  if (btn) {
-    btn.disabled = false;
-    btn.textContent = "💡 Sugerir";
-  }
+  if (btn) btn.disabled = false;
+  if (labelEl) labelEl.textContent = "Sugerir";
 
   if (hints.length === 0) {
     body.innerHTML = '<div class="hint-empty">No se han encontrado palabras</div>';

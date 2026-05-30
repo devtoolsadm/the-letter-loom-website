@@ -142,23 +142,25 @@ describe('word-only training modes', () => {
 })
 
 describe('selectActionInStrategy', () => {
-  it('discards the non-selected card, keeps selected at index 0, transitions to actions', () => {
-    const kept = makeActionCard({ id: 'kept', actionId: 'boost_total' })
-    const discarded = makeActionCard({ id: 'discarded', actionId: 'wildcard' })
+  it('keeps both cards in hand and records the preselected index, transitions to actions', () => {
+    const a = makeActionCard({ id: 'a', actionId: 'boost_total' })
+    const b = makeActionCard({ id: 'b', actionId: 'wildcard' })
     const state = makeState({
       phase: 'strategy',
-      hands: { p1: { letters: [], actions: [kept, discarded] }, p2: '<hidden>', p3: '<hidden>' },
+      hands: { p1: { letters: [], actions: [a, b] }, p2: '<hidden>', p3: '<hidden>' },
       discards: { vowels: [], consonants: [], actions: [] },
     })
     const next = selectActionInStrategy(state, 0)
     expect(next.phase).toBe('actions')
     expect(next.userActionIndex).toBe(0)
-    expect(next.hands.p1.actions).toHaveLength(1)
-    expect(next.hands.p1.actions[0].id).toBe('kept')
-    expect(next.discards.actions).toContain(discarded)
+    // Both cards remain in the hand — preselection only marks the default.
+    expect(next.hands.p1.actions).toHaveLength(2)
+    expect(next.hands.p1.actions[0].id).toBe('a')
+    expect(next.hands.p1.actions[1].id).toBe('b')
+    expect(next.discards.actions).toHaveLength(0)
   })
 
-  it('works when selecting the second card (index 1)', () => {
+  it('records the second card as preselected (index 1), both cards stay in hand', () => {
     const first = makeActionCard({ id: 'first', actionId: 'explosion' })
     const second = makeActionCard({ id: 'second', actionId: 'boost_total' })
     const state = makeState({
@@ -167,14 +169,72 @@ describe('selectActionInStrategy', () => {
       discards: { vowels: [], consonants: [], actions: [] },
     })
     const next = selectActionInStrategy(state, 1)
-    expect(next.hands.p1.actions[0].id).toBe('second')
-    expect(next.discards.actions).toContain(first)
+    expect(next.userActionIndex).toBe(1)
+    expect(next.hands.p1.actions[1].id).toBe('second')
+    expect(next.discards.actions).toHaveLength(0)
   })
 
   it('returns state unchanged for invalid index', () => {
     const state = makeState({ phase: 'strategy' })
     const next = selectActionInStrategy(state, 5)
     expect(next).toBe(state)
+  })
+
+  it('does NOT add the user to shieldedPlayers when picking shield_total in strategy (shield is now activated reactively)', () => {
+    const shield = makeActionCard({ id: 'sh', actionId: 'shield_total' })
+    const other  = makeActionCard({ id: 'ot', actionId: 'boost_total' })
+    const state = makeState({
+      phase: 'strategy',
+      hands: { p1: { letters: [], actions: [shield, other] }, p2: '<hidden>', p3: '<hidden>' },
+      discards: { vowels: [], consonants: [], actions: [] },
+    })
+    const next = selectActionInStrategy(state, 0)
+    // Preselection just records userActionIndex; shield activates via reactive
+    // prompt (when attacked) or proactively at the user's turn (by tapping).
+    expect(next.shieldedPlayers ?? []).not.toContain('p1')
+    expect(next.userActionIndex).toBe(0)
+  })
+})
+
+// ── Integration scenario: reactive shield blocking ─────────────────────────
+//
+// Shield is always reactive now: shieldedPlayers is filled only when the
+// user actually accepts a shield prompt (useShieldOnAttack) or proactively
+// plays it on their own turn. Selecting it in strategy just preselects.
+describe('reactive shield: blocks attacks once user is in shieldedPlayers', () => {
+  it('once the user has reactively shielded, subsequent ghost use_vowel does not affect them', () => {
+    const state0 = {
+      ...makeState({
+        hands: { p1: { letters: [], actions: [] }, p2: { letters: [], actions: [] }, p3: { letters: [], actions: [] } },
+        centralBoard: [makeLetter({ id: 'b-a', letter: 'A', kind: 'vowel' })],
+      }),
+      shieldedPlayers: ['p1'],
+    }
+    return import('../actionEffects.js').then(({ applyActionEffect }) => {
+      const action = { actionId: 'use_vowel' }
+      const state1 = applyActionEffect(state0, action, 'p2', null, { letter: 'A', cardId: 'b-a' })
+      expect(state1.forcedRules?.p1 ?? []).toHaveLength(0)
+      expect(state1.forcedRules?.p3 ?? []).toHaveLength(1)
+    })
+  })
+
+  it('once the user is shielded, one_for_all targeting them does nothing', () => {
+    const state0 = {
+      ...makeState({
+        hands: {
+          p1: { letters: [makeLetter({ id: 'l1' })], actions: [] },
+          p2: { letters: [], actions: [] },
+          p3: '<hidden>',
+        },
+      }),
+      shieldedPlayers: ['p1'],
+    }
+    return import('../actionEffects.js').then(({ applyActionEffect }) => {
+      const action = { actionId: 'one_for_all' }
+      const state1 = applyActionEffect(state0, action, 'p2', 'p1', {})
+      expect(state1).toBe(state0)
+      expect(state1.hands.p1.letters).toHaveLength(1)
+    })
   })
 })
 
@@ -366,11 +426,10 @@ describe('planGhostAction', () => {
     // rng = 0 → pickRandomTarget picks first candidate (p1, since source is p2 and candidates are [p1, p3])
     const result = planGhostAction(state, 'p2', () => 0)
     expect(result.shieldOpportunity).not.toBeNull()
-    expect(result.autoShield).toBeFalsy()
     expect(result.log.actionId).toBe('steal_letter')
   })
 
-  it('returns autoShield (not shieldOpportunity) when user pre-selected shield', () => {
+  it('also offers shield prompt when shield is preselected (reactive model — no autoShield anymore)', () => {
     const shield = makeActionCard({ actionId: 'shield_total' })
     const stealCard = { ...makeActionCard({ actionId: 'steal_letter', target: 'one', kind: 'attack' }) }
     const state = makeState({
@@ -380,7 +439,21 @@ describe('planGhostAction', () => {
       userActionResolved: false,
     })
     const result = planGhostAction(state, 'p2', () => 0)
-    expect(result.autoShield).toBeTruthy()
+    // Shield is always reactive: prompt is offered, no auto-apply.
+    expect(result.shieldOpportunity).not.toBeNull()
+  })
+
+  it('no shield opportunity when user is already in shieldedPlayers', () => {
+    const shield = makeActionCard({ actionId: 'shield_total' })
+    const stealCard = { ...makeActionCard({ actionId: 'steal_letter', target: 'one', kind: 'attack' }) }
+    const state = {
+      ...makeState({
+        hands: { p1: { letters: [makeLetter()], actions: [shield] }, p2: '<hidden>', p3: '<hidden>' },
+        decks: { vowelDeck: [], consonantDeck: [], actionDeck: [stealCard] },
+      }),
+      shieldedPlayers: ['p1'],
+    }
+    const result = planGhostAction(state, 'p2', () => 0)
     expect(result.shieldOpportunity).toBeNull()
   })
 
@@ -397,7 +470,6 @@ describe('planGhostAction', () => {
     const result = planGhostAction(state, 'p2', () => 0.99)
     // steal_letter targets p3, not p1 → not an attack on user
     expect(result.shieldOpportunity).toBeNull()
-    expect(result.autoShield).toBeFalsy()
   })
 
   it('returns log: null when action deck is completely empty', () => {
@@ -478,6 +550,39 @@ describe('useShieldOnAttack', () => {
     })
     const next = useShieldOnAttack(state, 'p2')
     expect(next).toBe(state)
+  })
+
+  it('registers the user in shieldedPlayers so subsequent attacks ignore them', () => {
+    const shield = makeActionCard({ id: 'sh', actionId: 'shield_total' })
+    const other = makeActionCard({ id: 'ot', actionId: 'boost_total' })
+    const state = makeState({
+      hands: { p1: { letters: [], actions: [shield, other] }, p2: '<hidden>', p3: '<hidden>' },
+      discards: { vowels: [], consonants: [], actions: [] },
+    })
+    const next = useShieldOnAttack(state, 'p2')
+    expect(next.shieldedPlayers).toContain('p1')
+  })
+
+  it('after a reactive shield, a later use_vowel does NOT add a forced rule to the user', async () => {
+    const shield = makeActionCard({ id: 'sh', actionId: 'shield_total' })
+    const state = makeState({
+      hands: { p1: { letters: [], actions: [shield] }, p2: '<hidden>', p3: { letters: [], actions: [] } },
+      discards: { vowels: [], consonants: [], actions: [] },
+    })
+    // Step 1: user reactively activates shield.
+    const afterShield = useShieldOnAttack(state, 'p2')
+    expect(afterShield.shieldedPlayers).toContain('p1')
+
+    // Step 2: a later ghost plays use_vowel (target=all).
+    const { applyActionEffect } = await import('../actionEffects.js')
+    const next = applyActionEffect(
+      afterShield,
+      { actionId: 'use_vowel' },
+      'p2',
+      null,
+      { letter: 'A', cardId: 'b-a' },
+    )
+    expect(next.forcedRules?.p1 ?? []).toHaveLength(0)
   })
 
   it('does not trigger shield prompt on second attack (userActionResolved already true)', () => {

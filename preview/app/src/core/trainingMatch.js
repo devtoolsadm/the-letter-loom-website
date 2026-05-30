@@ -259,9 +259,13 @@ export function enterActionsPhase(state) {
 }
 
 // Pre-commit the user's action during strategy. The strategy timer is
-// closed and the actions phase begins. The OTHER (non-chosen) action card
-// is discarded immediately so it disappears from the hand. Target/payload
-// is NOT asked here — it's resolved when the user's turn arrives.
+// closed and the actions phase begins. BOTH action cards stay in the hand —
+// the user can still tap either one when their turn arrives. The preselected
+// index marks the default that auto-plays if the turn timer expires.
+//
+// (Cards are reactively discarded only when the user accepts a shield prompt
+// — that discards both cards by design — or when the user actually plays a
+// card on their turn, which discards the rest as usual.)
 export function selectActionInStrategy(state, actionIndex) {
   const userId = state.players[0].id;
   const hand = state.hands[userId];
@@ -270,22 +274,9 @@ export function selectActionInStrategy(state, actionIndex) {
   const selectedCard = hand.actions[actionIndex];
   if (!selectedCard) return state;
 
-  // Discard every other action card (the one not chosen). The selected card
-  // stays in hand and will be discarded when it actually plays at user's turn.
-  const others = hand.actions.filter((c, idx) => c && idx !== actionIndex);
-  const newActions = [selectedCard];
-
   const pre = {
     ...state,
-    hands: {
-      ...state.hands,
-      [userId]: { ...hand, actions: newActions },
-    },
-    discards: {
-      ...state.discards,
-      actions: [...state.discards.actions, ...others],
-    },
-    userActionIndex: 0, // selected card is now the only one, at index 0
+    userActionIndex: actionIndex,
     userActionTarget: null,
     userActionPayload: null,
     userActionResolved: false,
@@ -406,12 +397,16 @@ export function useShieldOnAttack(state, source) {
   const idsToDiscard = new Set([shieldCard.id]);
   if (otherCard) idsToDiscard.add(otherCard.id);
   let next = discardActions(state, userId, idsToDiscard);
+  const prevShielded = next.shieldedPlayers ?? [];
   next = {
     ...next,
     userActionIndex: 0,
     userActionPayload: null,
     userActionTarget: null,
     userActionResolved: true,
+    // Register the user in shieldedPlayers so EVERY remaining attack in this
+    // trick skips them — not only the one that just triggered the prompt.
+    shieldedPlayers: prevShielded.includes(userId) ? prevShielded : [...prevShielded, userId],
     actionsLog: [
       ...(state.actionsLog ?? []),
       { playerId: userId, actionId: "shield_total", blocked: true, source },
@@ -465,20 +460,21 @@ export function planGhostAction(state, ghostId, rng = Math.random) {
     discards: { ...state.discards, actions: [...p, card] },
   };
 
+  // Shield is always REACTIVE: if the attack hits the user and they have a
+  // shield_total card in hand (and the action hasn't been resolved yet), we
+  // surface a prompt so they decide whether to spend it.
   const isAttack = isAttackOnUser(card, targetId, userId);
-  const shieldPreSelected = isUserShieldPreSelected(nextState);
+  const alreadyShielded = (nextState.shieldedPlayers ?? []).includes(userId);
   const canPromptShield =
     isAttack
     && userHasShield(nextState)
     && !nextState.userActionResolved
-    && !shieldPreSelected;
-  const autoShield = isAttack && shieldPreSelected;
+    && !alreadyShielded;
 
   return {
     state: nextState,
     log: { playerId: ghostId, actionId: card.actionId, targetId, payload },
     shieldOpportunity: canPromptShield ? { source: ghostId, card, targetId, payload } : null,
-    autoShield: autoShield ? { source: ghostId, card, targetId, payload } : null,
   };
 }
 
