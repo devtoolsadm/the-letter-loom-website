@@ -5,6 +5,9 @@ import {
   clearTrainingMatch,
   initializeRound,
   revealLetterSlot,
+  revealBoardSlot,
+  fillRemainingBoardRandomly,
+  fillRemainingHandRandomly,
   tickStrategyTimer,
   tickCreationTimer,
   enterActionsPhase,
@@ -368,6 +371,7 @@ function renderTrainingMatch() {
   _shell.setI18nById("trainingMatchTitle", `trainingDifficulty${capitalizeStr(state.difficulty)}`);
   _shell.setI18nById("trainingBoardLabel", "trainingBoardLabel");
   _shell.setI18nById("trainingHandLabel", "trainingHandLabel");
+  _shell.setI18nById("trainingHintBtnLabel", "trainingHintBtnLabel");
   _shell.setI18nById("trainingRoundLabel", "trainingRoundLabel", {
     vars: { round: state.round, total: state.roundsTarget },
   });
@@ -391,6 +395,16 @@ function renderTrainingMatch() {
     const el = document.querySelector(sel);
     if (el) el.classList.toggle("hidden", isResultOrDone);
   });
+  // While the user is dealing the central board, hide (but keep space for)
+  // the hand and word-strip sections so the layout doesn't jump when they
+  // appear later.
+  const boardFilledForLayout = (state.centralBoard ?? []).length > 0
+    && (state.centralBoard ?? []).every((c) => c != null);
+  const reserveHandSpace = state.phase === "dealing" && !boardFilledForLayout;
+  const matchRoot = document.querySelector(".training-match");
+  if (matchRoot) matchRoot.classList.toggle("is-board-dealing", reserveHandSpace);
+  const reserveWordSpace = ["dealing", "strategy", "actions"].includes(state.phase);
+  if (matchRoot) matchRoot.classList.toggle("is-pre-creation", reserveWordSpace);
   document.getElementById("trainingValidateWrap")?.classList.toggle("hidden", isResultOrDone || !(state.phase === "creation" && state.untimedCreation));
   updateHintButtonVisibility();
   if (state.phase === "strategy" || state.phase === "creation") {
@@ -438,10 +452,46 @@ function renderTrainingPrompt(state) {
   let showDone = false;
   let promptKind = "is-info";
 
+  // Visibility of the random-deal buttons follows the dealing sub-phase.
+  const dealBoardBtn = document.getElementById("trainingDealRandomBoardBtn");
+  const dealHandBtn = document.getElementById("trainingDealRandomHandBtn");
+  const dealBoardLabel = document.getElementById("trainingDealRandomBoardLabel");
+  const dealHandLabel = document.getElementById("trainingDealRandomHandLabel");
+  if (dealBoardLabel) dealBoardLabel.textContent = t("trainingDealRandomBtn") || "Aleatorio";
+  if (dealHandLabel) dealHandLabel.textContent = t("trainingDealRandomBtn") || "Aleatorio";
+  if (dealBoardBtn) dealBoardBtn.classList.add("hidden");
+  if (dealHandBtn) dealHandBtn.classList.add("hidden");
+
   if (state.phase === "dealing") {
-    key = "trainingInstrDealing";
+    const boardFilled = (state.centralBoard ?? []).every((c) => c != null)
+      && (state.centralBoard ?? []).length > 0;
+    const handLetters = state.hands[userId]?.letters ?? [];
+    const handHasNulls = handLetters.some((c) => c == null);
+    if (!boardFilled && dealBoardBtn) dealBoardBtn.classList.remove("hidden");
+    if (boardFilled && handHasNulls && dealHandBtn) dealHandBtn.classList.remove("hidden");
+    key = boardFilled ? "trainingInstrDealingHand" : "trainingInstrDealingBoard";
     promptKind = "is-action-required";
-  } else if (state.phase === "strategy") {
+    // While dealing the central board, the prompt lives just above the
+    // board (separate element) — fully collapse the timer-area prompt so
+    // it doesn't reserve vertical space and push the board down.
+    if (!boardFilled) {
+      timerPrompt.classList.add("hidden", "is-collapsed");
+      const boardPrompt = document.getElementById("trainingBoardPrompt");
+      if (boardPrompt) {
+        boardPrompt.classList.remove("hidden");
+        _shell.setI18nById("trainingBoardPrompt", key);
+      }
+      return;
+    } else {
+      timerPrompt.classList.remove("is-collapsed");
+      const boardPrompt = document.getElementById("trainingBoardPrompt");
+      if (boardPrompt) boardPrompt.classList.add("hidden");
+    }
+  } else {
+    const boardPrompt = document.getElementById("trainingBoardPrompt");
+    if (boardPrompt) boardPrompt.classList.add("hidden");
+  }
+  if (state.phase === "strategy") {
     key = "trainingInstrStrategy";
     showDone = true;
     promptKind = "is-action-required";
@@ -585,17 +635,22 @@ function renderTrainingBoard(state) {
   const slots = state.centralBoard.length
     ? state.centralBoard
     : Array.from({ length: 5 }, () => null);
+  const isDealing = state.phase === "dealing";
   const isCreation = state.phase === "creation";
   const wordIds = new Set((state.userWord ?? []).map((s) => s.cardId));
   const requiredCardIds = collectRequiredCardIds(state);
-  for (const card of slots) {
+  slots.forEach((card, idx) => {
+    if (!card && isDealing) {
+      root.appendChild(renderDealPickerCard(idx, "board"));
+      return;
+    }
     const el = renderLetterCard(card);
     if (card && requiredCardIds.has(card.id)) {
       el.classList.add("is-required-letter");
     }
     if (card && isCreation) attachCardSelectableBehavior(el, card, "board", wordIds.has(card.id));
     root.appendChild(el);
-  }
+  });
   applyTwoRowCardLayout(root, slots.length);
 }
 
@@ -712,9 +767,14 @@ function renderTrainingHand(state) {
     && (state.actionsQueue?.[0] === userId)
     && !state.userActionResolved;
   const tappable = isStrategy || (isUserTurn && !isUserTurnBlockedByActionBubble(state));
+  // The dealer (the user) picks the central board first; only once the board
+  // is fully revealed do their own hand slots become pickable.
+  const boardFilled = (state.centralBoard ?? []).every((c) => c != null)
+    && (state.centralBoard ?? []).length > 0;
+  const handPickable = isDealing && boardFilled;
   const wordIds = new Set((state.userWord ?? []).map((s) => s.cardId));
   letters.forEach((card, idx) => {
-    if (!card && isDealing) {
+    if (!card && handPickable) {
       root.appendChild(renderDealPickerCard(idx));
     } else {
       const el = renderLetterCard(card, { faceDown: isDealing });
@@ -957,6 +1017,7 @@ function renderTrainingWordStrip(state) {
   if (!root || !cardsRoot || !label) return;
   const visible = state.phase === "creation";
   root.classList.toggle("hidden", !visible);
+  root.classList.remove("is-placeholder");
   if (!visible) return;
   _shell.setI18nById("trainingWordStripLabel", "trainingWordStripLabel");
   cardsRoot.innerHTML = "";
@@ -1181,7 +1242,7 @@ function findWordSlotAt(x, y) {
   return null;
 }
 
-function renderDealPickerCard(slotIndex) {
+function renderDealPickerCard(slotIndex, target = "hand") {
   const el = document.createElement("div");
   el.className = "tcard is-deal-picker";
   const vowelBtn = document.createElement("button");
@@ -1189,22 +1250,23 @@ function renderDealPickerCard(slotIndex) {
   vowelBtn.className = "tcard-pick-half tcard-pick-vowel";
   vowelBtn.textContent = "V";
   vowelBtn.setAttribute("aria-label", "vocal");
-  vowelBtn.addEventListener("click", () => handleDealPick(slotIndex, "vowel"));
+  vowelBtn.addEventListener("click", () => handleDealPick(slotIndex, "vowel", target));
   const consonantBtn = document.createElement("button");
   consonantBtn.type = "button";
   consonantBtn.className = "tcard-pick-half tcard-pick-consonant";
   consonantBtn.textContent = "C";
   consonantBtn.setAttribute("aria-label", "consonant");
-  consonantBtn.addEventListener("click", () => handleDealPick(slotIndex, "consonant"));
+  consonantBtn.addEventListener("click", () => handleDealPick(slotIndex, "consonant", target));
   el.append(vowelBtn, consonantBtn);
   return el;
 }
 
-function handleDealPick(slotIndex, kind) {
+function handleDealPick(slotIndex, kind, target = "hand") {
   _shell.playClickFeedback();
   const state = getTrainingMatch();
   if (!state || state.phase !== "dealing") return;
-  revealLetterSlot(state, slotIndex, kind);
+  if (target === "board") revealBoardSlot(state, slotIndex, kind);
+  else revealLetterSlot(state, slotIndex, kind);
   renderTrainingMatch();
 }
 
@@ -2815,6 +2877,22 @@ function escapeHtml(s) {
   }[c]));
 }
 
+function handleDealRandomBoard() {
+  _shell.playClickFeedback();
+  const state = getTrainingMatch();
+  if (!state || state.phase !== "dealing") return;
+  fillRemainingBoardRandomly(state);
+  renderTrainingMatch();
+}
+
+function handleDealRandomHand() {
+  _shell.playClickFeedback();
+  const state = getTrainingMatch();
+  if (!state || state.phase !== "dealing") return;
+  fillRemainingHandRandomly(state);
+  renderTrainingMatch();
+}
+
 // Exports used by main.js
 export {
   setupTrainingDebugToggle,
@@ -2824,4 +2902,6 @@ export {
   renderTrainingMatch,
   renderTrainingSetup,
   requestTrainingHints,
+  handleDealRandomBoard,
+  handleDealRandomHand,
 };

@@ -68,7 +68,10 @@ export function renderActionCard(card, opts = {}) {
   const el = document.createElement("div");
   if (!card) {
     el.className = "tcard is-action is-empty";
-    el.textContent = "?";
+    const q = document.createElement("span");
+    q.className = "tcard-letter";
+    q.textContent = "?";
+    el.appendChild(q);
     return el;
   }
   if (opts.faceDown) {

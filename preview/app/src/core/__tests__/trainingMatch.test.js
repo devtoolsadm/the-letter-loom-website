@@ -47,6 +47,7 @@ import {
   drawEmergencyLetter,
   userHandHasNoLetters,
   revealLetterSlot,
+  revealBoardSlot,
 } from '../trainingMatch.js'
 import { makeLetter, makeConsonant, makeActionCard, makeState, resetIds } from './helpers.js'
 
@@ -127,12 +128,24 @@ describe('word-only training modes', () => {
           makeLetter({ id: 'v2' }),
           makeLetter({ id: 'v3' }),
         ],
+        consonantDeck: [
+          makeLetter({ id: 'c1', kind: 'consonant' }),
+          makeLetter({ id: 'c2', kind: 'consonant' }),
+          makeLetter({ id: 'c3', kind: 'consonant' }),
+          makeLetter({ id: 'c4', kind: 'consonant' }),
+          makeLetter({ id: 'c5', kind: 'consonant' }),
+        ],
       },
     }
 
     state = revealLetterSlot(state, 0, 'vowel')
     state = revealLetterSlot(state, 1, 'vowel')
     state = revealLetterSlot(state, 2, 'vowel')
+    state = revealBoardSlot(state, 0, 'consonant')
+    state = revealBoardSlot(state, 1, 'consonant')
+    state = revealBoardSlot(state, 2, 'consonant')
+    state = revealBoardSlot(state, 3, 'consonant')
+    state = revealBoardSlot(state, 4, 'consonant')
 
     expect(state.players).toHaveLength(1)
     expect(state.hands.p1.actions).toEqual([])

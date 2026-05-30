@@ -80,6 +80,8 @@ import {
   renderTrainingMatch,
   renderTrainingSetup,
   requestTrainingHints,
+  handleDealRandomBoard,
+  handleDealRandomHand,
 } from "../match/training.js";
 import {
   initScoreboard,
@@ -850,6 +852,8 @@ function setupNavigation() {
     ["trainingTimerDoneBtn",     () => finishTrainingTimer()],
     ["trainingValidateBtn",      () => finishTrainingTimer()],
     ["trainingHintBtn",          () => requestTrainingHints()],
+    ["trainingDealRandomBoardBtn", () => handleDealRandomBoard()],
+    ["trainingDealRandomHandBtn",  () => handleDealRandomHand()],
     ["resumeMatchBtn", () => showScreen("match")],
     ["splashHelpBtn", () => showScreen("help")],
     ["helpBtn", () => showScreen("help")],

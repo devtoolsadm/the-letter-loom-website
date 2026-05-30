@@ -8,6 +8,7 @@ import {
   TRAINING_DIFFICULTY_PRESETS,
   TRAINING_HAND_LETTERS,
   TRAINING_HAND_ACTIONS,
+  TRAINING_CENTRAL_BOARD_SIZE,
   TRAINING_MIN_WORD_LETTERS,
   MATCH_TYPE_TRAINING,
 } from "./constants.js";
@@ -19,7 +20,6 @@ import {
 } from "./wordRules.js";
 import {
   buildInitialDecks,
-  dealCentralBoard,
   drawActions,
   drawLetterOfKind,
   discardAllForNewTrick,
@@ -155,50 +155,73 @@ export function clearTrainingMatch() {
   updateState({ training: { active: null } });
 }
 
-// Deal central board (5 cards) and action hand (2 cards) at the start of a
-// trick. Letter slots stay empty — the user fills them by tapping V/C.
-// Idempotent: only deals if the round hasn't been initialized yet.
+// Set up the trick: deal action cards, prepare empty board + user hand slots
+// for the user to pick composition (V/C) for each, and auto-deal ghosts.
+// Real-game rule: the dealer chooses the composition of the central board
+// the same way they pick their hand — so we expose 5 V/C pickers instead of
+// dealing the board randomly.
+// Idempotent: only initializes once per round (sets `roundInitialized`).
 export function initializeRound(state) {
-  if (state.centralBoard.length > 0) return state; // already dealt
-
-  // Board
-  const boardResult = dealCentralBoard(
-    state.decks.vowelDeck,
-    state.decks.consonantDeck,
-    state.discards,
-  );
-
-  // Actions for the user
-  const actionsResult = state.skipActions
-    ? { deck: state.decks.actionDeck, discard: state.discards.actions, drawn: [] }
-    : drawActions(
-        state.decks.actionDeck,
-        state.discards.actions,
-        TRAINING_HAND_ACTIONS,
-      );
+  if (state.roundInitialized) return state;
 
   const userId = state.players[0].id;
-  const userHand = state.hands[userId];
+  const userIsDealer = state.dealerId === userId;
+
+  let vDeck = state.decks.vowelDeck;
+  let cDeck = state.decks.consonantDeck;
+  let aDeck = state.decks.actionDeck;
+  let dDiscards = { ...state.discards };
+
+  // Central board: if the user deals, leave slots empty so they can pick
+  // composition. If a ghost deals, that ghost picks for us (random for
+  // now — future: bias by intelligence/aggressiveness profile and by the
+  // letters already on the board / in their hand).
+  let board;
+  if (userIsDealer) {
+    board = Array.from({ length: TRAINING_CENTRAL_BOARD_SIZE }, () => null);
+  } else {
+    board = [];
+    for (let i = 0; i < TRAINING_CENTRAL_BOARD_SIZE; i++) {
+      const kind = Math.random() < 0.35 ? "vowel" : "consonant";
+      const r = drawLetterOfKind(vDeck, cDeck, dDiscards, kind);
+      vDeck = r.vowelDeck;
+      cDeck = r.consonantDeck;
+      dDiscards = r.discards;
+      board.push(r.card ?? null);
+    }
+  }
+
+  // Action cards for the user: when the user is the dealer they're drawn
+  // later (after the board is fully dealt). Otherwise we draw them now.
+  let userActions;
+  if (state.skipActions) {
+    userActions = [];
+  } else if (userIsDealer) {
+    userActions = Array.from({ length: TRAINING_HAND_ACTIONS }, () => null);
+  } else {
+    const r = drawActions(aDeck, dDiscards.actions, TRAINING_HAND_ACTIONS);
+    aDeck = r.deck;
+    dDiscards = { ...dDiscards, actions: r.discard };
+    userActions = r.drawn;
+  }
+
   const newHands = {
     ...state.hands,
     [userId]: {
       letters: Array.from({ length: TRAINING_HAND_LETTERS }, () => null),
-      actions: actionsResult.drawn,
+      actions: userActions,
     },
   };
 
-  // Auto-deal letters to ghost players (~35% vowels, 65% consonants, matching dorso ratio)
-  let gVowelDeck = boardResult.vowelDeck;
-  let gConsonantDeck = boardResult.consonantDeck;
-  let gDiscards = { ...boardResult.discards };
+  // Auto-deal letters to ghost players (~35% vowels, 65% consonants).
   for (const p of state.players.filter((pl) => pl.isGhost)) {
     const letters = [];
     for (let i = 0; i < TRAINING_HAND_LETTERS; i++) {
       const kind = Math.random() < 0.35 ? "vowel" : "consonant";
-      const r = drawLetterOfKind(gVowelDeck, gConsonantDeck, gDiscards, kind);
-      gVowelDeck = r.vowelDeck;
-      gConsonantDeck = r.consonantDeck;
-      gDiscards = r.discards;
+      const r = drawLetterOfKind(vDeck, cDeck, dDiscards, kind);
+      vDeck = r.vowelDeck;
+      cDeck = r.consonantDeck;
+      dDiscards = r.discards;
       if (r.card) letters.push(r.card);
     }
     newHands[p.id] = { letters, actions: [] };
@@ -206,17 +229,16 @@ export function initializeRound(state) {
 
   const next = {
     ...state,
-    centralBoard: boardResult.board,
+    centralBoard: board,
     decks: {
-      vowelDeck: gVowelDeck,
-      consonantDeck: gConsonantDeck,
-      actionDeck: actionsResult.deck,
+      ...state.decks,
+      vowelDeck: vDeck,
+      consonantDeck: cDeck,
+      actionDeck: aDeck,
     },
-    discards: {
-      ...gDiscards,
-      actions: actionsResult.discard,
-    },
+    discards: dDiscards,
     hands: newHands,
+    roundInitialized: true,
     updatedAt: Date.now(),
   };
   saveTrainingMatch(next);
@@ -732,8 +754,9 @@ export function finalizeUserWord(state, language = "es") {
 }
 
 // Reveal one letter slot of the user's hand by drawing from the requested
-// deck ('vowel' or 'consonant'). When all 3 slots are filled, transitions
-// to the strategy phase (timer arming is the caller's responsibility).
+// deck ('vowel' or 'consonant'). Phase transitions to strategy/creation only
+// when BOTH the user's hand and the central board are fully filled — the
+// dealer picks both compositions during the dealing phase.
 export function revealLetterSlot(state, slotIndex, kind) {
   const userId = state.players[0].id;
   const hand = state.hands[userId];
@@ -750,29 +773,188 @@ export function revealLetterSlot(state, slotIndex, kind) {
 
   const newLetters = hand.letters.slice();
   newLetters[slotIndex] = result.card;
-  const allFilled = newLetters.every((c) => c != null);
+  const next = applyDealPhaseAdvance(
+    {
+      ...state,
+      decks: {
+        ...state.decks,
+        vowelDeck: result.vowelDeck,
+        consonantDeck: result.consonantDeck,
+      },
+      discards: result.discards,
+      hands: { ...state.hands, [userId]: { ...hand, letters: newLetters } },
+    },
+    newLetters,
+    state.centralBoard,
+  );
+  saveTrainingMatch(next);
+  return next;
+}
+
+// Reveal one slot of the central board the same way: the dealer picks V/C
+// for each of the 5 board slots. Phase only transitions once hand + board
+// are both fully filled.
+export function revealBoardSlot(state, slotIndex, kind) {
+  const board = state.centralBoard ?? [];
+  if (board[slotIndex] != null) return state; // already filled
+
+  const result = drawLetterOfKind(
+    state.decks.vowelDeck,
+    state.decks.consonantDeck,
+    state.discards,
+    kind,
+  );
+  if (!result.card) return state;
+
+  const newBoard = board.slice();
+  newBoard[slotIndex] = result.card;
+  const userId = state.players[0].id;
+  const userHand = state.hands[userId];
+
+  let nextDecks = {
+    ...state.decks,
+    vowelDeck: result.vowelDeck,
+    consonantDeck: result.consonantDeck,
+  };
+  let nextDiscards = result.discards;
+  let nextHands = state.hands;
+
+  // When the board becomes fully dealt, draw the user's action cards too —
+  // they were left as `?` placeholders during initializeRound so the user
+  // could pick the board composition first (matches real-game order).
+  const boardJustFilled = newBoard.every((c) => c != null);
+  if (boardJustFilled && !state.skipActions && userHand) {
+    const actionsAlreadyDealt = (userHand.actions ?? []).some((c) => c != null);
+    if (!actionsAlreadyDealt) {
+      const actionsResult = drawActions(
+        nextDecks.actionDeck,
+        nextDiscards.actions,
+        TRAINING_HAND_ACTIONS,
+      );
+      nextDecks = { ...nextDecks, actionDeck: actionsResult.deck };
+      nextDiscards = { ...nextDiscards, actions: actionsResult.discard };
+      nextHands = {
+        ...state.hands,
+        [userId]: { ...userHand, actions: actionsResult.drawn },
+      };
+    }
+  }
+
+  const next = applyDealPhaseAdvance(
+    {
+      ...state,
+      decks: nextDecks,
+      discards: nextDiscards,
+      hands: nextHands,
+      centralBoard: newBoard,
+    },
+    nextHands[userId]?.letters ?? [],
+    newBoard,
+  );
+  saveTrainingMatch(next);
+  return next;
+}
+
+// Fill any remaining null slots (in the central board or user hand) with a
+// random V/C pick — same 35/65 ratio used for ghosts. Lets the user skip
+// the rest of the dealing when they don't care about composition.
+export function fillRemainingBoardRandomly(state) {
+  const board = state.centralBoard ?? [];
+  let v = state.decks.vowelDeck;
+  let c = state.decks.consonantDeck;
+  let d = state.discards;
+  const next = board.slice();
+  for (let i = 0; i < next.length; i++) {
+    if (next[i] != null) continue;
+    const kind = Math.random() < 0.35 ? "vowel" : "consonant";
+    const r = drawLetterOfKind(v, c, d, kind);
+    v = r.vowelDeck;
+    c = r.consonantDeck;
+    d = r.discards;
+    if (r.card) next[i] = r.card;
+  }
+  const userId = state.players[0].id;
+  const userHand = state.hands[userId];
+
+  let nextDecks = { ...state.decks, vowelDeck: v, consonantDeck: c };
+  let nextDiscards = d;
+  let nextHands = state.hands;
+
+  // Draw the user's action cards once the board has just become fully dealt
+  // (same trigger as revealBoardSlot's last pick).
+  const boardJustFilled = next.every((c) => c != null);
+  if (boardJustFilled && !state.skipActions && userHand) {
+    const actionsAlreadyDealt = (userHand.actions ?? []).some((c) => c != null);
+    if (!actionsAlreadyDealt) {
+      const r = drawActions(nextDecks.actionDeck, nextDiscards.actions, TRAINING_HAND_ACTIONS);
+      nextDecks = { ...nextDecks, actionDeck: r.deck };
+      nextDiscards = { ...nextDiscards, actions: r.discard };
+      nextHands = { ...state.hands, [userId]: { ...userHand, actions: r.drawn } };
+    }
+  }
+
+  const out = applyDealPhaseAdvance(
+    {
+      ...state,
+      decks: nextDecks,
+      discards: nextDiscards,
+      hands: nextHands,
+      centralBoard: next,
+    },
+    nextHands[userId]?.letters ?? [],
+    next,
+  );
+  saveTrainingMatch(out);
+  return out;
+}
+
+export function fillRemainingHandRandomly(state) {
+  const userId = state.players[0].id;
+  const hand = state.hands[userId];
+  if (!hand || hand === "<hidden>") return state;
+  let v = state.decks.vowelDeck;
+  let c = state.decks.consonantDeck;
+  let d = state.discards;
+  const letters = hand.letters.slice();
+  for (let i = 0; i < letters.length; i++) {
+    if (letters[i] != null) continue;
+    const kind = Math.random() < 0.35 ? "vowel" : "consonant";
+    const r = drawLetterOfKind(v, c, d, kind);
+    v = r.vowelDeck;
+    c = r.consonantDeck;
+    d = r.discards;
+    if (r.card) letters[i] = r.card;
+  }
+  const out = applyDealPhaseAdvance(
+    {
+      ...state,
+      decks: { ...state.decks, vowelDeck: v, consonantDeck: c },
+      discards: d,
+      hands: { ...state.hands, [userId]: { ...hand, letters } },
+    },
+    letters,
+    state.centralBoard ?? [],
+  );
+  saveTrainingMatch(out);
+  return out;
+}
+
+function applyDealPhaseAdvance(state, userLetters, board) {
+  const handFilled = userLetters.length > 0 && userLetters.every((c) => c != null);
+  const boardFilled = board.length > 0 && board.every((c) => c != null);
+  const allFilled = handFilled && boardFilled;
   const nextPhase = allFilled
     ? (state.skipStrategy ? "creation" : "strategy")
     : state.phase;
   const nextRemaining = allFilled
     ? (state.skipStrategy ? state.creationSeconds : state.strategySeconds)
     : state.remaining;
-
-  const next = {
+  return {
     ...state,
-    decks: {
-      ...state.decks,
-      vowelDeck: result.vowelDeck,
-      consonantDeck: result.consonantDeck,
-    },
-    discards: result.discards,
-    hands: { ...state.hands, [userId]: { ...hand, letters: newLetters } },
     phase: nextPhase,
     remaining: nextRemaining,
     updatedAt: Date.now(),
   };
-  saveTrainingMatch(next);
-  return next;
 }
 
 // Discard all trick cards, reset per-baza state, advance the round counter.
@@ -812,6 +994,7 @@ export function advanceToNextBaza(state) {
     discards: deckResult.discards,
     hands: newHands,
     centralBoard: [],
+    roundInitialized: false,
     round: isMatchOver ? state.round : nextRound,
     phase: isMatchOver ? "done" : "dealing",
     remaining: 0,

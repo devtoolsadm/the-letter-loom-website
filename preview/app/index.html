@@ -728,7 +728,7 @@
               <div class="training-action-bar" id="trainingActionBar"></div>
             </div>
 
-            <div class="training-section">
+            <div class="training-section is-hand">
               <div class="training-section-label" id="trainingHandLabel"></div>
               <div class="training-hand" id="trainingHand"></div>
               <div class="training-actions-hand" id="trainingActionsHand"></div>
@@ -738,6 +738,7 @@
                 <button class="training-action-focus-play" type="button" id="trainingActionFocusPlay"></button>
               </div>
             </div>
+            <button class="training-deal-random hidden" type="button" id="trainingDealRandomHandBtn"><span class="training-deal-random-icon" aria-hidden="true">🎲</span><span class="training-deal-random-label" id="trainingDealRandomHandLabel"></span></button>
 
             <div class="training-word-strip hidden" id="trainingWordStrip">
               <div class="training-word-strip-label" id="trainingWordStripLabel"></div>
@@ -746,17 +747,20 @@
 
             <div class="training-forced-rules hidden" id="trainingForcedRules"></div>
 
+            <div class="training-board-prompt hidden" id="trainingBoardPrompt"></div>
             <div class="training-section is-board">
               <div class="training-section-label" id="trainingBoardLabel"></div>
               <div class="training-board" id="trainingBoard"></div>
             </div>
+            <button class="training-deal-random hidden" type="button" id="trainingDealRandomBoardBtn"><span class="training-deal-random-icon" aria-hidden="true">🎲</span><span class="training-deal-random-label" id="trainingDealRandomBoardLabel"></span></button>
 
             <div class="training-validate-wrap hidden" id="trainingValidateWrap">
-              <button class="training-validate-btn" type="button" id="trainingValidateBtn"></button>
+              <div class="training-validate-row">
+                <button class="game-btn btn-cyan training-hint-btn hidden" type="button" id="trainingHintBtn"><span class="training-hint-btn-icon" aria-hidden="true">💡</span><span class="training-hint-btn-label" id="trainingHintBtnLabel"></span></button>
+                <button class="training-validate-btn" type="button" id="trainingValidateBtn"></button>
+              </div>
               <div class="training-validate-tip" id="trainingValidateTip"></div>
             </div>
-
-            <button class="game-btn btn-cyan training-hint-btn hidden" type="button" id="trainingHintBtn"><span class="training-hint-btn-icon" aria-hidden="true">💡</span><span class="training-hint-btn-label">Sugerir</span></button>
 
           </div>
         </div>
