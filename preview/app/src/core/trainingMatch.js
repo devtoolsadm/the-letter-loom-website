@@ -16,6 +16,7 @@ import {
   buildWordFromCards,
   usesAtLeastOneFromBoardAndHand,
   validateForcedRules,
+  getForcedWordLanguage,
   computeWordScore,
   computeWordScoreDetailed,
 } from "./wordRules.js";
@@ -69,6 +70,11 @@ function makeId() {
   return `tm-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 }
 
+function normalizeLanguage(value) {
+  const lang = String(value || "").trim().toLowerCase().slice(0, 2);
+  return lang === "en" ? "en" : "es";
+}
+
 function buildPlayers(opponents, userNickname) {
   // Player ids: p1 = user, p2..pN = ghosts. Names: configurable later.
   const players = [
@@ -97,16 +103,18 @@ function buildEmptyHands(players) {
   return hands;
 }
 
-export function createTrainingMatch(difficulty, { userNickname } = {}) {
+export function createTrainingMatch(difficulty, { userNickname, language } = {}) {
   const preset = TRAINING_DIFFICULTY_PRESETS[difficulty];
   if (!preset) throw new Error(`Unknown difficulty: ${difficulty}`);
 
   const players = buildPlayers(preset.opponents, userNickname);
-  const decksAndDiscards = buildInitialDecks();
+  const gameLanguage = normalizeLanguage(language ?? "es");
+  const decksAndDiscards = buildInitialDecks(gameLanguage);
 
   const state = {
     matchType: MATCH_TYPE_TRAINING,
     matchId: makeId(),
+    language: gameLanguage,
     difficulty,
     ghostLevel: preset.ghostLevel,
     strategySeconds: preset.strategySeconds,
@@ -667,7 +675,7 @@ export function tickCreationTimer(state) {
 }
 
 export function submitUserWord(state) {
-  return finalizeUserWord(state);
+  return finalizeUserWord(state, state?.language || "es");
 }
 
 // Validate the user's word locally (no AI yet), compute its score and
@@ -714,7 +722,7 @@ export function finalizeUserWord(state, language = "es") {
       word: wordStr,
       selectedCards,
       effects: forcedEffects,
-      lang: language,
+      lang: getForcedWordLanguage(language, forcedEffects),
     });
     if (!forcedCheck.ok) {
       valid = false;

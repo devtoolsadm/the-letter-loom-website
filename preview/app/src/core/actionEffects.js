@@ -129,6 +129,14 @@ function applyActionEffectInner(state, action, sourcePlayerId, targetPlayerId, p
         sourcePlayerId,
         { language: "en" },
       );
+    case "in_spanish":
+      return addForcedRule(
+        addScoreModifier(state, sourcePlayerId, ACTION_POINTS.in_spanish),
+        sourcePlayerId,
+        action.actionId,
+        sourcePlayerId,
+        { language: "es" },
+      );
     case "boost_total":
       return addScoreModifier(state, sourcePlayerId, ACTION_POINTS.boost_total);
     case "wildcard": {

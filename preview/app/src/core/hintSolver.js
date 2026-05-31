@@ -5,7 +5,7 @@
  * their hand + the central board, respecting the same rules as finalizeUserWord:
  *   - must include at least one card from hand AND one from the central board
  *   - must satisfy any forced rules (philologist, brain_squeeze, use_vowel,
- *     use_consonant, use_letter, in_english)
+ *     use_consonant, use_letter, in_english, in_spanish)
  *   - wildcards (vowel/consonant/any) may substitute missing letters
  *
  * Each returned hint includes the candidate word, the cards that compose it
@@ -24,6 +24,7 @@ import {
   countSyllables,
   hasTilde,
   containsLetter,
+  getForcedWordLanguage,
 } from "./wordRules.js";
 import { decodeDict } from "./dictCodec.js";
 
@@ -79,11 +80,7 @@ function buildContext(state) {
   const forcedEffects = state.forcedRules?.[userId] ?? [];
   const plusMinus = state.scoreModifiers?.[userId] ?? 0;
   const baseLang = state.language || "es";
-  // in_english forced rule flips the language for this round.
-  const inEnglishActive = forcedEffects.some((e) => e.actionId === "in_english");
-  const effectiveLang = inEnglishActive
-    ? (baseLang === "es" ? "en" : "es")
-    : baseLang;
+  const effectiveLang = getForcedWordLanguage(baseLang, forcedEffects);
 
   // Split source cards by origin to enforce "≥1 from hand AND ≥1 from board".
   const handCards = handLetters.filter(Boolean);

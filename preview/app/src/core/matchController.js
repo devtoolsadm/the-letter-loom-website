@@ -37,6 +37,11 @@ function createMatchId() {
   return `m${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function normalizeLanguage(value) {
+  const lang = String(value || "").trim().toLowerCase().slice(0, 2);
+  return lang === "en" ? "en" : "es";
+}
+
 function buildPlayers(count, knownNames = []) {
   const n = clamp(count, MIN_PLAYERS, MAX_PLAYERS);
   const list = [];
@@ -105,6 +110,7 @@ class MatchController {
       phase: matchState.phase ?? "config",
       remaining: matchState.remaining ?? 0,
       matchType: matchState.matchType ?? MATCH_TYPE_SCOREBOARD,
+      language: normalizeLanguage(matchState.language ?? basePrefs.language ?? "es"),
       mode: matchState.mode ?? (basePrefs.mode === MATCH_MODE_POINTS ? MATCH_MODE_POINTS : MATCH_MODE_ROUNDS),
       roundsTarget: matchState.roundsTarget ?? basePrefs.roundsTarget ?? DEFAULT_ROUNDS_TARGET,
       pointsTarget: matchState.pointsTarget ?? basePrefs.pointsTarget ?? DEFAULT_POINTS_TARGET,
@@ -155,6 +161,7 @@ class MatchController {
       phase: "config",
       remaining: 0,
       matchType: MATCH_TYPE_SCOREBOARD,
+      language: normalizeLanguage(prefs.language ?? "es"),
       mode: prefs.mode === MATCH_MODE_POINTS ? MATCH_MODE_POINTS : MATCH_MODE_ROUNDS,
       roundsTarget: prefs.roundsTarget ?? DEFAULT_ROUNDS_TARGET,
       pointsTarget: prefs.pointsTarget ?? DEFAULT_POINTS_TARGET,
@@ -283,9 +290,10 @@ class MatchController {
     this._emit("statechange", {});
   }
 
-  startMatch() {
+  startMatch({ language = null } = {}) {
     this.stopTimer();
     this._state.matchId = createMatchId();
+    this._state.language = normalizeLanguage(language ?? this._state.preferencesRef?.language ?? this._state.language ?? "es");
     this._state.round = 1;
     this._state.phase = "strategy-ready";
     this._state.remaining = this._state.strategySeconds;

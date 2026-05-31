@@ -22,6 +22,7 @@ const defaultState = () => ({
     knownPlayerNames: [],
   },
   gamePreferences: {
+    language: null,
     playersCount: DEFAULT_PLAYER_COUNT,
     strategySeconds: DEFAULT_STRATEGY_SECONDS,
     creationSeconds: DEFAULT_CREATION_SECONDS,

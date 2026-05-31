@@ -127,6 +127,7 @@ export function containsLetter(word, letter) {
 //   - use_vowel / use_consonant / use_letter:
 //        payload.letter (the central-board letter chosen by the caster) must appear
 //   - in_english:     handled by the AI validator (language switch), not here
+//   - in_spanish:     handled by the AI validator (language switch), not here
 //
 // Returns { ok: boolean, violations: string[] }.
 export function validateForcedRules({ word, selectedCards, effects, lang = "es" }) {
@@ -151,6 +152,15 @@ export function validateForcedRules({ word, selectedCards, effects, lang = "es" 
     }
   }
   return { ok: violations.length === 0, violations };
+}
+
+export function getForcedWordLanguage(baseLang = "es", effects = []) {
+  const forced = (effects ?? []).find((e) =>
+    ["in_english", "in_spanish"].includes(e.actionId)
+  );
+  if (!forced) return baseLang === "en" ? "en" : "es";
+  if (!forced.payload?.language) return forced.actionId === "in_english" ? "en" : "es";
+  return forced.payload.language === "en" ? "en" : "es";
 }
 
 // Compute the word's score given the selected cards and any active modifiers.

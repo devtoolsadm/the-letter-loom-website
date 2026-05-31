@@ -2,9 +2,9 @@
 // Cards have stable IDs so they can be referenced across the state.
 
 import {
-  VOWEL_DECK_DEF,
-  CONSONANT_DECK_DEF,
-  ACTION_CARDS,
+  getVowelDeckDef,
+  getConsonantDeckDef,
+  getActionCardDefsForLanguage,
   TRAINING_VOWEL_WILDCARDS,
   TRAINING_CONSONANT_WILDCARDS,
   TRAINING_HAND_LETTERS,
@@ -18,9 +18,9 @@ function nextCardId(prefix) {
   return `${prefix}-${Date.now().toString(36)}-${_cardCounter}`;
 }
 
-export function buildVowelDeck() {
+export function buildVowelDeck(language = "es") {
   const cards = [];
-  for (const def of VOWEL_DECK_DEF) {
+  for (const def of getVowelDeckDef(language)) {
     for (let i = 0; i < def.count; i += 1) {
       cards.push({
         id: nextCardId("v"),
@@ -50,9 +50,9 @@ export function buildVowelDeck() {
   return cards;
 }
 
-export function buildConsonantDeck() {
+export function buildConsonantDeck(language = "es") {
   const cards = [];
-  for (const def of CONSONANT_DECK_DEF) {
+  for (const def of getConsonantDeckDef(language)) {
     for (let i = 0; i < def.count; i += 1) {
       cards.push({
         id: nextCardId("c"),
@@ -79,9 +79,9 @@ export function buildConsonantDeck() {
   return cards;
 }
 
-export function buildActionDeck({ excludeDeferred = true } = {}) {
+export function buildActionDeck({ excludeDeferred = true, language = "es" } = {}) {
   const cards = [];
-  for (const def of ACTION_CARDS) {
+  for (const def of getActionCardDefsForLanguage(language)) {
     if (excludeDeferred && def.inMVP === false) continue;
     for (let i = 0; i < (def.count ?? 0); i += 1) {
       cards.push({
@@ -154,10 +154,10 @@ export function drawActions(actionDeck, actionDiscard, n) {
 }
 
 // Build the initial decks for a fresh training match.
-export function buildInitialDecks() {
-  const vowels = shuffle(buildVowelDeck());
-  const consonants = shuffle(buildConsonantDeck());
-  const actions = shuffle(buildActionDeck());
+export function buildInitialDecks(language = "es") {
+  const vowels = shuffle(buildVowelDeck(language));
+  const consonants = shuffle(buildConsonantDeck(language));
+  const actions = shuffle(buildActionDeck({ language }));
   return {
     vowelDeck: vowels,
     consonantDeck: consonants,

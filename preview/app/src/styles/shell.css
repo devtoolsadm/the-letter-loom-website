@@ -640,6 +640,7 @@ body.shell-ready #game-root {
 }
 
 .screen-topbar {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -737,6 +738,33 @@ body.shell-ready #game-root {
 }
 .lang-es #trainingMatchTitle[data-i18n="trainingDifficultyTimeTrial"] {
   font-size: 22px;
+}
+.match-language-badge {
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  z-index: 80;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 26px;
+  margin: 0;
+  padding: 0 8px;
+  border: 3px solid #fff2a8;
+  border-radius: 999px;
+  background: #342214;
+  color: #fff2a8;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0;
+  vertical-align: middle;
+  text-shadow: none;
+  transform: translateX(-50%);
+  pointer-events: none;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.28);
 }
 .match-round-total {
   font-size: var(--text-lg);

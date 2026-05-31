@@ -33,6 +33,18 @@ describe('in_english', () => {
   })
 })
 
+describe('in_spanish', () => {
+  it('adds +10 score modifier and forced Spanish rule to source', () => {
+    const state = makeState()
+    const action = makeActionCard({ actionId: 'in_spanish' })
+    const next = applyActionEffect(state, action, 'p1', null, {})
+    expect(next.scoreModifiers.p1).toBe(10)
+    expect(next.forcedRules.p1).toHaveLength(1)
+    expect(next.forcedRules.p1[0].actionId).toBe('in_spanish')
+    expect(next.forcedRules.p1[0].payload).toEqual({ language: 'es' })
+  })
+})
+
 describe('boost_total', () => {
   it('adds +6 score modifier to source', () => {
     const state = makeState()

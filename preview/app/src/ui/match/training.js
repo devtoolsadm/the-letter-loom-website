@@ -33,9 +33,15 @@ import {
   submitUserWord,
   advanceToNextBaza,
 } from "../../core/trainingMatch.js";
-import { ACTION_CARDS, TRAINING_DIFFICULTIES, TRAINING_DIFFICULTY_PRESETS } from "../../core/constants.js";
+import {
+  ACTION_CARDS,
+  TRAINING_DIFFICULTIES,
+  TRAINING_DIFFICULTY_PRESETS,
+  getActionCardDefsForLanguage,
+} from "../../core/constants.js";
 import { findHints } from "../../core/hintSolver.js";
 import { validateWord as validateWordLayered, LAYER_PRESETS } from "../../core/wordValidator.js";
+import { getForcedWordLanguage } from "../../core/wordRules.js";
 import {
   debugLogReset,
   debugLogPushBazaStart,
@@ -86,6 +92,29 @@ function t(key, vars) {
     });
   }
   return str;
+}
+
+function normalizeLanguage(value) {
+  const lang = String(value || "").trim().toLowerCase().slice(0, 2);
+  return lang === "en" ? "en" : "es";
+}
+
+function getTrainingEffectiveWordLanguage(state) {
+  const userId = state?.players?.[0]?.id;
+  const forcedEffects = userId ? (state.forcedRules?.[userId] ?? []) : [];
+  return getForcedWordLanguage(state?.language || "es", forcedEffects);
+}
+
+function renderLanguageBadge(titleEl, gameLanguage) {
+  if (!titleEl) return;
+  const layer = titleEl.closest(".screen-topbar") || titleEl.parentElement || titleEl;
+  layer.querySelectorAll(".match-language-badge").forEach((el) => el.remove());
+  const lang = normalizeLanguage(gameLanguage);
+  if (lang === normalizeLanguage(getShellLanguage())) return;
+  const badge = document.createElement("span");
+  badge.className = "match-language-badge";
+  badge.textContent = lang.toUpperCase();
+  layer.appendChild(badge);
 }
 
 // Module-level state
@@ -231,7 +260,7 @@ function openDebugActionSwapPicker(slotIndex) {
   const state = getTrainingMatch();
   if (!state) return;
   const userId = state.players[0].id;
-  const mvpCards = ACTION_CARDS.filter((c) => c.inMVP);
+  const mvpCards = getActionCardDefsForLanguage(state.language).filter((c) => c.inMVP);
   openTrainingPicker({
     titleKey: null,
     context: { label: "🐛 Cambiar carta:", kind: "self" },
@@ -347,7 +376,7 @@ function startTrainingMatch(difficulty) {
   const preset = TRAINING_DIFFICULTY_PRESETS[difficulty];
   if (!preset) return;
   const nickname = loadState().settings?.knownPlayerNames?.[0] || null;
-  const state = createTrainingMatch(difficulty, { userNickname: nickname });
+  const state = createTrainingMatch(difficulty, { userNickname: nickname, language: getShellLanguage() });
   logger.info("Training match created", { matchId: state.matchId, difficulty });
   debugLogReset();
   debugLogPushBazaStart(state);
@@ -385,6 +414,7 @@ function renderTrainingMatch() {
   }
 
   _shell.setI18nById("trainingMatchTitle", `trainingDifficulty${capitalizeStr(state.difficulty)}`);
+  renderLanguageBadge(document.getElementById("trainingMatchTitle"), state.language);
   _shell.setI18nById("trainingBoardLabel", "trainingBoardLabel");
   _shell.setI18nById("trainingHandLabel", "trainingHandLabel");
   _shell.setI18nById("trainingHintBtnLabel", "trainingHintBtnLabel");
@@ -1736,12 +1766,13 @@ function computeCardMoves(stateBefore, stateAfter) {
   return moves;
 }
 
-// When the LAST V/C pick (or 🎲 batch) closes the dealing phase, the hand
+// When the LAST V/C pick (or random batch) closes the dealing phase, the hand
 // cards stay face-down until the "ESTRATEGIA" banner finishes. The face-up
-// cascade flip fires at the EXACT moment the banner disappears — same beat
-// as the timer starting — so the three events (banner gone, cards flip,
-// clock starts) feel like one coordinated transition.
-const DEAL_CASCADE_DELAY_MS = STRATEGY_BANNER_DELAY_MS + PHASE_FLASH_DURATION_MS;
+// cascade flip fires just after the banner disappears; keeping a small buffer
+// avoids the banner-hide render replacing the card DOM and swallowing the flip.
+const DEAL_CASCADE_AFTER_FLASH_BUFFER_MS = 90;
+const DEAL_CASCADE_DELAY_MS =
+  STRATEGY_BANNER_DELAY_MS + PHASE_FLASH_DURATION_MS + DEAL_CASCADE_AFTER_FLASH_BUFFER_MS;
 
 // After the board has just become fully revealed, hold the hand pickers
 // for a moment so the user has time to digest the central letters before
@@ -1765,6 +1796,10 @@ function maybeHoldHandPickerAfterBoard(stateBefore, stateAfter) {
   setTimeout(renderTrainingMatch, BOARD_REVEAL_PAUSE_MS);
 }
 let pendingDealCascade = false;
+function isTrainingTimerGated() {
+  return Date.now() < phaseFlashEndsAt || pendingDealCascade;
+}
+
 function startDealCascade(stateAfter) {
   pendingDealCascade = true;
   setTimeout(() => {
@@ -1816,9 +1851,10 @@ function renderTrainingTimer(state) {
   el.textContent = `${mm}:${ss}`;
   if (card) {
     const running = state.phase === "strategy" || state.phase === "creation";
-    card.classList.toggle("time-pressure", running && s <= LOW_TIME_THRESHOLD && s > 5);
-    card.classList.toggle("time-pressure-urgent", running && s <= 5 && s > 0);
-    card.classList.toggle("timeup", running && s === 0);
+    const timerEffectsActive = running && !isTrainingTimerGated() && trainingTimerInterval != null;
+    card.classList.toggle("time-pressure", timerEffectsActive && s <= LOW_TIME_THRESHOLD && s > 5);
+    card.classList.toggle("time-pressure-urgent", timerEffectsActive && s <= 5 && s > 0);
+    card.classList.toggle("timeup", timerEffectsActive && s === 0);
   }
 }
 
@@ -1962,7 +1998,7 @@ async function renderRoundEndHints(box, state) {
   try {
     // Request a few extra so we have buffer after filtering out the user's
     // own word.
-    hints = await findHints(state, { count: 6, difficulty: solverDiff });
+    hints = await findHints(state, { count: 6, difficulty: solverDiff, language: getTrainingEffectiveWordLanguage(state) });
   } catch (err) {
     logger.warn("[round-end hints] solver failed", err);
   }
@@ -2145,7 +2181,7 @@ function finishTrainingTimer() {
     stopTrainingTimer();
     trainingClockPhase = null;
     _shell.stopClockLoop(false);
-    const finalized = finalizeUserWord(state, getShellLanguage());
+    const finalized = finalizeUserWord(state, state.language || "es");
     const r = finalized.userWordResult;
     if (r) debugLogPushWord(finalized, { word: r.word, valid: r.valid, score: r.score, reason: r.reason });
     renderTrainingMatch();
@@ -2162,7 +2198,7 @@ function finishTrainingTimer() {
 async function validateAndUpdateUserWord(state) {
   const word = state.userWordResult?.word;
   if (!word) return;
-  const language = getShellLanguage();
+  const language = getTrainingEffectiveWordLanguage(state);
   // Mark as "checking" so the UI can show a transient state.
   const checking = {
     ...state,
@@ -2332,7 +2368,7 @@ function processNextActionsTurn() {
   // Debug mode: let user choose which card the ghost plays
   if (debugMode) {
     const ghostName = state.players.find((p) => p.id === nextActorId)?.name || nextActorId;
-    const mvpCards = ACTION_CARDS.filter((c) => c.inMVP);
+    const mvpCards = getActionCardDefsForLanguage(state.language).filter((c) => c.inMVP);
     actionsDriverBusy = true;
     openTrainingPicker({
       titleKey: null,
@@ -3331,7 +3367,7 @@ function ensureTrainingTimer() {
   // Don't tick down while the "ESTRATEGIA"/"CREACIÓN" phase flash is still
   // visible — the banner hide handler re-renders, and on that re-render we
   // get a fresh ensureTrainingTimer call that actually starts the tick.
-  if (Date.now() < phaseFlashEndsAt) return;
+  if (isTrainingTimerGated()) return;
   if (trainingClockPhase !== phase) {
     trainingClockPhase = phase;
     _shell.playClockLoop();
@@ -3359,7 +3395,7 @@ function ensureTrainingTimer() {
       // validation/score and transition to result.
       next = tickCreationTimer(current);
       if (current.phase === "creation" && next.phase === "result") {
-        next = finalizeUserWord(current, getShellLanguage());
+        next = finalizeUserWord(current, current.language || "es");
         const r = next.userWordResult;
         if (r) debugLogPushWord(next, { word: r.word, valid: r.valid, score: r.score, reason: r.reason });
         if (r?.valid && r?.word) {
@@ -3422,7 +3458,7 @@ async function requestTrainingHints() {
   let hints = [];
   const t0 = performance.now();
   try {
-    hints = await findHints(state, { count: 5, difficulty: solverDiff });
+    hints = await findHints(state, { count: 5, difficulty: solverDiff, language: getTrainingEffectiveWordLanguage(state) });
   } catch (err) {
     logger.warn("[hints] solver failed", err);
   }

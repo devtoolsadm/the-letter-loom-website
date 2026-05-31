@@ -6,8 +6,20 @@ import {
   usesAtLeastOneFromBoardAndHand,
   containsLetter,
   validateForcedRules,
+  getForcedWordLanguage,
   computeWordScore,
 } from '../wordRules.js'
+
+describe('getForcedWordLanguage', () => {
+  it('keeps the base language when no language action is active', () => {
+    expect(getForcedWordLanguage('en', [])).toBe('en')
+  })
+
+  it('uses the language required by in_english/in_spanish effects', () => {
+    expect(getForcedWordLanguage('es', [{ actionId: 'in_english', payload: { language: 'en' } }])).toBe('en')
+    expect(getForcedWordLanguage('en', [{ actionId: 'in_spanish', payload: { language: 'es' } }])).toBe('es')
+  })
+})
 
 // ── buildWordFromCards ───────────────────────────────────────────────────────
 

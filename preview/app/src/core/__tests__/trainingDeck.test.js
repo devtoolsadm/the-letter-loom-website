@@ -92,6 +92,20 @@ describe('buildActionDeck', () => {
     expect(deck.some(c => c.actionId === 'in_english')).toBe(true)
   })
 
+  it('filters language-specific action cards for English matches', () => {
+    const deck = buildActionDeck({ excludeDeferred: false, language: 'en' })
+    expect(deck.some(c => c.actionId === 'in_spanish')).toBe(true)
+    expect(deck.some(c => c.actionId === 'in_english')).toBe(false)
+    expect(deck.some(c => c.actionId === 'philologist')).toBe(false)
+  })
+
+  it('filters language-specific action cards for Spanish matches', () => {
+    const deck = buildActionDeck({ excludeDeferred: false, language: 'es' })
+    expect(deck.some(c => c.actionId === 'in_english')).toBe(true)
+    expect(deck.some(c => c.actionId === 'in_spanish')).toBe(false)
+    expect(deck.some(c => c.actionId === 'philologist')).toBe(true)
+  })
+
   it('all cards have a valid actionId', () => {
     const deck = buildActionDeck()
     expect(deck.every(c => typeof c.actionId === 'string' && c.actionId.length > 0)).toBe(true)
@@ -101,6 +115,19 @@ describe('buildActionDeck', () => {
     const deck = buildActionDeck()
     const ids = deck.map(c => c.id)
     expect(new Set(ids).size).toBe(ids.length)
+  })
+})
+
+describe('English letter decks', () => {
+  it('builds English vowels without tilde or diaeresis variants', () => {
+    const deck = buildVowelDeck('en')
+    expect(deck.some(c => c.tildeValue != null || c.tildeForm != null || c.tildeKind != null)).toBe(false)
+  })
+
+  it('builds English consonants without Ñ and with QU', () => {
+    const deck = buildConsonantDeck('en')
+    expect(deck.some(c => c.letter === 'Ñ')).toBe(false)
+    expect(deck.some(c => c.letter === 'QU')).toBe(true)
   })
 })
 

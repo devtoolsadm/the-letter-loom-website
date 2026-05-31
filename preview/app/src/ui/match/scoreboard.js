@@ -98,6 +98,38 @@ function t(key, vars) {
   return str;
 }
 
+function normalizeLanguage(value) {
+  const lang = String(value || "").trim().toLowerCase().slice(0, 2);
+  return lang === "en" ? "en" : "es";
+}
+
+function textForLanguage(lang, key) {
+  const texts = TEXTS[normalizeLanguage(lang)] || TEXTS.es;
+  return texts[key] ?? t(key);
+}
+
+function getMatchLanguage(matchState = matchController.getState()) {
+  return normalizeLanguage(matchState?.language ?? matchState?.preferencesRef?.language ?? "es");
+}
+
+function getRulesLanguage() {
+  const state = matchController.getState();
+  if (state && state.phase !== "config") return getMatchLanguage(state);
+  return normalizeLanguage(getShellLanguage());
+}
+
+function renderLanguageBadge(titleEl, gameLanguage) {
+  if (!titleEl) return;
+  const layer = titleEl.closest(".screen-topbar") || titleEl.parentElement || titleEl;
+  layer.querySelectorAll(".match-language-badge").forEach((el) => el.remove());
+  const lang = normalizeLanguage(gameLanguage);
+  if (lang === normalizeLanguage(getShellLanguage())) return;
+  const badge = document.createElement("span");
+  badge.className = "match-language-badge";
+  badge.textContent = lang.toUpperCase();
+  layer.appendChild(badge);
+}
+
 // Module state — event setup
 let delegatedControlsBound = false;
 
@@ -1452,6 +1484,7 @@ export function renderScoreboardScreen(matchState) {
   const note = document.getElementById("scoreboardNote");
   const actionButtons = document.getElementById("scoreboardActionButtons");
   const shareBtn = document.getElementById("scoreboardShareBtn");
+  renderLanguageBadge(document.getElementById("scoreboardTitle"), getMatchLanguage(matchState));
   if (!table || !tableHeader || !tableLeft || !tableCorner || !tableShell) return;
   let emptyEl = document.getElementById("scoreboardEmpty");
   if (!emptyEl) {
@@ -5121,6 +5154,9 @@ function renderMatchFromStateInner(matchState) {
         topbarTitle.appendChild(totalEl);
       }
     }
+    if (matchState.phase !== "config") {
+      renderLanguageBadge(topbarTitle, getMatchLanguage(matchState));
+    }
   }
 
   const roundLabel = document.getElementById("matchRoundLabel");
@@ -5555,6 +5591,7 @@ function buildMatchPrefs(src = {}) {
     pointsTarget: src.pointsTarget ?? DEFAULT_POINTS_TARGET,
     scoringEnabled: src.scoringEnabled ?? true,
     validateRecordWords: src.validateRecordWords ?? true,
+    language: src.language ? normalizeLanguage(src.language) : null,
   };
 }
 
@@ -6459,7 +6496,7 @@ function startMatchPhase(kind) {
         onDecline: () => startMatchPhase(kind),
       });
       if (prompted) return;
-      matchController.startMatch();
+      matchController.startMatch({ language: getShellLanguage() });
       persistActiveMatchSnapshot(matchController.getState());
     }
     const current = matchController.getState().phase;
@@ -6506,7 +6543,7 @@ function startMatchPhase(kind) {
         onDecline: () => startMatchPhase(kind),
       });
       if (prompted) return;
-      matchController.startMatch();
+      matchController.startMatch({ language: getShellLanguage() });
       persistActiveMatchSnapshot(matchController.getState());
     }
   }
@@ -6939,6 +6976,7 @@ function onMatchStarted({ state, isRematch = false } = {}) {
   _analyticsIsRematch = isRematch;
   if (state) {
     capture("match_started", {
+      match_language: getMatchLanguage(state),
       mode: state.mode,
       player_count: state.players.length,
       rounds_target: state.roundsTarget,
@@ -7031,6 +7069,7 @@ function setupMatchControllerEvents() {
     const accThreshold = Math.max(10, maxAcc * 0.1);
 
     capture("round_finished", {
+      match_language: getMatchLanguage(st),
       round_number: st.round,
       mode: st.mode,
       player_count: n,
@@ -7128,23 +7167,25 @@ function startMatchPlay({ skipResumePrompt = false } = {}) {
   _shell.stopClockLoop(false);
   _shell.stopIntroAudio();
   _shell.validationRules.value = cloneValidationRules(_shell.tempValidationRules.value);
+  const matchLanguage = getShellLanguage();
   const finalPlayers = Array.isArray(_shell.tempMatchPlayers.value) && _shell.tempMatchPlayers.value.length
     ? buildFinalPlayers()
     : [];
   updateState({
     gamePreferences: {
       ..._shell.tempMatchPrefs.value,
+      language: matchLanguage,
       players: finalPlayers,
     },
     settings: { validationRules: _shell.validationRules.value },
   });
   _shell.tempValidationRules.value = cloneValidationRules(_shell.validationRules.value);
-  matchController.applyPreferences(_shell.tempMatchPrefs.value);
+  matchController.applyPreferences({ ..._shell.tempMatchPrefs.value, language: matchLanguage });
   if (finalPlayers.length) {
     _shell.tempMatchPlayers.value = finalPlayers;
     matchController.setPlayers(finalPlayers);
   }
-  matchController.startMatch();
+  matchController.startMatch({ language: matchLanguage });
   onMatchStarted({ state: matchController.getState(), isRematch: false });
   persistActiveMatchSnapshot(matchController.getState());
   _shell.renderMatch();
@@ -7166,14 +7207,14 @@ function getValidationRules() {
     _shell.rulesEditContext.value === "temp"
       ? _shell.tempValidationRules.value
       : _shell.validationRules.value;
-  const lang = getShellLanguage();
+  const lang = getRulesLanguage();
   const langRule =
     source && typeof source === "object" && source !== null
       ? source[lang]
       : null;
   if (langRule) return langRule;
   if (typeof source === "string") return source;
-  return t("matchValidateDefaultRules");
+  return textForLanguage(lang, "matchValidateDefaultRules");
 }
 
 function normalizeRulesText(str) {
@@ -7186,7 +7227,7 @@ function normalizeRulesText(str) {
 
 function rulesDifferFromDefault(text) {
   const current = normalizeRulesText(text);
-  const def = normalizeRulesText(t("matchValidateDefaultRules"));
+  const def = normalizeRulesText(textForLanguage(getRulesLanguage(), "matchValidateDefaultRules"));
   return current !== def;
 }
 
@@ -7259,7 +7300,7 @@ function openRulesModal(context = "live") {
 function applyDefaultRules() {
   const textarea = document.getElementById("rulesTextarea");
   if (textarea) {
-    const def = t("matchValidateDefaultRules");
+    const def = textForLanguage(getRulesLanguage(), "matchValidateDefaultRules");
     textarea.value = def.slice(0, 1000);
     updateRestoreButtonVisibility(def);
   }
@@ -7276,11 +7317,11 @@ function confirmRestoreDefaultRules() {
 }
 
 function saveRulesModal() {
-  const lang = getShellLanguage();
+  const lang = getRulesLanguage();
   const textarea = document.getElementById("rulesTextarea");
   const value = (textarea?.value || "").slice(0, 1000).trim();
   const hasContent = /[A-Za-z0-9]/.test(value);
-  const defaultRulesText = t("matchValidateDefaultRules");
+  const defaultRulesText = textForLanguage(lang, "matchValidateDefaultRules");
   const isDefaultContent = normalizeRulesText(value) === normalizeRulesText(defaultRulesText);
   let nextRules =
     _shell.rulesEditContext.value === "temp"
@@ -7361,6 +7402,7 @@ function confirmExitToSplash() {
       if (_ast?.isActive) {
         const matchStartTime = _analyticsMatchStartTime;
         capture("match_abandoned", {
+          match_language: getMatchLanguage(_ast),
           mode: _ast.mode,
           player_count: _ast.players.length,
           round_number: _ast.round,
@@ -7393,7 +7435,7 @@ function restartMatchWithSameSettings() {
   if (players.length) {
     matchController.setPlayers(players);
   }
-  matchController.startMatch();
+  matchController.startMatch({ language: getShellLanguage() });
   onMatchStarted({ state: matchController.getState(), isRematch: true });
   clearMatchWordFor("match");
   _shell.stopClockLoop(false);

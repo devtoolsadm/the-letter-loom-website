@@ -1129,6 +1129,18 @@ function renderQuickGuideRichText(targetEl, text) {
 
 // renderQuickGuideActionCardGrid → renderActionCardGrid in ui/components/actionCard.js
 
+function getQuickGuideGameLanguage() {
+  const sourceScreen = currentScreen === "quick-guide" ? quickGuideReturnScreen : currentScreen;
+  if (sourceScreen === "training") {
+    return loadState().training?.active?.language || shellLanguage;
+  }
+  const st = matchController.getState();
+  if (sourceScreen === "match" || sourceScreen === "round-end" || sourceScreen === "scoreboard") {
+    return st?.language || shellLanguage;
+  }
+  return shellLanguage;
+}
+
 function renderQuickGuide() {
   const indexList = document.getElementById("quickGuideIndexList");
   const sectionsWrap = document.getElementById("quickGuideSections");
@@ -1228,7 +1240,7 @@ function renderQuickGuide() {
     }
 
     if (section.id === "strategy-cards-all") {
-      sectionEl.appendChild(renderActionCardGrid());
+      sectionEl.appendChild(renderActionCardGrid({ language: getQuickGuideGameLanguage() }));
     }
 
     if (Array.isArray(section.faq) && section.faq.length) {
@@ -2563,7 +2575,7 @@ function assignSrcToNodes(nodes, src) {
     matchController.setValidator((word, customRules) =>
     validateWordRemote({
       word,
-      language: shellLanguage,
+      language: matchController.getState()?.language || shellLanguage,
       customRules,
     })
   );

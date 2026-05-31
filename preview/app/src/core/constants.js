@@ -90,6 +90,38 @@ const CONSONANTS_RAW = [
   ["W",  14, [0, 0, 1, 1]],
 ];
 
+const VOWELS_RAW_EN = [
+  ["E", 2, [3, 3, 3, 2]],
+  ["A", 2, [2, 2, 2, 2]],
+  ["O", 2, [2, 2, 2, 1]],
+  ["I", 2, [2, 2, 2, 1]],
+  ["U", 4, [1, 1, 1, 0]],
+];
+
+const CONSONANTS_RAW_EN = [
+  ["T",   4, [3, 2, 2, 2]],
+  ["N",   4, [2, 2, 2, 1]],
+  ["S",   4, [2, 2, 1, 1]],
+  ["H",   4, [1, 2, 2, 1]],
+  ["R",   4, [1, 1, 2, 2]],
+  ["D",   4, [1, 1, 1, 1]],
+  ["L",   4, [1, 1, 1, 1]],
+  ["C",   6, [1, 1, 1, 0]],
+  ["M",   6, [1, 1, 0, 1]],
+  ["F",   8, [0, 1, 1, 0]],
+  ["G",   8, [1, 0, 1, 0]],
+  ["P",   8, [1, 0, 0, 1]],
+  ["W",   8, [0, 1, 0, 1]],
+  ["Y",   8, [1, 0, 1, 0]],
+  ["B",   8, [0, 1, 1, 0]],
+  ["V",  10, [0, 0, 1, 0]],
+  ["K",  10, [1, 0, 0, 0]],
+  ["J",  12, [0, 1, 0, 0]],
+  ["X",  12, [0, 0, 1, 0]],
+  ["Z",  12, [0, 0, 0, 1]],
+  ["QU", 14, [1, 0, 0, 0]],
+];
+
 function expandLetterDefs(defs) {
   const out = [];
   for (const row of defs) {
@@ -112,6 +144,28 @@ function expandLetterDefs(defs) {
 export const VOWEL_DECK_DEF = expandLetterDefs(VOWELS_RAW);
 export const CONSONANT_DECK_DEF = expandLetterDefs(CONSONANTS_RAW);
 
+const VOWEL_DECK_DEF_BY_LANGUAGE = {
+  es: VOWEL_DECK_DEF,
+  en: expandLetterDefs(VOWELS_RAW_EN),
+};
+
+const CONSONANT_DECK_DEF_BY_LANGUAGE = {
+  es: CONSONANT_DECK_DEF,
+  en: expandLetterDefs(CONSONANTS_RAW_EN),
+};
+
+export function normalizeGameLanguage(language) {
+  return String(language || "").trim().toLowerCase().slice(0, 2) === "en" ? "en" : "es";
+}
+
+export function getVowelDeckDef(language = "es") {
+  return VOWEL_DECK_DEF_BY_LANGUAGE[normalizeGameLanguage(language)] || VOWEL_DECK_DEF;
+}
+
+export function getConsonantDeckDef(language = "es") {
+  return CONSONANT_DECK_DEF_BY_LANGUAGE[normalizeGameLanguage(language)] || CONSONANT_DECK_DEF;
+}
+
 // Wildcards: 2 vowel-wildcards, 2 consonant-wildcards (value 0, no color).
 export const TRAINING_VOWEL_WILDCARDS = 2;
 export const TRAINING_CONSONANT_WILDCARDS = 2;
@@ -123,6 +177,7 @@ export const TRAINING_CONSONANT_WILDCARDS = 2;
 // inMVP: false → deferred (PALABRA EXTRA, INVENTA TU REGLA, UNA PARA TODOS)
 export const ACTION_CARDS = [
   { id: "in_english",    kind: "rule_force", target: "self", count: 3, inMVP: false },
+  { id: "in_spanish",    kind: "rule_force", target: "self", count: 3, inMVP: false },
   { id: "boost_total",   kind: "self_bonus", target: "self", count: 2, inMVP: true },
   { id: "extra_card",    kind: "self_bonus", target: "self", count: 5, inMVP: true },
   { id: "wildcard",      kind: "self_bonus", target: "self", count: 5, inMVP: true },
@@ -146,9 +201,20 @@ export const ACTION_CARDS = [
   { id: "discard_one",   kind: "attack",     target: "one",  count: 4, inMVP: true },
 ];
 
+export function getActionCardDefsForLanguage(language = "es") {
+  const lang = normalizeGameLanguage(language);
+  return ACTION_CARDS.filter((card) => {
+    if (lang === "en" && card.id === "philologist") return false;
+    if (card.id === "in_english") return lang === "es";
+    if (card.id === "in_spanish") return lang === "en";
+    return true;
+  });
+}
+
 // Self-bonus point modifiers (applied before x2)
 export const ACTION_POINTS = {
   in_english:  10,
+  in_spanish:  10,
   boost_total: 6,
   wildcard:    6,
   explosion:  -4,

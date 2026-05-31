@@ -105,6 +105,11 @@ describe('enterActionsPhase', () => {
 })
 
 describe('word-only training modes', () => {
+  it('stores the language fixed at training match creation', () => {
+    const state = createTrainingMatch('words', { language: 'en' })
+    expect(state.language).toBe('en')
+  })
+
   it('creates practice mode without opponents, timer, or action cards', () => {
     let state = createTrainingMatch('words')
     state = initializeRound(state)

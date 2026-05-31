@@ -1,4 +1,4 @@
-import { ACTION_CARDS } from "../../core/constants.js";
+import { getActionCardDefsForLanguage } from "../../core/constants.js";
 import { TEXTS, getShellLanguage } from "../../i18n/texts.js";
 
 // Single source of truth for action card icon + description.
@@ -28,6 +28,7 @@ export const ACTION_CARD_META = {
   explosion:     { svg: null, icon: "💣",  desc: "Resta 4 puntos a un jugador en esta baza." },
   discard_one:   { svg: null, icon: "🗑️", desc: "Un jugador debe dejar una letra en el mazo." },
   in_english:    { svg: null, icon: "🇬🇧",  desc: "Si formas la palabra en inglés, sumas 10 puntos extra." },
+  in_spanish:    { svg: null, icon: "🇪🇸",  desc: "Si formas la palabra en español, sumas 10 puntos extra." },
 };
 
 export function actionIcon(actionId) {
@@ -35,7 +36,9 @@ export function actionIcon(actionId) {
 }
 
 export function actionDesc(actionId) {
-  return ACTION_CARD_META[actionId]?.desc ?? "";
+  const lang = getShellLanguage();
+  const texts = TEXTS[lang] || TEXTS.es;
+  return texts[`actDesc_${actionId}`] || ACTION_CARD_META[actionId]?.desc || "";
 }
 
 export function actionLabel(actionId) {
@@ -96,11 +99,11 @@ export function renderActionCard(card, opts = {}) {
   return el;
 }
 
-export function renderActionCardGrid() {
+export function renderActionCardGrid({ language = "es" } = {}) {
   const grid = document.createElement("div");
   grid.className = "quick-guide-action-grid";
   const groupOrder = { self: 0, all: 1, one: 2 };
-  const sorted = ACTION_CARDS
+  const sorted = getActionCardDefsForLanguage(language)
     .slice()
     .sort((a, b) => (groupOrder[a.target] ?? 9) - (groupOrder[b.target] ?? 9));
   sorted.forEach((def) => {
