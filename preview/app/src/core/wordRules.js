@@ -161,15 +161,41 @@ export function validateForcedRules({ word, selectedCards, effects, lang = "es" 
 //      their own letters AND all the central board letters.
 // Forced-rule violations: caller is responsible for short-circuiting to 0.
 export function computeWordScore({ selectedCards, allUserLetters, allBoardLetters, plusMinus = 0 }) {
-  if (!selectedCards || selectedCards.length === 0) return 0;
-  let base = 0;
-  for (const c of selectedCards) {
-    if (c.isWildcard) continue; // wildcards add 0 (the boost is via wildcard action card)
-    base += c.usingTilde && c.tildeValue != null ? c.tildeValue : c.value;
-  }
-  base += plusMinus;
+  return computeWordScoreDetailed({ selectedCards, allUserLetters, allBoardLetters, plusMinus }).score;
+}
 
-  // x2 conditions
+// Same maths as computeWordScore but returns an ordered list of parts
+// (label + delta) that make up the final score, plus flags for the x2
+// multiplier source. Used to render a breakdown in the baza result panel.
+//   parts: [
+//     { kind: "letter",        letter, delta },           // per letter played
+//     { kind: "wildcard-bonus", delta: 6 },               // per action wildcard used
+//     { kind: "modifier",       delta },                  // sum of scoreModifiers (boost_total, explosion, in_english)
+//     { kind: "double",         reason: "color" | "fullboard", delta }, // additive equivalent of the x2
+//   ]
+export function computeWordScoreDetailed({ selectedCards, allUserLetters, allBoardLetters, plusMinus = 0 }) {
+  const parts = [];
+  if (!selectedCards || selectedCards.length === 0) {
+    return { score: 0, parts, sameColor: false, usedAll: false };
+  }
+  let base = 0;
+  let actionWildcardBonus = 0;
+  for (const c of selectedCards) {
+    if (c.isActionWildcard) {
+      actionWildcardBonus += 6;
+      parts.push({ kind: "wildcard-bonus", delta: 6 });
+    }
+    if (c.isWildcard) continue;
+    const val = c.usingTilde && c.tildeValue != null ? c.tildeValue : c.value;
+    base += val;
+    parts.push({ kind: "letter", letter: c.letter, delta: val });
+  }
+  base += actionWildcardBonus;
+  if (plusMinus !== 0) {
+    parts.push({ kind: "modifier", delta: plusMinus });
+    base += plusMinus;
+  }
+
   const colors = new Set(selectedCards.filter((c) => !c.isWildcard).map((c) => c.color));
   const sameColor = colors.size === 1 && colors.has([...colors][0]);
   const usedAllUserLetters = (allUserLetters ?? []).every((id) =>
@@ -178,6 +204,16 @@ export function computeWordScore({ selectedCards, allUserLetters, allBoardLetter
   const usedAllBoardLetters = (allBoardLetters ?? []).every((id) =>
     selectedCards.some((c) => c.id === id),
   );
-  const doubled = sameColor || (usedAllUserLetters && usedAllBoardLetters);
-  return doubled ? base * 2 : base;
+  const usedAll = usedAllUserLetters && usedAllBoardLetters;
+  const doubled = sameColor || usedAll;
+  let score = base;
+  if (doubled) {
+    score = base * 2;
+    parts.push({
+      kind: "double",
+      reason: sameColor ? "color" : "fullboard",
+      delta: base, // the extra base added by the x2
+    });
+  }
+  return { score, parts, sameColor, usedAll };
 }

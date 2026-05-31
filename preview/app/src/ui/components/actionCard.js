@@ -74,6 +74,7 @@ export function renderActionCard(card, opts = {}) {
     el.appendChild(q);
     return el;
   }
+  if (card.id) el.dataset.cardId = card.id;
   if (opts.faceDown) {
     el.className = "tcard is-face-down back-action";
     const img = document.createElement("img");

@@ -17,6 +17,7 @@ import {
   usesAtLeastOneFromBoardAndHand,
   validateForcedRules,
   computeWordScore,
+  computeWordScoreDetailed,
 } from "./wordRules.js";
 import {
   buildInitialDecks,
@@ -463,16 +464,38 @@ export function planGhostAction(state, ghostId, rng = Math.random) {
   }
   const card = d.shift();
 
-  // Pick target (if action requires one) and payload (if any)
+  // Pick target (if action requires one) and payload (if any).
+  // Even the dumbest ghost won't waste an attack on a player whose shield is
+  // already visibly active — those are excluded from the candidate pool.
+  // Shields still IN HAND (preselected or not) are hidden information, so
+  // those players remain valid targets.
+  // If EVERY opponent is visibly shielded, the ghost still picks one (random
+  // among all others); the action then runs but is short-circuited by the
+  // shield check in applyActionEffect — same "wasted card" pattern as
+  // use_consonant with no consonants on the board.
   let targetId = null;
   let payload = {};
   if (card.target === "one") {
-    targetId = pickRandomTarget(state.players.map((pl) => pl.id), ghostId, rng);
+    const activeShields = new Set(state.shieldedPlayers ?? []);
+    const allIds = state.players.map((pl) => pl.id);
+    const unshieldedIds = allIds.filter((id) => !activeShields.has(id));
+    const pool = unshieldedIds.length > 0 ? unshieldedIds : allIds;
+    targetId = pickRandomTarget(pool, ghostId, rng);
   }
-  // use_vowel / use_consonant / use_letter need a board letter
+  // use_vowel / use_consonant / use_letter need a board letter. Filter the
+  // pool by the action's kind so use_vowel can never force a consonant (and
+  // vice versa). If no board card matches (e.g. use_vowel with an all-
+  // consonant board), payload.letter stays undefined and the effect ends
+  // up as a no-op via the guard in applyActionEffect.
   if (["use_vowel", "use_consonant", "use_letter"].includes(card.actionId)) {
-    const id = pickRandomBoardCardId(state.centralBoard, rng);
-    const boardCard = state.centralBoard.find((c) => c.id === id);
+    const allBoard = state.centralBoard ?? [];
+    const pool = card.actionId === "use_vowel"
+      ? allBoard.filter((c) => c && c.kind === "vowel")
+      : card.actionId === "use_consonant"
+        ? allBoard.filter((c) => c && c.kind === "consonant")
+        : allBoard.filter(Boolean);
+    const id = pickRandomBoardCardId(pool, rng);
+    const boardCard = pool.find((c) => c.id === id);
     payload = { letter: boardCard?.letter, cardId: boardCard?.id };
   }
 
@@ -701,16 +724,19 @@ export function finalizeUserWord(state, language = "es") {
   }
 
   let score = 0;
+  let breakdown = null;
   if (valid) {
     const allUserLetters = handLetters.filter(Boolean).map((c) => c.id);
     const allBoardLetters = (state.centralBoard ?? []).map((c) => c.id);
     const plusMinus = state.scoreModifiers?.[userId] ?? 0;
-    score = computeWordScore({
+    const detail = computeWordScoreDetailed({
       selectedCards,
       allUserLetters,
       allBoardLetters,
       plusMinus,
     });
+    score = detail.score;
+    breakdown = detail.parts;
   }
 
   // Persist round entries: user gets validated score, ghosts get generated scores.
@@ -746,6 +772,7 @@ export function finalizeUserWord(state, language = "es") {
       reason,
       violations,
       score,
+      breakdown,
     },
     updatedAt: Date.now(),
   };

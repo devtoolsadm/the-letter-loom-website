@@ -100,7 +100,7 @@ let lastActionTapTime = 0;
 const DOUBLE_TAP_MS = 400;
 let currentActionBubble = null;
 let bubbleAutoHideTimeout = null;
-const BUBBLE_AUTOHIDE_MS = 2800;
+const BUBBLE_AUTOHIDE_MS = 4500;
 let trainingTimerInterval = null;
 let trainingClockPhase = null;
 let debugMode = false;
@@ -366,6 +366,22 @@ function renderTrainingMatch() {
   // Deal central board + action cards on first render of a fresh round.
   if (state.centralBoard.length === 0) {
     state = initializeRound(state);
+    // If the dealer is a ghost, the board has just been auto-filled. Give
+    // it the same theatrical reveal as the human-dealer case: face-down
+    // backs for a short hold, then a cascade flip to face-up.
+    const userId = state.players[0].id;
+    const dealerIsGhost = state.dealerId !== userId;
+    const boardHasCards = (state.centralBoard ?? []).some((c) => c != null);
+    if (dealerIsGhost && boardHasCards) {
+      ghostBoardDealHoldUntil = Date.now() + GHOST_BOARD_DEAL_HOLD_MS;
+      setTimeout(() => {
+        const cur = getTrainingMatch();
+        (cur?.centralBoard ?? []).forEach((c, i) => {
+          if (c) markRevealed("board", i);
+        });
+        renderTrainingMatch();
+      }, GHOST_BOARD_DEAL_HOLD_MS);
+    }
   }
 
   _shell.setI18nById("trainingMatchTitle", `trainingDifficulty${capitalizeStr(state.difficulty)}`);
@@ -400,7 +416,11 @@ function renderTrainingMatch() {
   // appear later.
   const boardFilledForLayout = (state.centralBoard ?? []).length > 0
     && (state.centralBoard ?? []).every((c) => c != null);
-  const reserveHandSpace = state.phase === "dealing" && !boardFilledForLayout;
+  const handHoldActive = state.phase === "dealing"
+    && boardFilledForLayout
+    && Date.now() < handPickerHoldUntil;
+  const reserveHandSpace = state.phase === "dealing"
+    && (!boardFilledForLayout || handHoldActive);
   const matchRoot = document.querySelector(".training-match");
   if (matchRoot) matchRoot.classList.toggle("is-board-dealing", reserveHandSpace);
   const reserveWordSpace = ["dealing", "strategy", "actions"].includes(state.phase);
@@ -427,6 +447,10 @@ function renderTrainingMatch() {
     // give them an emergency letter (manual rule).
     maybeOfferEmergencyDraw();
   }
+  // Run any post-render FX (fly ghosts, pop-out ghosts, score chips) once
+  // the DOM reflects the new state — they need both src (captured before
+  // applyActionWithFX) and dst (current DOM) positions.
+  fxFlushPostRender();
 }
 
 function capitalizeStr(s) {
@@ -467,26 +491,31 @@ function renderTrainingPrompt(state) {
       && (state.centralBoard ?? []).length > 0;
     const handLetters = state.hands[userId]?.letters ?? [];
     const handHasNulls = handLetters.some((c) => c == null);
+    const handReady = boardFilled && Date.now() >= handPickerHoldUntil;
     if (!boardFilled && dealBoardBtn) dealBoardBtn.classList.remove("hidden");
-    if (boardFilled && handHasNulls && dealHandBtn) dealHandBtn.classList.remove("hidden");
-    key = boardFilled ? "trainingInstrDealingHand" : "trainingInstrDealingBoard";
+    if (handReady && handHasNulls && dealHandBtn) dealHandBtn.classList.remove("hidden");
     promptKind = "is-action-required";
-    // While dealing the central board, the prompt lives just above the
-    // board (separate element) — fully collapse the timer-area prompt so
-    // it doesn't reserve vertical space and push the board down.
+    const boardPrompt = document.getElementById("trainingBoardPrompt");
     if (!boardFilled) {
+      // Still dealing the board → board prompt visible, timer prompt
+      // collapsed so it doesn't reserve vertical space.
       timerPrompt.classList.add("hidden", "is-collapsed");
-      const boardPrompt = document.getElementById("trainingBoardPrompt");
       if (boardPrompt) {
         boardPrompt.classList.remove("hidden");
-        _shell.setI18nById("trainingBoardPrompt", key);
+        _shell.setI18nById("trainingBoardPrompt", "trainingInstrDealingBoard");
       }
       return;
-    } else {
-      timerPrompt.classList.remove("is-collapsed");
-      const boardPrompt = document.getElementById("trainingBoardPrompt");
-      if (boardPrompt) boardPrompt.classList.add("hidden");
     }
+    if (!handReady) {
+      // Board just completed but we're holding the hand picker for a moment
+      // so the user can read the central letters. Hide both prompts.
+      timerPrompt.classList.add("hidden", "is-collapsed");
+      if (boardPrompt) boardPrompt.classList.add("hidden");
+      return;
+    }
+    timerPrompt.classList.remove("is-collapsed");
+    if (boardPrompt) boardPrompt.classList.add("hidden");
+    key = "trainingInstrDealingHand";
   } else {
     const boardPrompt = document.getElementById("trainingBoardPrompt");
     if (boardPrompt) boardPrompt.classList.add("hidden");
@@ -524,6 +553,8 @@ function renderTrainingPrompt(state) {
 }
 
 // Phase-transition flash banner. Triggered when entering strategy or creation.
+const PHASE_FLASH_DURATION_MS = 2400;
+let phaseFlashEndsAt = 0;
 function maybeShowPhaseFlash(state) {
   const phase = state.phase;
   if (phase === lastFlashedPhase) return;
@@ -539,10 +570,14 @@ function maybeShowPhaseFlash(state) {
     flash.style.animation = "none";
     void flash.offsetWidth;
     flash.style.animation = "";
+    phaseFlashEndsAt = Date.now() + PHASE_FLASH_DURATION_MS;
     clearTimeout(flash._hideTimer);
     flash._hideTimer = setTimeout(() => {
       flash.classList.add("hidden");
-    }, 1200);
+      // Re-render so the gated timer (and any other phase-flash-blocked
+      // bits of UI) start now that the banner is gone.
+      renderTrainingMatch();
+    }, PHASE_FLASH_DURATION_MS);
   }
   lastFlashedPhase = phase;
 }
@@ -639,14 +674,32 @@ function renderTrainingBoard(state) {
   const isCreation = state.phase === "creation";
   const wordIds = new Set((state.userWord ?? []).map((s) => s.cardId));
   const requiredCardIds = collectRequiredCardIds(state);
+  // During the ghost-deal hold window, render board cards as face-down
+  // (V/C colored backs) so the cascade flip has something to reveal.
+  const showBoardFaceDown = Date.now() < ghostBoardDealHoldUntil;
   slots.forEach((card, idx) => {
     if (!card && isDealing) {
       root.appendChild(renderDealPickerCard(idx, "board"));
       return;
     }
-    const el = renderLetterCard(card);
+    const el = renderLetterCard(card, { faceDown: showBoardFaceDown });
     if (card && requiredCardIds.has(card.id)) {
       el.classList.add("is-required-letter");
+    }
+    if (card && consumeReveal("board", idx)) {
+      el.classList.add("is-reveal-flip");
+      attachRevealCleanup(el);
+    } else if (card && fxConsumePopIn(card.id)) {
+      el.classList.add("is-reveal-pop");
+      attachRevealCleanup(el);
+    } else if (card && fxConsumeFadeIn(card.id)) {
+      el.style.setProperty("--shuffle-rot", (Math.random() < 0.5 ? -10 : 10) + "deg");
+      el.classList.add("is-fade-in");
+      el.addEventListener("animationend", () => el.classList.remove("is-fade-in"), { once: true });
+    }
+    if (card && fxConsumePulse(card.id)) {
+      el.classList.add("is-forced-pulse");
+      el.addEventListener("animationend", () => el.classList.remove("is-forced-pulse"), { once: true });
     }
     if (card && isCreation) attachCardSelectableBehavior(el, card, "board", wordIds.has(card.id));
     root.appendChild(el);
@@ -760,7 +813,10 @@ function renderTrainingHand(state) {
   const userHand = state.hands[userId];
   const letters = userHand && userHand !== "<hidden>" ? userHand.letters : [null, null, null];
   const actions = userHand && userHand !== "<hidden>" ? userHand.actions : [null, null];
-  const isDealing = state.phase === "dealing";
+  // After the last V/C pick closes the dealing phase we keep the hand
+  // rendered face-down for one flip window (pendingDealCascade) so the
+  // user sees the V/C backs land, before the cascade flips them face-up.
+  const isDealing = state.phase === "dealing" || pendingDealCascade;
   const isCreation = state.phase === "creation";
   const isStrategy = state.phase === "strategy";
   const isUserTurn = state.phase === "actions"
@@ -768,16 +824,29 @@ function renderTrainingHand(state) {
     && !state.userActionResolved;
   const tappable = isStrategy || (isUserTurn && !isUserTurnBlockedByActionBubble(state));
   // The dealer (the user) picks the central board first; only once the board
-  // is fully revealed do their own hand slots become pickable.
+  // is fully revealed do their own hand slots become pickable. After the
+  // board is freshly completed, hold the hand pickers for
+  // BOARD_REVEAL_PAUSE_MS so the user can digest the central letters first.
   const boardFilled = (state.centralBoard ?? []).every((c) => c != null)
     && (state.centralBoard ?? []).length > 0;
-  const handPickable = isDealing && boardFilled;
+  const handPickable = isDealing && boardFilled && Date.now() >= handPickerHoldUntil;
   const wordIds = new Set((state.userWord ?? []).map((s) => s.cardId));
   letters.forEach((card, idx) => {
     if (!card && handPickable) {
       root.appendChild(renderDealPickerCard(idx));
     } else {
       const el = renderLetterCard(card, { faceDown: isDealing });
+      if (card && consumeReveal("hand", idx)) {
+        el.classList.add("is-reveal-flip");
+        attachRevealCleanup(el);
+      } else if (card && fxConsumePopIn(card.id)) {
+        el.classList.add("is-reveal-pop");
+        attachRevealCleanup(el);
+      } else if (card && fxConsumeFadeIn(card.id)) {
+        el.style.setProperty("--shuffle-rot", (Math.random() < 0.5 ? -10 : 10) + "deg");
+        el.classList.add("is-fade-in");
+        el.addEventListener("animationend", () => el.classList.remove("is-fade-in"), { once: true });
+      }
       if (card && isCreation) attachCardSelectableBehavior(el, card, "hand", wordIds.has(card.id));
       root.appendChild(el);
     }
@@ -816,6 +885,13 @@ function renderTrainingHand(state) {
         faceDown: isDealing,
         onClick: clickHandler,
       });
+      if (card && consumeReveal("action", idx)) {
+        cardEl.classList.add("is-reveal-flip");
+        attachRevealCleanup(cardEl);
+      } else if (card && fxConsumePopIn(card.id)) {
+        cardEl.classList.add("is-reveal-pop");
+        attachRevealCleanup(cardEl);
+      }
       // Debug long-press on an action card during the strategy phase opens a
       // picker to swap it for any other action — useful for testing concrete
       // sequences without relying on the dealt cards.
@@ -1261,12 +1337,300 @@ function renderDealPickerCard(slotIndex, target = "hand") {
   return el;
 }
 
+// Track slots that were just revealed so the renderer plays the entry
+// animation exactly once. Keys are "board:<idx>" / "hand:<idx>" /
+// "action:<idx>". The flag is consumed on read so subsequent re-renders
+// don't restart the anim.
+const pendingReveals = new Set();
+function markRevealed(target, slotIndex) {
+  pendingReveals.add(`${target}:${slotIndex}`);
+}
+function consumeReveal(target, slotIndex) {
+  const key = `${target}:${slotIndex}`;
+  if (!pendingReveals.has(key)) return false;
+  pendingReveals.delete(key);
+  return true;
+}
+
+// Remove the one-shot reveal animation class once it finishes so any other
+// CSS animation that should run on the card (e.g. the selectable pulse on
+// action cards) can resume normally.
+function attachRevealCleanup(el) {
+  el.addEventListener("animationend", () => {
+    el.classList.remove("is-reveal-flip", "is-reveal-pop");
+  }, { once: true });
+}
+
+// ── Action FX ─────────────────────────────────────────────────────────────
+// Animations layered on top of action resolution: pop-in (card drawn from
+// a deck), pop-out (card sent to a deck/discard), fly-card (card travels
+// from one location to another), fade-shuffle (batch movement), score chip
+// (point modifier on a player's pill), forced-rule pulse (board card the
+// attacker pointed at).
+//
+// Implementation pattern: applyActionWithFX(stateBefore, log, applyFn)
+//   1. Capture rects of all visible cards (keyed by card.id).
+//   2. Run applyFn → state mutated, returns stateAfter.
+//   3. Diff stateBefore vs stateAfter → schedule classes (pop-in/pulse) on
+//      cards that will be in the new DOM, and queue post-render tasks
+//      (pop-out ghost, fly ghost, score chip) to fire AFTER renderTrainingMatch.
+//   4. Caller renders. The render reads the pending sets and applies them.
+//   5. fxFlushPostRender() picks up the queue, captures the AFTER rects, and
+//      launches the floating ghosts.
+
+const fxPopIn = new Set();           // card IDs to pop-in on next render
+const fxPulse = new Set();           // card IDs to pulse on next render
+const fxFadeIn = new Set();          // card IDs that fade-in
+const fxFadeOut = new Set();         // card IDs to fade-out (held in place by render)
+const fxPostRender = [];             // queue of { type, ... } executed after render
+
+function fxConsumePopIn(id)  { if (id && fxPopIn.has(id))  { fxPopIn.delete(id);  return true; } return false; }
+function fxConsumePulse(id)  { if (id && fxPulse.has(id))  { fxPulse.delete(id);  return true; } return false; }
+function fxConsumeFadeIn(id) { if (id && fxFadeIn.has(id)) { fxFadeIn.delete(id); return true; } return false; }
+
+function fxCaptureCardRects() {
+  const rects = new Map();
+  document.querySelectorAll(".tcard[data-card-id]").forEach((el) => {
+    const id = el.dataset.cardId;
+    if (id) rects.set(id, el.getBoundingClientRect());
+  });
+  return rects;
+}
+
+// Index every visible card across state by location key.
+function fxIndexCards(state) {
+  const out = new Map(); // cardId → { card, locKey }
+  for (const c of state.centralBoard ?? []) {
+    if (c?.id) out.set(c.id, { card: c, locKey: "board" });
+  }
+  for (const [pid, hand] of Object.entries(state.hands ?? {})) {
+    if (!hand || hand === "<hidden>") continue;
+    for (const c of hand.letters ?? []) {
+      if (c?.id) out.set(c.id, { card: c, locKey: `hand:${pid}` });
+    }
+    for (const c of hand.actions ?? []) {
+      if (c?.id) out.set(c.id, { card: c, locKey: `actions:${pid}` });
+    }
+  }
+  return out;
+}
+
+const FX_BATCH_ATTACKS = new Set(["swap_all", "great_heist", "out_one", "change_cards", "renew_board"]);
+
+function fxScheduleForAction(stateBefore, stateAfter, log, rectsBefore) {
+  if (!log || !stateBefore || !stateAfter) return;
+  const actionId = log.actionId;
+  const beforeIdx = fxIndexCards(stateBefore);
+  const afterIdx  = fxIndexCards(stateAfter);
+  const isBatch = FX_BATCH_ATTACKS.has(actionId);
+
+  // Removed / moved (cards in before but not in after, or moved location).
+  for (const [id, beforeLoc] of beforeIdx) {
+    const afterLoc = afterIdx.get(id);
+    const rect = rectsBefore.get(id);
+    if (!afterLoc) {
+      // Card disappeared (sent to a deck/discard).
+      if (rect) {
+        fxPostRender.push({ type: isBatch ? "fade-out" : "pop-out", rect, card: beforeLoc.card });
+      }
+    } else if (afterLoc.locKey !== beforeLoc.locKey) {
+      // Card moved to a different container.
+      if (isBatch) {
+        // For batch movements we don't fly each card — fade-out at the old
+        // spot, fade-in at the new one (handled in render via fxFadeIn).
+        if (rect) fxPostRender.push({ type: "fade-out", rect, card: beforeLoc.card });
+        fxFadeIn.add(id);
+      } else if (rect) {
+        fxPostRender.push({ type: "fly", srcRect: rect, cardId: id, card: afterLoc.card });
+      }
+    }
+  }
+
+  // New cards (didn't exist before).
+  for (const [id, afterLoc] of afterIdx) {
+    if (beforeIdx.has(id)) continue;
+    if (isBatch) {
+      fxFadeIn.add(id);
+    } else {
+      fxPopIn.add(id);
+    }
+  }
+
+  // Score chip when scoreModifiers changed for any player. The +6 from
+  // "wildcard" is only conceptually earned when the user actually USES the
+  // wildcard inside their word — getting the card itself doesn't justify a
+  // chip yet, so we skip it here (the chip will surface during scoring).
+  if (actionId !== "wildcard") {
+    const beforeMods = stateBefore.scoreModifiers ?? {};
+    const afterMods = stateAfter.scoreModifiers ?? {};
+    for (const pid of new Set([...Object.keys(beforeMods), ...Object.keys(afterMods)])) {
+      const delta = (afterMods[pid] ?? 0) - (beforeMods[pid] ?? 0);
+      if (delta !== 0) {
+        fxPostRender.push({ type: "score-chip", playerId: pid, delta });
+      }
+    }
+  }
+
+  // Forced-rule pulse on the targeted board card (use_letter / vowel /
+  // consonant). For philologist/brain_squeeze nothing on the board itself
+  // pulses — those are covered by the existing forced-rules chip.
+  if (["use_vowel", "use_consonant", "use_letter"].includes(actionId)) {
+    const cardId = log.payload?.cardId;
+    if (cardId) fxPulse.add(cardId);
+  }
+}
+
+function fxFlushPostRender() {
+  if (fxPostRender.length === 0) return;
+  const queue = fxPostRender.splice(0);
+  const rectsAfter = fxCaptureCardRects();
+  for (const item of queue) {
+    if (item.type === "pop-out") fxRenderPopOutGhost(item.rect, item.card);
+    else if (item.type === "fade-out") fxRenderFadeOutGhost(item.rect, item.card);
+    else if (item.type === "fly") {
+      const dst = rectsAfter.get(item.cardId);
+      if (dst) fxRenderFlyGhost(item.srcRect, dst, item.card, item.cardId);
+    } else if (item.type === "score-chip") fxShowScoreChip(item.playerId, item.delta);
+  }
+}
+
+function fxCreateGhostCardEl(card) {
+  // Pick the right renderer based on card type.
+  const isAction = card?.type === "action" || (card?.actionId && !card?.kind);
+  return isAction ? renderActionCard(card, { faceDown: false }) : renderLetterCard(card);
+}
+
+function fxPositionGhost(el, rect) {
+  Object.assign(el.style, {
+    position: "fixed",
+    left: rect.left + "px",
+    top: rect.top + "px",
+    width: rect.width + "px",
+    height: rect.height + "px",
+    margin: "0",
+    pointerEvents: "none",
+    zIndex: "9999",
+  });
+}
+
+function fxRenderPopOutGhost(rect, card) {
+  const el = fxCreateGhostCardEl(card);
+  fxPositionGhost(el, rect);
+  el.classList.add("is-pop-out");
+  document.body.appendChild(el);
+  el.addEventListener("animationend", () => el.remove(), { once: true });
+}
+
+function fxRenderFadeOutGhost(rect, card) {
+  const el = fxCreateGhostCardEl(card);
+  fxPositionGhost(el, rect);
+  el.style.setProperty("--shuffle-rot", (Math.random() < 0.5 ? -10 : 10) + "deg");
+  el.classList.add("is-fade-out");
+  document.body.appendChild(el);
+  el.addEventListener("animationend", () => el.remove(), { once: true });
+}
+
+function fxRenderFlyGhost(srcRect, dstRect, card, cardId) {
+  const el = fxCreateGhostCardEl(card);
+  fxPositionGhost(el, srcRect);
+  el.classList.add("is-flying");
+  document.body.appendChild(el);
+  // Briefly hide the real destination card so the ghost is the only one
+  // visible while it travels.
+  const realDst = cardId ? document.querySelector(`.tcard[data-card-id="${cardId}"]`) : null;
+  if (realDst) realDst.style.visibility = "hidden";
+  // Force layout to pick up the inline starting position.
+  void el.offsetWidth;
+  const dx = dstRect.left - srcRect.left;
+  const dy = dstRect.top - srcRect.top;
+  const dsx = dstRect.width / Math.max(1, srcRect.width);
+  const dsy = dstRect.height / Math.max(1, srcRect.height);
+  el.style.transform = `translate(${dx}px, ${dy}px) scale(${dsx}, ${dsy})`;
+  el.addEventListener("transitionend", () => {
+    el.remove();
+    if (realDst) realDst.style.visibility = "";
+  }, { once: true });
+}
+
+function fxShowScoreChip(playerId, delta) {
+  if (!playerId || !delta) return;
+  const pill = document.querySelector(`.training-score-pill[data-player-id="${playerId}"]`);
+  if (!pill) return;
+  const chip = document.createElement("div");
+  chip.className = "training-score-chip " + (delta > 0 ? "is-positive" : "is-negative");
+  chip.textContent = (delta > 0 ? "+" : "") + delta;
+  pill.appendChild(chip);
+  setTimeout(() => chip.remove(), 1500);
+}
+
+// Caller wrapper that captures rects, applies the state mutation, schedules
+// FX, then re-renders (which picks up pendingPops/pulse classes) and finally
+// flushes the post-render ghost animations.
+function applyActionWithFX(applyFn, log) {
+  const stateBefore = getTrainingMatch();
+  const rectsBefore = fxCaptureCardRects();
+  const stateAfter = applyFn();
+  if (stateBefore && stateAfter) {
+    fxScheduleForAction(stateBefore, stateAfter, log, rectsBefore);
+  }
+  return stateAfter;
+}
+
+// When the LAST V/C pick (or 🎲 batch) closes the dealing phase, we keep
+// the hand cards rendered face-down until the phase-transition flash
+// ("ESTRATEGIA") has fully cleared, then trigger the cascade flip with a
+// small extra beat so the user's eye lands on the cards before they flip.
+const DEAL_CASCADE_DELAY_MS = PHASE_FLASH_DURATION_MS + 350;
+
+// After the board has just become fully revealed, hold the hand pickers
+// for a moment so the user has time to digest the central letters before
+// being asked to pick their own.
+const BOARD_REVEAL_PAUSE_MS = 1400;
+let handPickerHoldUntil = 0;
+
+// When a baza starts and the dealer is a ghost, the central board is
+// auto-filled by initializeRound. To give the user the same theatrical
+// reveal as the human-dealer case, we render those cards face-down for a
+// short hold, then flip them to face-up with the reveal animation.
+const GHOST_BOARD_DEAL_HOLD_MS = 800;
+let ghostBoardDealHoldUntil = 0;
+function maybeHoldHandPickerAfterBoard(stateBefore, stateAfter) {
+  const before = stateBefore?.centralBoard ?? [];
+  const after = stateAfter?.centralBoard ?? [];
+  const wasIncomplete = before.length === 0 || before.some((c) => c == null);
+  const nowComplete = after.length > 0 && after.every((c) => c != null);
+  if (!(wasIncomplete && nowComplete)) return;
+  handPickerHoldUntil = Date.now() + BOARD_REVEAL_PAUSE_MS;
+  setTimeout(renderTrainingMatch, BOARD_REVEAL_PAUSE_MS);
+}
+let pendingDealCascade = false;
+function startDealCascade(stateAfter) {
+  pendingDealCascade = true;
+  setTimeout(() => {
+    pendingDealCascade = false;
+    const cur = getTrainingMatch() || stateAfter;
+    if (!cur) return;
+    // Cascade ONLY flips the hand — letters + action cards. Board cards
+    // were already revealed one-by-one (or via 🎲) during the dealing
+    // sub-phase, so re-flipping them here would be redundant.
+    const userId = cur.players?.[0]?.id;
+    const userHand = userId ? cur.hands[userId] : null;
+    (userHand?.letters ?? []).forEach((c, i) => { if (c) markRevealed("hand", i); });
+    (userHand?.actions ?? []).forEach((c, i) => { if (c) markRevealed("action", i); });
+    renderTrainingMatch();
+  }, DEAL_CASCADE_DELAY_MS);
+}
+
 function handleDealPick(slotIndex, kind, target = "hand") {
   _shell.playClickFeedback();
   const state = getTrainingMatch();
   if (!state || state.phase !== "dealing") return;
   if (target === "board") revealBoardSlot(state, slotIndex, kind);
   else revealLetterSlot(state, slotIndex, kind);
+  markRevealed(target, slotIndex);
+  const after = getTrainingMatch();
+  if (target === "board") maybeHoldHandPickerAfterBoard(state, after);
+  if (after && after.phase !== "dealing") startDealCascade(after);
   renderTrainingMatch();
 }
 
@@ -1366,6 +1730,13 @@ function renderTrainingResult(state) {
       reasonEl.textContent = (reasonKey ? t(reasonKey) : fallback) || fallback;
       panel.appendChild(reasonEl);
     }
+
+    // Score breakdown: render each contributing part (letter values,
+    // wildcard bonuses, action-card modifiers, x2 if applicable).
+    if (!result.checking && result.valid && Array.isArray(result.breakdown) && result.breakdown.length > 0) {
+      const breakdownEl = renderScoreBreakdown(result.breakdown, result.score);
+      if (breakdownEl) panel.appendChild(breakdownEl);
+    }
   }
 
   // Scores table (this baza)
@@ -1428,7 +1799,9 @@ async function renderRoundEndHints(box, state) {
   const solverDiff = uiDiff === "hard" ? "hard" : uiDiff === "normal" ? "normal" : "easy";
   let hints = [];
   try {
-    hints = await findHints(state, { count: 3, difficulty: solverDiff });
+    // Request a few extra so we have buffer after filtering out the user's
+    // own word.
+    hints = await findHints(state, { count: 6, difficulty: solverDiff });
   } catch (err) {
     logger.warn("[round-end hints] solver failed", err);
   }
@@ -1437,9 +1810,24 @@ async function renderRoundEndHints(box, state) {
 
   const userScore = state.userWordResult?.score ?? 0;
   const userValid = state.userWordResult?.valid;
-  const top = hints[0];
+  const userWord = state.userWordResult?.word ?? "";
+  const norm = (w) => (w || "")
+    .toUpperCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "");
+  const userKey = norm(userWord);
+  // Drop suggestions that match the user's word with equal-or-worse score.
+  // Keep them when the score is higher — that's the educational case
+  // ("same word but built smarter": wildcard +6, matching colors, etc.).
+  const filtered = userValid && userKey
+    ? hints.filter((h) => !(norm(h.word) === userKey && h.score <= userScore))
+    : hints;
+  const top3 = filtered.slice(0, 3);
+
+  const top = top3[0];
   if (!top) {
-    box.innerHTML = "";
+    // No suggestions to show — drop the section entirely.
+    box.remove();
     return;
   }
   if (userValid && userScore >= top.score) {
@@ -1448,7 +1836,7 @@ async function renderRoundEndHints(box, state) {
   }
   // Use the same per-letter rendering as the hints modal so wildcards mark
   // exactly which letter they're standing in for (★ underneath that letter).
-  const rows = hints.map(renderHintItem).join("");
+  const rows = top3.map(renderHintItem).join("");
   box.innerHTML = `
     <div class="training-result-suggestions-header">${t("trainingAlsoCould") || "También podías"}</div>
     <ol class="hints-list">${rows}</ol>
@@ -1703,9 +2091,32 @@ function stopActionsDriver() {
   actionsDriverBusy = false;
 }
 
-function scheduleActionsDriver(delay = 1800) {
+function scheduleActionsDriver(delay = 3000) {
   stopActionsDriver();
   actionsDriverTimeout = setTimeout(processNextActionsTurn, delay);
+}
+
+// Call after a ghost has just acted to handle the queue advance + chaining.
+// If this was the LAST queued actor (so the advance would transition to the
+// creation phase), wait `BUBBLE_AUTOHIDE_MS` first so the user has time to
+// read the final ghost's bubble + banner before the creation UI takes over.
+function advanceAfterGhostAction(s) {
+  const isLast = (s.actionsQueue ?? []).length <= 1;
+  if (!isLast) {
+    const next = advanceActionsQueue(s);
+    renderTrainingMatch();
+    if (next.phase === "actions") scheduleActionsDriver();
+    return;
+  }
+  // Last ghost — keep state in actions phase (queue still has them) and
+  // render so the bubble is on their pill, then defer the transition.
+  renderTrainingMatch();
+  setTimeout(() => {
+    const cur = getTrainingMatch();
+    if (!cur || cur.phase !== "actions") return;
+    advanceActionsQueue(cur);
+    renderTrainingMatch();
+  }, BUBBLE_AUTOHIDE_MS);
 }
 
 function processNextActionsTurn() {
@@ -1773,16 +2184,17 @@ function processNextActionsTurn() {
             actionsDriverBusy = true;
             promptShield({ source: nextActorId, card: fakeCard }, fakeLog);
           } else {
-            let s = applyPlannedGhostAction(fresh, fakeLog);
+            let s = applyActionWithFX(
+              () => applyPlannedGhostAction(fresh, fakeLog),
+              fakeLog,
+            );
             debugLogPushAction(s, { actorId: nextActorId, actionId, targetId, payload });
             showActionToast(s, fakeLog);
-            s = advanceActionsQueue(s);
-            renderTrainingMatch();
             if (maybeOfferEmergencyDraw(() => {
               const cur = getTrainingMatch();
               if (cur?.phase === "actions") scheduleActionsDriver();
             })) return;
-            if (s.phase === "actions") scheduleActionsDriver();
+            advanceAfterGhostAction(s);
           }
         }
 
@@ -1821,16 +2233,17 @@ function processNextActionsTurn() {
   }
 
   // No shield prompt: apply and advance.
-  let s = applyPlannedGhostAction(planned.state, planned.log);
+  let s = applyActionWithFX(
+    () => applyPlannedGhostAction(planned.state, planned.log),
+    planned.log,
+  );
   debugLogPushAction(s, { ...planned.log, actorId: planned.log.playerId });
   showActionToast(s, planned.log);
-  s = advanceActionsQueue(s);
-  renderTrainingMatch();
   if (maybeOfferEmergencyDraw(() => {
     const cur = getTrainingMatch();
     if (cur?.phase === "actions") scheduleActionsDriver();
   })) return;
-  if (s.phase === "actions") scheduleActionsDriver();
+  advanceAfterGhostAction(s);
 }
 
 function promptShield(opportunity, log) {
@@ -1853,24 +2266,26 @@ function promptShield(opportunity, log) {
       if (choice === "use") {
         let s = getTrainingMatch();
         s = useShieldOnAttack(s, opportunity.source);
-        s = applyPlannedGhostAction(s, log, { shielded: true });
+        s = applyActionWithFX(
+          () => applyPlannedGhostAction(s, log, { shielded: true }),
+          log,
+        );
         debugLogPushAction(s, { ...log, actorId: log.playerId, blocked: true });
         showActionToast(s, log, { blocked: true });
-        s = advanceActionsQueue(s);
-        renderTrainingMatch();
-        if (s.phase === "actions") scheduleActionsDriver();
+        advanceAfterGhostAction(s);
       } else {
         let s = getTrainingMatch();
-        s = applyPlannedGhostAction(s, log);
+        s = applyActionWithFX(
+          () => applyPlannedGhostAction(s, log),
+          log,
+        );
         debugLogPushAction(s, { ...log, actorId: log.playerId });
         showActionToast(s, log);
-        s = advanceActionsQueue(s);
-        renderTrainingMatch();
         if (maybeOfferEmergencyDraw(() => {
           const cur = getTrainingMatch();
           if (cur?.phase === "actions") scheduleActionsDriver();
         })) return;
-        if (s.phase === "actions") scheduleActionsDriver();
+        advanceAfterGhostAction(s);
       }
     },
   });
@@ -1897,16 +2312,17 @@ function promptDiscardOne(state, log) {
     onPick: (cardId) => {
       actionsDriverBusy = false;
       const finalLog = { ...log, payload: { cardId } };
-      let s = applyPlannedGhostAction(state, finalLog);
+      let s = applyActionWithFX(
+        () => applyPlannedGhostAction(state, finalLog),
+        finalLog,
+      );
       debugLogPushAction(s, { ...finalLog, actorId: finalLog.playerId });
       showActionToast(s, log);
-      s = advanceActionsQueue(s);
-      renderTrainingMatch();
       if (maybeOfferEmergencyDraw(() => {
         const cur = getTrainingMatch();
         if (cur?.phase === "actions") scheduleActionsDriver();
       })) return;
-      if (s.phase === "actions") scheduleActionsDriver();
+      advanceAfterGhostAction(s);
     },
   });
 }
@@ -2045,33 +2461,12 @@ function autoPickUserAction() {
     return;
   }
 
-  // Pick random target/payload as ghosts do when the action requires one.
-  let targetId = null;
-  let payload = {};
-  if (card.target === "one") {
-    const candidates = state.players.filter((p) => p.id !== userId);
-    if (candidates.length > 0) {
-      targetId = candidates[Math.floor(Math.random() * candidates.length)].id;
-    }
-  }
-  if (["use_vowel", "use_consonant", "use_letter"].includes(card.actionId)) {
-    const letters = (state.centralBoard ?? []).filter((c) => {
-      if (card.actionId === "use_vowel") return c.kind === "vowel";
-      if (card.actionId === "use_consonant") return c.kind === "consonant";
-      return true;
-    });
-    if (letters.length > 0) {
-      const picked = letters[Math.floor(Math.random() * letters.length)];
-      payload = { letter: picked.letter, cardId: picked.id };
-    }
-  }
-
-  let s = playUserAction(state, firstIdx, targetId, payload);
-  debugLogPushAction(s, { actorId: userId, actionId: card.actionId, targetId, payload });
-  showActionToast(s, { playerId: userId, actionId: card.actionId, targetId, payload });
-  s = advanceActionsQueue(s);
-  renderTrainingMatch();
-  if (s.phase === "actions") scheduleActionsDriver();
+  // For any action that requires picking a target or payload, defer to the
+  // normal user-tap flow (handleUserPickAction). That opens the picker so
+  // the user still has a chance to choose victim / letter — the picker's
+  // own 7 s timeout will fall back to the first option if they don't, but
+  // they were at least ASKED instead of having it auto-decided silently.
+  handleUserPickAction(firstIdx);
 }
 
 // User taps an action card during their own turn → play it immediately. The
@@ -2116,9 +2511,13 @@ function handleUserPickAction(actionIndex) {
     actionsDriverBusy = true;
     pickTargetAndPayloadForUser(state, card, (targetId, payload) => {
       actionsDriverBusy = false;
-      let s = playUserAction(getTrainingMatch(), actionIndex, targetId, payload);
+      const userLog = { playerId: userId, actionId: card.actionId, targetId, payload };
+      let s = applyActionWithFX(
+        () => playUserAction(getTrainingMatch(), actionIndex, targetId, payload),
+        userLog,
+      );
       debugLogPushAction(s, { actorId: userId, actionId: card.actionId, targetId, payload });
-      showActionToast(s, { playerId: userId, actionId: card.actionId, targetId, payload });
+      showActionToast(s, userLog);
       s = advanceActionsQueue(s);
       renderTrainingMatch();
       if (s.phase === "actions") scheduleActionsDriver();
@@ -2326,8 +2725,11 @@ function pickTargetAndPayloadForUser(state, card, done, actorLabel = null, actor
   const actor = actorLabel || "Tú";
   const selfCtx    = { label: `🎯 ${actor}: ${cardDisplayName}`, kind: actorLabel ? "forced" : "self"   };
   const attackCtx  = { label: `⚔️ ${actor} ataca: ${cardDisplayName}`, kind: actorLabel ? "forced" : "attack" };
-  // Filter out shielded players from attack candidate lists
-  const unshielded = (players) => players.filter((p) => !playerHasShield(state, p.id));
+  // Filter out players whose shield is already ACTIVE (visible info). A
+  // shield_total in hand — preselected or not — is hidden information, so
+  // those players stay valid targets (attacker can't know they have one).
+  const activeShields = new Set(state.shieldedPlayers ?? []);
+  const unshielded = (players) => players.filter((p) => !activeShields.has(p.id));
 
   // one_for_all: pick a target, then pick from their V/C backs
   if (card.actionId === "one_for_all") {
@@ -2465,7 +2867,9 @@ function pickTargetAndPayloadForUser(state, card, done, actorLabel = null, actor
     return;
   }
 
-  // swap_all: pick target then pick which of ACTOR's own letters to give
+  // swap_all: pick target only — TODAS the actor's letters swap with the
+  // target's (action wildcards stay with their owner). The manual is
+  // explicit: no per-card selection.
   if (card.actionId === "swap_all") {
     const candidates = unshielded(inTurnOrder(state.players, actor_id));
     if (candidates.length === 0) { done(null, {}); return; }
@@ -2474,15 +2878,7 @@ function pickTargetAndPayloadForUser(state, card, done, actorLabel = null, actor
       context: attackCtx,
       options: candidates.map((p) => ({ id: p.id, label: p.name })),
       timeoutMs: PICKER_TIMEOUT_MS,
-      onPick: (targetId) => {
-        const actorHand = state.hands[actor_id];
-        const letters = actorHand && actorHand !== "<hidden>"
-          ? (actorHand.letters ?? []).filter(Boolean) : [];
-        if (letters.length === 0) { done(targetId, { fromIds: [] }); return; }
-        openChangeCardsPicker(letters, "trainingSwapAllPickTitle", (fromIds) => {
-          done(targetId, { fromIds });
-        }, attackCtx);
-      },
+      onPick: (targetId) => { done(targetId, {}); },
     });
     return;
   }
@@ -2659,15 +3055,24 @@ function showActionToast(state, log, opts = {}) {
   if (!log) return;
   if (bubbleAutoHideTimeout) clearTimeout(bubbleAutoHideTimeout);
   const userId = state?.players?.[0]?.id;
-  const ALL_TARGET_ATTACK_IDS = new Set(["out_one", "great_heist", "swap_all", "two_to_center"]);
-  let isAttackTarget = false;
-  if (userId && log.playerId !== userId && !opts.blocked) {
-    isAttackTarget = log.targetId === userId || ALL_TARGET_ATTACK_IDS.has(log.actionId);
+  // Does the action conceptually reach the user? Either it's directed at us
+  // or its target is "all" (hits every opponent). Single source of truth is
+  // the action metadata in ACTION_CARDS.
+  let reachesUser = false;
+  if (userId && log.playerId !== userId) {
+    const def = ACTION_CARDS.find((c) => c.id === log.actionId);
+    reachesUser = log.targetId === userId || def?.target === "all";
   }
+  // Already shielded for this trick (from a prior reactive shield) → the
+  // action no longer affects the user. Treated the same as `opts.blocked`
+  // (which only flags a freshly-used shield on THIS attack).
+  const alreadyShielded = !!(userId && (state.shieldedPlayers ?? []).includes(userId));
+  const blocked = !!opts.blocked || (reachesUser && alreadyShielded);
+  const isAttackTarget = reachesUser && !blocked;
   currentActionBubble = {
     playerId: log.playerId,
     text: humanActionName(log.actionId),
-    blocked: !!opts.blocked,
+    blocked,
     isAttackOnUser: isAttackTarget,
     isNew: true,
   };
@@ -2754,6 +3159,10 @@ function ensureTrainingTimer() {
   const phase = state.phase;
   if (phase !== "strategy" && phase !== "creation") return;
   if (phase === "creation" && state.untimedCreation) return;
+  // Don't tick down while the "ESTRATEGIA"/"CREACIÓN" phase flash is still
+  // visible — the banner hide handler re-renders, and on that re-render we
+  // get a fresh ensureTrainingTimer call that actually starts the tick.
+  if (Date.now() < phaseFlashEndsAt) return;
   if (trainingClockPhase !== phase) {
     trainingClockPhase = phase;
     _shell.playClockLoop();
@@ -2792,6 +3201,11 @@ function ensureTrainingTimer() {
     }
     if (next.phase !== current.phase) {
       trainingClockPhase = null;
+      // Force the timer label to "00:00" before any re-render so the user
+      // actually sees the counter reach zero (otherwise the last frame
+      // visible is the previous tick value, e.g. "00:01").
+      const timerEl = document.getElementById("trainingTimerValue");
+      if (timerEl) timerEl.textContent = "00:00";
       saveTrainingMatch(next);
       stopTrainingTimer();
       _shell.triggerTimeUpEffects("training");
@@ -2857,6 +3271,50 @@ async function requestTrainingHints() {
   body.innerHTML = `<ol class="hints-list">${items}</ol><div class="hints-meta">${hints.length} resultado${hints.length === 1 ? "" : "s"} · ${elapsed} ms</div>`;
 }
 
+function renderScoreBreakdown(parts, total) {
+  if (!Array.isArray(parts) || parts.length === 0) return null;
+  const wrap = document.createElement("div");
+  wrap.className = "training-result-breakdown";
+  const chips = document.createElement("div");
+  chips.className = "training-result-breakdown-chips";
+  for (const p of parts) {
+    const chip = document.createElement("span");
+    chip.className = "training-result-breakdown-chip";
+    let label, value;
+    if (p.kind === "letter") {
+      label = (p.letter || "").toUpperCase();
+      value = `+${p.delta}`;
+      chip.classList.add("is-letter");
+    } else if (p.kind === "wildcard-bonus") {
+      label = "★";
+      value = "+6";
+      chip.classList.add("is-wildcard");
+    } else if (p.kind === "modifier") {
+      label = p.delta > 0 ? "BONUS" : "PENAL";
+      value = (p.delta > 0 ? "+" : "") + p.delta;
+      chip.classList.add(p.delta > 0 ? "is-positive" : "is-negative");
+    } else if (p.kind === "double") {
+      label = p.reason === "color" ? "×2 COLOR" : "×2 TODO";
+      value = `+${p.delta}`;
+      chip.classList.add("is-double");
+    }
+    const labelEl = document.createElement("span");
+    labelEl.className = "training-result-breakdown-label";
+    labelEl.textContent = label;
+    const valueEl = document.createElement("span");
+    valueEl.className = "training-result-breakdown-value";
+    valueEl.textContent = value;
+    chip.append(labelEl, valueEl);
+    chips.appendChild(chip);
+  }
+  wrap.appendChild(chips);
+  const totalEl = document.createElement("div");
+  totalEl.className = "training-result-breakdown-total";
+  totalEl.textContent = `= ${total}`;
+  wrap.appendChild(totalEl);
+  return wrap;
+}
+
 function renderHintItem(hint) {
   // Render letter-by-letter so wildcards can carry a marker below.
   const letters = (hint.cards ?? []).map((card) => {
@@ -2868,7 +3326,27 @@ function renderHintItem(hint) {
     const cls = card.isWildcard ? "hint-letter is-wild" : "hint-letter";
     return `<span class="${cls}">${escapeHtml(shown)}</span>`;
   }).join("");
-  return `<li><span class="hint-word">${letters}</span><span class="hint-score">${hint.score}</span></li>`;
+  // Compact breakdown: only the non-letter parts (wildcard bonus, modifier,
+  // x2). Letter values are obvious from the letters above.
+  const compact = (hint.breakdown ?? [])
+    .filter((p) => p.kind !== "letter")
+    .map((p) => {
+      if (p.kind === "wildcard-bonus") return `<span class="hint-tag is-wild">★ +6</span>`;
+      if (p.kind === "modifier") {
+        const sign = p.delta > 0 ? "+" : "";
+        const cls = p.delta > 0 ? "is-positive" : "is-negative";
+        return `<span class="hint-tag ${cls}">${sign}${p.delta}</span>`;
+      }
+      if (p.kind === "double") {
+        const lbl = p.reason === "color" ? "×2 color" : "×2 todo";
+        return `<span class="hint-tag is-double">${lbl}</span>`;
+      }
+      return "";
+    })
+    .filter(Boolean)
+    .join("");
+  const tags = compact ? `<span class="hint-tags">${compact}</span>` : "";
+  return `<li><span class="hint-word">${letters}</span>${tags}<span class="hint-score">${hint.score}</span></li>`;
 }
 
 function escapeHtml(s) {
@@ -2881,7 +3359,13 @@ function handleDealRandomBoard() {
   _shell.playClickFeedback();
   const state = getTrainingMatch();
   if (!state || state.phase !== "dealing") return;
+  (state.centralBoard ?? []).forEach((c, i) => {
+    if (c == null) markRevealed("board", i);
+  });
   fillRemainingBoardRandomly(state);
+  const after = getTrainingMatch();
+  maybeHoldHandPickerAfterBoard(state, after);
+  if (after && after.phase !== "dealing") startDealCascade(after);
   renderTrainingMatch();
 }
 
@@ -2889,7 +3373,13 @@ function handleDealRandomHand() {
   _shell.playClickFeedback();
   const state = getTrainingMatch();
   if (!state || state.phase !== "dealing") return;
+  const userId = state.players[0].id;
+  (state.hands[userId]?.letters ?? []).forEach((c, i) => {
+    if (c == null) markRevealed("hand", i);
+  });
   fillRemainingHandRandomly(state);
+  const after = getTrainingMatch();
+  if (after && after.phase !== "dealing") startDealCascade(after);
   renderTrainingMatch();
 }
 

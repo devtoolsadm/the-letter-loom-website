@@ -51,11 +51,11 @@ describe('boost_total', () => {
 })
 
 describe('wildcard', () => {
-  it('adds wildcard letter to source hand and +6 modifier', () => {
+  it('adds the wildcard letter to source hand but no points yet (the +6 is granted only when the card is actually used in a word)', () => {
     const state = makeState({ hands: { p1: { letters: [], actions: [] }, p2: { letters: [], actions: [] }, p3: { letters: [], actions: [] } } })
     const action = makeActionCard({ actionId: 'wildcard' })
     const next = applyActionEffect(state, action, 'p1', null, {})
-    expect(next.scoreModifiers.p1).toBe(6)
+    expect(next.scoreModifiers?.p1 ?? 0).toBe(0)
     expect(next.hands.p1.letters).toHaveLength(1)
     const wc = next.hands.p1.letters[0]
     expect(wc.isWildcard).toBe(true)
@@ -752,7 +752,7 @@ describe('swap_all', () => {
     expect(next.hands.p2.letters[0].id).toBe('src')
   })
 
-  it('partial swap: source gives fromIds, receives all target letters', () => {
+  it('payload is ignored: always full swap, never partial', () => {
     const v1 = makeLetter({ id: 'v1', kind: 'vowel' })
     const c1 = makeConsonant({ id: 'c1' })
     const tgtLetter = makeConsonant({ id: 'tgt', letter: 'R' })
@@ -765,12 +765,9 @@ describe('swap_all', () => {
     })
     const action = makeActionCard({ actionId: 'swap_all' })
     const next = applyActionEffect(state, action, 'p1', 'p2', { fromIds: ['v1'] })
-    // source keeps c1, receives tgt
-    expect(next.hands.p1.letters.map(c => c.id)).toContain('c1')
-    expect(next.hands.p1.letters.map(c => c.id)).toContain('tgt')
-    expect(next.hands.p1.letters.map(c => c.id)).not.toContain('v1')
-    // target receives the given-away card
-    expect(next.hands.p2.letters.map(c => c.id)).toContain('v1')
+    // Manual rule: no per-card selection. Even with fromIds, all letters swap.
+    expect(next.hands.p1.letters.map(c => c.id)).toEqual(['tgt'])
+    expect(next.hands.p2.letters.map(c => c.id).sort()).toEqual(['c1', 'v1'])
   })
 })
 

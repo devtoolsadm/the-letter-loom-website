@@ -8,6 +8,7 @@ export function renderLetterCard(card, opts = {}) {
     el.appendChild(l);
     return el;
   }
+  if (card.id) el.dataset.cardId = card.id;
   if (opts.faceDown) {
     el.className = "tcard is-face-down " + (card.kind === "vowel" ? "back-vowel" : "back-consonant");
     el.textContent = card.kind === "vowel" ? "V" : "C";

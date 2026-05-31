@@ -20,6 +20,7 @@
 import {
   buildWordFromCards,
   computeWordScore,
+  computeWordScoreDetailed,
   countSyllables,
   hasTilde,
   containsLetter,
@@ -209,11 +210,11 @@ function tryComposeWord(targetWord, ctx) {
   const usedBoard = selected.some((c) => c.source === "board");
   if (!usedHand || !usedBoard) return null;
 
-  // Build the score-shaped card list for computeWordScore.
+  // Build the score-shaped card list for the scoring helper.
   const scoreCards = selected.map(toScoreCard);
   const allUserLetterIds = ctx.handCards.map((c) => c.id);
   const allBoardLetterIds = ctx.boardCards.map((c) => c.id);
-  const score = computeWordScore({
+  const detail = computeWordScoreDetailed({
     selectedCards: scoreCards,
     allUserLetters: allUserLetterIds,
     allBoardLetters: allBoardLetterIds,
@@ -222,7 +223,8 @@ function tryComposeWord(targetWord, ctx) {
 
   return {
     word: buildWordFromCards(scoreCards),
-    score,
+    score: detail.score,
+    breakdown: detail.parts,
     cards: scoreCards,
     usedWildcard: scoreCards.some((c) => c.isWildcard),
   };

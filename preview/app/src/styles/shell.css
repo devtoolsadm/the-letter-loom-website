@@ -2802,8 +2802,11 @@ body.splash-ready #splashLoadingBlock {
   word-break: break-word;
   animation: training-prompt-bounce 1.4s ease-in-out infinite;
 }
+/* Keep the prompt's slot reserved when hidden so the board section
+   doesn't shift upward the moment the prompt disappears. */
 .training-board-prompt.hidden {
-  display: none !important;
+  visibility: hidden;
+  animation: none;
 }
 /* "Random fill" pill — appears under the active prompt during the dealing
    sub-phase that still has pending V/C picks. */
@@ -2841,8 +2844,41 @@ body.splash-ready #splashLoadingBlock {
 /* While the dealer is filling the central board, the hand section is
    invisible but keeps its space so the layout doesn't shift when the
    hand pickers appear. */
+/* When the hand section is hidden (board-dealing / post-board hold), we
+   COLLAPSE it (height + padding + border → 0) instead of just hiding it,
+   so when it reveals the central board slides down smoothly to make room
+   for it. The transition on the base rule below drives the animation. */
+/* Section frame: padding + border collapse animated. Overflow stays
+   visible so the "TU MANO" ribbon (absolute, top: -9px) is never clipped.
+   The actual height collapse happens on the inner body wrapper below. */
+.training-section.is-hand {
+  transition:
+    padding-top 500ms cubic-bezier(0.4, 0, 0.2, 1),
+    padding-bottom 500ms cubic-bezier(0.4, 0, 0.2, 1),
+    border-top-width 400ms ease-out,
+    border-bottom-width 400ms ease-out,
+    opacity 380ms ease-out;
+  opacity: 1;
+}
+.training-section.is-hand > .training-section-body {
+  overflow: hidden;
+  max-height: 500px;
+  transition: max-height 650ms cubic-bezier(0.4, 0, 0.2, 1);
+  /* Action cards pulse-translate up by 3px and carry a drop-shadow that
+     extends a few px beyond their box. Without this padding the top of
+     the cards (and their glow) would be clipped by overflow: hidden. */
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
 .training-match.is-board-dealing .training-section.is-hand {
-  visibility: hidden;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  border-top-width: 0 !important;
+  border-bottom-width: 0 !important;
+  opacity: 0;
+}
+.training-match.is-board-dealing .training-section.is-hand > .training-section-body {
+  max-height: 0 !important;
 }
 /* The word strip belongs to the creation phase and only meaningfully
    appears there. We don't reserve space for it during earlier phases to
@@ -3113,6 +3149,11 @@ body.splash-ready #splashLoadingBlock {
     0 2px 0 rgba(78, 110, 56, 0.3),
     0 4px 10px rgba(0, 0, 0, 0.1);
 }
+/* Pre-creation phases: add breathing room above the board so the user
+   reads "TU MANO" and "TABLERO CENTRAL" as clearly separate zones. */
+.training-match.is-pre-creation .training-section.is-board {
+  margin-top: 18px;
+}
 .training-section-label {
   position: absolute;
   top: -9px;
@@ -3226,6 +3267,134 @@ body.splash-ready #splashLoadingBlock {
 }
 .tcard.is-empty .tcard-letter { font-size: 26px; opacity: 0.6; }
 .tcard.is-action.is-empty .tcard-letter { color: #ffffff; opacity: 0.95; text-shadow: 0 2px 0 rgba(0, 0, 0, 0.35); }
+
+/* Reveal animation #1 — Card flip 3D (used for central board picks).
+   The card enters at rotateY(-90°) (edge-on, invisible) and rotates to
+   face the viewer, mimicking flipping a deck card to reveal it. */
+@keyframes tcard-reveal-flip {
+  0%   { transform: rotateY(-90deg); opacity: 0; }
+  60%  { opacity: 1; }
+  100% { transform: rotateY(0deg);   opacity: 1; }
+}
+.tcard.is-reveal-flip {
+  /* !important is needed to beat `.tcard.is-action.is-selectable`, which
+     applies an infinite pulse animation at higher specificity and would
+     otherwise eclipse the reveal flip on action cards. */
+  animation: tcard-reveal-flip 720ms cubic-bezier(0.2, 0.6, 0.3, 1) both !important;
+  transform-origin: center center;
+  backface-visibility: hidden;
+}
+
+/* Reveal animation #2 — Pop with bounce (used for cards drawn from a deck:
+   extra_card, wildcard, board refills...). The card scales from 0 to 1.15
+   then settles at 1, snappy + playful. */
+@keyframes tcard-reveal-pop {
+  0%   { transform: scale(0);    opacity: 0; }
+  60%  { transform: scale(1.18); opacity: 1; }
+  100% { transform: scale(1);    opacity: 1; }
+}
+.tcard.is-reveal-pop {
+  animation: tcard-reveal-pop 340ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  transform-origin: center center;
+}
+
+/* Pop-out — inverse of pop: card scales down and fades. Used when an
+   action card is played and leaves the hand on its way to the discard. */
+@keyframes tcard-pop-out {
+  0%   { transform: scale(1);     opacity: 1; }
+  60%  { transform: scale(0.6) rotate(8deg); opacity: 0.6; }
+  100% { transform: scale(0) rotate(20deg);  opacity: 0; }
+}
+.tcard.is-pop-out {
+  animation: tcard-pop-out 360ms cubic-bezier(0.4, 0, 0.6, 1) both;
+  transform-origin: center center;
+}
+
+/* Fly-card — a clone of the moving card animated from src→dst via JS
+   inline transforms. CSS only sets up the box. */
+.tcard.is-flying {
+  position: fixed;
+  pointer-events: none;
+  z-index: 9999;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.3);
+  transition: transform 560ms cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 200ms ease-out;
+}
+
+/* Fade-shuffle — affected cards fade out with a small rotation jitter
+   while a new set fades in. Used for batch movements (swap_all, change_cards,
+   great_heist, out_one, renew_board). */
+@keyframes tcard-fade-out-shuffle {
+  0%   { transform: rotate(0)    scale(1);   opacity: 1; }
+  100% { transform: rotate(var(--shuffle-rot, 8deg)) scale(0.85); opacity: 0; }
+}
+@keyframes tcard-fade-in-shuffle {
+  0%   { transform: rotate(var(--shuffle-rot, -8deg)) scale(0.85); opacity: 0; }
+  100% { transform: rotate(0)    scale(1);   opacity: 1; }
+}
+.tcard.is-fade-out {
+  animation: tcard-fade-out-shuffle 360ms cubic-bezier(0.4, 0, 0.6, 1) both;
+}
+.tcard.is-fade-in {
+  animation: tcard-fade-in-shuffle 380ms cubic-bezier(0.2, 0.8, 0.4, 1) both;
+}
+
+/* Score chip (+6 / -8) that floats over a player's pill when boost_total,
+   in_english or explosion lands on them. */
+.training-score-chip {
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--font-heading);
+  font-weight: 900;
+  font-size: 18px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  border: 2px solid #2f1b12;
+  color: #ffffff;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.4);
+  z-index: 30;
+  pointer-events: none;
+  animation: score-chip-float 1400ms cubic-bezier(0.2, 0.6, 0.4, 1) both;
+}
+.training-score-chip.is-positive {
+  background: linear-gradient(180deg, #6ce06c 0%, #2cb34a 100%);
+  box-shadow: 0 3px 0 #1e7f34, 0 6px 12px rgba(0, 0, 0, 0.3);
+}
+.training-score-chip.is-negative {
+  background: linear-gradient(180deg, #ff7e6e 0%, #c0392b 100%);
+  box-shadow: 0 3px 0 #7b1c10, 0 6px 12px rgba(0, 0, 0, 0.3);
+}
+@keyframes score-chip-float {
+  0%   { transform: translate(-50%, 0)     scale(0);   opacity: 0; }
+  18%  { transform: translate(-50%, -8px)  scale(1.2); opacity: 1; }
+  35%  { transform: translate(-50%, -14px) scale(1);   opacity: 1; }
+  75%  { transform: translate(-50%, -28px) scale(1);   opacity: 1; }
+  100% { transform: translate(-50%, -42px) scale(0.9); opacity: 0; }
+}
+
+/* Forced-rule pulse — highlights the specific board card that a use_*
+   action points at, plus the philologist/brain_squeeze attacker stamps. */
+@keyframes tcard-forced-pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(247, 181, 0, 0);
+  }
+  30% {
+    transform: scale(1.12);
+    box-shadow: 0 0 0 6px rgba(247, 181, 0, 0.5);
+  }
+  60% {
+    transform: scale(1.04);
+    box-shadow: 0 0 0 12px rgba(247, 181, 0, 0);
+  }
+}
+.tcard.is-forced-pulse {
+  animation: tcard-forced-pulse 900ms cubic-bezier(0.4, 0, 0.6, 1) both !important;
+  transform-origin: center center;
+  z-index: 20;
+}
 
 /* Deal picker: single square card-shaped slot split internally into V/C halves */
 .tcard.is-deal-picker {
@@ -4239,7 +4408,7 @@ body.splash-ready #splashLoadingBlock {
 .training-picker-title {
   font-family: var(--font-heading);
   font-weight: 900;
-  font-size: 14px;
+  font-size: 18px;
   color: #2f1b12;
   text-transform: uppercase;
   letter-spacing: 0.3px;
@@ -4247,20 +4416,21 @@ body.splash-ready #splashLoadingBlock {
   flex: 0 0 auto;
 }
 .training-picker-subtitle {
-  font-size: 12px;
+  font-size: 15px;
   color: #5a3c2a;
   text-align: center;
   line-height: 1.4;
+  white-space: pre-line;
   flex: 0 0 auto;
 }
 .training-picker-context {
   font-family: var(--font-heading);
-  font-size: 10px;
-  font-weight: 700;
+  font-size: 14px;
+  font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   text-align: center;
-  padding: 3px 10px;
+  padding: 5px 14px;
   border-radius: 20px;
   margin-bottom: 4px;
   flex: 0 0 auto;
@@ -8991,6 +9161,87 @@ body.splash-ready #splashLoadingBlock {
   text-shadow: 0 2px 0 rgba(255, 255, 255, 0.4);
   text-transform: uppercase;
 }
+/* Score breakdown: chips lined up with how the user's points were
+   composed (per-letter values, wildcard bonus, modifiers, x2 multiplier). */
+.training-result-breakdown {
+  margin: 6px 0 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.training-result-breakdown-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+  max-width: 320px;
+}
+.training-result-breakdown-chip {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 3px 7px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  background: linear-gradient(180deg, #fffbe6 0%, #f1d97a 100%);
+  font-family: var(--font-heading);
+  min-width: 30px;
+}
+.training-result-breakdown-chip.is-wildcard {
+  background: linear-gradient(180deg, #c2e7ff 0%, #6fb4ec 100%);
+}
+.training-result-breakdown-chip.is-positive {
+  background: linear-gradient(180deg, #c8f5b0 0%, #6fd95f 100%);
+}
+.training-result-breakdown-chip.is-negative {
+  background: linear-gradient(180deg, #ffcaca 0%, #ed6262 100%);
+  color: #ffffff;
+}
+.training-result-breakdown-chip.is-double {
+  background: linear-gradient(180deg, #ffd591 0%, #f08a1c 100%);
+  color: #ffffff;
+}
+.training-result-breakdown-label {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: inherit;
+  opacity: 0.8;
+}
+.training-result-breakdown-value {
+  font-size: 14px;
+  font-weight: 900;
+  color: inherit;
+}
+.training-result-breakdown-total {
+  font-family: var(--font-heading);
+  font-weight: 900;
+  font-size: 18px;
+  color: #3a2516;
+}
+/* Inline tag chips for compact hint breakdown (wildcard, modifier, x2). */
+.hint-tags {
+  display: inline-flex;
+  gap: 3px;
+  margin: 0 8px;
+}
+.hint-tag {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 6px;
+  font-family: var(--font-heading);
+  font-weight: 800;
+  font-size: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  background: linear-gradient(180deg, #fffbe6 0%, #f1d97a 100%);
+}
+.hint-tag.is-wild     { background: linear-gradient(180deg, #c2e7ff 0%, #6fb4ec 100%); }
+.hint-tag.is-positive { background: linear-gradient(180deg, #c8f5b0 0%, #6fd95f 100%); }
+.hint-tag.is-negative { background: linear-gradient(180deg, #ffcaca 0%, #ed6262 100%); color: #fff; }
+.hint-tag.is-double   { background: linear-gradient(180deg, #ffd591 0%, #f08a1c 100%); color: #fff; }
 
 .training-result-word.is-invalid {
   opacity: 0.75;

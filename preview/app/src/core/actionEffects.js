@@ -133,8 +133,10 @@ function applyActionEffectInner(state, action, sourcePlayerId, targetPlayerId, p
       return addScoreModifier(state, sourcePlayerId, ACTION_POINTS.boost_total);
     case "wildcard": {
       // Adds a special "action wildcard" letter card to the source player's
-      // hand. The +6 score modifier applies when the user includes this card
-      // in their word (MVP: always granted on play; can refine later).
+      // hand. The +6 score bonus only applies when the user actually USES
+      // the wildcard inside their word — that's handled at scoring time in
+      // finalizeUserWord (via computeWordScore), NOT here. Just dropping the
+      // card in hand is not enough to claim the points.
       const hand = ensureHand(state, sourcePlayerId);
       const wildcardCard = {
         id: `wc-act-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -147,11 +149,10 @@ function applyActionEffectInner(state, action, sourcePlayerId, targetPlayerId, p
         isWildcard: true,
         isActionWildcard: true,
       };
-      const next = addScoreModifier(state, sourcePlayerId, ACTION_POINTS.wildcard);
       return {
-        ...next,
+        ...state,
         hands: {
-          ...next.hands,
+          ...state.hands,
           [sourcePlayerId]: { ...hand, letters: [...hand.letters, wildcardCard] },
         },
       };
@@ -440,28 +441,17 @@ function applyActionEffectInner(state, action, sourcePlayerId, targetPlayerId, p
     }
 
     case "swap_all": {
+      // INTERCAMBIO TOTAL: every letter swaps. The manual rule does NOT
+      // let the player pick — all source letters go to the target and all
+      // target letters come to the source. Action wildcards stay with
+      // their owner (they're action rewards, not stealable).
       if (isShielded(state, targetPlayerId)) return state;
       const sourceHand = ensureHand(state, sourcePlayerId);
       const targetHand = ensureHand(state, targetPlayerId);
-      // Action wildcards stay with their owner — they're action rewards.
       const sourceKeepsAW = sourceHand.letters.filter((c) => c && c.isActionWildcard);
       const sourceSwappable = sourceHand.letters.filter((c) => c && !c.isActionWildcard);
       const targetKeepsAW = targetHand.letters.filter((c) => c && c.isActionWildcard);
       const targetSwappable = targetHand.letters.filter((c) => c && !c.isActionWildcard);
-      if (payload.fromIds && payload.fromIds.length > 0) {
-        const fromIdSet = new Set(payload.fromIds);
-        // Filter explicit ids: never move an action wildcard even if requested.
-        const givenAway = sourceSwappable.filter((c) => fromIdSet.has(c.id));
-        const keptBySource = sourceSwappable.filter((c) => !fromIdSet.has(c.id));
-        return {
-          ...state,
-          hands: {
-            ...state.hands,
-            [sourcePlayerId]: { ...sourceHand, letters: [...sourceKeepsAW, ...keptBySource, ...targetSwappable] },
-            [targetPlayerId]: { ...targetHand, letters: [...targetKeepsAW, ...givenAway] },
-          },
-        };
-      }
       return {
         ...state,
         hands: {
