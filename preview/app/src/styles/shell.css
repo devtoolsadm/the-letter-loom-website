@@ -3302,11 +3302,12 @@ body.splash-ready #splashLoadingBlock {
    action card is played and leaves the hand on its way to the discard. */
 @keyframes tcard-pop-out {
   0%   { transform: scale(1);     opacity: 1; }
-  60%  { transform: scale(0.6) rotate(8deg); opacity: 0.6; }
-  100% { transform: scale(0) rotate(20deg);  opacity: 0; }
+  40%  { transform: scale(1.1) rotate(-4deg); opacity: 1; }
+  70%  { transform: scale(0.6) rotate(10deg); opacity: 0.7; }
+  100% { transform: scale(0) rotate(28deg);   opacity: 0; }
 }
 .tcard.is-pop-out {
-  animation: tcard-pop-out 360ms cubic-bezier(0.4, 0, 0.6, 1) both;
+  animation: tcard-pop-out 680ms cubic-bezier(0.4, 0, 0.6, 1) both;
   transform-origin: center center;
 }
 
@@ -3323,20 +3324,22 @@ body.splash-ready #splashLoadingBlock {
 
 /* Fade-shuffle — affected cards fade out with a small rotation jitter
    while a new set fades in. Used for batch movements (swap_all, change_cards,
-   great_heist, out_one, renew_board). */
+   great_heist, out_one, renew_board). Slower than a single-card fly so the
+   group movement feels deliberate; per-card delay (set inline) staggers
+   each card slightly. */
 @keyframes tcard-fade-out-shuffle {
   0%   { transform: rotate(0)    scale(1);   opacity: 1; }
-  100% { transform: rotate(var(--shuffle-rot, 8deg)) scale(0.85); opacity: 0; }
+  100% { transform: rotate(var(--shuffle-rot, 14deg)) scale(0.7); opacity: 0; }
 }
 @keyframes tcard-fade-in-shuffle {
-  0%   { transform: rotate(var(--shuffle-rot, -8deg)) scale(0.85); opacity: 0; }
+  0%   { transform: rotate(var(--shuffle-rot, -14deg)) scale(0.7); opacity: 0; }
   100% { transform: rotate(0)    scale(1);   opacity: 1; }
 }
 .tcard.is-fade-out {
-  animation: tcard-fade-out-shuffle 360ms cubic-bezier(0.4, 0, 0.6, 1) both;
+  animation: tcard-fade-out-shuffle 700ms cubic-bezier(0.4, 0, 0.6, 1) both;
 }
 .tcard.is-fade-in {
-  animation: tcard-fade-in-shuffle 380ms cubic-bezier(0.2, 0.8, 0.4, 1) both;
+  animation: tcard-fade-in-shuffle 720ms cubic-bezier(0.2, 0.8, 0.4, 1) both;
 }
 
 /* Score chip (+6 / -8) that floats over a player's pill when boost_total,

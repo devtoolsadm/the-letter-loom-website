@@ -427,6 +427,12 @@ function renderTrainingMatch() {
   if (matchRoot) matchRoot.classList.toggle("is-pre-creation", reserveWordSpace);
   document.getElementById("trainingValidateWrap")?.classList.toggle("hidden", isResultOrDone || !(state.phase === "creation" && state.untimedCreation));
   updateHintButtonVisibility();
+  // maybeShowPhaseFlash MUST run before ensureTrainingTimer — the flash
+  // handler updates `phaseFlashEndsAt`, which the timer reads to decide if
+  // it should gate (don't tick while the banner is still visible). With the
+  // opposite order the very first render of a new phase saw
+  // phaseFlashEndsAt = 0 and the timer started immediately.
+  maybeShowPhaseFlash(state);
   if (state.phase === "strategy" || state.phase === "creation") {
     ensureTrainingTimer();
   } else {
@@ -441,7 +447,6 @@ function renderTrainingMatch() {
   if (state.phase !== "strategy" && focusedActionIndex != null) { focusedActionIndex = null; lastActionTapIndex = null; }
   if (state.phase !== "actions") clearActionBanner();
   maybeStartUserTurnTimer(state);
-  maybeShowPhaseFlash(state);
   if (state.phase === "creation") {
     // Safety net: if the user reached creation with an empty hand somehow,
     // give them an emergency letter (manual rule).
@@ -554,6 +559,11 @@ function renderTrainingPrompt(state) {
 
 // Phase-transition flash banner. Triggered when entering strategy or creation.
 const PHASE_FLASH_DURATION_MS = 2400;
+// Strategy entry: wait for the last V/C card flip (picker → face-down) to
+// finish before showing the banner. The flip lasts ~720 ms (see
+// `tcard-reveal-flip` keyframes), so we delay the banner just past that so
+// the sequence reads cleanly: pick → flip lands → banner pops.
+const STRATEGY_BANNER_DELAY_MS = 760;
 let phaseFlashEndsAt = 0;
 function maybeShowPhaseFlash(state) {
   const phase = state.phase;
@@ -564,20 +574,28 @@ function maybeShowPhaseFlash(state) {
       lastFlashedPhase = phase;
       return;
     }
-    const key = `trainingPhase${capitalizeStr(phase)}`;
-    flash.textContent = t(key) || phase.toUpperCase();
-    flash.classList.remove("hidden");
-    flash.style.animation = "none";
-    void flash.offsetWidth;
-    flash.style.animation = "";
-    phaseFlashEndsAt = Date.now() + PHASE_FLASH_DURATION_MS;
-    clearTimeout(flash._hideTimer);
-    flash._hideTimer = setTimeout(() => {
-      flash.classList.add("hidden");
-      // Re-render so the gated timer (and any other phase-flash-blocked
-      // bits of UI) start now that the banner is gone.
-      renderTrainingMatch();
-    }, PHASE_FLASH_DURATION_MS);
+    const preDelay = phase === "strategy" ? STRATEGY_BANNER_DELAY_MS : 0;
+    // Lock the timer/cascade gates from now until the banner actually finishes
+    // (post-delay). Setting it BEFORE the setTimeout means re-renders during
+    // the pre-delay window still treat the phase flash as active.
+    phaseFlashEndsAt = Date.now() + preDelay + PHASE_FLASH_DURATION_MS;
+    const showBanner = () => {
+      const key = `trainingPhase${capitalizeStr(phase)}`;
+      flash.textContent = t(key) || phase.toUpperCase();
+      flash.classList.remove("hidden");
+      flash.style.animation = "none";
+      void flash.offsetWidth;
+      flash.style.animation = "";
+      clearTimeout(flash._hideTimer);
+      flash._hideTimer = setTimeout(() => {
+        flash.classList.add("hidden");
+        // Re-render so the gated timer (and any other phase-flash-blocked
+        // bits of UI) start now that the banner is gone.
+        renderTrainingMatch();
+      }, PHASE_FLASH_DURATION_MS);
+    };
+    if (preDelay > 0) setTimeout(showBanner, preDelay);
+    else showBanner();
   }
   lastFlashedPhase = phase;
 }
@@ -692,10 +710,17 @@ function renderTrainingBoard(state) {
     } else if (card && fxConsumePopIn(card.id)) {
       el.classList.add("is-reveal-pop");
       attachRevealCleanup(el);
-    } else if (card && fxConsumeFadeIn(card.id)) {
-      el.style.setProperty("--shuffle-rot", (Math.random() < 0.5 ? -10 : 10) + "deg");
-      el.classList.add("is-fade-in");
-      el.addEventListener("animationend", () => el.classList.remove("is-fade-in"), { once: true });
+    } else if (card) {
+      const fadeDelay = fxConsumeFadeIn(card.id);
+      if (fadeDelay != null) {
+        el.style.setProperty("--shuffle-rot", (Math.random() < 0.5 ? -14 : 14) + "deg");
+        if (fadeDelay > 0) el.style.animationDelay = `${fadeDelay}ms`;
+        el.classList.add("is-fade-in");
+        el.addEventListener("animationend", () => {
+          el.classList.remove("is-fade-in");
+          el.style.animationDelay = "";
+        }, { once: true });
+      }
     }
     if (card && fxConsumePulse(card.id)) {
       el.classList.add("is-forced-pulse");
@@ -1380,20 +1405,52 @@ function attachRevealCleanup(el) {
 
 const fxPopIn = new Set();           // card IDs to pop-in on next render
 const fxPulse = new Set();           // card IDs to pulse on next render
-const fxFadeIn = new Set();          // card IDs that fade-in
-const fxFadeOut = new Set();         // card IDs to fade-out (held in place by render)
+const fxFadeIn = new Map();          // card ID → animation-delay (ms) for fade-in
 const fxPostRender = [];             // queue of { type, ... } executed after render
 
 function fxConsumePopIn(id)  { if (id && fxPopIn.has(id))  { fxPopIn.delete(id);  return true; } return false; }
 function fxConsumePulse(id)  { if (id && fxPulse.has(id))  { fxPulse.delete(id);  return true; } return false; }
-function fxConsumeFadeIn(id) { if (id && fxFadeIn.has(id)) { fxFadeIn.delete(id); return true; } return false; }
+function fxConsumeFadeIn(id) {
+  if (id && fxFadeIn.has(id)) {
+    const delay = fxFadeIn.get(id);
+    fxFadeIn.delete(id);
+    return delay ?? 0;
+  }
+  return null;
+}
 
-function fxCaptureCardRects() {
+function fxCaptureCardRects(state) {
   const rects = new Map();
+  // Real DOM cards (user hand, board, user action cards).
   document.querySelectorAll(".tcard[data-card-id]").forEach((el) => {
     const id = el.dataset.cardId;
     if (id) rects.set(id, el.getBoundingClientRect());
   });
+  // Ghost hand cards aren't rendered as .tcard — they live as colored dots
+  // inside the ghost's player pill. For fly-card src/dst purposes we use
+  // the pill's rect as a synthetic source so the user sees something flying
+  // out of (or into) the right pill.
+  if (state) {
+    for (const [pid, hand] of Object.entries(state.hands ?? {})) {
+      if (!hand || hand === "<hidden>") continue;
+      const player = (state.players ?? []).find((p) => p.id === pid);
+      if (!player?.isGhost) continue;
+      const pill = document.querySelector(`.training-score-pill[data-player-id="${pid}"]`);
+      if (!pill) continue;
+      const pr = pill.getBoundingClientRect();
+      const ghostRect = {
+        left: pr.left + pr.width * 0.15,
+        top: pr.top + pr.height * 0.55,
+        width: Math.max(28, pr.width * 0.35),
+        height: Math.max(28, pr.height * 0.35),
+        right: pr.right,
+        bottom: pr.bottom,
+      };
+      for (const c of hand.letters ?? []) {
+        if (c?.id && !rects.has(c.id)) rects.set(c.id, ghostRect);
+      }
+    }
+  }
   return rects;
 }
 
@@ -1423,6 +1480,11 @@ function fxScheduleForAction(stateBefore, stateAfter, log, rectsBefore) {
   const beforeIdx = fxIndexCards(stateBefore);
   const afterIdx  = fxIndexCards(stateAfter);
   const isBatch = FX_BATCH_ATTACKS.has(actionId);
+  // Per-card stagger so a batch movement (renew_board, swap_all, ...) reads
+  // as a sequence instead of all cards animating in unison.
+  const FADE_STAGGER_MS = 80;
+  let fadeOutCount = 0;
+  let fadeInCount = 0;
 
   // Removed / moved (cards in before but not in after, or moved location).
   for (const [id, beforeLoc] of beforeIdx) {
@@ -1431,15 +1493,24 @@ function fxScheduleForAction(stateBefore, stateAfter, log, rectsBefore) {
     if (!afterLoc) {
       // Card disappeared (sent to a deck/discard).
       if (rect) {
-        fxPostRender.push({ type: isBatch ? "fade-out" : "pop-out", rect, card: beforeLoc.card });
+        if (isBatch) {
+          fxPostRender.push({ type: "fade-out", rect, card: beforeLoc.card, delayMs: fadeOutCount * FADE_STAGGER_MS });
+          fadeOutCount += 1;
+        } else {
+          fxPostRender.push({ type: "pop-out", rect, card: beforeLoc.card });
+        }
       }
     } else if (afterLoc.locKey !== beforeLoc.locKey) {
       // Card moved to a different container.
       if (isBatch) {
         // For batch movements we don't fly each card — fade-out at the old
         // spot, fade-in at the new one (handled in render via fxFadeIn).
-        if (rect) fxPostRender.push({ type: "fade-out", rect, card: beforeLoc.card });
-        fxFadeIn.add(id);
+        if (rect) {
+          fxPostRender.push({ type: "fade-out", rect, card: beforeLoc.card, delayMs: fadeOutCount * FADE_STAGGER_MS });
+          fadeOutCount += 1;
+        }
+        fxFadeIn.set(id, fadeInCount * FADE_STAGGER_MS);
+        fadeInCount += 1;
       } else if (rect) {
         fxPostRender.push({ type: "fly", srcRect: rect, cardId: id, card: afterLoc.card });
       }
@@ -1450,7 +1521,8 @@ function fxScheduleForAction(stateBefore, stateAfter, log, rectsBefore) {
   for (const [id, afterLoc] of afterIdx) {
     if (beforeIdx.has(id)) continue;
     if (isBatch) {
-      fxFadeIn.add(id);
+      fxFadeIn.set(id, fadeInCount * FADE_STAGGER_MS);
+      fadeInCount += 1;
     } else {
       fxPopIn.add(id);
     }
@@ -1483,10 +1555,10 @@ function fxScheduleForAction(stateBefore, stateAfter, log, rectsBefore) {
 function fxFlushPostRender() {
   if (fxPostRender.length === 0) return;
   const queue = fxPostRender.splice(0);
-  const rectsAfter = fxCaptureCardRects();
+  const rectsAfter = fxCaptureCardRects(getTrainingMatch());
   for (const item of queue) {
     if (item.type === "pop-out") fxRenderPopOutGhost(item.rect, item.card);
-    else if (item.type === "fade-out") fxRenderFadeOutGhost(item.rect, item.card);
+    else if (item.type === "fade-out") fxRenderFadeOutGhost(item.rect, item.card, item.delayMs ?? 0);
     else if (item.type === "fly") {
       const dst = rectsAfter.get(item.cardId);
       if (dst) fxRenderFlyGhost(item.srcRect, dst, item.card, item.cardId);
@@ -1521,10 +1593,11 @@ function fxRenderPopOutGhost(rect, card) {
   el.addEventListener("animationend", () => el.remove(), { once: true });
 }
 
-function fxRenderFadeOutGhost(rect, card) {
+function fxRenderFadeOutGhost(rect, card, delayMs = 0) {
   const el = fxCreateGhostCardEl(card);
   fxPositionGhost(el, rect);
-  el.style.setProperty("--shuffle-rot", (Math.random() < 0.5 ? -10 : 10) + "deg");
+  el.style.setProperty("--shuffle-rot", (Math.random() < 0.5 ? -14 : 14) + "deg");
+  if (delayMs > 0) el.style.animationDelay = `${delayMs}ms`;
   el.classList.add("is-fade-out");
   document.body.appendChild(el);
   el.addEventListener("animationend", () => el.remove(), { once: true });
@@ -1566,21 +1639,109 @@ function fxShowScoreChip(playerId, delta) {
 // Caller wrapper that captures rects, applies the state mutation, schedules
 // FX, then re-renders (which picks up pendingPops/pulse classes) and finally
 // flushes the post-render ghost animations.
+// Side-effect: stashes the computed card-movement diff so the next call to
+// `debugLogPushAction` can attach it for the trace.
+let _fxLastMoves = null;
 function applyActionWithFX(applyFn, log) {
   const stateBefore = getTrainingMatch();
-  const rectsBefore = fxCaptureCardRects();
+  const rectsBefore = fxCaptureCardRects(stateBefore);
   const stateAfter = applyFn();
   if (stateBefore && stateAfter) {
     fxScheduleForAction(stateBefore, stateAfter, log, rectsBefore);
+    _fxLastMoves = computeCardMoves(stateBefore, stateAfter);
+  } else {
+    _fxLastMoves = null;
   }
   return stateAfter;
 }
+function consumeLastFxMoves() {
+  const m = _fxLastMoves;
+  _fxLastMoves = null;
+  return m;
+}
 
-// When the LAST V/C pick (or 🎲 batch) closes the dealing phase, we keep
-// the hand cards rendered face-down until the phase-transition flash
-// ("ESTRATEGIA") has fully cleared, then trigger the cascade flip with a
-// small extra beat so the user's eye lands on the cards before they flip.
-const DEAL_CASCADE_DELAY_MS = PHASE_FLASH_DURATION_MS + 350;
+// Read-pause between the moment the actor's bubble/banner appears and the
+// moment the actual card movement animations start. The user reads first,
+// then sees the effect — the action stops feeling like a single chaotic
+// frame. Skipped (0 ms) for the user's own actions (you already know what
+// you played, no need to read it).
+const ACTION_READ_DELAY_MS = 700;
+function playActionWithReadDelay(applyFn, log, finalize) {
+  const stateBefore = getTrainingMatch();
+  const userId = stateBefore?.players?.[0]?.id;
+  const isOwnAction = log?.playerId === userId;
+  // Bubble + banner first — both are set up by showActionToast (banner via
+  // triggerAttackBanner immediately, bubble attaches on the next render).
+  showActionToast(stateBefore, log);
+  const runEffect = () => {
+    const s = applyActionWithFX(applyFn, log);
+    finalize(s);
+  };
+  if (isOwnAction) {
+    runEffect();
+    return;
+  }
+  // Render once with state UNCHANGED so the bubble attaches to the actor's
+  // pill while the user reads. Then run the effect after the read pause.
+  renderTrainingMatch();
+  setTimeout(runEffect, ACTION_READ_DELAY_MS);
+}
+
+// Diff card locations between two states. Returns an array of
+// { cardId, letter, kind, from, to } entries where `from`/`to` are friendly
+// labels ("Op1", "Rafa", "tablero", "mazo/descarte").
+function computeCardMoves(stateBefore, stateAfter) {
+  const moves = [];
+  const labelOf = (locKey, st) => {
+    if (locKey === "board") return "tablero";
+    if (locKey?.startsWith("hand:") || locKey?.startsWith("actions:")) {
+      const pid = locKey.split(":")[1];
+      const p = (st.players ?? []).find((x) => x.id === pid);
+      return p?.name || pid;
+    }
+    return "mazo/descarte";
+  };
+  const beforeIdx = fxIndexCards(stateBefore);
+  const afterIdx = fxIndexCards(stateAfter);
+  for (const [id, beforeLoc] of beforeIdx) {
+    const afterLoc = afterIdx.get(id);
+    if (!afterLoc) {
+      moves.push({
+        cardId: id,
+        letter: beforeLoc.card?.letter ?? "?",
+        kind: beforeLoc.card?.kind ?? null,
+        from: labelOf(beforeLoc.locKey, stateBefore),
+        to: "mazo/descarte",
+      });
+    } else if (afterLoc.locKey !== beforeLoc.locKey) {
+      moves.push({
+        cardId: id,
+        letter: afterLoc.card?.letter ?? "?",
+        kind: afterLoc.card?.kind ?? null,
+        from: labelOf(beforeLoc.locKey, stateBefore),
+        to: labelOf(afterLoc.locKey, stateAfter),
+      });
+    }
+  }
+  for (const [id, afterLoc] of afterIdx) {
+    if (beforeIdx.has(id)) continue;
+    moves.push({
+      cardId: id,
+      letter: afterLoc.card?.letter ?? "?",
+      kind: afterLoc.card?.kind ?? null,
+      from: "mazo/descarte",
+      to: labelOf(afterLoc.locKey, stateAfter),
+    });
+  }
+  return moves;
+}
+
+// When the LAST V/C pick (or 🎲 batch) closes the dealing phase, the hand
+// cards stay face-down until the "ESTRATEGIA" banner finishes. The face-up
+// cascade flip fires at the EXACT moment the banner disappears — same beat
+// as the timer starting — so the three events (banner gone, cards flip,
+// clock starts) feel like one coordinated transition.
+const DEAL_CASCADE_DELAY_MS = STRATEGY_BANNER_DELAY_MS + PHASE_FLASH_DURATION_MS;
 
 // After the board has just become fully revealed, hold the hand pickers
 // for a moment so the user has time to digest the central letters before
@@ -2100,22 +2261,37 @@ function scheduleActionsDriver(delay = 3000) {
 // If this was the LAST queued actor (so the advance would transition to the
 // creation phase), wait `BUBBLE_AUTOHIDE_MS` first so the user has time to
 // read the final ghost's bubble + banner before the creation UI takes over.
+// Also handles emergency-draw flow internally: if any player ended up with
+// no letters after the action, the queue has ALREADY been advanced before
+// the picker appears, so the same ghost will not re-act on resume.
+function resumeDriverIfActions() {
+  const cur = getTrainingMatch();
+  if (cur?.phase === "actions") scheduleActionsDriver();
+}
 function advanceAfterGhostAction(s) {
   const isLast = (s.actionsQueue ?? []).length <= 1;
   if (!isLast) {
     const next = advanceActionsQueue(s);
     renderTrainingMatch();
+    if (maybeOfferEmergencyDraw(resumeDriverIfActions)) return;
     if (next.phase === "actions") scheduleActionsDriver();
     return;
   }
   // Last ghost — keep state in actions phase (queue still has them) and
   // render so the bubble is on their pill, then defer the transition.
+  // While we wait, mark the driver as BUSY so the safety-net auto-scheduler
+  // inside renderTrainingMatch can't pick the same ghost up again. Without
+  // this guard the driver would fire at ~3 s, see the unchanged queue, and
+  // process the SAME ghost a SECOND time before the 4.5 s cooldown advance.
+  actionsDriverBusy = true;
   renderTrainingMatch();
   setTimeout(() => {
+    actionsDriverBusy = false;
     const cur = getTrainingMatch();
     if (!cur || cur.phase !== "actions") return;
     advanceActionsQueue(cur);
     renderTrainingMatch();
+    maybeOfferEmergencyDraw(resumeDriverIfActions);
   }, BUBBLE_AUTOHIDE_MS);
 }
 
@@ -2184,17 +2360,14 @@ function processNextActionsTurn() {
             actionsDriverBusy = true;
             promptShield({ source: nextActorId, card: fakeCard }, fakeLog);
           } else {
-            let s = applyActionWithFX(
+            playActionWithReadDelay(
               () => applyPlannedGhostAction(fresh, fakeLog),
               fakeLog,
+              (s) => {
+                debugLogPushAction(s, { actorId: nextActorId, actionId, targetId, payload, moves: consumeLastFxMoves() });
+                advanceAfterGhostAction(s);
+              },
             );
-            debugLogPushAction(s, { actorId: nextActorId, actionId, targetId, payload });
-            showActionToast(s, fakeLog);
-            if (maybeOfferEmergencyDraw(() => {
-              const cur = getTrainingMatch();
-              if (cur?.phase === "actions") scheduleActionsDriver();
-            })) return;
-            advanceAfterGhostAction(s);
           }
         }
 
@@ -2232,18 +2405,16 @@ function processNextActionsTurn() {
     return;
   }
 
-  // No shield prompt: apply and advance.
-  let s = applyActionWithFX(
+  // No shield prompt: show the actor's bubble/banner first, then (after the
+  // read pause) apply the effect and advance.
+  playActionWithReadDelay(
     () => applyPlannedGhostAction(planned.state, planned.log),
     planned.log,
+    (s) => {
+      debugLogPushAction(s, { ...planned.log, actorId: planned.log.playerId, moves: consumeLastFxMoves() });
+      advanceAfterGhostAction(s);
+    },
   );
-  debugLogPushAction(s, { ...planned.log, actorId: planned.log.playerId });
-  showActionToast(s, planned.log);
-  if (maybeOfferEmergencyDraw(() => {
-    const cur = getTrainingMatch();
-    if (cur?.phase === "actions") scheduleActionsDriver();
-  })) return;
-  advanceAfterGhostAction(s);
 }
 
 function promptShield(opportunity, log) {
@@ -2264,28 +2435,28 @@ function promptShield(opportunity, log) {
     onPick: (choice) => {
       actionsDriverBusy = false;
       if (choice === "use") {
-        let s = getTrainingMatch();
-        s = useShieldOnAttack(s, opportunity.source);
+        // Shield reactively: register the user in shieldedPlayers FIRST so
+        // the attack will short-circuit. The blocked toast shows the 🛡;
+        // no read pause needed since the user just clicked through the
+        // shield prompt.
+        let s = useShieldOnAttack(getTrainingMatch(), opportunity.source);
+        saveTrainingMatch(s);
         s = applyActionWithFX(
           () => applyPlannedGhostAction(s, log, { shielded: true }),
           log,
         );
-        debugLogPushAction(s, { ...log, actorId: log.playerId, blocked: true });
+        debugLogPushAction(s, { ...log, actorId: log.playerId, blocked: true, moves: consumeLastFxMoves() });
         showActionToast(s, log, { blocked: true });
         advanceAfterGhostAction(s);
       } else {
-        let s = getTrainingMatch();
-        s = applyActionWithFX(
-          () => applyPlannedGhostAction(s, log),
+        playActionWithReadDelay(
+          () => applyPlannedGhostAction(getTrainingMatch(), log),
           log,
+          (s) => {
+            debugLogPushAction(s, { ...log, actorId: log.playerId, moves: consumeLastFxMoves() });
+            advanceAfterGhostAction(s);
+          },
         );
-        debugLogPushAction(s, { ...log, actorId: log.playerId });
-        showActionToast(s, log);
-        if (maybeOfferEmergencyDraw(() => {
-          const cur = getTrainingMatch();
-          if (cur?.phase === "actions") scheduleActionsDriver();
-        })) return;
-        advanceAfterGhostAction(s);
       }
     },
   });
@@ -2312,16 +2483,14 @@ function promptDiscardOne(state, log) {
     onPick: (cardId) => {
       actionsDriverBusy = false;
       const finalLog = { ...log, payload: { cardId } };
+      // User just confirmed the discard via picker — no extra read pause
+      // is helpful, just apply the effect immediately.
       let s = applyActionWithFX(
         () => applyPlannedGhostAction(state, finalLog),
         finalLog,
       );
-      debugLogPushAction(s, { ...finalLog, actorId: finalLog.playerId });
+      debugLogPushAction(s, { ...finalLog, actorId: finalLog.playerId, moves: consumeLastFxMoves() });
       showActionToast(s, log);
-      if (maybeOfferEmergencyDraw(() => {
-        const cur = getTrainingMatch();
-        if (cur?.phase === "actions") scheduleActionsDriver();
-      })) return;
       advanceAfterGhostAction(s);
     },
   });
@@ -2516,7 +2685,7 @@ function handleUserPickAction(actionIndex) {
         () => playUserAction(getTrainingMatch(), actionIndex, targetId, payload),
         userLog,
       );
-      debugLogPushAction(s, { actorId: userId, actionId: card.actionId, targetId, payload });
+      debugLogPushAction(s, { actorId: userId, actionId: card.actionId, targetId, payload, moves: consumeLastFxMoves() });
       showActionToast(s, userLog);
       s = advanceActionsQueue(s);
       renderTrainingMatch();

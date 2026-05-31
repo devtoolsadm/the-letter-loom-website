@@ -77,7 +77,7 @@ export function debugLogPushPreselect(state, actionId) {
   });
 }
 
-export function debugLogPushAction(state, { actorId, actionId, targetId, payload, blocked }) {
+export function debugLogPushAction(state, { actorId, actionId, targetId, payload, blocked, moves }) {
   log.push({
     kind: "action",
     ts: Date.now(),
@@ -89,6 +89,7 @@ export function debugLogPushAction(state, { actorId, actionId, targetId, payload
     targetName: targetId ? nameOf(state, targetId) : null,
     payload: payload || null,
     blocked: !!blocked,
+    moves: Array.isArray(moves) ? moves : [],
     snapshot: snapshotOf(state),
   });
 }
@@ -155,9 +156,12 @@ function formatEntry(e, state) {
         ? `escudos:[${e.snapshot.shieldedPlayers.join(",")}]`
         : "";
       const scoreNote = formatScoreModifiers(e.snapshot.scoreModifiers);
+      const movesLine = formatMoves(e.moves);
       const tail = [shieldNote, ruleNote, scoreNote].filter(Boolean).join("  ");
-      return `${ts}  ${actorIcon(state, e.actorId)} ${e.actorName}  juega  ${e.actionId}${pl ? `(${pl})` : ""}  ${target}${flag}\n` +
-             (tail ? `         ${tail}` : "");
+      const lines = [`${ts}  ${actorIcon(state, e.actorId)} ${e.actorName}  juega  ${e.actionId}${pl ? `(${pl})` : ""}  ${target}${flag}`];
+      if (movesLine) lines.push(`         ${movesLine}`);
+      if (tail) lines.push(`         ${tail}`);
+      return lines.join("\n");
     }
 
     case "word": {
@@ -201,4 +205,15 @@ function formatScoreModifiers(mods) {
   const entries = Object.entries(mods).filter(([, v]) => v);
   if (entries.length === 0) return "";
   return `mods:{${entries.map(([k, v]) => `${k}:${v > 0 ? "+" : ""}${v}`).join(" ")}}`;
+}
+
+// Render the card-movement diff as a compact arrow list. Each entry is
+// "<letter> <from>→<to>" — letter uppercased, ★ for wildcards.
+function formatMoves(moves) {
+  if (!Array.isArray(moves) || moves.length === 0) return "";
+  const bits = moves.map((m) => {
+    const letter = (m.letter && m.letter !== "*") ? m.letter.toUpperCase() : "★";
+    return `${letter} ${m.from}→${m.to}`;
+  });
+  return `cartas:[${bits.join(" · ")}]`;
 }
