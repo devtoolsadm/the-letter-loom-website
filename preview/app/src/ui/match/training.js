@@ -816,7 +816,14 @@ function renderTrainingScoreboard(state) {
     const dotCount = Math.max(letters.length, 1); // at least 1 slot so pill doesn't collapse
     for (let i = 0; i < dotCount; i++) {
       const dot = document.createElement("span");
-      if (i < letters.length) dot.className = letters[i].kind === "vowel" ? "is-vowel" : "is-consonant";
+      if (i < letters.length) {
+        const card = letters[i];
+        dot.className = card.isActionWildcard
+          ? "is-action-wildcard"
+          : card.kind === "vowel"
+            ? "is-vowel"
+            : "is-consonant";
+      }
       dots.appendChild(dot);
     }
 
@@ -2617,8 +2624,12 @@ function openChangeCardsPicker(letters, titleKey, onConfirm, context = null, tim
   for (const l of letters) {
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.className = "training-picker-option";
-    btn.textContent = l.letter;
+    btn.className = "training-picker-option"
+      + (l.isWildcard ? " is-wildcard-choice" : "")
+      + (l.isActionWildcard ? " is-action-wildcard-choice" : "")
+      + (!l.isActionWildcard && l.isWildcard && l.kind === "vowel" ? " is-vowel-wildcard-choice" : "")
+      + (!l.isActionWildcard && l.isWildcard && l.kind === "consonant" ? " is-consonant-wildcard-choice" : "");
+    btn.textContent = l.isWildcard ? "★" : l.letter;
     btns[l.id] = btn;
     btn.addEventListener("click", () => {
       if (selected.has(l.id)) {
@@ -2646,6 +2657,21 @@ function openChangeCardsPicker(letters, titleKey, onConfirm, context = null, tim
 
   overlay.appendChild(card);
   document.body.appendChild(overlay);
+}
+
+function pickerCardTokenClass(card) {
+  return "training-picker-card-token"
+    + (card?.isWildcard ? " is-wildcard-choice" : "")
+    + (card?.isActionWildcard ? " is-action-wildcard-choice" : "")
+    + (!card?.isActionWildcard && card?.isWildcard && card?.kind === "vowel" ? " is-vowel-wildcard-choice" : "")
+    + (!card?.isActionWildcard && card?.isWildcard && card?.kind === "consonant" ? " is-consonant-wildcard-choice" : "");
+}
+
+function renderPickerCardToken(card) {
+  const token = document.createElement("span");
+  token.className = pickerCardTokenClass(card);
+  token.textContent = card?.isWildcard ? "★" : (card?.letter || "?");
+  return token;
 }
 
 // ── Ghost dorso (back-of-card) helpers ────────────────────────
@@ -2888,14 +2914,15 @@ function pickTargetAndPayloadForUser(state, card, done, actorLabel = null, actor
           return;
         }
         const cId = selectedIds[idx];
-        const letterChar = letters.find((l) => l.id === cId)?.letter || "?";
+        const sourceCard = letters.find((l) => l.id === cId);
         openTrainingPicker({
-          titleKey: "trainingPickKindTitle",
+          titleKey: "trainingChangeCardsDiscardLabel",
           context: selfCtx,
-          subtitle: letterChar,
+          subtitleCard: sourceCard,
+          optionsLabel: t("trainingChangeCardsReceiveLabel") || "Recibes",
           options: [
-            { id: "vowel",     label: t("trainingEmergencyDrawVowel")     || "Vocal"       },
-            { id: "consonant", label: t("trainingEmergencyDrawConsonant") || "Consonante"  },
+            { id: "vowel",     label: t("trainingEmergencyDrawVowel")     || "Vocal",      className: "is-kind-choice" },
+            { id: "consonant", label: t("trainingEmergencyDrawConsonant") || "Consonante", className: "is-kind-choice" },
           ],
           timeoutMs: PICKER_TIMEOUT_MS,
           onPick: (kind) => {
@@ -2998,8 +3025,8 @@ function pickTargetAndPayloadForUser(state, card, done, actorLabel = null, actor
 
 // Simple picker modal — reuses openConfirm shape with custom buttons.
 // Pass timeoutMs to show a countdown bar and auto-pick the first option on expiry.
-// Pass subtitle (string) to render a body line below the title.
-function openTrainingPicker({ titleKey, subtitle, context, options, onPick, timeoutMs = 0 }) {
+// Pass subtitle (string) or subtitleCard to render body content below the title.
+function openTrainingPicker({ titleKey, subtitle, subtitleCard, optionsLabel, context, options, onPick, timeoutMs = 0 }) {
   const overlay = document.createElement("div");
   overlay.className = "training-picker-overlay";
   const card = document.createElement("div");
@@ -3013,6 +3040,12 @@ function openTrainingPicker({ titleKey, subtitle, context, options, onPick, time
     sub.className = "training-picker-subtitle";
     sub.textContent = subtitle;
     card.appendChild(sub);
+  }
+  if (subtitleCard) {
+    const subCardWrap = document.createElement("div");
+    subCardWrap.className = "training-picker-subtitle-card";
+    subCardWrap.appendChild(renderPickerCardToken(subtitleCard));
+    card.appendChild(subCardWrap);
   }
   if (context) {
     const ctx = document.createElement("div");
@@ -3052,10 +3085,16 @@ function openTrainingPicker({ titleKey, subtitle, context, options, onPick, time
 
   const list = document.createElement("div");
   list.className = "training-picker-options";
+  if (optionsLabel) {
+    const label = document.createElement("div");
+    label.className = "training-picker-options-label";
+    label.textContent = optionsLabel;
+    card.appendChild(label);
+  }
   for (const opt of options) {
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.className = "training-picker-option";
+    btn.className = "training-picker-option" + (opt.className ? ` ${opt.className}` : "");
     btn.textContent = opt.label;
     btn.addEventListener("click", () => dismiss(opt.id));
     list.appendChild(btn);
