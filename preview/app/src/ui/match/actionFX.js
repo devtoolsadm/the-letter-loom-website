@@ -366,6 +366,8 @@ export function computeCardMoves(stateBefore, stateAfter) {
         cardId: id,
         letter: beforeLoc.card?.letter ?? "?",
         kind: beforeLoc.card?.kind ?? null,
+        fromKey: beforeLoc.locKey,
+        toKey: null,
         from: labelOf(beforeLoc.locKey, stateBefore),
         to: "mazo/descarte",
       });
@@ -374,6 +376,8 @@ export function computeCardMoves(stateBefore, stateAfter) {
         cardId: id,
         letter: afterLoc.card?.letter ?? "?",
         kind: afterLoc.card?.kind ?? null,
+        fromKey: beforeLoc.locKey,
+        toKey: afterLoc.locKey,
         from: labelOf(beforeLoc.locKey, stateBefore),
         to: labelOf(afterLoc.locKey, stateAfter),
       });
@@ -385,6 +389,8 @@ export function computeCardMoves(stateBefore, stateAfter) {
       cardId: id,
       letter: afterLoc.card?.letter ?? "?",
       kind: afterLoc.card?.kind ?? null,
+      fromKey: null,
+      toKey: afterLoc.locKey,
       from: "mazo/descarte",
       to: labelOf(afterLoc.locKey, stateAfter),
     });

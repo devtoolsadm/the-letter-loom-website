@@ -53,6 +53,7 @@ import {
 import {
   configureActionToast,
   showActionToast,
+  updateAttackBannerDetail,
   attachActionBubble,
   clearActionBanner,
   getCurrentActionBubble,
@@ -206,6 +207,69 @@ function getTrainingEffectiveWordLanguage(state) {
 function shouldShowTrainingResultLanguageBadge(state, result) {
   if (!result?.languageBonusAttempted) return false;
   return normalizeLanguage(result.language) !== normalizeLanguage(state?.language || "es");
+}
+
+function formatMovedLetters(moves) {
+  const letters = (moves ?? [])
+    .map((m) => String(m?.letter || "?").toUpperCase())
+    .filter(Boolean);
+  if (letters.length === 0) return "";
+  return letters.slice(0, 4).join(", ") + (letters.length > 4 ? "..." : "");
+}
+
+function formatActionBannerDetailForUser(state, log, moves) {
+  const userId = state?.players?.[0]?.id;
+  if (!userId || !log || !Array.isArray(moves) || moves.length === 0) return "";
+  const userHandKey = `hand:${userId}`;
+  const actorHandKey = `hand:${log.playerId}`;
+  const fromUser = moves.filter((m) => m.fromKey === userHandKey);
+  const toUser = moves.filter((m) => m.toKey === userHandKey);
+  const toBoard = moves.filter((m) => m.fromKey === userHandKey && m.toKey === "board");
+  const toDiscard = moves.filter((m) => m.fromKey === userHandKey && !m.toKey);
+
+  switch (log.actionId) {
+    case "steal_letter":
+    case "great_heist": {
+      const stolen = fromUser.filter((m) => m.toKey === actorHandKey || m.toKey?.startsWith("hand:"));
+      const letters = formatMovedLetters(stolen);
+      return letters ? `Te roba ${letters}` : "";
+    }
+    case "out_one": {
+      const letters = formatMovedLetters(toDiscard);
+      return letters ? `Pierdes ${letters}` : "";
+    }
+    case "discard_one": {
+      const letters = formatMovedLetters(toDiscard);
+      return letters ? `Descartas ${letters}` : "";
+    }
+    case "two_to_center": {
+      const boardLetters = formatMovedLetters(toBoard);
+      if (boardLetters) return `Tu ${boardLetters} va al tablero`;
+      const discardLetters = formatMovedLetters(toDiscard);
+      return discardLetters ? `Te quita ${discardLetters}` : "";
+    }
+    case "one_for_all": {
+      const letters = formatMovedLetters(toBoard);
+      return letters ? `Pone tu ${letters} en el tablero` : "";
+    }
+    case "swap_all": {
+      const received = formatMovedLetters(toUser);
+      const given = formatMovedLetters(fromUser);
+      if (received && given) return `Recibes ${received}; das ${given}`;
+      if (received) return `Recibes ${received}`;
+      if (given) return `Das ${given}`;
+      return "";
+    }
+    default:
+      return "";
+  }
+}
+
+function consumeMovesAndUpdateAttackBanner(state, log) {
+  const moves = consumeLastFxMoves();
+  const detail = formatActionBannerDetailForUser(state, log, moves);
+  if (detail) updateAttackBannerDetail(detail);
+  return moves;
 }
 
 function renderLanguageBadge(titleEl, gameLanguage) {
@@ -2162,7 +2226,8 @@ function processNextActionsTurn() {
               () => applyPlannedGhostAction(fresh, fakeLog),
               fakeLog,
               (s) => {
-                debugLogPushAction(s, { actorId: nextActorId, actionId, targetId, payload, moves: consumeLastFxMoves() });
+                const moves = consumeMovesAndUpdateAttackBanner(s, fakeLog);
+                debugLogPushAction(s, { actorId: nextActorId, actionId, targetId, payload, moves });
                 advanceAfterAction(s);
               },
             );
@@ -2209,7 +2274,8 @@ function processNextActionsTurn() {
     () => applyPlannedGhostAction(planned.state, planned.log),
     planned.log,
     (s) => {
-      debugLogPushAction(s, { ...planned.log, actorId: planned.log.playerId, moves: consumeLastFxMoves() });
+      const moves = consumeMovesAndUpdateAttackBanner(s, planned.log);
+      debugLogPushAction(s, { ...planned.log, actorId: planned.log.playerId, moves });
       advanceAfterAction(s);
     },
   );
@@ -2243,7 +2309,8 @@ function promptShield(opportunity, log) {
           () => applyPlannedGhostAction(s, log, { shielded: true }),
           log,
         );
-        debugLogPushAction(s, { ...log, actorId: log.playerId, blocked: true, moves: consumeLastFxMoves() });
+        const moves = consumeMovesAndUpdateAttackBanner(s, log);
+        debugLogPushAction(s, { ...log, actorId: log.playerId, blocked: true, moves });
         showActionToast(s, log, { blocked: true });
         advanceAfterAction(s);
       } else {
@@ -2251,7 +2318,8 @@ function promptShield(opportunity, log) {
           () => applyPlannedGhostAction(getTrainingMatch(), log),
           log,
           (s) => {
-            debugLogPushAction(s, { ...log, actorId: log.playerId, moves: consumeLastFxMoves() });
+            const moves = consumeMovesAndUpdateAttackBanner(s, log);
+            debugLogPushAction(s, { ...log, actorId: log.playerId, moves });
             advanceAfterAction(s);
           },
         );
@@ -2291,8 +2359,9 @@ function promptDiscardOne(state, log) {
         () => applyPlannedGhostAction(fresh, finalLog),
         finalLog,
       );
-      debugLogPushAction(s, { ...finalLog, actorId: finalLog.playerId, moves: consumeLastFxMoves() });
       showActionToast(s, log);
+      const moves = consumeMovesAndUpdateAttackBanner(s, finalLog);
+      debugLogPushAction(s, { ...finalLog, actorId: finalLog.playerId, moves });
       advanceAfterAction(s);
     },
   });
@@ -2488,7 +2557,8 @@ function handleUserPickAction(actionIndex) {
         () => playUserAction(getTrainingMatch(), actionIndex, targetId, payload),
         userLog,
       );
-      debugLogPushAction(s, { actorId: userId, actionId: card.actionId, targetId, payload, moves: consumeLastFxMoves() });
+      const moves = consumeMovesAndUpdateAttackBanner(s, userLog);
+      debugLogPushAction(s, { actorId: userId, actionId: card.actionId, targetId, payload, moves });
       showActionToast(s, userLog);
       s = advanceActionsQueue(s);
       renderTrainingMatch();

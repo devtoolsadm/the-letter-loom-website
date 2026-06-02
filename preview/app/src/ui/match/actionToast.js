@@ -14,6 +14,7 @@ import { TIMING } from "./timing.js";
 let currentActionBubble = null;
 let bubbleAutoHideTimeout = null;
 let attackBannerTimeout = null;
+let currentAttackBannerPrefix = "";
 
 export const BUBBLE_AUTOHIDE_MS = TIMING.bubble.autoHide;
 const BANNER_VISIBLE_MS = TIMING.banner.visible;
@@ -47,7 +48,8 @@ export function triggerAttackBanner(attackerName, actionName) {
   const banner = document.getElementById(_bannerElementId);
   if (!banner) return;
   if (attackBannerTimeout) { clearTimeout(attackBannerTimeout); attackBannerTimeout = null; }
-  banner.textContent = `⚠ ${attackerName}: ${actionName}`;
+  currentAttackBannerPrefix = `⚠ ${attackerName}: ${actionName}`;
+  banner.textContent = currentAttackBannerPrefix;
   banner.classList.remove("hidden", "is-hiding");
   banner.classList.add("is-visible");
   // Shake the user pill.
@@ -63,9 +65,18 @@ export function triggerAttackBanner(attackerName, actionName) {
     setTimeout(() => {
       banner.classList.add("hidden");
       banner.classList.remove("is-visible", "is-hiding");
+      currentAttackBannerPrefix = "";
     }, BANNER_HIDE_TRANSITION_MS);
     attackBannerTimeout = null;
   }, BANNER_VISIBLE_MS);
+}
+
+export function updateAttackBannerDetail(detailText) {
+  const detail = String(detailText || "").trim();
+  if (!detail || !currentAttackBannerPrefix) return;
+  const banner = document.getElementById(_bannerElementId);
+  if (!banner || banner.classList.contains("hidden")) return;
+  banner.textContent = `${currentAttackBannerPrefix} · ${detail}`;
 }
 
 export function showActionToast(state, log, opts = {}) {
