@@ -176,8 +176,8 @@ export const TRAINING_CONSONANT_WILDCARDS = 2;
 // count: number of copies of this card in the deck
 // inMVP: false → deferred (PALABRA EXTRA, INVENTA TU REGLA, UNA PARA TODOS)
 export const ACTION_CARDS = [
-  { id: "in_english",    kind: "rule_force", target: "self", count: 3, inMVP: false },
-  { id: "in_spanish",    kind: "rule_force", target: "self", count: 3, inMVP: false },
+  { id: "in_english",    kind: "self_bonus", target: "self", count: 3, inMVP: true },
+  { id: "in_spanish",    kind: "self_bonus", target: "self", count: 3, inMVP: true },
   { id: "boost_total",   kind: "self_bonus", target: "self", count: 2, inMVP: true },
   { id: "extra_card",    kind: "self_bonus", target: "self", count: 5, inMVP: true },
   { id: "wildcard",      kind: "self_bonus", target: "self", count: 5, inMVP: true },

@@ -5,7 +5,9 @@
  * their hand + the central board, respecting the same rules as finalizeUserWord:
  *   - must include at least one card from hand AND one from the central board
  *   - must satisfy any forced rules (philologist, brain_squeeze, use_vowel,
- *     use_consonant, use_letter, in_english, in_spanish)
+ *     use_consonant, use_letter)
+ *   - defaults to the language-bonus card language when in_english/in_spanish
+ *     is active
  *   - wildcards (vowel/consonant/any) may substitute missing letters
  *
  * Each returned hint includes the candidate word, the cards that compose it

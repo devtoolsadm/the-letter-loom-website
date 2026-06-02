@@ -3108,6 +3108,35 @@ body.splash-ready #splashLoadingBlock {
   width: 20px;
   height: 20px;
 }
+/* Persistent accumulated score-modifier badge ("+6", "-4", ...) attached
+   to the left side of the pill. Updates each render so the user can see
+   the running +/- each player carries into scoring. */
+.pill-badge-mod {
+  position: absolute;
+  top: 50%;
+  left: -10px;
+  transform: translateY(-50%);
+  min-width: 22px;
+  padding: 2px 5px;
+  border-radius: 8px;
+  border: 1.5px solid #2f1b12;
+  font-family: var(--font-heading);
+  font-weight: 900;
+  font-size: 11px;
+  text-align: center;
+  line-height: 1;
+  color: #ffffff;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
+  z-index: 12;
+}
+.pill-badge-mod.is-positive {
+  background: linear-gradient(180deg, #6ce06c 0%, #2cb34a 100%);
+  box-shadow: 0 2px 0 #1e7f34;
+}
+.pill-badge-mod.is-negative {
+  background: linear-gradient(180deg, #ff7e6e 0%, #c0392b 100%);
+  box-shadow: 0 2px 0 #7b1c10;
+}
 .training-score-pill-name {
   font-size: 10px;
   letter-spacing: 0.5px;
@@ -3647,10 +3676,31 @@ body.splash-ready #splashLoadingBlock {
 .training-word-strip {
   position: relative;
 }
-.training-word-strip-label {
+.training-word-strip-header {
   position: absolute;
-  top: -9px;
+  top: -11px;
   left: 14px;
+  right: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+/* Toggle inside the word-strip header needs slightly smaller border-radius
+   to not feel too tall against the ribbon label. */
+.training-word-strip-header .validation-lang-toggle {
+  border-radius: 7px;
+  margin-left: auto;
+  background: rgba(255, 248, 224, 0.92);
+}
+.training-word-strip-header .validation-lang-btn {
+  color: #6f4616;
+  opacity: 1;
+}
+.training-word-strip-header .validation-lang-btn:not(.is-active) {
+  background: rgba(255, 248, 224, 0.92);
+}
+.training-word-strip-label {
+  position: static;
   font-family: var(--font-heading);
   font-weight: 800;
   font-size: 10px;
@@ -3684,7 +3734,19 @@ body.splash-ready #splashLoadingBlock {
   color: #8a6a3a;
   font-weight: 700;
   font-style: italic;
+  text-align: center;
   margin: 0 auto;
+}
+.training-word-strip-empty-main {
+  line-height: 1.15;
+}
+.training-word-strip-empty-hint {
+  margin-top: 4px;
+  max-width: 360px;
+  font-size: 12px;
+  line-height: 1.15;
+  font-style: normal;
+  color: #6f4616;
 }
 
 /* Word slot wrapper — card size shrinks to fit when the word grows long.
@@ -3857,9 +3919,13 @@ body.splash-ready #splashLoadingBlock {
   color: #2f1b12;
 }
 .hints-list li {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
   font-size: 16px;
-  line-height: 1.6;
-  padding: 2px 0;
+  line-height: 1.4;
+  padding: 3px 0;
   border-bottom: 1px dashed rgba(0, 0, 0, 0.12);
 }
 .hints-list li:last-child {
@@ -3897,7 +3963,7 @@ body.splash-ready #splashLoadingBlock {
   height: 10px;
 }
 .hints-list .hint-score {
-  float: right;
+  margin-left: auto;
   font-weight: 900;
   color: #1e7f34;
   font-size: 17px;
@@ -8321,6 +8387,37 @@ body.splash-ready #splashLoadingBlock {
     gap: 6px;
     margin-bottom: 2px;
   }
+  /* Language toggle pill — only visible when an in_english/in_spanish card
+     is active (training creation) or always available (help / scoreboard). */
+  .validation-lang-toggle {
+    display: inline-flex;
+    border: 1.5px solid #c5af7d;
+    border-radius: 10px;
+    overflow: hidden;
+    flex-shrink: 0;
+    margin-left: auto;
+  }
+  .validation-lang-toggle.hidden {
+    display: none;
+  }
+  .validation-lang-btn {
+    padding: 3px 9px;
+    font-family: var(--font-heading);
+    font-weight: 800;
+    font-size: 12px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: #a36500;
+    opacity: 0.5;
+    transition: background 0.12s, color 0.12s, opacity 0.12s;
+  }
+  .validation-lang-btn.is-active {
+    background: #a36500;
+    color: #fff;
+    opacity: 1;
+    border-radius: 8px;
+  }
 
   .match-validation-title {
     font-weight: 700;
@@ -9129,7 +9226,7 @@ body.splash-ready #splashLoadingBlock {
 .training-result-panel {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
   animation: resultPanelIn 0.3s ease-out;
 }
 
@@ -9181,10 +9278,30 @@ body.splash-ready #splashLoadingBlock {
   box-shadow: 0 2px 8px rgba(104, 104, 192, 0.4);
 }
 
+.training-result-language-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  height: 24px;
+  padding: 0 8px;
+  border: 2px solid #fff2a8;
+  border-radius: 999px;
+  background: #342214;
+  color: #fff2a8;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: 0;
+  text-shadow: none;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.28);
+}
+
 .training-result-word {
   font-family: "Fredoka", sans-serif;
   font-weight: 800;
-  font-size: 38px;
+  font-size: 30px;
   letter-spacing: 0.04em;
   color: #3a2516;
   text-align: center;
@@ -9195,30 +9312,30 @@ body.splash-ready #splashLoadingBlock {
 /* Score breakdown: chips lined up with how the user's points were
    composed (per-letter values, wildcard bonus, modifiers, x2 multiplier). */
 .training-result-breakdown {
-  margin: 6px 0 4px;
+  margin: 4px 0 2px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
 }
 .training-result-breakdown-chips {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 4px;
-  max-width: 320px;
+  gap: 3px;
+  max-width: 340px;
 }
 .training-result-breakdown-chip {
   display: inline-flex;
   flex-direction: column;
   align-items: center;
-  gap: 1px;
-  padding: 3px 7px;
-  border-radius: 8px;
+  gap: 0;
+  padding: 2px 5px;
+  border-radius: 7px;
   border: 1px solid rgba(0, 0, 0, 0.2);
   background: linear-gradient(180deg, #fffbe6 0%, #f1d97a 100%);
   font-family: var(--font-heading);
-  min-width: 30px;
+  min-width: 26px;
 }
 .training-result-breakdown-chip.is-wildcard {
   background: linear-gradient(180deg, #c2e7ff 0%, #6fb4ec 100%);
@@ -9235,29 +9352,31 @@ body.splash-ready #splashLoadingBlock {
   color: #ffffff;
 }
 .training-result-breakdown-label {
-  font-size: 9px;
+  font-size: 8px;
   font-weight: 800;
   letter-spacing: 0.4px;
   text-transform: uppercase;
   color: inherit;
   opacity: 0.8;
+  line-height: 1;
 }
 .training-result-breakdown-value {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 900;
   color: inherit;
+  line-height: 1;
 }
 .training-result-breakdown-total {
   font-family: var(--font-heading);
   font-weight: 900;
-  font-size: 18px;
+  font-size: 15px;
   color: #3a2516;
 }
 /* Inline tag chips for compact hint breakdown (wildcard, modifier, x2). */
 .hint-tags {
   display: inline-flex;
   gap: 3px;
-  margin: 0 8px;
+  flex-wrap: wrap;
 }
 .hint-tag {
   display: inline-block;
@@ -9305,10 +9424,10 @@ body.splash-ready #splashLoadingBlock {
 .training-result-table th {
   color: #fff;
   font-weight: 800;
-  font-size: 12px;
+  font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  padding: 6px 10px;
+  padding: 4px 8px;
   text-align: right;
   background: #5f4325;
   text-shadow: 0 1px 0 rgba(0, 0, 0, 0.45);
@@ -9321,22 +9440,22 @@ body.splash-ready #splashLoadingBlock {
 
 /* Player name column: small/secondary. */
 .training-result-table td:first-child {
-  padding: 6px 10px;
+  padding: 3px 8px;
   text-align: left;
   color: #5f4325;
   font-weight: 700;
-  font-size: 14px;
+  font-size: 13px;
   border-top: 1px solid rgba(163, 101, 0, 0.2);
 }
 
 /* Score cells: prominent — these are what the player cares about. */
 .training-result-table td.col-round,
 .training-result-table td.col-total {
-  padding: 4px 10px;
+  padding: 3px 8px;
   text-align: right;
   border-top: 1px solid rgba(163, 101, 0, 0.2);
   font-weight: 800;
-  font-size: 24px;
+  font-size: 19px;
   line-height: 1.1;
   color: #3a2516;
 }
@@ -9376,8 +9495,8 @@ body.splash-ready #splashLoadingBlock {
 
 
 .training-result-suggestions {
-  margin-top: 8px;
-  padding: 8px 12px;
+  margin-top: 4px;
+  padding: 6px 10px;
   background: rgba(255, 248, 220, 0.65);
   border: 1.5px solid #a36500;
   border-radius: 10px;
@@ -9386,20 +9505,24 @@ body.splash-ready #splashLoadingBlock {
   text-align: center;
   font-family: var(--font-heading);
   font-weight: 800;
-  font-size: 12px;
+  font-size: 11px;
   letter-spacing: 0.6px;
   text-transform: uppercase;
   color: #a36500;
-  margin-bottom: 4px;
+  margin-bottom: 3px;
 }
 .training-result-suggestions .hints-list {
   font-size: 14px;
-  padding-left: 22px;
+  padding-left: 20px;
   margin: 0;
 }
 .training-result-suggestions .hints-list li {
   border-bottom: none;
   padding: 1px 0;
+  line-height: 1.3;
+}
+.training-result-suggestions .hints-list .hint-score {
+  font-size: 15px;
 }
 
 .training-result-standings-label {

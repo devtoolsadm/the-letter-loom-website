@@ -120,18 +120,22 @@ export function applyActionEffect(state, action, sourcePlayerId, targetPlayerId,
 
 function applyActionEffectInner(state, action, sourcePlayerId, targetPlayerId, payload = {}, rng = Math.random) {
   switch (action.actionId) {
-    // ── Self-bonus (point modifiers) ─────────────────────────
+    // ── Self-bonus ───────────────────────────────────────────
     case "in_english":
+      // Optional language bonus: keep a per-trick marker so the UI can
+      // preselect English. The +10 is awarded only if the chosen validation
+      // language is English when the word is submitted.
       return addForcedRule(
-        addScoreModifier(state, sourcePlayerId, ACTION_POINTS.in_english),
+        state,
         sourcePlayerId,
         action.actionId,
         sourcePlayerId,
         { language: "en" },
       );
     case "in_spanish":
+      // Optional language bonus: same as in_english, but for Spanish.
       return addForcedRule(
-        addScoreModifier(state, sourcePlayerId, ACTION_POINTS.in_spanish),
+        state,
         sourcePlayerId,
         action.actionId,
         sourcePlayerId,

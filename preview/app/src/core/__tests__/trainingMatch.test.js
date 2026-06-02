@@ -795,6 +795,35 @@ describe('finalizeUserWord', () => {
     expect(result.userWordResult.score).toBe(24) // (2+4+6) * 2
   })
 
+  it('applies language bonus only when selected language matches action language', () => {
+    const bc = makeLetter({ id: 'bc1', letter: 'A', value: 2, kind: 'vowel', color: 'blue' })
+    const hc = makeConsonant({ id: 'hc1', letter: 'S', value: 4, kind: 'consonant', color: 'orange' })
+    const extra = makeLetter({ id: 'extra1', letter: 'O', value: 1, kind: 'vowel', color: 'green' })
+    const state = makeState({
+      phase: 'creation',
+      players: [{ id: 'p1', name: 'Tú', score: 0, rounds: [], isGhost: false }],
+      centralBoard: [bc],
+      hands: { p1: { letters: [hc, extra], actions: [] } },
+      userWord: [
+        { cardId: 'bc1', source: 'board', tilde: false, chosen: null },
+        { cardId: 'hc1', source: 'hand', tilde: false, chosen: null },
+      ],
+      ghostLevel: 'easy',
+      forcedRules: { p1: [{ actionId: 'in_english', source: 'p1', payload: { language: 'en' } }] },
+      scoreModifiers: {},
+    })
+
+    const english = finalizeUserWord(state, 'en').userWordResult
+    expect(english.score).toBe(16)
+    expect(english.language).toBe('en')
+    expect(english.languageBonusAttempted).toBe(true)
+
+    const spanish = finalizeUserWord(state, 'es').userWordResult
+    expect(spanish.score).toBe(6)
+    expect(spanish.language).toBe('es')
+    expect(spanish.languageBonusAttempted).toBe(false)
+  })
+
   it('fails forced rule validation (philologist requires tilde)', () => {
     const bc = makeLetter({ id: 'bc1', letter: 'A', value: 2, kind: 'vowel', color: 'blue' })
     const hc = makeConsonant({ id: 'hc1', letter: 'S', value: 4 })

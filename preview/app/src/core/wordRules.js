@@ -126,8 +126,9 @@ export function containsLetter(word, letter) {
 //   - brain_squeeze:  word must have 3+ syllables
 //   - use_vowel / use_consonant / use_letter:
 //        payload.letter (the central-board letter chosen by the caster) must appear
-//   - in_english:     handled by the AI validator (language switch), not here
-//   - in_spanish:     handled by the AI validator (language switch), not here
+//   - in_english / in_spanish:
+//        optional language bonuses, not forced rules; scoring decides whether
+//        the selected validation language earns the +10.
 //
 // Returns { ok: boolean, violations: string[] }.
 export function validateForcedRules({ word, selectedCards, effects, lang = "es" }) {
@@ -166,7 +167,7 @@ export function getForcedWordLanguage(baseLang = "es", effects = []) {
 // Compute the word's score given the selected cards and any active modifiers.
 // Manual §7:
 //   1. Sum letter values (use tildeValue if usingTilde and tildeValue != null).
-//   2. Apply +/- from action cards (e.g. boost_total +6, explosion -4, in_english +10).
+//   2. Apply +/- from action cards (e.g. boost_total +6, explosion -4).
 //   3. Apply x2 if all selected cards share color OR if the user used all of
 //      their own letters AND all the central board letters.
 // Forced-rule violations: caller is responsible for short-circuiting to 0.
@@ -180,7 +181,7 @@ export function computeWordScore({ selectedCards, allUserLetters, allBoardLetter
 //   parts: [
 //     { kind: "letter",        letter, delta },           // per letter played
 //     { kind: "wildcard-bonus", delta: 6 },               // per action wildcard used
-//     { kind: "modifier",       delta },                  // sum of scoreModifiers (boost_total, explosion, in_english)
+//     { kind: "modifier",       delta },                  // sum of score modifiers and optional language bonus
 //     { kind: "double",         reason: "color" | "fullboard", delta }, // additive equivalent of the x2
 //   ]
 export function computeWordScoreDetailed({ selectedCards, allUserLetters, allBoardLetters, plusMinus = 0 }) {

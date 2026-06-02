@@ -2766,6 +2766,19 @@ function setupAuthScreen() {
   document.getElementById('onboardingInput')?.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') _handleOnboardingSave()
   })
+
+  // Auto-verify when the 6-digit OTP is fully entered — saves a tap. We
+  // strip anything non-numeric so paste-from-clipboard works too. Skipped if
+  // the verify button is disabled (already verifying / no pending email).
+  const codeInput = document.getElementById('authCodeInput')
+  codeInput?.addEventListener('input', () => {
+    const cleaned = (codeInput.value || '').replace(/\D/g, '').slice(0, 6)
+    if (cleaned !== codeInput.value) codeInput.value = cleaned
+    if (cleaned.length !== 6) return
+    const verifyBtn = document.getElementById('authVerifyBtn')
+    if (verifyBtn?.disabled) return
+    _handleAuthVerify()
+  })
 }
 
 function _handleAuthSubmit(event) {

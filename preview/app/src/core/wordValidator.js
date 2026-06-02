@@ -32,16 +32,13 @@ const dictCache = new Map(); // lang -> { set: Set<string>, ready: Promise }
 
 // Centralised layer presets, picked by call-site context. Change them here to
 // adjust validator behaviour globally without touching every caller.
-//   - training: local dictionary + Wiktionary (no AI → zero cost on practice
-//     mode, where players may submit many words per session).
-//   - match:    local dictionary + AI worker (AI is the authority during real
-//     multiplayer scoring, and rules of the manual exclude trademarks/brands
-//     that Wiktionary might let through).
-//   - debug:    everything, used only by the long-press inspector.
+// All app presets currently use only the local dictionary. Public/AI layers
+// remain implemented for diagnostics or future modes, but are not part of
+// normal validation presets.
 export const LAYER_PRESETS = Object.freeze({
   training: ["local"],
-  match:    ["local", "ai"],
-  debug:    ["local", "public", "ai"],
+  match:    ["local"],
+  debug:    ["local"],
 });
 
 // Public API endpoints per language.

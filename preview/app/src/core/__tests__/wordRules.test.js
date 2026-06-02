@@ -15,7 +15,7 @@ describe('getForcedWordLanguage', () => {
     expect(getForcedWordLanguage('en', [])).toBe('en')
   })
 
-  it('uses the language required by in_english/in_spanish effects', () => {
+  it('uses the language suggested by in_english/in_spanish effects', () => {
     expect(getForcedWordLanguage('es', [{ actionId: 'in_english', payload: { language: 'en' } }])).toBe('en')
     expect(getForcedWordLanguage('en', [{ actionId: 'in_spanish', payload: { language: 'es' } }])).toBe('es')
   })

@@ -297,6 +297,26 @@ body.modal-open {
   max-width: 88%;
 }
 
+.modal-ribbon #validationResultLangBadge {
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  z-index: 24;
+  display: inline-flex;
+  max-width: none;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 900;
+  letter-spacing: 0;
+  line-height: 1;
+  text-shadow: none;
+  transform: translateX(-50%);
+}
+
+.modal-ribbon #validationResultLangBadge.hidden {
+  display: none;
+}
+
 .modal-ribbon [data-i18n="settingsTitle"] {
   font-size: 32px;
 }

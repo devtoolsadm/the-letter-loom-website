@@ -11,12 +11,12 @@ import {
   TRAINING_CENTRAL_BOARD_SIZE,
   TRAINING_MIN_WORD_LETTERS,
   MATCH_TYPE_TRAINING,
+  ACTION_POINTS,
 } from "./constants.js";
 import {
   buildWordFromCards,
   usesAtLeastOneFromBoardAndHand,
   validateForcedRules,
-  getForcedWordLanguage,
   computeWordScore,
   computeWordScoreDetailed,
 } from "./wordRules.js";
@@ -73,6 +73,15 @@ function makeId() {
 function normalizeLanguage(value) {
   const lang = String(value || "").trim().toLowerCase().slice(0, 2);
   return lang === "en" ? "en" : "es";
+}
+
+function getLanguageBonusForSelection(effects = [], selectedLanguage = "es") {
+  const lang = normalizeLanguage(selectedLanguage);
+  const effect = (effects ?? []).find((e) =>
+    ["in_english", "in_spanish"].includes(e.actionId)
+      && normalizeLanguage(e.payload?.language || (e.actionId === "in_english" ? "en" : "es")) === lang
+  );
+  return effect ? (ACTION_POINTS[effect.actionId] ?? 0) : 0;
 }
 
 function buildPlayers(opponents, userNickname) {
@@ -682,6 +691,7 @@ export function submitUserWord(state) {
 // transition to the result phase. Sets `userWordResult` with the outcome.
 export function finalizeUserWord(state, language = "es") {
   const userId = state.players[0].id;
+  const selectedLanguage = normalizeLanguage(language);
   const hand = state.hands[userId];
   const handLetters = hand && hand !== "<hidden>" ? hand.letters ?? [] : [];
 
@@ -706,6 +716,8 @@ export function finalizeUserWord(state, language = "es") {
   const handLetterIds = new Set(handLetters.filter(Boolean).map((c) => c.id));
   const wordStr = buildWordFromCards(selectedCards);
   const forcedEffects = state.forcedRules?.[userId] ?? [];
+  const languageBonusPoints = getLanguageBonusForSelection(forcedEffects, selectedLanguage);
+  const languageBonusAttempted = languageBonusPoints > 0;
 
   let valid = true;
   let reason = null;
@@ -722,7 +734,7 @@ export function finalizeUserWord(state, language = "es") {
       word: wordStr,
       selectedCards,
       effects: forcedEffects,
-      lang: getForcedWordLanguage(language, forcedEffects),
+      lang: selectedLanguage,
     });
     if (!forcedCheck.ok) {
       valid = false;
@@ -736,7 +748,7 @@ export function finalizeUserWord(state, language = "es") {
   if (valid) {
     const allUserLetters = handLetters.filter(Boolean).map((c) => c.id);
     const allBoardLetters = (state.centralBoard ?? []).map((c) => c.id);
-    const plusMinus = state.scoreModifiers?.[userId] ?? 0;
+    const plusMinus = (state.scoreModifiers?.[userId] ?? 0) + languageBonusPoints;
     const detail = computeWordScoreDetailed({
       selectedCards,
       allUserLetters,
@@ -781,6 +793,8 @@ export function finalizeUserWord(state, language = "es") {
       violations,
       score,
       breakdown,
+      language: selectedLanguage,
+      languageBonusAttempted,
     },
     updatedAt: Date.now(),
   };
@@ -899,9 +913,16 @@ export function fillRemainingBoardRandomly(state) {
   let c = state.decks.consonantDeck;
   let d = state.discards;
   const next = board.slice();
+  // Pick the kinds smartly (mid-level player heuristic) so the auto-fill
+  // doesn't produce extreme distributions like 5 consonants.
+  const language = state.language || "es";
+  const currentV = next.filter((card) => card && card.kind === "vowel").length;
+  const targetV = sampleBoardTargetVowels(language);
+  const kindsToAssign = planFillKinds(next, targetV, currentV);
+  let idx = 0;
   for (let i = 0; i < next.length; i++) {
     if (next[i] != null) continue;
-    const kind = Math.random() < 0.35 ? "vowel" : "consonant";
+    const kind = kindsToAssign[idx++];
     const r = drawLetterOfKind(v, c, d, kind);
     v = r.vowelDeck;
     c = r.consonantDeck;
@@ -951,9 +972,20 @@ export function fillRemainingHandRandomly(state) {
   let c = state.decks.consonantDeck;
   let d = state.discards;
   const letters = hand.letters.slice();
+  // Mid-level player heuristic: target depends on what's already on the
+  // central board. With a consonant-heavy board, the player wants more
+  // vowels in their hand to be able to form words.
+  const language = state.language || "es";
+  const board = state.centralBoard ?? [];
+  const boardVowels = board.filter((card) => card && card.kind === "vowel").length;
+  const boardConsonants = board.filter((card) => card && card.kind === "consonant").length;
+  const currentV = letters.filter((card) => card && card.kind === "vowel").length;
+  const targetV = sampleHandTargetVowels(boardVowels, boardConsonants, language);
+  const kindsToAssign = planFillKinds(letters, targetV, currentV);
+  let idx = 0;
   for (let i = 0; i < letters.length; i++) {
     if (letters[i] != null) continue;
-    const kind = Math.random() < 0.35 ? "vowel" : "consonant";
+    const kind = kindsToAssign[idx++];
     const r = drawLetterOfKind(v, c, d, kind);
     v = r.vowelDeck;
     c = r.consonantDeck;
@@ -972,6 +1004,67 @@ export function fillRemainingHandRandomly(state) {
   );
   saveTrainingMatch(out);
   return out;
+}
+
+// ─── Mid-level player heuristics for the 🎲 buttons ───────────────────────
+// The auto-fill buttons should approximate what a moderately-skilled player
+// would do, not pure 35/65 randomness. A real player avoids extremes (no
+// "5 consonants in the central board") and considers what's already on the
+// board when choosing their own hand.
+
+// Sample the TOTAL vowel count the player aims for on the 5-slot central
+// board. Distribution peaks at 2 (the comfortable "2V+3C" balance for
+// forming words) and tails off toward 0 and 5. ES tolerates a bit more
+// vowel-heavy boards than EN.
+function sampleBoardTargetVowels(language = "es") {
+  // Index = vowel count (0..5). Values sum to 1.
+  const dist = language === "en"
+    ? [0.04, 0.22, 0.40, 0.24, 0.08, 0.02]
+    : [0.02, 0.13, 0.40, 0.32, 0.10, 0.03];
+  let r = Math.random();
+  for (let i = 0; i < dist.length; i++) {
+    r -= dist[i];
+    if (r < 0) return i;
+  }
+  return 2;
+}
+
+// Sample the TOTAL vowel count the player aims for in their 3-slot hand,
+// given what's already on the central board. The combined "useful" pool is
+// 5 board + 3 hand = 8 cards; a mid-level player aims for ~3-4 vowels in
+// total. So if the board is consonant-heavy, the hand picks more vowels,
+// and vice versa.
+function sampleHandTargetVowels(boardVowels, boardConsonants, language = "es") {
+  const totalIdealVowels = language === "en" ? 3 : 3.5;
+  let target = Math.round(totalIdealVowels - boardVowels);
+  // 12% chance the player deviates from the obvious choice — keeps the
+  // auto-fill from feeling deterministic.
+  if (Math.random() < 0.12) {
+    target += Math.random() < 0.5 ? -1 : 1;
+  }
+  return Math.max(0, Math.min(3, target));
+}
+
+// Given an array of slots (some already filled), a target total of vowels,
+// and the current vowel count, return a shuffled list of kinds ("vowel" /
+// "consonant") to assign to the remaining NULL slots so that the final
+// composition lands on the target (or as close as possible).
+function planFillKinds(slots, targetVowels, currentVowels) {
+  const empty = slots.filter((s) => s == null).length;
+  let vowelsToAdd = targetVowels - currentVowels;
+  vowelsToAdd = Math.max(0, Math.min(empty, vowelsToAdd));
+  const consonantsToAdd = empty - vowelsToAdd;
+  const kinds = [
+    ...Array(vowelsToAdd).fill("vowel"),
+    ...Array(consonantsToAdd).fill("consonant"),
+  ];
+  // Fisher-Yates shuffle so the kinds are sprinkled across slots, not all
+  // vowels first then all consonants.
+  for (let i = kinds.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [kinds[i], kinds[j]] = [kinds[j], kinds[i]];
+  }
+  return kinds;
 }
 
 function applyDealPhaseAdvance(state, userLetters, board) {

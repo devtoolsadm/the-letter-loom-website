@@ -468,10 +468,10 @@ class MatchController {
     this._emit("statechange", {});
   }
 
-  async validateWord(word, customRules) {
+  async validateWord(word, customRules, options = {}) {
     try {
       const rulesToUse = customRules !== undefined ? customRules : this._state.preferencesRef?.rules;
-      const language = this._state.language || "es";
+      const language = normalizeLanguage(options.language ?? this._state.language ?? "es");
       // Multi-layer: local dictionary first (instant), AI fallback. The local
       // dictionary covers common words without hitting the worker; rare words
       // (proper nouns, neologisms, technical terms) still go to AI.

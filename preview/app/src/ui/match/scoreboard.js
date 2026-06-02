@@ -118,6 +118,14 @@ function getRulesLanguage() {
   return normalizeLanguage(getShellLanguage());
 }
 
+function getValidationBaseLanguage(key = "match") {
+  return key === "help" ? normalizeLanguage(getShellLanguage()) : getRulesLanguage();
+}
+
+function getValidationSelectedLanguage(section, key = "match") {
+  return normalizeLanguage(section?.langOverride || getValidationBaseLanguage(key));
+}
+
 function renderLanguageBadge(titleEl, gameLanguage) {
   if (!titleEl) return;
   const layer = titleEl.closest(".screen-topbar") || titleEl.parentElement || titleEl;
@@ -175,6 +183,7 @@ let scoreboardInfoText = "";
 let scoreboardRecordHighlight = null;
 let scoreboardReturnScreen = "match";
 let recordsTab = "words";
+let recordsReturnScreen = "splash";
 let recordShareBusy = false;
 let scoreboardShareBusy = false;
 let scoreboardKeypadOpen = false;
@@ -214,6 +223,8 @@ let recordWordModalStaging = false;
 let recordWordValidating = false;
 let recordWordStatusWord = "";
 let recordWordStatusOk = null;
+let recordWordStatusLang = null;
+let recordWordLangOverride = null;
 // Word candidate draft
 let scoreboardWordCandidatesDraft = null;
 let scoreboardWordCandidatesDirty = false;
@@ -445,6 +456,48 @@ function clearRoundEndValidationEntry(playerId) {
   syncRecordWordStatusFromEntry(playerId, null);
 }
 
+function setValidationSectionLanguage(section, lang) {
+  if (!section) return;
+  const nextLang = normalizeLanguage(lang);
+  section.langOverride = nextLang;
+  section.langBtns?.forEach((b) =>
+    b.classList.toggle("is-active", b.dataset.lang === nextLang)
+  );
+  if (section.input) {
+    section.input.placeholder = textForLanguage(nextLang, "matchValidatePlaceholder") || "";
+  }
+}
+
+function setRecordWordLanguage(lang, { syncRoundKeypad = true } = {}) {
+  const nextLang = normalizeLanguage(lang);
+  const previousLang = recordWordLangOverride;
+  recordWordLangOverride = nextLang;
+  const toggle = document.getElementById("recordWordLangToggle");
+  if (toggle) {
+    toggle.querySelectorAll(".validation-lang-btn").forEach((b) =>
+      b.classList.toggle("is-active", b.dataset.lang === nextLang)
+    );
+  }
+  const input = document.getElementById("recordWordInput");
+  if (input) {
+    input.placeholder = textForLanguage(nextLang, "recordWordPlaceholder")
+      || textForLanguage(nextLang, "matchValidatePlaceholder")
+      || "";
+  }
+  if (syncRoundKeypad && recordWordModalState?.source === "round-end") {
+    const section = getValidationSections().get("round-keypad");
+    setValidationSectionLanguage(section, nextLang);
+  }
+  if (previousLang && previousLang !== nextLang) {
+    updateRecordWordSaveState();
+  }
+}
+
+function getRoundKeypadValidationLanguage() {
+  const section = getValidationSections().get("round-keypad");
+  return normalizeLanguage(section?.langOverride || getRulesLanguage());
+}
+
 function syncRecordWordStatusFromEntry(playerId, entry) {
   if (
     !recordWordModalState ||
@@ -467,12 +520,14 @@ function syncRecordWordStatusFromEntry(playerId, entry) {
     statusEl.className = `${entry.statusClass} record-word-validation-status`;
     recordWordStatusWord = wordKey;
     recordWordStatusOk = entry.ok === true;
+    recordWordStatusLang = normalizeLanguage(entry.language || recordWordLangOverride || getRulesLanguage());
     return;
   }
   statusEl.textContent = "";
   statusEl.className = "match-validation-status record-word-validation-status";
   recordWordStatusWord = "";
   recordWordStatusOk = null;
+  recordWordStatusLang = null;
 }
 
 function restoreRoundEndValidation(playerId) {
@@ -480,6 +535,7 @@ function restoreRoundEndValidation(playerId) {
   const section = sections.get("round-keypad");
   if (!section) return;
   const entry = getRoundEndValidationEntry(playerId);
+  setValidationSectionLanguage(section, entry?.language || getRulesLanguage());
   if (!entry) {
     clearMatchWordFor("round-keypad", false);
     clearStatusValidationFor("round-keypad");
@@ -661,9 +717,7 @@ function handleRoundEndKeypadNavigate(direction) {
       const candidate = getWordCandidate(st.matchId, currentId, roundNumber);
       const shouldPrompt =
         !candidate ||
-        candidate.ignored ||
-        !candidate.word ||
-        Number(candidate.points) !== points;
+        (!candidate.ignored && (!candidate.word || Number(candidate.points) !== points));
       if (shouldPrompt) {
         const nextId = getRoundEndKeypadNeighbor(st, direction);
         openRecordWordModal(
@@ -1204,7 +1258,8 @@ function handleScoreboardRecordCandidateUpdate(matchState, playerId, round, init
     return;
   }
   const existing = getScoreboardWordCandidate(matchId, id, rnd);
-  if (!existing || existing.ignored || !existing.word) {
+  if (existing?.ignored) return;
+  if (!existing || !existing.word) {
     openRecordWordModalFromScoreboard(
       {
         matchId,
@@ -2120,6 +2175,10 @@ function openRecordWordModal(candidate, { pendingNext = null } = {}) {
   recordWordModalStaging = false;
   recordWordStatusWord = "";
   recordWordStatusOk = null;
+  recordWordStatusLang = null;
+  setRecordWordLanguage(
+    candidate?.source === "round-end" ? getRoundKeypadValidationLanguage() : getRulesLanguage()
+  );
   recordWordFeatures = {
     sameColor: false,
     usedWildcard: false,
@@ -2170,6 +2229,10 @@ function openRecordWordModalFromScoreboard(candidate, { pendingNext = null } = {
   recordWordModalStaging = true;
   recordWordStatusWord = "";
   recordWordStatusOk = null;
+  recordWordStatusLang = null;
+  setRecordWordLanguage(
+    candidate?.source === "round-end" ? getRoundKeypadValidationLanguage() : getRulesLanguage()
+  );
   recordWordFeatures = {
     sameColor: false,
     usedWildcard: false,
@@ -2216,6 +2279,8 @@ function closeRecordWordModal({ continuePending = true } = {}) {
   recordWordPendingNext = null;
   recordWordModalState = null;
   recordWordModalStaging = false;
+  recordWordStatusLang = null;
+  recordWordLangOverride = null;
   if (pending?.nextId) {
     openRoundEndKeypad(pending.nextId);
     return;
@@ -2288,8 +2353,9 @@ async function handleRecordWordSave() {
         saveBtn.classList.add("disabled");
       }
       try {
-        const rulesText = getValidationRules();
-        const result = await matchController.validateWord(word, rulesText);
+        const validationLang = normalizeLanguage(recordWordLangOverride || getRulesLanguage());
+        const rulesText = getValidationRulesForLang(validationLang);
+        const result = await matchController.validateWord(word, rulesText, { language: validationLang });
         const ok = !!result?.isValid;
         const base = ok ? t("matchValidateOk") : t("matchValidateFail");
         const reason = result?.reason ? ` ${result.reason}` : "";
@@ -2299,6 +2365,7 @@ async function handleRecordWordSave() {
         }
         recordWordStatusWord = normalizeValidationWord(word);
         recordWordStatusOk = ok;
+        recordWordStatusLang = validationLang;
         _shell.playValidationResultSound(ok);
         if (!ok) {
           if (recordWordModalState?.playerId) {
@@ -2309,6 +2376,7 @@ async function handleRecordWordSave() {
               round: recordWordModalState.round,
               statusText: `${base}${reason}`,
               statusClass: "match-validation-status fail",
+              language: validationLang,
             });
           }
           updateRecordWordSaveState();
@@ -2323,6 +2391,7 @@ async function handleRecordWordSave() {
             round: recordWordModalState.round,
             statusText: `${base}${reason}`,
             statusClass: "match-validation-status ok",
+            language: validationLang,
           });
         }
       } catch (e) {
@@ -2333,6 +2402,7 @@ async function handleRecordWordSave() {
         }
         recordWordStatusWord = normalizeValidationWord(word);
         recordWordStatusOk = false;
+        recordWordStatusLang = validationLang;
         _shell.playValidationResultSound(false);
         if (recordWordModalState?.playerId) {
           setRoundEndValidationEntry(recordWordModalState.playerId, {
@@ -2342,6 +2412,7 @@ async function handleRecordWordSave() {
             round: recordWordModalState.round,
             statusText: t("matchValidateError"),
             statusClass: "match-validation-status fail",
+            language: validationLang,
           });
         }
         if (input) input.focus();
@@ -2393,6 +2464,7 @@ function updateRecordWordSaveState() {
           round: recordWordModalState.round,
           statusText: "",
           statusClass: "match-validation-status",
+          language: normalizeLanguage(recordWordLangOverride || getRulesLanguage()),
         });
       }
     }
@@ -2425,6 +2497,7 @@ function updateRecordWordSaveState() {
     requiresValidation &&
     recordWordStatusWord &&
     recordWordStatusWord === wordKey &&
+    normalizeLanguage(recordWordStatusLang || getRulesLanguage()) === normalizeLanguage(recordWordLangOverride || getRulesLanguage()) &&
     recordWordStatusOk === false;
   saveBtn.disabled = !hasWord || recordWordValidating || hasFailedValidation;
   saveBtn.classList.toggle("disabled", !hasWord || recordWordValidating || hasFailedValidation);
@@ -2434,6 +2507,7 @@ function updateRecordWordSaveState() {
     statusEl.className = "match-validation-status record-word-validation-status";
     recordWordStatusWord = "";
     recordWordStatusOk = null;
+    recordWordStatusLang = null;
   }
 }
 
@@ -2760,6 +2834,11 @@ function openRecordScoreboard(record, { highlightWord = false } = {}) {
 }
 
 function openRecords() {
+  const source = _shell.currentScreen?.() || "splash";
+  if (source !== "records") {
+    recordsReturnScreen = source;
+  }
+  scoreboardReturnWinners = false;
   const records = loadRecords() || {};
   const hasWordRecords = Array.isArray(records.bestWord) && records.bestWord.length > 0;
   const hasMatchRecords = Array.isArray(records.bestMatch) && records.bestMatch.length > 0;
@@ -6649,7 +6728,26 @@ function createValidationSection(mountId, key) {
     validateBtn: clone.querySelector(".validation-validate"),
     status: clone.querySelector(".validation-status"),
     rulesBtn: clone.querySelector(".validation-rules-btn"),
+    langToggle: clone.querySelector(".validation-lang-toggle"),
+    langBtns: clone.querySelectorAll(".validation-lang-btn"),
+    langOverride: null, // null = use default; "en"/"es" = user picked
   };
+  // Wire the language toggle. Active button gets is-active class; selection
+  // is stored in refs.langOverride and read by handleValidateSection.
+  refs.langBtns.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      refs.langOverride = btn.dataset.lang;
+      refs.langBtns.forEach((b) => b.classList.toggle("is-active", b === btn));
+      // Update placeholder to match selected language.
+      if (refs.input) {
+        const ph = textForLanguage(refs.langOverride, "matchValidatePlaceholder");
+        refs.input.placeholder = ph || "";
+      }
+      if (key === "round-keypad" && recordWordModalState?.source === "round-end") {
+        setRecordWordLanguage(refs.langOverride, { syncRoundKeypad: false });
+      }
+    });
+  });
   if (refs.input) {
     refs.input.addEventListener("input", () => {
       sanitizeValidationInput(refs);
@@ -6665,6 +6763,7 @@ function createValidationSection(mountId, key) {
             round: matchController.getState()?.round,
             statusText: "",
             statusClass: "match-validation-status",
+            language: getValidationSelectedLanguage(refs, key),
           });
         } else {
           clearRoundEndValidationEntry(getRoundEndKeypadPlayerId());
@@ -6693,7 +6792,45 @@ function createValidationSection(mountId, key) {
   if (refs.rulesBtn) {
     refs.rulesBtn.addEventListener("click", () => openRulesModal());
   }
+  // Show the toggle immediately for help and scoreboard sections — the user
+  // can always switch between ES/EN (unlike training, where it only appears
+  // when a language card is active). Pre-select the default language.
+  if (key !== "training-creation" && refs.langToggle) {
+    const defaultLang = getValidationBaseLanguage(key);
+    refs.langToggle.classList.remove("hidden");
+    refs.langOverride = defaultLang;
+    refs.langBtns.forEach((b) =>
+      b.classList.toggle("is-active", b.dataset.lang === defaultLang)
+    );
+    if (refs.input) {
+      refs.input.placeholder = textForLanguage(defaultLang, "matchValidatePlaceholder") || "";
+    }
+  }
+
   validationSections.set(key, refs);
+}
+
+// Show the lang toggle for a validation section and pre-select a language.
+// Called by training.js when an in_english/in_spanish card is active.
+export function showValidationLangToggle(key, defaultLang) {
+  const section = validationSections.get(key);
+  if (!section?.langToggle) return;
+  const lang = normalizeLanguage(defaultLang);
+  section.langToggle.classList.remove("hidden");
+  section.langOverride = lang;
+  section.langBtns.forEach((b) =>
+    b.classList.toggle("is-active", b.dataset.lang === lang)
+  );
+  if (section.input) {
+    section.input.placeholder = textForLanguage(lang, "matchValidatePlaceholder") || "";
+  }
+}
+export function hideValidationLangToggle(key) {
+  const section = validationSections.get(key);
+  if (!section?.langToggle) return;
+  section.langToggle.classList.add("hidden");
+  section.langOverride = null;
+  section.langBtns.forEach((b) => b.classList.remove("is-active"));
 }
 
 async function handleValidateSection(key = "match") {
@@ -6715,14 +6852,17 @@ async function handleValidateSection(key = "match") {
   status.textContent = t("matchValidateAction");
   status.className = "match-validation-status";
   try {
-    const rulesText = getValidationRules();
-    const result = await matchController.validateWord(word, rulesText);
+    const validationLang = getValidationSelectedLanguage(section, key);
+    const baseLang = getValidationBaseLanguage(key);
+    const rulesText = getValidationRulesForLang(validationLang);
+    const result = await matchController.validateWord(word, rulesText, { language: validationLang });
     const ok = !!result?.isValid;
     const base = ok ? t("matchValidateOk") : t("matchValidateFail");
     const reason = result?.reason ? ` ${result.reason}` : "";
     status.textContent = `${base}${reason}`;
     status.className = `match-validation-status ${ok ? "ok" : "fail"}`;
-    showValidationResult(ok ? "ok" : "fail", `${base}${reason}`);
+    showValidationResult(ok ? "ok" : "fail", `${base}${reason}`,
+      validationLang !== baseLang ? validationLang.toUpperCase() : null);
     if (key === "round-keypad" && getRoundEndKeypadPlayerId()) {
       const st = matchController.getState();
       setRoundEndValidationEntry(getRoundEndKeypadPlayerId(), {
@@ -6732,6 +6872,7 @@ async function handleValidateSection(key = "match") {
         round: st?.round,
         statusText: status.textContent,
         statusClass: status.className,
+        language: validationLang,
       });
     }
     if (key === "match" && ok) {
@@ -6748,7 +6889,7 @@ async function handleValidateSection(key = "match") {
     logger.error("Word validation failed", e);
     status.textContent = t("matchValidateError");
     status.className = "match-validation-status error";
-    showValidationResult("error", t("matchValidateError"));
+    showValidationResult("error", t("matchValidateError"), null);
     if (key === "round-keypad" && getRoundEndKeypadPlayerId()) {
       const st = matchController.getState();
       setRoundEndValidationEntry(getRoundEndKeypadPlayerId(), {
@@ -6758,6 +6899,7 @@ async function handleValidateSection(key = "match") {
         round: st?.round,
         statusText: status.textContent,
         statusClass: status.className,
+        language: validationLang,
       });
     }
   } finally {
@@ -6814,7 +6956,7 @@ function stopMatchTimer() {
   matchController.stopTimer?.();
 }
 
-function showValidationResult(status, message) {
+function showValidationResult(status, message, langBadge = null) {
   const overlay = document.querySelector('.modal-overlay[data-modal="validation-result"]');
   if (!overlay) return;
   const panel = overlay.querySelector(".result-panel");
@@ -6826,6 +6968,13 @@ function showValidationResult(status, message) {
   const iconEl = document.getElementById("validationResultIcon");
   const titleEl = document.getElementById("validationResultTitle");
   const msgEl = document.getElementById("validationResultMessage");
+  // Language badge on the ribbon — shown when validation used a different
+  // language than the session default (e.g. EN toggle on an ES game).
+  const badgeEl = document.getElementById("validationResultLangBadge");
+  if (badgeEl) {
+    badgeEl.textContent = langBadge || "";
+    badgeEl.classList.toggle("hidden", !langBadge);
+  }
   const btn = document.getElementById("validationResultCloseBtn");
   if (iconEl) iconEl.textContent = status === "ok" ? "✔" : status === "fail" ? "✖" : "!";
   if (titleEl)
@@ -7203,11 +7352,14 @@ function cloneValidationRules(source) {
 }
 
 function getValidationRules() {
+  return getValidationRulesForLang(getRulesLanguage());
+}
+
+function getValidationRulesForLang(lang) {
   const source =
     _shell.rulesEditContext.value === "temp"
       ? _shell.tempValidationRules.value
       : _shell.validationRules.value;
-  const lang = getRulesLanguage();
   const langRule =
     source && typeof source === "object" && source !== null
       ? source[lang]
@@ -7850,6 +8002,9 @@ export function setupMatchEventListeners() {
 
   document.querySelectorAll(".record-word-chip").forEach((btn) => {
     btn.addEventListener("click", handleRecordWordToggle);
+  });
+  document.querySelectorAll("#recordWordLangToggle .validation-lang-btn").forEach((btn) => {
+    btn.addEventListener("click", () => setRecordWordLanguage(btn.dataset.lang));
   });
 
   const recordWordInput = document.getElementById("recordWordInput");

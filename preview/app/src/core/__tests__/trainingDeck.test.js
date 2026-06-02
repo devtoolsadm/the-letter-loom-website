@@ -12,6 +12,7 @@ import {
   HAND_SIZES,
 } from '../trainingDeck.js'
 import { makeLetter, makeConsonant, makeActionCard, resetIds } from './helpers.js'
+import { ACTION_CARDS } from '../constants.js'
 
 // ── buildVowelDeck ───────────────────────────────────────────────────────────
 
@@ -84,12 +85,25 @@ describe('buildActionDeck', () => {
 
   it('excludes deferred (inMVP:false) cards by default', () => {
     const deck = buildActionDeck()
-    expect(deck.every(c => c.actionId !== 'in_english')).toBe(true)
+    const deferredIds = new Set(
+      ACTION_CARDS.filter((a) => a.inMVP === false).map((a) => a.id),
+    )
+    expect(deck.some((c) => deferredIds.has(c.actionId))).toBe(false)
   })
 
   it('includes deferred cards when excludeDeferred=false', () => {
-    const deck = buildActionDeck({ excludeDeferred: false })
-    expect(deck.some(c => c.actionId === 'in_english')).toBe(true)
+    const inclusive = buildActionDeck({ excludeDeferred: false })
+    const exclusive = buildActionDeck()
+    // The "excludeDeferred=false" deck must contain every card the default
+    // deck contains, PLUS any card whose definition has inMVP:false.
+    const exclusiveIds = new Set(exclusive.map((c) => c.actionId))
+    for (const id of exclusiveIds) {
+      expect(inclusive.some((c) => c.actionId === id)).toBe(true)
+    }
+    const deferred = ACTION_CARDS.filter((a) => a.inMVP === false)
+    for (const a of deferred) {
+      expect(inclusive.some((c) => c.actionId === a.id)).toBe(true)
+    }
   })
 
   it('filters language-specific action cards for English matches', () => {

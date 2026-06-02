@@ -15,30 +15,30 @@ beforeEach(() => resetIds())
 // ── Self-bonus ──────────────────────────────────────────────────────────────
 
 describe('in_english', () => {
-  it('adds +10 score modifier and forced rule to source', () => {
+  it('registers optional English bonus for source', () => {
     const state = makeState()
     const action = makeActionCard({ actionId: 'in_english' })
     const next = applyActionEffect(state, action, 'p1', null, {})
-    expect(next.scoreModifiers.p1).toBe(10)
+    expect(next.scoreModifiers?.p1).toBeUndefined()
     expect(next.forcedRules.p1).toHaveLength(1)
     expect(next.forcedRules.p1[0].actionId).toBe('in_english')
     expect(next.forcedRules.p1[0].payload).toEqual({ language: 'en' })
   })
 
-  it('accumulates with existing modifiers', () => {
+  it('does not alter existing modifiers', () => {
     const state = makeState({ scoreModifiers: { p1: 5 } })
     const action = makeActionCard({ actionId: 'in_english' })
     const next = applyActionEffect(state, action, 'p1', null, {})
-    expect(next.scoreModifiers.p1).toBe(15)
+    expect(next.scoreModifiers.p1).toBe(5)
   })
 })
 
 describe('in_spanish', () => {
-  it('adds +10 score modifier and forced Spanish rule to source', () => {
+  it('registers optional Spanish bonus for source', () => {
     const state = makeState()
     const action = makeActionCard({ actionId: 'in_spanish' })
     const next = applyActionEffect(state, action, 'p1', null, {})
-    expect(next.scoreModifiers.p1).toBe(10)
+    expect(next.scoreModifiers?.p1).toBeUndefined()
     expect(next.forcedRules.p1).toHaveLength(1)
     expect(next.forcedRules.p1[0].actionId).toBe('in_spanish')
     expect(next.forcedRules.p1[0].payload).toEqual({ language: 'es' })
