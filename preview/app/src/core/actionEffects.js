@@ -253,14 +253,32 @@ function applyActionEffectInner(state, action, sourcePlayerId, targetPlayerId, p
         for (const pick of payload.picks) {
           if (isShielded(st, pick.playerId)) continue;
           const h = ensureHand(st, pick.playerId);
-          const { taken, hand } = takeLetterByKind(h, pick.kind, rng);
+          let taken = null;
+          let hand = h;
+          if (pick.cardId) {
+            taken = (h.letters ?? []).find((c) => c?.id === pick.cardId && !c.isActionWildcard);
+            if (taken) {
+              hand = { ...h, letters: (h.letters ?? []).filter((c) => c?.id !== pick.cardId) };
+            }
+          } else {
+            const result = takeLetterByKind(h, pick.kind, rng);
+            taken = result.taken;
+            hand = result.hand;
+          }
           if (taken) {
             drawn.push(taken);
             st = { ...st, hands: { ...st.hands, [pick.playerId]: hand } };
           }
         }
-        const toBoard = drawn.slice(0, 2);
-        const toDiscard = drawn.slice(2);
+        const chosenIds = new Set((payload.boardCardIds ?? []).slice(0, 2));
+        const toBoard = chosenIds.size > 0
+          ? [
+              ...drawn.filter((c) => chosenIds.has(c.id)),
+              ...drawn.filter((c) => !chosenIds.has(c.id)),
+            ].slice(0, 2)
+          : drawn.slice(0, 2);
+        const boardIds = new Set(toBoard.map((c) => c.id));
+        const toDiscard = drawn.filter((c) => !boardIds.has(c.id));
         const newDiscards = { ...st.discards };
         newDiscards.vowels = newDiscards.vowels.slice();
         newDiscards.consonants = newDiscards.consonants.slice();

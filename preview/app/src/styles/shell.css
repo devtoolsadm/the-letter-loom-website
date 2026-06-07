@@ -4605,6 +4605,10 @@ body.splash-ready #splashLoadingBlock {
   transition: transform 80ms ease;
 }
 .training-picker-option:active { transform: translateY(2px); }
+.training-picker-option.is-card-choice {
+  min-width: 48px;
+  height: 42px;
+}
 .training-picker-card-token {
   display: inline-flex;
   align-items: center;
@@ -4696,6 +4700,16 @@ body.splash-ready #splashLoadingBlock {
 .training-picker-confirm-btn:active {
   background: linear-gradient(180deg, #f0b800 0%, #c8980000 100%);
   transform: scale(0.97);
+}
+.training-picker-confirm-btn:disabled,
+.training-picker-confirm-btn.disabled {
+  opacity: 0.55;
+  filter: grayscale(0.3);
+  cursor: default;
+}
+.training-picker-confirm-btn:disabled:active,
+.training-picker-confirm-btn.disabled:active {
+  transform: none;
 }
 
 /* Tilde choice modal: two card-shaped options side by side */

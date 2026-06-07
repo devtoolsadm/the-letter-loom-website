@@ -580,6 +580,41 @@ describe('two_to_center', () => {
     const totalDiscarded = next.discards.vowels.length + next.discards.consonants.length
     expect(totalDiscarded).toBe(1)
   })
+
+  it('uses selected revealed cards for the board when more than 2 were stolen', () => {
+    const players = [
+      { id: 'p1', name: 'Tú', score: 0, rounds: [], isGhost: false },
+      { id: 'p2', name: 'Op1', score: 0, rounds: [], isGhost: true },
+      { id: 'p3', name: 'Op2', score: 0, rounds: [], isGhost: true },
+      { id: 'p4', name: 'Op3', score: 0, rounds: [], isGhost: true },
+    ]
+    const l2 = makeLetter({ id: 'l2', letter: 'A', kind: 'vowel' })
+    const l3 = makeConsonant({ id: 'l3', letter: 'S' })
+    const l4 = makeLetter({ id: 'l4', letter: 'E', kind: 'vowel' })
+    const state = makeState({
+      players,
+      hands: {
+        p1: { letters: [], actions: [] },
+        p2: { letters: [l2], actions: [] },
+        p3: { letters: [l3], actions: [] },
+        p4: { letters: [l4], actions: [] },
+      },
+      centralBoard: [],
+      discards: { vowels: [], consonants: [], actions: [] },
+    })
+    const action = makeActionCard({ actionId: 'two_to_center' })
+    const next = applyActionEffect(state, action, 'p1', null, {
+      picks: [
+        { playerId: 'p2', cardId: 'l2', kind: 'vowel' },
+        { playerId: 'p3', cardId: 'l3', kind: 'consonant' },
+        { playerId: 'p4', cardId: 'l4', kind: 'vowel' },
+      ],
+      boardCardIds: ['l4', 'l2'],
+    }, rng0)
+
+    expect(next.centralBoard.map((c) => c.id)).toEqual(['l2', 'l4'])
+    expect(next.discards.consonants.map((c) => c.id)).toContain('l3')
+  })
 })
 
 describe('renew_board', () => {

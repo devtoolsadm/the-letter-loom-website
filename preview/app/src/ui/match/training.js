@@ -2674,6 +2674,107 @@ function renderPickerCardToken(card) {
   return token;
 }
 
+function findPickedTwoToCenterCards(state, picks) {
+  const cards = [];
+  for (const pick of picks ?? []) {
+    const hand = state.hands?.[pick.playerId];
+    const letters = hand && hand !== "<hidden>" ? (hand.letters ?? []) : [];
+    let card = null;
+    if (pick.cardId) {
+      card = letters.find((c) => c?.id === pick.cardId && !c.isActionWildcard);
+    }
+    if (!card) {
+      card = letters.find((c) => c && !c.isActionWildcard && (!pick.kind || c.kind === pick.kind));
+    }
+    if (card) cards.push(card);
+  }
+  return cards;
+}
+
+function openTwoToCenterBoardPicker(cards, context, onConfirm, timeoutMs = PICKER_TIMEOUT_MS) {
+  const overlay = document.createElement("div");
+  overlay.className = "training-picker-overlay";
+  const card = document.createElement("div");
+  card.className = "training-picker-card";
+  if (context) {
+    const ctx = document.createElement("div");
+    ctx.className = "training-picker-context is-" + context.kind;
+    ctx.textContent = context.label;
+    card.appendChild(ctx);
+  }
+  const title = document.createElement("div");
+  title.className = "training-picker-title";
+  title.textContent = t("trainingTwoToCenterPickBoardTitle") || "Elige 2 para el tablero";
+  card.appendChild(title);
+
+  const selected = new Set();
+  let timerInterval = null;
+  let remaining = timeoutMs;
+
+  function confirmSelection() {
+    if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+    if (document.body.contains(overlay)) document.body.removeChild(overlay);
+    const ids = [...selected].slice(0, 2);
+    onConfirm(ids.length === 2 ? ids : cards.slice(0, 2).map((c) => c.id));
+  }
+
+  if (timeoutMs > 0 && cards.length > 0) {
+    const timerWrap = document.createElement("div");
+    timerWrap.className = "training-picker-timer-wrap";
+    const timerBar = document.createElement("div");
+    timerBar.className = "training-picker-timer-bar";
+    timerBar.style.width = "100%";
+    timerWrap.appendChild(timerBar);
+    card.appendChild(timerWrap);
+    timerInterval = setInterval(() => {
+      remaining -= 100;
+      const pct = Math.max(0, (remaining / timeoutMs) * 100);
+      timerBar.style.width = pct + "%";
+      if (remaining <= 0) confirmSelection();
+    }, 100);
+  }
+
+  const list = document.createElement("div");
+  list.className = "training-picker-options";
+  for (const picked of cards) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "training-picker-option is-card-choice"
+      + (picked.isWildcard ? " is-wildcard-choice" : "")
+      + (picked.kind === "vowel" ? " is-vowel-wildcard-choice" : " is-consonant-wildcard-choice")
+      + (selected.has(picked.id) ? " is-selected" : "");
+    btn.textContent = picked.isWildcard ? "★" : picked.letter;
+    btn.addEventListener("click", () => {
+      if (selected.has(picked.id)) {
+        selected.delete(picked.id);
+      } else {
+        if (selected.size >= 2) selected.delete([...selected][0]);
+        selected.add(picked.id);
+      }
+      list.querySelectorAll("button").forEach((b) =>
+        b.classList.toggle("is-selected", selected.has(b.dataset.cardId)),
+      );
+      confirmBtn.disabled = selected.size !== 2;
+      confirmBtn.classList.toggle("disabled", selected.size !== 2);
+    });
+    btn.dataset.cardId = picked.id;
+    list.appendChild(btn);
+  }
+  card.appendChild(list);
+
+  const confirmBtn = document.createElement("button");
+  confirmBtn.type = "button";
+  confirmBtn.className = "training-picker-confirm-btn";
+  confirmBtn.textContent = t("trainingChooseThisCard") || "Listo";
+  confirmBtn.disabled = selected.size !== 2;
+  confirmBtn.classList.toggle("disabled", selected.size !== 2);
+  confirmBtn.addEventListener("click", confirmSelection);
+  card.appendChild(confirmBtn);
+
+  overlay.appendChild(card);
+  document.body.appendChild(overlay);
+}
+
 // ── Ghost dorso (back-of-card) helpers ────────────────────────
 // Generate N simulated card backs (V/C) for a ghost's hidden hand.
 // ~35% vowels, 65% consonants (Spanish distribution).
@@ -2704,10 +2805,10 @@ function openDorsoPicker({ backs, context, onPick, timeoutMs = 0 }) {
   let timerInterval = null;
   let remaining = timeoutMs;
 
-  function dismiss(kind) {
+  function dismiss(back) {
     if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
     if (document.body.contains(overlay)) document.body.removeChild(overlay);
-    onPick(kind);
+    onPick(back);
   }
 
   if (timeoutMs > 0 && backs.length > 0) {
@@ -2725,7 +2826,7 @@ function openDorsoPicker({ backs, context, onPick, timeoutMs = 0 }) {
       if (remaining <= 0) {
         clearInterval(timerInterval);
         timerInterval = null;
-        dismiss(backs[0].kind);
+        dismiss(backs[0]);
       }
     }, 100);
   }
@@ -2737,7 +2838,7 @@ function openDorsoPicker({ backs, context, onPick, timeoutMs = 0 }) {
     btn.type = "button";
     btn.className = `training-picker-option is-dorso is-dorso-${b.kind === "vowel" ? "vowel" : "consonant"}`;
     btn.textContent = b.kind === "vowel" ? "V" : "C";
-    btn.addEventListener("click", () => dismiss(b.kind));
+    btn.addEventListener("click", () => dismiss(b));
     list.appendChild(btn);
   }
   card.appendChild(list);
@@ -2751,7 +2852,7 @@ function getPlayerBacks(state, playerId) {
   if (!hand || hand === "<hidden>") return generateGhostBacks(3);
   const letters = (hand.letters ?? []).filter(Boolean);
   if (letters.length === 0) return generateGhostBacks(3);
-  return letters.map((c) => ({ kind: c.kind }));
+  return letters.map((c) => ({ id: c.id, kind: c.kind }));
 }
 
 // Reorder players clockwise starting from the player AFTER actorId.
@@ -2777,8 +2878,8 @@ function pickFromEachGhostSequential(victims, count, context, onAllPicked, state
       backs,
       context: { label: context.label + " " + victim.name, kind: context.kind },
       timeoutMs: PICKER_TIMEOUT_MS,
-      onPick: (kind) => {
-        picks.push({ playerId: victim.id, kind });
+      onPick: (back) => {
+        picks.push({ playerId: victim.id, kind: back.kind, cardId: back.id });
         pickNext(idx + 1);
       },
     });
@@ -2814,7 +2915,7 @@ function pickTargetAndPayloadForUser(state, card, done, actorLabel = null, actor
           backs,
           context: attackCtx,
           timeoutMs: PICKER_TIMEOUT_MS,
-          onPick: (targetKind) => done(targetId, { targetKind }),
+          onPick: (back) => done(targetId, { targetKind: back.kind, cardId: back.id }),
         });
       },
     });
@@ -2836,7 +2937,7 @@ function pickTargetAndPayloadForUser(state, card, done, actorLabel = null, actor
           backs,
           context: attackCtx,
           timeoutMs: PICKER_TIMEOUT_MS,
-          onPick: (targetKind) => done(targetId, { targetKind }),
+          onPick: (back) => done(targetId, { targetKind: back.kind, cardId: back.id }),
         });
       },
     });
@@ -2868,7 +2969,14 @@ function pickTargetAndPayloadForUser(state, card, done, actorLabel = null, actor
     const victims = unshielded(inTurnOrder(state.players, actor_id));
     if (victims.length === 0) { done(null, {}); return; }
     pickFromEachGhostSequential(victims, 3, attackCtx, (picks) => {
-      done(null, { picks });
+      const pickedCards = findPickedTwoToCenterCards(state, picks);
+      if (pickedCards.length <= 2) {
+        done(null, { picks, boardCardIds: pickedCards.map((c) => c.id) });
+        return;
+      }
+      openTwoToCenterBoardPicker(pickedCards, selfCtx, (boardCardIds) => {
+        done(null, { picks, boardCardIds });
+      });
     }, state);
     return;
   }
@@ -2978,7 +3086,7 @@ function pickTargetAndPayloadForUser(state, card, done, actorLabel = null, actor
               backs,
               context: attackCtx,
               timeoutMs: PICKER_TIMEOUT_MS,
-              onPick: (targetKind) => done(targetId, { fromId, targetKind }),
+              onPick: (back) => done(targetId, { fromId, targetKind: back.kind, toId: back.id }),
             });
           },
         });
@@ -3007,7 +3115,7 @@ function pickTargetAndPayloadForUser(state, card, done, actorLabel = null, actor
       if (card.actionId === "use_consonant") return c.kind === "consonant";
       return true;
     });
-    if (letters.length === 0) { done(null, {}); return; }
+    if (letters.length === 0) { done(null, { letter: null, cardId: null }); return; }
     openTrainingPicker({
       titleKey: "trainingPickLetterTitle",
       context: selfCtx,

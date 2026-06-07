@@ -28,6 +28,13 @@ let _bubbleClass = "training-action-bubble";
 let _pillSelector = (pid) => `.training-score-pill[data-player-id="${pid}"]`;
 let _userPillSelector = ".training-score-pill.is-user";
 
+function formatActionNameForLog(log) {
+  const base = _humanActionName(log?.actionId);
+  if (!["use_vowel", "use_consonant", "use_letter"].includes(log?.actionId)) return base;
+  const letter = String(log?.payload?.letter || "-").trim().toUpperCase();
+  return `${base}: ${letter || "-"}`;
+}
+
 export function configureActionToast(opts = {}) {
   if (typeof opts.humanActionName === "function") _humanActionName = opts.humanActionName;
   // isReachingUser(state, log) → boolean. Determines whether the user is
@@ -92,14 +99,14 @@ export function showActionToast(state, log, opts = {}) {
   const isAttackTarget = reachesUser && !blocked;
   currentActionBubble = {
     playerId: log.playerId,
-    text: _humanActionName(log.actionId),
+    text: formatActionNameForLog(log),
     blocked,
     isAttackOnUser: isAttackTarget,
     isNew: true,
   };
   if (isAttackTarget) {
     const attacker = (state?.players ?? []).find((p) => p.id === log.playerId);
-    triggerAttackBanner(attacker?.name || log.playerId, _humanActionName(log.actionId));
+    triggerAttackBanner(attacker?.name || log.playerId, formatActionNameForLog(log));
   }
   attachActionBubble();
   bubbleAutoHideTimeout = setTimeout(clearActionBanner, BUBBLE_AUTOHIDE_MS);
