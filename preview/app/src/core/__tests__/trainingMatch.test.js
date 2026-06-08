@@ -852,6 +852,31 @@ describe('finalizeUserWord', () => {
     expect(result.userWordResult.score).toBe(0)
   })
 
+  it('passes philologist when virtual-tilde word provided via opts.philoWord', () => {
+    const bc = makeLetter({ id: 'bc1', letter: 'A', value: 2, kind: 'vowel', color: 'blue' })
+    const hc = makeConsonant({ id: 'hc1', letter: 'S', value: 4 })
+    const state = makeState({
+      phase: 'creation',
+      players: [{ id: 'p1', name: 'Tú', score: 0, rounds: [], isGhost: false }],
+      centralBoard: [bc],
+      hands: { p1: { letters: [hc], actions: [] } },
+      userWord: [
+        { cardId: 'bc1', source: 'board', tilde: false, chosen: null },
+        { cardId: 'hc1', source: 'hand', tilde: false, chosen: null },
+      ],
+      forcedRules: {
+        p1: [{ actionId: 'philologist', source: 'p2', payload: {} }],
+      },
+      scoreModifiers: {},
+      ghostLevel: 'easy',
+    })
+    // Picker provided 'ÁS' as the virtual-tilde variant
+    const result = finalizeUserWord(state, 'es', { philoWord: 'ÁS' })
+    expect(result.userWordResult.valid).toBe(true)
+    expect(result.userWordResult.checking).toBe(true)
+    expect(result.userWordResult.score).toBeGreaterThan(0)
+  })
+
   it('updates all player scores (user + ghosts)', () => {
     const bc = makeLetter({ id: 'bc1', letter: 'A', value: 2, kind: 'vowel', color: 'blue' })
     const hc = makeConsonant({ id: 'hc1', letter: 'S', value: 4, kind: 'consonant', color: 'orange' })

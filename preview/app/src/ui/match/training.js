@@ -33,6 +33,7 @@ import {
   submitUserWord,
   advanceToNextBaza,
   userHasPalabraExtra,
+  setDictWords,
 } from "../../core/trainingMatch.js";
 import {
   ACTION_CARDS,
@@ -82,7 +83,7 @@ import {
   ensureDriverScheduledIfNeeded,
   advanceAfterAction,
 } from "./actionsController.js";
-import { getForcedWordLanguage } from "../../core/wordRules.js";
+import { getForcedWordLanguage, hasTilde, applyTildeAt, tildableVowelIndices } from "../../core/wordRules.js";
 import {
   debugLogReset,
   debugLogPushBazaStart,
@@ -1001,6 +1002,10 @@ function renderTrainingForcedRules(state) {
       messages.push(t("trainingForcedTilde") || "");
     } else if (e.actionId === "brain_squeeze") {
       messages.push(t("trainingForcedSyllables") || "");
+    } else if (e.actionId === "in_english") {
+      messages.push(t("trainingBonusInEnglish") || "EN +10");
+    } else if (e.actionId === "in_spanish") {
+      messages.push(t("trainingBonusInSpanish") || "ES +10");
     } else if (["use_vowel", "use_consonant", "use_letter"].includes(e.actionId)) {
       requiredLetters.push(e.payload?.letter || "?");
     }
@@ -1410,24 +1415,20 @@ function renderTrainingWordStrip(state) {
       });
       if (trainingWordLangOverride === null) {
         trainingWordLangOverride = cardLang;
-        toggle.querySelectorAll(".validation-lang-btn").forEach((b) =>
-          b.classList.toggle("is-active", b.dataset.lang === cardLang),
-        );
-        if (!toggle.dataset.wired) {
-          toggle.dataset.wired = "1";
-          toggle.querySelectorAll(".validation-lang-btn").forEach((btn) => {
-            btn.addEventListener("click", () => {
-              trainingWordLangOverride = btn.dataset.lang;
-              toggle.querySelectorAll(".validation-lang-btn").forEach((b) =>
-                b.classList.toggle("is-active", b === btn),
-              );
-            });
+      }
+      toggle.querySelectorAll(".validation-lang-btn").forEach((b) =>
+        b.classList.toggle("is-active", b.dataset.lang === trainingWordLangOverride),
+      );
+      if (!toggle.dataset.wired) {
+        toggle.dataset.wired = "1";
+        toggle.querySelectorAll(".validation-lang-btn").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            trainingWordLangOverride = btn.dataset.lang;
+            toggle.querySelectorAll(".validation-lang-btn").forEach((b) =>
+              b.classList.toggle("is-active", b === btn),
+            );
           });
-        }
-      } else {
-        toggle.querySelectorAll(".validation-lang-btn").forEach((b) =>
-          b.classList.toggle("is-active", b.dataset.lang === trainingWordLangOverride),
-        );
+        });
       }
     } else {
       trainingWordLangOverride = null;
@@ -1868,27 +1869,29 @@ function renderTrainingResult(state) {
     panel.appendChild(validityRow);
 
     const hasP2 = !!result.word2;
+    // Use the dict variant (with virtual tilde from philologist picker) for display.
+    const displayWord  = result.wordForDict  ?? result.word  ?? "—";
+    const displayWord2 = result.word2ForDict ?? result.word2 ?? null;
     const wordEl = document.createElement("div");
     wordEl.className = "training-result-word" + (!result.checking && !result.valid ? " is-invalid" : "");
     if (hasP2) {
-      // Show both words side by side.
       const p1span = document.createElement("span");
-      p1span.textContent = result.word || "—";
+      p1span.textContent = displayWord;
       const sep = document.createElement("span");
       sep.className = "training-result-word-sep";
       sep.textContent = " + ";
       const p2span = document.createElement("span");
-      p2span.textContent = result.word2;
+      p2span.textContent = displayWord2;
       wordEl.append(p1span, sep, p2span);
     } else {
-      wordEl.textContent = result.word || "—";
+      wordEl.textContent = displayWord;
     }
     panel.appendChild(wordEl);
 
     if (!result.checking && !result.valid && result.reason) {
       const reasonEl = document.createElement("div");
       reasonEl.className = "training-result-reason";
-      const whichWord = result.invalidWord === "p2" ? ` (P2: ${result.word2 || ""})` : "";
+      const whichWord = result.invalidWord === "p2" ? ` (P2: ${displayWord2 || ""})` : "";
       const reasonKey = {
         too_short:          "trainingResultReasonTooShort",
         missing_source:     "trainingResultReasonSource",
@@ -2165,8 +2168,6 @@ function finishTrainingTimer() {
   const state = getTrainingMatch();
   if (!state) return;
   if (state.phase === "strategy") {
-    // Same path as the user pressing "Listo": close strategy honouring the
-    // currently focused action card (if any) as the preselection.
     confirmStrategyReady();
     return;
   }
@@ -2174,74 +2175,239 @@ function finishTrainingTimer() {
     stopTrainingTimer();
     trainingClockPhase = null;
     _shell.stopClockLoop(false);
-    const finalized = finalizeUserWord(state, trainingWordLangOverride ?? state.language ?? "es");
-    const r = finalized.userWordResult;
-    if (r) debugLogPushWord(finalized, { word: r.word, valid: r.valid, score: r.score, reason: r.reason });
-    renderTrainingMatch();
-    if (r?.valid && r?.word) validateAndUpdateUserWord(finalized);
+    void submitTrainingWord(state);
     return;
   }
 }
 
-// Async word-existence validation. Runs AFTER finalizeUserWord (which only
-// checks structural rules). If the word doesn't exist in the dictionary (and
-// AI also rejects it), we revert the user's score for the round to 0 and
-// mark the result as invalid. Network-dependent; rendered as "validando…"
-// while in flight.
+// Central submit entry point for the creation phase.
+// 1. If philologist is active and no word has a tilde yet → show picker first.
+// 2. finalizeUserWord (local rules, score, phase → result).
+// 3. renderTrainingMatch (shows spinner because checking=true).
+// 4. If locally valid → validateAndUpdateUserWord (async dictionary check).
+async function submitTrainingWord(state) {
+  const lang = trainingWordLangOverride ?? state.language ?? "es";
+  const userId = state.players[0].id;
+  const forcedEffects = state.forcedRules?.[userId] ?? [];
+  const hasPhilologist = forcedEffects.some((e) => e.actionId === "philologist");
+
+  // ── Philologist picker (before finalize) ────────────────────
+  // If philologist is active and no word has a physical tilde, ask the player
+  // which vowel to accent. The virtual-tilde word is passed to finalizeUserWord
+  // so the philologist rule passes, and to the dictionary for lookup.
+  let philoOpts = {};   // { philoWord, philoWord2 } for finalizeUserWord
+  let dictWordOverride = null;  // { wordForDict, word2ForDict } for setDictWords
+  if (hasPhilologist) {
+    // Build a quick preview of the words to know if picker is needed.
+    const preview = finalizeUserWord(state, lang, { skipForcedRules: true });
+    const pw1 = preview.userWordResult?.word ?? "";
+    const pw2 = preview.userWordResult?.word2 ?? null;
+    const w1HasTilde = hasTilde(pw1);
+    const w2HasTilde = hasTilde(pw2 ?? "");
+    if (!w1HasTilde && !w2HasTilde && pw1.length >= 2) {
+      const pick = await openPhiloPickerModal(pw1, pw2);
+      philoOpts = { philoWord: pick.wordForDict, philoWord2: pick.word2ForDict };
+      dictWordOverride = pick;
+    }
+  }
+
+  const finalized = finalizeUserWord(state, lang, philoOpts);
+  const r = finalized.userWordResult;
+  if (r) debugLogPushWord(finalized, { word: r.word, valid: r.valid, score: r.score, reason: r.reason });
+
+  let toValidate = finalized;
+  if (dictWordOverride && r?.valid) {
+    toValidate = setDictWords(finalized, dictWordOverride.wordForDict, dictWordOverride.word2ForDict);
+  }
+
+  renderTrainingMatch();
+  if (r?.valid) validateAndUpdateUserWord(toValidate);
+}
+
+// Philologist tilde picker modal. Returns { wordForDict, word2ForDict } with
+// at least one word tilde-augmented. word2 is null when there is no P2.
+// On timeout, auto-picks the first tildable vowel of P1.
+const PHILO_PICKER_TIMER_S = 8;
+function openPhiloPickerModal(word, word2) {
+  return new Promise((resolve) => {
+    let resolved = false;
+    let timerInterval = null;
+    let remaining = PHILO_PICKER_TIMER_S;
+    let pickedTildeIdx1 = null;
+    let pickedTildeIdx2 = null;
+
+    const overlay = document.createElement("div");
+    overlay.className = "training-picker-overlay";
+
+    const card = document.createElement("div");
+    card.className = "training-picker-card";
+
+    // Context badge (like other pickers showing who played the card)
+    const ctx = document.createElement("div");
+    ctx.className = "training-picker-context is-forced";
+    ctx.textContent = t("trainingPhiloPickerContext") || "Filólogo activo";
+    card.appendChild(ctx);
+
+    // Title
+    const title = document.createElement("div");
+    title.className = "training-picker-title";
+    title.textContent = t("trainingPhiloPickerTitle") || "¿Dónde va la tilde?";
+    card.appendChild(title);
+
+    // Subtitle card (action card visual)
+    const subtitleCard = document.createElement("div");
+    subtitleCard.className = "training-picker-subtitle-card";
+    const actionEl = renderActionCard({ actionId: "philologist", kind: "rule_force", target: "one" });
+    subtitleCard.appendChild(actionEl);
+    card.appendChild(subtitleCard);
+
+    // Instruction subtitle
+    const sub = document.createElement("div");
+    sub.className = "training-picker-subtitle";
+    sub.textContent = t("trainingPhiloPickerSubtitle") || "Toca la vocal que llevaría tilde";
+    card.appendChild(sub);
+
+    // Timer bar (same as other pickers)
+    const timerWrap = document.createElement("div");
+    timerWrap.className = "training-picker-timer-wrap";
+    const timerBar = document.createElement("div");
+    timerBar.className = "training-picker-timer-bar";
+    timerWrap.appendChild(timerBar);
+    card.appendChild(timerWrap);
+
+    // Options area (word chips)
+    const optionsLabel = document.createElement("div");
+    optionsLabel.className = "training-picker-options-label";
+    optionsLabel.textContent = "";
+    card.appendChild(optionsLabel);
+
+    const optionsEl = document.createElement("div");
+    optionsEl.className = "training-picker-options philo-picker-options";
+    card.appendChild(optionsEl);
+
+    function buildWordRow(w, wordIndex, pickedIdx) {
+      const row = document.createElement("div");
+      row.className = "philo-picker-word-row";
+      if (word2) {
+        const label = document.createElement("span");
+        label.className = "philo-picker-word-label";
+        label.textContent = `P${wordIndex}`;
+        row.appendChild(label);
+      }
+      const chips = document.createElement("div");
+      chips.className = "philo-picker-chips";
+      for (let i = 0; i < w.length; i++) {
+        const ch = w[i];
+        const isTildable = !!{ A:1, E:1, I:1, O:1, U:1 }[ch.toUpperCase()];
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.className =
+          "philo-picker-chip" +
+          (isTildable ? " is-vowel" : "") +
+          (i === pickedIdx ? " is-picked" : "");
+        chip.textContent = i === pickedIdx ? applyTildeAt(w, i)[i] : ch;
+        if (isTildable) {
+          chip.addEventListener("click", () => {
+            if (resolved) return;
+            if (wordIndex === 1) pickedTildeIdx1 = i;
+            else pickedTildeIdx2 = i;
+            doResolve();
+          });
+        } else {
+          chip.disabled = true;
+        }
+        chips.appendChild(chip);
+      }
+      row.appendChild(chips);
+      return row;
+    }
+
+    function renderRows() {
+      optionsEl.innerHTML = "";
+      optionsEl.appendChild(buildWordRow(word, 1, pickedTildeIdx1));
+      if (word2) optionsEl.appendChild(buildWordRow(word2, 2, pickedTildeIdx2));
+    }
+
+    function doResolve() {
+      if (resolved) return;
+      resolved = true;
+      clearInterval(timerInterval);
+      document.body.removeChild(overlay);
+      const w1 = pickedTildeIdx1 !== null ? applyTildeAt(word, pickedTildeIdx1) : word;
+      const w2 = word2
+        ? (pickedTildeIdx2 !== null ? applyTildeAt(word2, pickedTildeIdx2) : word2)
+        : null;
+      resolve({ wordForDict: w1, word2ForDict: w2 });
+    }
+
+    renderRows();
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+
+    timerInterval = setInterval(() => {
+      remaining -= 1;
+      const pct = Math.max(0, remaining / PHILO_PICKER_TIMER_S) * 100;
+      timerBar.style.width = pct + "%";
+      if (remaining <= 0) {
+        if (pickedTildeIdx1 === null) {
+          const indices = tildableVowelIndices(word);
+          if (indices.length > 0) pickedTildeIdx1 = indices[0];
+        }
+        doResolve();
+      }
+    }, 1000);
+  });
+}
+
+// Async dictionary validation for P1 (and P2 if present).
+// Runs AFTER finalizeUserWord. Uses wordForDict / word2ForDict which may
+// have tilde overrides from the philologist picker.
+// If any word fails → revert score + mark invalid.
 async function validateAndUpdateUserWord(state) {
-  const word = state.userWordResult?.word;
+  const result = state.userWordResult;
+  if (!result?.valid) return;
+  const word = result.wordForDict ?? result.word;
+  const word2 = result.word2ForDict ?? result.word2 ?? null;
   if (!word) return;
   const language = getTrainingEffectiveWordLanguage(state);
-  // Mark as "checking" so the UI can show a transient state.
-  const checking = {
-    ...state,
-    userWordResult: { ...state.userWordResult, checking: true },
-  };
-  saveTrainingMatch(checking);
-  renderTrainingMatch();
 
-  let result;
+  // Validate P1 and P2 in parallel.
+  let r1, r2;
   try {
-    result = await validateWordLayered(word, {
-      language,
-      layers: LAYER_PRESETS.training,
-    });
+    const p1 = validateWordLayered(word, { language, layers: LAYER_PRESETS.training });
+    const p2 = word2
+      ? validateWordLayered(word2, { language, layers: LAYER_PRESETS.training })
+      : Promise.resolve({ valid: true, source: "n/a" });
+    [r1, r2] = await Promise.all([p1, p2]);
   } catch (err) {
     logger.warn("[training] dictionary validation failed", err);
-    // On error, leave the structural verdict intact (don't penalise).
     const current = getTrainingMatch();
     if (!current?.userWordResult) return;
-    const cleared = {
-      ...current,
-      userWordResult: { ...current.userWordResult, checking: false },
-    };
-    saveTrainingMatch(cleared);
+    saveTrainingMatch({ ...current, userWordResult: { ...current.userWordResult, checking: false } });
     renderTrainingMatch();
     return;
   }
 
   const current = getTrainingMatch();
   if (!current?.userWordResult) return;
-  // If the word changed between submit and validation (next baza already
-  // started), abort the update.
-  if (current.userWordResult.word !== word) return;
+  if (current.userWordResult.word !== result.word) return; // baza changed
 
-  if (result.valid) {
-    // Dictionary confirmed; clear the checking flag.
-    const cleared = {
+  const dictValid = r1.valid && r2.valid;
+  if (dictValid) {
+    saveTrainingMatch({
       ...current,
       userWordResult: {
         ...current.userWordResult,
         checking: false,
-        validationSource: result.source,
+        validationSource: r1.source,
       },
-    };
-    saveTrainingMatch(cleared);
+    });
     renderTrainingMatch();
     return;
   }
 
-  // Word doesn't exist → invalidate and revert the user's score.
+  // At least one word not in dictionary → revert score.
+  const failedWord = !r1.valid ? result.word : result.word2;
   const userId = current.players[0].id;
   const previousScore = current.userWordResult.score ?? 0;
   const newPlayers = current.players.map((p) => {
@@ -2252,19 +2418,21 @@ async function validateAndUpdateUserWord(state) {
     }
     return { ...p, rounds, score: Math.max(0, (p.score ?? 0) - previousScore) };
   });
-  const updated = {
+  saveTrainingMatch({
     ...current,
     players: newPlayers,
     userWordResult: {
       ...current.userWordResult,
       valid: false,
       reason: "not_in_dictionary",
+      invalidWord: !r1.valid ? "p1" : "p2",
       score: 0,
+      score1: 0,
+      score2: 0,
       checking: false,
-      validationSource: result.source,
+      validationSource: !r1.valid ? r1.source : r2.source,
     },
-  };
-  saveTrainingMatch(updated);
+  });
   renderTrainingMatch();
 }
 
@@ -3386,17 +3554,19 @@ function ensureTrainingTimer() {
         focusedActionIndex = null;
       }
     } else {
-      // Creation phase: tick; if timer ran out, finalize the word with
-      // validation/score and transition to result.
+      // Creation phase: tick; if timer ran out, delegate entirely to
+      // submitTrainingWord so the philologist picker and async validation
+      // are handled in the same way as a manual finish.
       next = tickCreationTimer(current);
       if (current.phase === "creation" && next.phase === "result") {
-        next = finalizeUserWord(current, trainingWordLangOverride ?? current.language ?? "es");
-        const r = next.userWordResult;
-        if (r) debugLogPushWord(next, { word: r.word, valid: r.valid, score: r.score, reason: r.reason });
-        if (r?.valid && r?.word) {
-          // Fire-and-forget; updates UI when the dictionary verdict returns.
-          validateAndUpdateUserWord(next);
-        }
+        stopTrainingTimer();
+        trainingClockPhase = null;
+        const timerEl = document.getElementById("trainingTimerValue");
+        if (timerEl) timerEl.textContent = "00:00";
+        _shell.stopClockLoop(false);
+        _shell.triggerTimeUpEffects("training");
+        void submitTrainingWord(current);
+        return;
       }
     }
     if (next.phase !== current.phase) {

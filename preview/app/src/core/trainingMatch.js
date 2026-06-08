@@ -747,11 +747,28 @@ export function submitUserWord(state) {
   return finalizeUserWord(state, state?.language || "es");
 }
 
+// Override the dictionary lookup words after finalizeUserWord has run.
+// Used by the philologist picker to inject a tilde-augmented wordForDict.
+export function setDictWords(state, wordForDict, word2ForDict) {
+  if (!state?.userWordResult) return state;
+  const next = {
+    ...state,
+    userWordResult: {
+      ...state.userWordResult,
+      wordForDict: wordForDict ?? state.userWordResult.wordForDict,
+      word2ForDict: word2ForDict !== undefined ? word2ForDict : state.userWordResult.word2ForDict,
+    },
+    updatedAt: Date.now(),
+  };
+  saveTrainingMatch(next);
+  return next;
+}
+
 // Validate the user's word locally (no AI yet), compute its score and
 // transition to the result phase. Sets `userWordResult` with the outcome.
 // When palabra_extra is active and userWord2 is non-empty, both words are
 // validated; either failing invalidates the whole turn.
-export function finalizeUserWord(state, language = "es") {
+export function finalizeUserWord(state, language = "es", opts = {}) {
   const userId = state.players[0].id;
   const selectedLanguage = normalizeLanguage(language);
   const hand = state.hands[userId];
@@ -833,11 +850,15 @@ export function finalizeUserWord(state, language = "es") {
   }
 
   // ── Forced rules checked over union of P1+P2 ────────────────
-  if (valid && (valid2 || !hasP2)) {
+  // opts.philoWord: virtual-tilde variant from the philologist picker.
+  // When provided, used instead of the raw word for the philologist check.
+  // opts.skipForcedRules: skip this block entirely (used for picker preview).
+  if (!opts?.skipForcedRules && valid && (valid2 || !hasP2)) {
     const unionCards = hasP2
       ? [...selectedCards, ...selectedCards2.filter((c) => c.id !== state.sharedCardId)]
       : selectedCards;
-    const unionWord = buildWordFromCards(unionCards);
+    const rawUnionWord = buildWordFromCards(unionCards);
+    const unionWord = opts?.philoWord ?? rawUnionWord;
     const forcedCheck = validateForcedRules({
       word: unionWord,
       selectedCards: unionCards,
@@ -919,8 +940,16 @@ export function finalizeUserWord(state, language = "es") {
       breakdown,
       breakdown2: hasP2 ? breakdown2 : null,
       word2: hasP2 ? wordStr2 : null,
+      // wordForDict / word2ForDict: the strings to send to the dictionary
+      // (may differ from word/word2 when a virtual tilde was applied by the
+      // philologist picker). Callers can override via opts.dictWords.
+      wordForDict: wordStr,
+      word2ForDict: hasP2 ? wordStr2 : null,
       language: selectedLanguage,
       languageBonusAttempted,
+      // Locally-valid words always start as "checking" so the result screen
+      // shows a spinner until the dictionary verdict arrives.
+      checking: overallValid,
     },
     updatedAt: Date.now(),
   };

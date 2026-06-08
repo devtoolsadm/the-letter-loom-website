@@ -2702,8 +2702,15 @@ function assignSrcToNodes(nodes, src) {
     }
   } else {
     const savedEmail = getStoredEmail();
+    const pendingOtpEmail = _getValidPendingOtpEmail();
     if (!navigator.onLine && savedEmail) {
       _proceedToApp();
+    } else if (pendingOtpEmail) {
+      // PWA was discarded while user was waiting for the OTP code — restore the code step.
+      _pendingEmail = pendingOtpEmail;
+      _showAuthEmailStep(savedEmail ? 'expired' : 'fresh', pendingOtpEmail);
+      showScreen("auth");
+      _showAuthCodeStep(pendingOtpEmail);
     } else {
       _showAuthEmailStep(savedEmail ? 'expired' : 'fresh', savedEmail);
       showScreen("auth");
@@ -2863,6 +2870,7 @@ function _handleNotYou() {
 
 function _handleChangeEmail() {
   _pendingEmail = null
+  _clearPendingOtpEmail()
   const codeInput = document.getElementById('authCodeInput')
   if (codeInput) codeInput.value = ''
   document.getElementById('authCodeError')?.classList.add('hidden')
@@ -2980,6 +2988,7 @@ async function _handleAuthVerify() {
   try {
     const { session, error } = await verifyOtp(_pendingEmail, code)
     if (error || !session) throw error ?? new Error('no_session')
+    _clearPendingOtpEmail()
     saveStoredEmail(_pendingEmail)
     _cachedEmail = _pendingEmail
     const { isFirstSignup } = await checkFirstSignup().catch(() => ({ isFirstSignup: false }))
@@ -3251,6 +3260,8 @@ async function _doLogout() {
   _cachedNickname = null
   _cachedEmail = null
   _cachedOptIn = false
+  _pendingEmail = null
+  _clearPendingOtpEmail()
   clearState()
   localStorage.removeItem(WORD_CANDIDATES_KEY)
   localStorage.removeItem('letterloom_match_records')
@@ -3273,8 +3284,17 @@ async function _handleProfileCancelConfirm() {
   document.getElementById('authEmailInput')?.focus()
 }
 
+const PENDING_OTP_EMAIL_KEY = 'll_pending_otp_email'
+const PENDING_OTP_TS_KEY   = 'll_pending_otp_ts'
+const PENDING_OTP_TTL_MS   = 15 * 60 * 1000  // 15 min
+
 function _showAuthCodeStep(email) {
   const t = shellTexts
+  // Persist so the code step survives a PWA background-discard + restart.
+  try {
+    sessionStorage.setItem(PENDING_OTP_EMAIL_KEY, email)
+    sessionStorage.setItem(PENDING_OTP_TS_KEY, String(Date.now()))
+  } catch {}
   document.getElementById('authEmailStep')?.classList.add('hidden')
   const codeStep = document.getElementById('authCodeStep')
   codeStep?.classList.remove('hidden')
@@ -3285,6 +3305,23 @@ function _showAuthCodeStep(email) {
   document.getElementById('authCodeInput')?.value && (document.getElementById('authCodeInput').value = '')
   document.getElementById('authCodeError')?.classList.add('hidden')
   document.getElementById('authCodeInput')?.focus()
+}
+
+function _clearPendingOtpEmail() {
+  try {
+    sessionStorage.removeItem(PENDING_OTP_EMAIL_KEY)
+    sessionStorage.removeItem(PENDING_OTP_TS_KEY)
+  } catch {}
+}
+
+function _getValidPendingOtpEmail() {
+  try {
+    const email = sessionStorage.getItem(PENDING_OTP_EMAIL_KEY)
+    const ts = parseInt(sessionStorage.getItem(PENDING_OTP_TS_KEY) || '0', 10)
+    if (!email || !ts) return null
+    if (Date.now() - ts > PENDING_OTP_TTL_MS) { _clearPendingOtpEmail(); return null }
+    return email
+  } catch { return null }
 }
 
 function renderInstallHints() {

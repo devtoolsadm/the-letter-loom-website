@@ -9445,6 +9445,65 @@ body.splash-ready #splashLoadingBlock {
   box-shadow: 0 2px 8px rgba(104, 104, 192, 0.4);
 }
 
+/* ── Philologist tilde picker ──────────────────────────────── */
+.philo-picker-options {
+  flex-direction: column;
+  gap: 8px;
+}
+.philo-picker-word-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: center;
+  margin: 6px 0;
+}
+.philo-picker-word-label {
+  font-family: var(--font-heading);
+  font-size: 13px;
+  font-weight: 900;
+  color: #7a5c2a;
+  min-width: 20px;
+}
+.philo-picker-chips {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.philo-picker-chip {
+  min-width: 34px;
+  height: 38px;
+  padding: 0 6px;
+  font-family: var(--font-heading);
+  font-size: 18px;
+  font-weight: 900;
+  border-radius: 7px;
+  border: 2px solid #c5af7d;
+  background: #fff8e0;
+  color: #2f1b12;
+  cursor: default;
+  transition: background 80ms, transform 80ms;
+}
+.philo-picker-chip.is-vowel {
+  border-color: #e09b30;
+  background: linear-gradient(180deg, #ffeea0 0%, #ffd966 100%);
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(160, 100, 0, 0.2);
+}
+.philo-picker-chip.is-vowel:hover {
+  background: linear-gradient(180deg, #ffe070 0%, #ffc800 100%);
+  transform: translateY(-2px);
+}
+.philo-picker-chip.is-vowel:active {
+  transform: translateY(1px);
+}
+.philo-picker-chip.is-picked {
+  background: linear-gradient(180deg, #3a6fbf 0%, #1a4a9f 100%);
+  color: #fff;
+  border-color: #1a4a9f;
+  box-shadow: 0 2px 6px rgba(26, 74, 159, 0.4);
+}
+
 .training-result-language-badge {
   display: inline-flex;
   align-items: center;

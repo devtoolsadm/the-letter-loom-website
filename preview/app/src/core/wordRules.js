@@ -17,7 +17,28 @@ export function buildWordFromCards(selectedCards) {
 }
 
 export function hasTilde(word) {
-  return TILDE_CHARS.test(word);
+  return TILDE_CHARS.test(word ?? "");
+}
+
+// Apply a virtual tilde to the vowel at position `idx` in `word`.
+// Used by the philologist picker to build a tildable variant for dictionary lookup.
+const TILDE_MAP = { A: "Á", E: "É", I: "Í", O: "Ó", U: "Ú", a: "á", e: "é", i: "í", o: "ó", u: "ú" };
+export function applyTildeAt(word, idx) {
+  if (!word || idx < 0 || idx >= word.length) return word;
+  const ch = word[idx];
+  const tildedCh = TILDE_MAP[ch];
+  if (!tildedCh) return word;
+  return word.slice(0, idx) + tildedCh + word.slice(idx + 1);
+}
+
+// Return indices of tildable vowels (A E I O U, case-insensitive) in a word.
+export function tildableVowelIndices(word) {
+  if (!word) return [];
+  const indices = [];
+  for (let i = 0; i < word.length; i++) {
+    if (TILDE_MAP[word[i]]) indices.push(i);
+  }
+  return indices;
 }
 
 // Spanish syllable counter — approximation by counting vowel groups,
