@@ -121,6 +121,11 @@ export function applyActionEffect(state, action, sourcePlayerId, targetPlayerId,
 function applyActionEffectInner(state, action, sourcePlayerId, targetPlayerId, payload = {}, rng = Math.random) {
   switch (action.actionId) {
     // ── Self-bonus ───────────────────────────────────────────
+    case "palabra_extra":
+      // Grants the source player the right to form a second word this trick.
+      // Stored as a forced-rule marker so state persists and UI can detect it.
+      return addForcedRule(state, sourcePlayerId, "palabra_extra", sourcePlayerId, {});
+
     case "in_english":
       // Optional language bonus: keep a per-trick marker so the UI can
       // preselect English. The +10 is awarded only if the chosen validation

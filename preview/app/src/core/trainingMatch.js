@@ -151,6 +151,8 @@ export function createTrainingMatch(difficulty, { userNickname, language } = {})
     forcedRules: {},
     scoreModifiers: {},
     userWord: [],
+    userWord2: [],
+    sharedCardId: null,
     matchOver: false,
     winnerIds: [],
     updatedAt: Date.now(),
@@ -622,55 +624,113 @@ export function advanceActionsQueue(state) {
 //   tilde: boolean (only meaningful for tilde-capable cards)
 //   chosen: letter for wildcards (user picks at insertion)
 
+// wordIndex: 0 = P1 (default), 1 = P2. For P2, the first card taken from P1
+// is marked as sharedCardId; only that one card can appear in both words.
 export function addToWord(state, cardId, source, opts = {}) {
-  const word = (state.userWord ?? []).slice();
-  if (word.some((s) => s.cardId === cardId)) return state; // already in word
-  word.push({
-    cardId,
-    source,
-    tilde: opts.tilde ?? false,
-    chosen: opts.chosenLetter ?? null,
-  });
-  const next = { ...state, userWord: word, updatedAt: Date.now() };
+  const wordIndex = opts.wordIndex ?? 0;
+  const p1 = (state.userWord ?? []).slice();
+  const p2 = (state.userWord2 ?? []).slice();
+  let sharedCardId = state.sharedCardId ?? null;
+
+  if (wordIndex === 1) {
+    // P2 path
+    if (p2.some((s) => s.cardId === cardId)) return state; // already in P2
+    const inP1 = p1.some((s) => s.cardId === cardId);
+    if (inP1) {
+      // Card is in P1 — only allowed if it becomes the shared card.
+      if (sharedCardId !== null && sharedCardId !== cardId) return state; // another shared already
+      sharedCardId = cardId;
+    }
+    p2.push({ cardId, source, tilde: opts.tilde ?? false, chosen: opts.chosenLetter ?? null });
+    const next = { ...state, userWord2: p2, sharedCardId, updatedAt: Date.now() };
+    saveTrainingMatch(next);
+    return next;
+  }
+
+  // P1 path
+  if (p1.some((s) => s.cardId === cardId)) return state;
+  p1.push({ cardId, source, tilde: opts.tilde ?? false, chosen: opts.chosenLetter ?? null });
+  const next = { ...state, userWord: p1, updatedAt: Date.now() };
   saveTrainingMatch(next);
   return next;
 }
 
-export function removeFromWord(state, cardId) {
+export function removeFromWord(state, cardId, opts = {}) {
+  const wordIndex = opts.wordIndex ?? 0;
+  if (wordIndex === 1) {
+    const p2 = (state.userWord2 ?? []).filter((s) => s.cardId !== cardId);
+    // If removing the shared card from P2, unmark it.
+    const sharedCardId = state.sharedCardId === cardId ? null : state.sharedCardId;
+    const next = { ...state, userWord2: p2, sharedCardId, updatedAt: Date.now() };
+    saveTrainingMatch(next);
+    return next;
+  }
   const word = (state.userWord ?? []).filter((s) => s.cardId !== cardId);
-  const next = { ...state, userWord: word, updatedAt: Date.now() };
+  // If the removed card was shared and was in P1, it can no longer be shared.
+  const p2 = (state.userWord2 ?? []).filter((s) => s.cardId !== cardId);
+  const sharedCardId = state.sharedCardId === cardId ? null : state.sharedCardId;
+  const next = { ...state, userWord: word, userWord2: p2, sharedCardId, updatedAt: Date.now() };
   saveTrainingMatch(next);
   return next;
 }
 
-export function reorderWord(state, fromIdx, toIdx) {
-  const word = (state.userWord ?? []).slice();
+export function reorderWord(state, fromIdx, toIdx, opts = {}) {
+  const wordIndex = opts.wordIndex ?? 0;
+  const key = wordIndex === 1 ? "userWord2" : "userWord";
+  const word = (state[key] ?? []).slice();
   if (fromIdx < 0 || fromIdx >= word.length || toIdx < 0 || toIdx >= word.length) {
     return state;
   }
   const [moved] = word.splice(fromIdx, 1);
   word.splice(toIdx, 0, moved);
-  const next = { ...state, userWord: word, updatedAt: Date.now() };
+  const next = { ...state, [key]: word, updatedAt: Date.now() };
   saveTrainingMatch(next);
   return next;
 }
 
-export function toggleTildeInWord(state, cardId) {
-  const word = (state.userWord ?? []).map((s) =>
+export function toggleTildeInWord(state, cardId, opts = {}) {
+  const wordIndex = opts.wordIndex ?? 0;
+  const key = wordIndex === 1 ? "userWord2" : "userWord";
+  const word = (state[key] ?? []).map((s) =>
     s.cardId === cardId ? { ...s, tilde: !s.tilde } : s,
   );
-  const next = { ...state, userWord: word, updatedAt: Date.now() };
+  // If shared card, sync tilde to the other word too.
+  let extra = {};
+  if (state.sharedCardId === cardId) {
+    const otherKey = wordIndex === 1 ? "userWord" : "userWord2";
+    extra[otherKey] = (state[otherKey] ?? []).map((s) =>
+      s.cardId === cardId ? { ...s, tilde: !s.tilde } : s,
+    );
+  }
+  const next = { ...state, [key]: word, ...extra, updatedAt: Date.now() };
   saveTrainingMatch(next);
   return next;
 }
 
-export function setWildcardLetterInWord(state, cardId, letter) {
-  const word = (state.userWord ?? []).map((s) =>
+export function setWildcardLetterInWord(state, cardId, letter, opts = {}) {
+  const wordIndex = opts.wordIndex ?? 0;
+  const key = wordIndex === 1 ? "userWord2" : "userWord";
+  const word = (state[key] ?? []).map((s) =>
     s.cardId === cardId ? { ...s, chosen: letter } : s,
   );
-  const next = { ...state, userWord: word, updatedAt: Date.now() };
+  // If shared card, sync chosen letter to the other word too.
+  let extra = {};
+  if (state.sharedCardId === cardId) {
+    const otherKey = wordIndex === 1 ? "userWord" : "userWord2";
+    extra[otherKey] = (state[otherKey] ?? []).map((s) =>
+      s.cardId === cardId ? { ...s, chosen: letter } : s,
+    );
+  }
+  const next = { ...state, [key]: word, ...extra, updatedAt: Date.now() };
   saveTrainingMatch(next);
   return next;
+}
+
+// Whether the user has an active palabra_extra effect this trick.
+export function userHasPalabraExtra(state) {
+  const userId = state?.players?.[0]?.id;
+  if (!userId) return false;
+  return (state.forcedRules?.[userId] ?? []).some((e) => e.actionId === "palabra_extra");
 }
 
 export function tickCreationTimer(state) {
@@ -689,6 +749,8 @@ export function submitUserWord(state) {
 
 // Validate the user's word locally (no AI yet), compute its score and
 // transition to the result phase. Sets `userWordResult` with the outcome.
+// When palabra_extra is active and userWord2 is non-empty, both words are
+// validated; either failing invalidates the whole turn.
 export function finalizeUserWord(state, language = "es") {
   const userId = state.players[0].id;
   const selectedLanguage = normalizeLanguage(language);
@@ -699,26 +761,32 @@ export function finalizeUserWord(state, language = "es") {
   for (const c of state.centralBoard ?? []) if (c) cardIndex.set(c.id, c);
   for (const c of handLetters) if (c) cardIndex.set(c.id, c);
 
-  const selectedCards = (state.userWord ?? [])
-    .map((slot) => {
-      const card = cardIndex.get(slot.cardId);
-      if (!card) return null;
-      return {
-        ...card,
-        usingTilde: !!(slot.tilde && card.tildeValue != null),
-        tildeChar: card.tildeForm,
-        chosenLetter: slot.chosen,
-      };
-    })
-    .filter(Boolean);
+  function resolveCards(slots) {
+    return (slots ?? [])
+      .map((slot) => {
+        const card = cardIndex.get(slot.cardId);
+        if (!card) return null;
+        return {
+          ...card,
+          usingTilde: !!(slot.tilde && card.tildeValue != null),
+          tildeChar: card.tildeForm,
+          chosenLetter: slot.chosen,
+        };
+      })
+      .filter(Boolean);
+  }
 
+  const selectedCards = resolveCards(state.userWord ?? []);
   const boardIds = new Set((state.centralBoard ?? []).map((c) => c.id));
   const handLetterIds = new Set(handLetters.filter(Boolean).map((c) => c.id));
   const wordStr = buildWordFromCards(selectedCards);
   const forcedEffects = state.forcedRules?.[userId] ?? [];
-  const languageBonusPoints = getLanguageBonusForSelection(forcedEffects, selectedLanguage);
+  // Exclude palabra_extra from forced-rule validation — it's a capability marker, not a word constraint.
+  const wordForcedEffects = forcedEffects.filter((e) => e.actionId !== "palabra_extra");
+  const languageBonusPoints = getLanguageBonusForSelection(wordForcedEffects, selectedLanguage);
   const languageBonusAttempted = languageBonusPoints > 0;
 
+  // ── Validate P1 ──────────────────────────────────────────────
   let valid = true;
   let reason = null;
   let violations = [];
@@ -730,10 +798,50 @@ export function finalizeUserWord(state, language = "es") {
     valid = false;
     reason = "missing_source";
   } else {
+    // Forced rules are checked against the union of P1+P2 words.
+    // We defer the union-check to after P2 is resolved; for now validate
+    // structural rules only (length, source). Full rule check happens below.
+  }
+
+  let score = 0;
+  let breakdown = null;
+  const allUserLetters = handLetters.filter(Boolean).map((c) => c.id);
+  const allBoardLetters = (state.centralBoard ?? []).map((c) => c.id);
+
+  // ── P2 (palabra_extra) ───────────────────────────────────────
+  const hasPalabraExtra = forcedEffects.some((e) => e.actionId === "palabra_extra");
+  const p2Slots = state.userWord2 ?? [];
+  const hasP2 = hasPalabraExtra && p2Slots.length > 0;
+  let selectedCards2 = [];
+  let wordStr2 = "";
+  let valid2 = true;
+  let reason2 = null;
+  let violations2 = [];
+  let score2 = 0;
+  let breakdown2 = null;
+
+  if (hasP2) {
+    selectedCards2 = resolveCards(p2Slots);
+    wordStr2 = buildWordFromCards(selectedCards2);
+    if (selectedCards2.length < TRAINING_MIN_WORD_LETTERS) {
+      valid2 = false;
+      reason2 = "too_short";
+    } else if (!usesAtLeastOneFromBoardAndHand(selectedCards2, boardIds, handLetterIds)) {
+      valid2 = false;
+      reason2 = "missing_source";
+    }
+  }
+
+  // ── Forced rules checked over union of P1+P2 ────────────────
+  if (valid && (valid2 || !hasP2)) {
+    const unionCards = hasP2
+      ? [...selectedCards, ...selectedCards2.filter((c) => c.id !== state.sharedCardId)]
+      : selectedCards;
+    const unionWord = buildWordFromCards(unionCards);
     const forcedCheck = validateForcedRules({
-      word: wordStr,
-      selectedCards,
-      effects: forcedEffects,
+      word: unionWord,
+      selectedCards: unionCards,
+      effects: wordForcedEffects,
       lang: selectedLanguage,
     });
     if (!forcedCheck.ok) {
@@ -743,11 +851,8 @@ export function finalizeUserWord(state, language = "es") {
     }
   }
 
-  let score = 0;
-  let breakdown = null;
+  // ── Score P1 ────────────────────────────────────────────────
   if (valid) {
-    const allUserLetters = handLetters.filter(Boolean).map((c) => c.id);
-    const allBoardLetters = (state.centralBoard ?? []).map((c) => c.id);
     const plusMinus = (state.scoreModifiers?.[userId] ?? 0) + languageBonusPoints;
     const detail = computeWordScoreDetailed({
       selectedCards,
@@ -759,6 +864,22 @@ export function finalizeUserWord(state, language = "es") {
     breakdown = detail.parts;
   }
 
+  // ── Score P2 ────────────────────────────────────────────────
+  if (hasP2 && valid2) {
+    const detail2 = computeWordScoreDetailed({
+      selectedCards: selectedCards2,
+      allUserLetters,
+      allBoardLetters,
+      plusMinus: 0, // modifiers already counted in P1
+    });
+    score2 = detail2.score;
+    breakdown2 = detail2.parts;
+  }
+
+  // If P1 or P2 invalid → entire turn invalid (score = 0).
+  const overallValid = valid && (!hasP2 || valid2);
+  const totalScore = overallValid ? score + score2 : 0;
+
   // Persist round entries: user gets validated score, ghosts get generated scores.
   const ghostScoreList = generateGhostScores(
     state.players.filter((p) => p.isGhost).length,
@@ -769,9 +890,9 @@ export function finalizeUserWord(state, language = "es") {
     if (!p.isGhost) {
       const newRounds = [
         ...(p.rounds ?? []),
-        { round: state.round, points: score, tieBreak: false },
+        { round: state.round, points: totalScore, tieBreak: false },
       ];
-      return { ...p, rounds: newRounds, score: (p.score ?? 0) + score };
+      return { ...p, rounds: newRounds, score: (p.score ?? 0) + totalScore };
     }
     const gScore = ghostScoreList[ghostIdx++] ?? 0;
     const newRounds = [
@@ -788,11 +909,16 @@ export function finalizeUserWord(state, language = "es") {
     remaining: 0,
     userWordResult: {
       word: wordStr,
-      valid,
-      reason,
-      violations,
-      score,
+      valid: overallValid,
+      reason: overallValid ? null : (valid ? reason2 : reason),
+      violations: overallValid ? [] : (valid ? violations2 : violations),
+      invalidWord: overallValid ? null : (valid ? "p2" : "p1"),
+      score: totalScore,
+      score1: overallValid ? score : 0,
+      score2: overallValid ? score2 : 0,
       breakdown,
+      breakdown2: hasP2 ? breakdown2 : null,
+      word2: hasP2 ? wordStr2 : null,
       language: selectedLanguage,
       languageBonusAttempted,
     },
@@ -1133,6 +1259,8 @@ export function advanceToNextBaza(state) {
     forcedRules: {},
     scoreModifiers: {},
     userWord: [],
+    userWord2: [],
+    sharedCardId: null,
     userWordResult: null,
     actionsQueue: [],
     actionsLog: [],

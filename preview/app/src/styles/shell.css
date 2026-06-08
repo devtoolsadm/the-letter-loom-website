@@ -3704,11 +3704,46 @@ body.splash-ready #splashLoadingBlock {
   align-items: center;
   gap: 6px;
 }
+/* Container for P1/P2 + lang toggles — pushed to the right of the label. */
+.training-word-strip-toggles {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+/* P1/P2 toggle pill — same visual as validation-lang-toggle. */
+.training-p1p2-toggle {
+  display: inline-flex;
+  border: 1.5px solid #7a9acc;
+  border-radius: 7px;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: rgba(220, 234, 255, 0.92);
+}
+.training-p1p2-toggle.hidden {
+  display: none;
+}
+.training-p1p2-btn {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border: none;
+  background: transparent;
+  color: #2a5090;
+  opacity: 0.5;
+  cursor: pointer;
+  letter-spacing: 0.02em;
+}
+.training-p1p2-btn.is-active {
+  background: #3a6fbf;
+  color: #fff;
+  opacity: 1;
+}
 /* Toggle inside the word-strip header needs slightly smaller border-radius
    to not feel too tall against the ribbon label. */
 .training-word-strip-header .validation-lang-toggle {
   border-radius: 7px;
-  margin-left: auto;
   background: rgba(255, 248, 224, 0.92);
 }
 .training-word-strip-header .validation-lang-btn {
@@ -3717,6 +3752,44 @@ body.splash-ready #splashLoadingBlock {
 }
 .training-word-strip-header .validation-lang-btn:not(.is-active) {
   background: rgba(255, 248, 224, 0.92);
+}
+/* Card dimmed because it's in P1 but not yet shared with P2. */
+.tcard.is-in-p1 {
+  opacity: 0.45;
+}
+/* Shared-card badge on word strip slot. */
+.training-word-slot.is-shared-card::after {
+  content: "1/2";
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  font-size: 8px;
+  font-weight: 700;
+  background: #3a6fbf;
+  color: #fff;
+  border-radius: 3px;
+  padding: 0 2px;
+  line-height: 12px;
+  pointer-events: none;
+}
+/* Two-word result display. */
+.training-result-word-sep {
+  color: #a36500;
+  font-weight: 800;
+  margin: 0 2px;
+}
+.training-result-breakdowns {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.training-result-total-sum {
+  font-size: 14px;
+  font-weight: 700;
+  color: #a36500;
+  text-align: center;
+  margin-top: 4px;
 }
 .training-word-strip-label {
   position: static;

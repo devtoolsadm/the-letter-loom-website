@@ -48,6 +48,9 @@ import {
   userHandHasNoLetters,
   revealLetterSlot,
   revealBoardSlot,
+  addToWord,
+  removeFromWord,
+  userHasPalabraExtra,
 } from '../trainingMatch.js'
 import { makeLetter, makeConsonant, makeActionCard, makeState, resetIds } from './helpers.js'
 
@@ -1019,5 +1022,195 @@ describe('drawEmergencyLetter', () => {
     })
     const next = drawEmergencyLetter(state, 'consonant')
     expect(next.hands.p1.letters[0].id).toBe('ec')
+  })
+})
+
+// ── Palabra extra (P2 word) ───────────────────────────────────────────────────
+
+describe('addToWord P2', () => {
+  it('adds card to P2 array when wordIndex=1', () => {
+    const cardA = makeLetter({ id: 'a1', letter: 'A' })
+    const state = makeState({ userWord: [], userWord2: [], sharedCardId: null })
+    const next = addToWord(state, 'a1', 'board', { wordIndex: 1 })
+    expect(next.userWord2).toHaveLength(1)
+    expect(next.userWord2[0].cardId).toBe('a1')
+    expect(next.userWord).toHaveLength(0)
+  })
+
+  it('marks card as sharedCardId when a P1 card is added to P2', () => {
+    const cardA = makeLetter({ id: 'a1', letter: 'A' })
+    let state = makeState({ userWord: [{ cardId: 'a1', source: 'board', tilde: false, chosen: null }], userWord2: [], sharedCardId: null })
+    state = addToWord(state, 'a1', 'board', { wordIndex: 1 })
+    expect(state.sharedCardId).toBe('a1')
+    expect(state.userWord2[0].cardId).toBe('a1')
+  })
+
+  it('rejects a second P1 card into P2 when a shared card already exists', () => {
+    const state = makeState({
+      userWord: [
+        { cardId: 'a1', source: 'board', tilde: false, chosen: null },
+        { cardId: 'a2', source: 'board', tilde: false, chosen: null },
+      ],
+      userWord2: [{ cardId: 'a1', source: 'board', tilde: false, chosen: null }],
+      sharedCardId: 'a1',
+    })
+    const next = addToWord(state, 'a2', 'board', { wordIndex: 1 })
+    // Should be unchanged — can't share two cards.
+    expect(next).toBe(state)
+  })
+
+  it('does not duplicate a card already in P2', () => {
+    const state = makeState({
+      userWord: [],
+      userWord2: [{ cardId: 'a1', source: 'board', tilde: false, chosen: null }],
+      sharedCardId: null,
+    })
+    const next = addToWord(state, 'a1', 'board', { wordIndex: 1 })
+    expect(next).toBe(state)
+  })
+})
+
+describe('removeFromWord P2', () => {
+  it('removes from P2 and clears sharedCardId if that was the shared card', () => {
+    const state = makeState({
+      userWord: [{ cardId: 'a1', source: 'board', tilde: false, chosen: null }],
+      userWord2: [{ cardId: 'a1', source: 'board', tilde: false, chosen: null }],
+      sharedCardId: 'a1',
+    })
+    const next = removeFromWord(state, 'a1', { wordIndex: 1 })
+    expect(next.userWord2).toHaveLength(0)
+    expect(next.sharedCardId).toBeNull()
+    expect(next.userWord).toHaveLength(1) // P1 unaffected
+  })
+
+  it('removes from P1 and also removes from P2 if it was the shared card', () => {
+    const state = makeState({
+      userWord: [{ cardId: 'a1', source: 'board', tilde: false, chosen: null }],
+      userWord2: [{ cardId: 'a1', source: 'board', tilde: false, chosen: null }],
+      sharedCardId: 'a1',
+    })
+    const next = removeFromWord(state, 'a1', { wordIndex: 0 })
+    expect(next.userWord).toHaveLength(0)
+    expect(next.userWord2).toHaveLength(0)
+    expect(next.sharedCardId).toBeNull()
+  })
+})
+
+describe('userHasPalabraExtra', () => {
+  it('returns true when the user has a palabra_extra forced rule', () => {
+    const state = makeState({
+      forcedRules: { p1: [{ actionId: 'palabra_extra', source: 'p1', payload: {} }] },
+    })
+    expect(userHasPalabraExtra(state)).toBe(true)
+  })
+
+  it('returns false when not present', () => {
+    const state = makeState({ forcedRules: {} })
+    expect(userHasPalabraExtra(state)).toBe(false)
+  })
+})
+
+describe('finalizeUserWord with P2', () => {
+  function makeCreationState({ board, handLetters, word1, word2, forcedRules = {} }) {
+    return makeState({
+      phase: 'creation',
+      centralBoard: board,
+      hands: { p1: { letters: handLetters, actions: [] }, p2: { letters: [], actions: [] }, p3: { letters: [], actions: [] } },
+      userWord: word1,
+      userWord2: word2 ?? [],
+      sharedCardId: null,
+      forcedRules,
+      scoreModifiers: {},
+      players: [
+        { id: 'p1', name: 'Tú',  score: 0, rounds: [], isGhost: false },
+        { id: 'p2', name: 'Op1', score: 0, rounds: [], isGhost: true  },
+      ],
+      decks: { vowelDeck: [], consonantDeck: [], actionDeck: [] },
+      discards: { vowels: [], consonants: [], actions: [] },
+    })
+  }
+
+  it('P2 empty with palabra_extra: only P1 scores', () => {
+    const board = [makeLetter({ id: 'b1', letter: 'A', value: 2, color: 'blue' })]
+    const hand = [makeConsonant({ id: 'h1', letter: 'S', value: 4, color: 'blue' })]
+    const word1 = [{ cardId: 'b1', source: 'board', tilde: false, chosen: null }, { cardId: 'h1', source: 'hand', tilde: false, chosen: null }]
+    const state = makeCreationState({
+      board,
+      handLetters: hand,
+      word1,
+      word2: [],
+      forcedRules: { p1: [{ actionId: 'palabra_extra', source: 'p1', payload: {} }] },
+    })
+    const next = finalizeUserWord(state, 'es')
+    expect(next.userWordResult.valid).toBe(true)
+    expect(next.userWordResult.word2).toBeNull()
+    expect(next.userWordResult.score).toBe(next.userWordResult.score1)
+  })
+
+  it('P1 invalid: whole turn invalid', () => {
+    const board = [makeLetter({ id: 'b1', letter: 'A', value: 2, color: 'blue' })]
+    const hand = [makeConsonant({ id: 'h1', letter: 'S', value: 4, color: 'blue' })]
+    // P1 only has board card — missing hand source
+    const word1 = [{ cardId: 'b1', source: 'board', tilde: false, chosen: null }]
+    const state = makeCreationState({
+      board,
+      handLetters: hand,
+      word1,
+      word2: [],
+      forcedRules: { p1: [{ actionId: 'palabra_extra', source: 'p1', payload: {} }] },
+    })
+    const next = finalizeUserWord(state, 'es')
+    expect(next.userWordResult.valid).toBe(false)
+    expect(next.userWordResult.score).toBe(0)
+  })
+
+  it('P2 invalid: whole turn invalid, reports invalidWord=p2', () => {
+    const board = [makeLetter({ id: 'b1', letter: 'A', value: 2, color: 'blue' })]
+    const hand = [makeConsonant({ id: 'h1', letter: 'S', value: 4, color: 'blue' }),
+                  makeConsonant({ id: 'h2', letter: 'M', value: 4, color: 'blue' })]
+    const word1 = [
+      { cardId: 'b1', source: 'board', tilde: false, chosen: null },
+      { cardId: 'h1', source: 'hand', tilde: false, chosen: null },
+    ]
+    // P2 only 1 card — too short
+    const word2 = [{ cardId: 'h2', source: 'hand', tilde: false, chosen: null }]
+    const state = makeCreationState({
+      board,
+      handLetters: hand,
+      word1,
+      word2,
+      forcedRules: { p1: [{ actionId: 'palabra_extra', source: 'p1', payload: {} }] },
+    })
+    const next = finalizeUserWord(state, 'es')
+    expect(next.userWordResult.valid).toBe(false)
+    expect(next.userWordResult.invalidWord).toBe('p2')
+    expect(next.userWordResult.score).toBe(0)
+  })
+
+  it('forced rule satisfied by union of P1+P2', () => {
+    // use_letter forces letter 'S'. P1 has 'A', P2 has 'S' — union satisfies it.
+    const board = [
+      makeLetter({ id: 'b1', letter: 'A', value: 2, color: 'blue' }),
+      makeConsonant({ id: 'b2', letter: 'S', value: 4, color: 'blue' }),
+    ]
+    const hand = [makeConsonant({ id: 'h1', letter: 'M', value: 4, color: 'blue' })]
+    const word1 = [
+      { cardId: 'b1', source: 'board', tilde: false, chosen: null },
+      { cardId: 'h1', source: 'hand', tilde: false, chosen: null },
+    ]
+    const word2 = [
+      { cardId: 'b1', source: 'board', tilde: false, chosen: null },
+      { cardId: 'b2', source: 'board', tilde: false, chosen: null },
+    ]
+    const forcedRules = {
+      p1: [
+        { actionId: 'palabra_extra', source: 'p1', payload: {} },
+        { actionId: 'use_letter', source: 'p2', payload: { letter: 'S' } },
+      ],
+    }
+    const state = makeCreationState({ board, handLetters: hand, word1, word2, forcedRules })
+    const next = finalizeUserWord(state, 'es')
+    // Forced rule satisfied by P2 having 'S', so should not fail with forced_rule
+    expect(next.userWordResult.reason).not.toBe('forced_rule')
   })
 })

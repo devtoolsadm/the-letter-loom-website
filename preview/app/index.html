@@ -745,9 +745,15 @@
             <div class="training-word-strip hidden" id="trainingWordStrip">
               <div class="training-word-strip-header">
                 <div class="training-word-strip-label" id="trainingWordStripLabel"></div>
-                <div class="validation-lang-toggle hidden" id="trainingWordLangToggle" aria-label="Language">
-                  <button class="validation-lang-btn" data-lang="es" type="button">ES</button>
-                  <button class="validation-lang-btn" data-lang="en" type="button">EN</button>
+                <div class="training-word-strip-toggles">
+                  <div class="training-p1p2-toggle hidden" id="trainingWordP1P2Toggle" aria-label="Palabra">
+                    <button class="training-p1p2-btn is-active" data-word="0" type="button">P1</button>
+                    <button class="training-p1p2-btn" data-word="1" type="button">P2</button>
+                  </div>
+                  <div class="validation-lang-toggle hidden" id="trainingWordLangToggle" aria-label="Language">
+                    <button class="validation-lang-btn" data-lang="es" type="button">ES</button>
+                    <button class="validation-lang-btn" data-lang="en" type="button">EN</button>
+                  </div>
                 </div>
               </div>
               <div class="training-word-strip-cards" id="trainingWordStripCards"></div>

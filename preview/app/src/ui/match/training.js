@@ -32,6 +32,7 @@ import {
   setWildcardLetterInWord,
   submitUserWord,
   advanceToNextBaza,
+  userHasPalabraExtra,
 } from "../../core/trainingMatch.js";
 import {
   ACTION_CARDS,
@@ -468,6 +469,8 @@ let practiceHintTimer = null;
 // Only shown when the user has an in_english/in_spanish card active.
 // null = no override (use game language); "en"/"es" = user's choice.
 let trainingWordLangOverride = null;
+// Active word index for palabra_extra: 0 = P1, 1 = P2.
+let trainingActiveWordIndex = 0;
 let practiceHintRevealed = false;
 let practiceHintKey = null;
 
@@ -874,7 +877,10 @@ function renderTrainingBoard(state) {
     : Array.from({ length: 5 }, () => null);
   const isDealing = state.phase === "dealing";
   const isCreation = state.phase === "creation";
-  const wordIds = new Set((state.userWord ?? []).map((s) => s.cardId));
+  const activeWordIndex = trainingActiveWordIndex;
+  const p1WordIds = new Set((state.userWord ?? []).map((s) => s.cardId));
+  const p2WordIds = new Set((state.userWord2 ?? []).map((s) => s.cardId));
+  const wordIds = activeWordIndex === 1 ? p2WordIds : p1WordIds;
   const requiredCardIds = collectRequiredCardIds(state);
   // During the ghost-deal hold window, render board cards as face-down
   // (V/C colored backs) so the cascade flip has something to reveal.
@@ -910,7 +916,16 @@ function renderTrainingBoard(state) {
       el.classList.add("is-forced-pulse");
       el.addEventListener("animationend", () => el.classList.remove("is-forced-pulse"), { once: true });
     }
-    if (card && isCreation) attachCardSelectableBehavior(el, card, "board", wordIds.has(card.id));
+    if (card && isCreation) {
+      const inActiveWord = wordIds.has(card.id);
+      // In P2 mode, cards already in P1 but not yet in P2 get a dim hint
+      // unless they are the shared card (already committed to P2).
+      if (activeWordIndex === 1 && p1WordIds.has(card.id) && !p2WordIds.has(card.id)) {
+        el.classList.add("is-in-p1");
+        if (state.sharedCardId === null) el.classList.add("is-shareable");
+      }
+      attachCardSelectableBehavior(el, card, "board", inActiveWord);
+    }
     root.appendChild(el);
   });
   applyTwoRowCardLayout(root, slots.length);
@@ -1039,7 +1054,10 @@ function renderTrainingHand(state) {
   const boardFilled = (state.centralBoard ?? []).every((c) => c != null)
     && (state.centralBoard ?? []).length > 0;
   const handPickable = isDealing && boardFilled && Date.now() >= handPickerHoldUntil;
-  const wordIds = new Set((state.userWord ?? []).map((s) => s.cardId));
+  const activeWordIdx = trainingActiveWordIndex;
+  const p1WordIdsHand = new Set((state.userWord ?? []).map((s) => s.cardId));
+  const p2WordIdsHand = new Set((state.userWord2 ?? []).map((s) => s.cardId));
+  const wordIdsHand = activeWordIdx === 1 ? p2WordIdsHand : p1WordIdsHand;
   letters.forEach((card, idx) => {
     if (!card && handPickable) {
       root.appendChild(renderDealPickerCard(idx));
@@ -1056,7 +1074,14 @@ function renderTrainingHand(state) {
         el.classList.add("is-fade-in");
         el.addEventListener("animationend", () => el.classList.remove("is-fade-in"), { once: true });
       }
-      if (card && isCreation) attachCardSelectableBehavior(el, card, "hand", wordIds.has(card.id));
+      if (card && isCreation) {
+        const inActiveWord = wordIdsHand.has(card.id);
+        if (activeWordIdx === 1 && p1WordIdsHand.has(card.id) && !p2WordIdsHand.has(card.id)) {
+          el.classList.add("is-in-p1");
+          if (state.sharedCardId === null) el.classList.add("is-shareable");
+        }
+        attachCardSelectableBehavior(el, card, "hand", inActiveWord);
+      }
       root.appendChild(el);
     }
   });
@@ -1193,6 +1218,19 @@ function handleWordCardTap(card, source) {
   _shell.playClickFeedback();
   const state = getTrainingMatch();
   if (!state || state.phase !== "creation") return;
+
+  // In P2 mode and card is already in P1: ask to share or cancel.
+  const wordIndex = trainingActiveWordIndex;
+  if (wordIndex === 1) {
+    const inP1 = (state.userWord ?? []).some((s) => s.cardId === card.id);
+    const inP2 = (state.userWord2 ?? []).some((s) => s.cardId === card.id);
+    if (inP2) return; // already in P2, do nothing
+    if (inP1 && state.sharedCardId !== null && state.sharedCardId !== card.id) {
+      // Another card is already shared — can't share this one too.
+      return;
+    }
+  }
+
   // For pickers (wildcard letter / tilde choice) the callback fires
   // asynchronously. If the creation timer expires while the picker is open
   // and we used the captured state, `addToWord` would spread phase=creation
@@ -1205,7 +1243,7 @@ function handleWordCardTap(card, source) {
       onPick: (letter) => {
         const fresh = getTrainingMatch();
         if (!fresh || fresh.phase !== "creation") return;
-        addToWord(fresh, card.id, source, { chosenLetter: letter });
+        addToWord(fresh, card.id, source, { chosenLetter: letter, wordIndex: trainingActiveWordIndex });
         renderTrainingMatch();
       },
     });
@@ -1215,12 +1253,12 @@ function handleWordCardTap(card, source) {
     openTildeChoice(card, (withTilde) => {
       const fresh = getTrainingMatch();
       if (!fresh || fresh.phase !== "creation") return;
-      addToWord(fresh, card.id, source, { tilde: withTilde });
+      addToWord(fresh, card.id, source, { tilde: withTilde, wordIndex: trainingActiveWordIndex });
       renderTrainingMatch();
     });
     return;
   }
-  addToWord(state, card.id, source);
+  addToWord(state, card.id, source, { wordIndex });
   renderTrainingMatch();
 }
 
@@ -1312,19 +1350,49 @@ function renderTrainingWordStrip(state) {
   root.classList.toggle("hidden", !visible);
   root.classList.remove("is-placeholder");
   if (!visible) {
-    // Hide the lang toggle and reset the override when leaving creation.
+    // Reset all module-level creation state when leaving.
     trainingWordLangOverride = null;
+    trainingActiveWordIndex = 0;
     const toggle = document.getElementById("trainingWordLangToggle");
     if (toggle) toggle.classList.add("hidden");
+    const p1p2Toggle = document.getElementById("trainingWordP1P2Toggle");
+    if (p1p2Toggle) p1p2Toggle.classList.add("hidden");
     return;
   }
   _shell.setI18nById("trainingWordStripLabel", "trainingWordStripLabel");
 
-  // Show the language toggle only when the user has an active
-  // in_english / in_spanish card this baza. Pre-select the card's language
-  // on first entry; preserve the user's choice on subsequent re-renders.
   const userId = state.players[0].id;
   const forcedEffects = state.forcedRules?.[userId] ?? [];
+
+  // ── P1/P2 toggle (palabra_extra) ─────────────────────────────
+  const hasPalabraExtra = userHasPalabraExtra(state);
+  const p1p2Toggle = document.getElementById("trainingWordP1P2Toggle");
+  if (p1p2Toggle) {
+    p1p2Toggle.classList.toggle("hidden", !hasPalabraExtra);
+    if (hasPalabraExtra) {
+      if (!p1p2Toggle.dataset.wired) {
+        p1p2Toggle.dataset.wired = "1";
+        p1p2Toggle.querySelectorAll(".training-p1p2-btn").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            trainingActiveWordIndex = Number(btn.dataset.word);
+            p1p2Toggle.querySelectorAll(".training-p1p2-btn").forEach((b) =>
+              b.classList.toggle("is-active", b === btn),
+            );
+            renderTrainingMatch();
+          });
+        });
+      }
+      // Sync active state on re-render.
+      p1p2Toggle.querySelectorAll(".training-p1p2-btn").forEach((b) =>
+        b.classList.toggle("is-active", Number(b.dataset.word) === trainingActiveWordIndex),
+      );
+    } else {
+      // No palabra_extra → always on P1.
+      trainingActiveWordIndex = 0;
+    }
+  }
+
+  // ── Language toggle (in_english / in_spanish) ────────────────
   const langCard = forcedEffects.find((e) =>
     ["in_english", "in_spanish"].includes(e.actionId),
   );
@@ -1340,13 +1408,11 @@ function renderTrainingWordStrip(state) {
         bonus: textForTrainingLanguage(cardLang),
         base: textForTrainingLanguage(baseLang),
       });
-      // Only pre-select on first appearance; preserve manual choice after.
       if (trainingWordLangOverride === null) {
         trainingWordLangOverride = cardLang;
         toggle.querySelectorAll(".validation-lang-btn").forEach((b) =>
           b.classList.toggle("is-active", b.dataset.lang === cardLang),
         );
-        // Wire click handlers once (idempotent via dataset flag).
         if (!toggle.dataset.wired) {
           toggle.dataset.wired = "1";
           toggle.querySelectorAll(".validation-lang-btn").forEach((btn) => {
@@ -1359,7 +1425,6 @@ function renderTrainingWordStrip(state) {
           });
         }
       } else {
-        // Re-apply active class to match current override (re-render safe).
         toggle.querySelectorAll(".validation-lang-btn").forEach((b) =>
           b.classList.toggle("is-active", b.dataset.lang === trainingWordLangOverride),
         );
@@ -1368,8 +1433,14 @@ function renderTrainingWordStrip(state) {
       trainingWordLangOverride = null;
     }
   }
+
   cardsRoot.innerHTML = "";
-  const word = state.userWord ?? [];
+
+  // Which word array to render in the strip.
+  const word = trainingActiveWordIndex === 1
+    ? (state.userWord2 ?? [])
+    : (state.userWord ?? []);
+
   if (word.length === 0) {
     const empty = document.createElement("div");
     empty.className = "training-word-strip-empty";
@@ -1387,6 +1458,9 @@ function renderTrainingWordStrip(state) {
     return;
   }
   const allCards = buildAllCardsIndex(state);
+  const isP2 = trainingActiveWordIndex === 1;
+  const p1Ids = new Set((state.userWord ?? []).map((s) => s.cardId));
+
   word.forEach((slot, idx) => {
     const card = allCards.get(slot.cardId);
     if (!card) return;
@@ -1395,17 +1469,17 @@ function renderTrainingWordStrip(state) {
     wrapper.dataset.index = String(idx);
     wrapper.dataset.source = slot.source ?? "";
     wrapper.dataset.cardId = slot.cardId;
+    wrapper.dataset.wordIndex = String(trainingActiveWordIndex);
+    if (isP2 && slot.cardId === state.sharedCardId) {
+      wrapper.classList.add("is-shared-card");
+    }
     wrapper.addEventListener("pointerdown", handleWordSlotPointerDown);
-    // Click is bound on the wrapper (not cardEl) because setPointerCapture
-    // redirects the synthetic click to the capture target.
     wrapper.addEventListener("click", (ev) => {
       ev.stopPropagation();
       if (suppressNextWordSlotClick) return;
       handleWordSlotTap(slot.cardId);
     });
 
-    // Render the underlying card with chosen letter (wildcards) or tilded
-    // form (when the tilde toggle is active for a tilde-capable card).
     let displayLetter = card.letter;
     if (slot.chosen) {
       displayLetter = slot.chosen;
@@ -1437,7 +1511,7 @@ function handleWordSlotTap(cardId) {
   _shell.playClickFeedback();
   const state = getTrainingMatch();
   if (!state || state.phase !== "creation") return;
-  removeFromWord(state, cardId);
+  removeFromWord(state, cardId, { wordIndex: trainingActiveWordIndex });
   renderTrainingMatch();
 }
 
@@ -1445,7 +1519,7 @@ function handleWordSlotToggleTilde(cardId) {
   _shell.playClickFeedback();
   const state = getTrainingMatch();
   if (!state || state.phase !== "creation") return;
-  toggleTildeInWord(state, cardId);
+  toggleTildeInWord(state, cardId, { wordIndex: trainingActiveWordIndex });
   renderTrainingMatch();
 }
 
@@ -1466,6 +1540,7 @@ function handleWordSlotPointerDown(ev) {
     fromIndex: Number(wrapper.dataset.index),
     source: wrapper.dataset.source || "",
     cardId: wrapper.dataset.cardId || "",
+    wordIndex: Number(wrapper.dataset.wordIndex ?? "0"),
     startX: ev.clientX,
     startY: ev.clientY,
     pointerId: ev.pointerId,
@@ -1542,7 +1617,7 @@ function handleWordSlotPointerUp(ev) {
       const toIdx = Number(target.dataset.index);
       const state = getTrainingMatch();
       if (state && !Number.isNaN(toIdx) && toIdx !== wordDragState.fromIndex) {
-        reorderWord(state, wordDragState.fromIndex, toIdx);
+        reorderWord(state, wordDragState.fromIndex, toIdx, { wordIndex: wordDragState.wordIndex });
         didChange = true;
       }
     } else {
@@ -1550,7 +1625,7 @@ function handleWordSlotPointerUp(ev) {
       if (origin && wordDragState.cardId) {
         const state = getTrainingMatch();
         if (state && state.phase === "creation") {
-          removeFromWord(state, wordDragState.cardId);
+          removeFromWord(state, wordDragState.cardId, { wordIndex: wordDragState.wordIndex });
           didChange = true;
         }
       }
@@ -1792,14 +1867,28 @@ function renderTrainingResult(state) {
     }
     panel.appendChild(validityRow);
 
+    const hasP2 = !!result.word2;
     const wordEl = document.createElement("div");
     wordEl.className = "training-result-word" + (!result.checking && !result.valid ? " is-invalid" : "");
-    wordEl.textContent = result.word || "—";
+    if (hasP2) {
+      // Show both words side by side.
+      const p1span = document.createElement("span");
+      p1span.textContent = result.word || "—";
+      const sep = document.createElement("span");
+      sep.className = "training-result-word-sep";
+      sep.textContent = " + ";
+      const p2span = document.createElement("span");
+      p2span.textContent = result.word2;
+      wordEl.append(p1span, sep, p2span);
+    } else {
+      wordEl.textContent = result.word || "—";
+    }
     panel.appendChild(wordEl);
 
     if (!result.checking && !result.valid && result.reason) {
       const reasonEl = document.createElement("div");
       reasonEl.className = "training-result-reason";
+      const whichWord = result.invalidWord === "p2" ? ` (P2: ${result.word2 || ""})` : "";
       const reasonKey = {
         too_short:          "trainingResultReasonTooShort",
         missing_source:     "trainingResultReasonSource",
@@ -1809,15 +1898,34 @@ function renderTrainingResult(state) {
       const fallback = result.reason === "not_in_dictionary"
         ? "No existe en el diccionario"
         : result.reason;
-      reasonEl.textContent = (reasonKey ? t(reasonKey) : fallback) || fallback;
+      reasonEl.textContent = ((reasonKey ? t(reasonKey) : fallback) || fallback) + whichWord;
       panel.appendChild(reasonEl);
     }
 
     // Score breakdown: render each contributing part (letter values,
     // wildcard bonuses, action-card modifiers, x2 if applicable).
-    if (!result.checking && result.valid && Array.isArray(result.breakdown) && result.breakdown.length > 0) {
-      const breakdownEl = renderScoreBreakdown(result.breakdown, result.score);
-      if (breakdownEl) panel.appendChild(breakdownEl);
+    if (!result.checking && result.valid) {
+      if (hasP2) {
+        // Two breakdowns + sum.
+        const breakdownWrap = document.createElement("div");
+        breakdownWrap.className = "training-result-breakdowns";
+        if (Array.isArray(result.breakdown) && result.breakdown.length > 0) {
+          const b1 = renderScoreBreakdown(result.breakdown, result.score1);
+          if (b1) { b1.classList.add("training-result-breakdown-p1"); breakdownWrap.appendChild(b1); }
+        }
+        if (Array.isArray(result.breakdown2) && result.breakdown2.length > 0) {
+          const b2 = renderScoreBreakdown(result.breakdown2, result.score2);
+          if (b2) { b2.classList.add("training-result-breakdown-p2"); breakdownWrap.appendChild(b2); }
+        }
+        panel.appendChild(breakdownWrap);
+        const sumEl = document.createElement("div");
+        sumEl.className = "training-result-total-sum";
+        sumEl.textContent = `${result.score1} + ${result.score2} = ${result.score}`;
+        panel.appendChild(sumEl);
+      } else if (Array.isArray(result.breakdown) && result.breakdown.length > 0) {
+        const breakdownEl = renderScoreBreakdown(result.breakdown, result.score);
+        if (breakdownEl) panel.appendChild(breakdownEl);
+      }
     }
   }
 

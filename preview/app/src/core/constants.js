@@ -199,6 +199,7 @@ export const ACTION_CARDS = [
   { id: "brain_squeeze", kind: "rule_force", target: "one",  count: 3, inMVP: true },
   { id: "explosion",     kind: "attack",     target: "one",  count: 2, inMVP: true },
   { id: "discard_one",   kind: "attack",     target: "one",  count: 4, inMVP: true },
+  { id: "palabra_extra", kind: "self_bonus", target: "self", count: 3, inMVP: true },
 ];
 
 export function getActionCardDefsForLanguage(language = "es") {
