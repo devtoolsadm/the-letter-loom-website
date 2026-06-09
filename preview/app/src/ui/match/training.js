@@ -615,9 +615,8 @@ function renderTrainingMatch() {
   renderTrainingActions(state);
   renderTrainingTimer(state);
   renderTrainingResult(state);
-  renderTrainingCreationTimeup(state);
-  const isResultOrDone = state.phase === "result" || state.phase === "done" || state.phase === "creation-timeup";
-  // During result/done/creation-timeup: hide the game content sections.
+  const isResultOrDone = state.phase === "result" || state.phase === "done";
+  // During result/done: hide the game content sections so the result panel can expand.
   [".training-section.is-board", ".training-section:not(.is-board)"].forEach((sel) => {
     const el = document.querySelector(sel);
     if (el) el.classList.toggle("hidden", isResultOrDone);
@@ -1805,6 +1804,15 @@ function renderTrainingTimer(state) {
   const card = document.getElementById("trainingMatchTimerCard");
   if (!el) return;
   if (card) card.classList.toggle("hidden", !!state.untimedCreation);
+  const isTimeup = state.phase === "creation-timeup";
+  if (isTimeup) {
+    el.textContent = t("matchTimeUp") || "Tiempo!";
+    if (card) {
+      card.classList.remove("time-pressure", "time-pressure-urgent");
+      card.classList.add("timeup");
+    }
+    return;
+  }
   const s = Math.max(0, state.remaining || 0);
   const mm = String(Math.floor(s / 60)).padStart(2, "0");
   const ss = String(s % 60).padStart(2, "0");
@@ -1818,25 +1826,6 @@ function renderTrainingTimer(state) {
   }
 }
 
-function renderTrainingCreationTimeup(state) {
-  const panel = document.getElementById("trainingResultPanel");
-  if (!panel) return;
-  if (state.phase !== "creation-timeup") {
-    return;
-  }
-  openModal("training-result", { closable: false });
-  panel.innerHTML = "";
-  const wrap = document.createElement("div");
-  wrap.className = "training-timeup-panel";
-  const icon = document.createElement("div");
-  icon.className = "training-timeup-icon";
-  icon.textContent = "⏱";
-  const msg = document.createElement("div");
-  msg.className = "training-timeup-msg";
-  msg.textContent = t("matchTimeUp") || "¡Tiempo!";
-  wrap.append(icon, msg);
-  panel.appendChild(wrap);
-}
 
 function renderTrainingResult(state) {
   const panel = document.getElementById("trainingResultPanel");
@@ -3596,31 +3585,32 @@ function ensureTrainingTimer() {
     const currentWithWall = { ...current, remaining: wallRemaining };
     let next;
     if (current.phase === "strategy") {
-      next = tickStrategyTimer(currentWithWall);
-      // If strategy just ended and the user had a card focused, treat the
-      // focus as a preselection — the focused card becomes the default play.
-      if (next.phase === "actions" && focusedActionIndex != null) {
-        const userId = current.players[0].id;
-        const card = current.hands?.[userId]?.actions?.[focusedActionIndex];
-        next = selectActionInStrategy(currentWithWall, focusedActionIndex);
-        if (card) debugLogPushPreselect(next, card.actionId);
-        focusedActionIndex = null;
+      if (wallRemaining <= 0) {
+        // Strategy expired — enter actions phase.
+        next = enterActionsPhase(current);
+        if (focusedActionIndex != null) {
+          const card = current.hands?.[current.players[0].id]?.actions?.[focusedActionIndex];
+          next = selectActionInStrategy(current, focusedActionIndex);
+          if (card) debugLogPushPreselect(next, card.actionId);
+          focusedActionIndex = null;
+        }
+      } else {
+        next = { ...current, remaining: wallRemaining };
       }
     } else {
-      // Creation phase: tick via wall-clock; if timer ran out, enter
-      // creation-timeup so the timeup screen shows before submit.
-      next = tickCreationTimer(currentWithWall);
-      if (next.phase === "creation-timeup") {
+      // Creation phase: use wall-clock remaining directly — do NOT call
+      // tickCreationTimer (which subtracts 1 again, causing double-decrement).
+      if (wallRemaining <= 0) {
         stopTrainingTimer();
         trainingClockPhase = null;
-        const timerEl = document.getElementById("trainingTimerValue");
-        if (timerEl) timerEl.textContent = "00:00";
         _shell.triggerTimeUpEffects("training");
-        saveTrainingMatch(next);
+        const timeupState = { ...current, phase: "creation-timeup", remaining: 0 };
+        saveTrainingMatch(timeupState);
         renderTrainingMatch();
         scheduleCreationTimeupAutoAdvance(current);
         return;
       }
+      next = { ...current, remaining: wallRemaining };
     }
     if (next.phase !== current.phase) {
       trainingClockPhase = null;
@@ -3634,9 +3624,8 @@ function ensureTrainingTimer() {
       renderTrainingMatch();
       return;
     }
-    const nextWithWall = { ...next, remaining: wallRemaining };
-    saveTrainingMatch(nextWithWall);
-    renderTrainingTimer(nextWithWall);
+    saveTrainingMatch(next);
+    renderTrainingTimer(next);
     if (wallRemaining <= LOW_TIME_THRESHOLD && wallRemaining > 0) {
       _shell.playLowTimeTick();
     }
