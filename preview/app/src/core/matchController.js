@@ -337,6 +337,8 @@ class MatchController {
     if (this._state.phase.endsWith("-paused")) {
       const kind = this._state.phase.startsWith("strategy") ? "strategy" : "creation";
       this._state.phase = this._state.phase.replace("-paused", "-run");
+      // expiresAt is rebuilt from the remaining that was snapshotted at pause time.
+      this._state.expiresAt = Date.now() + this._state.remaining * 1000;
       this._persist();
       this._emit("statechange", {});
       this._runTimer(kind);
@@ -567,10 +569,12 @@ class MatchController {
 
   _runTimer(kind) {
     this.stopTimer();
+    this._state.expiresAt = Date.now() + this._state.remaining * 1000;
     this._timer = setInterval(() => {
-      this._state.remaining = Math.max(0, this._state.remaining - 1);
-      this._emit("tick", { phase: this._state.phase, remaining: this._state.remaining });
-      if (this._state.remaining <= 0) {
+      const remaining = Math.max(0, Math.ceil((this._state.expiresAt - Date.now()) / 1000));
+      this._state.remaining = remaining;
+      this._emit("tick", { phase: this._state.phase, remaining });
+      if (remaining <= 0) {
         this.finishPhase();
       } else {
         this._persist();

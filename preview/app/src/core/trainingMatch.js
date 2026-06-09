@@ -738,7 +738,7 @@ export function tickCreationTimer(state) {
   if (state.untimedCreation) return state;
   const newRemaining = Math.max(0, (state.remaining || 0) - 1);
   if (newRemaining === 0) {
-    return { ...state, remaining: 0, phase: "result", updatedAt: Date.now() };
+    return { ...state, remaining: 0, phase: "creation-timeup", updatedAt: Date.now() };
   }
   return { ...state, remaining: newRemaining, updatedAt: Date.now() };
 }

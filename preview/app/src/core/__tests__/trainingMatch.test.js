@@ -291,10 +291,10 @@ describe('tickCreationTimer', () => {
     expect(next.phase).toBe('creation')
   })
 
-  it('transitions to result when remaining reaches 0', () => {
+  it('transitions to creation-timeup when remaining reaches 0', () => {
     const state = makeState({ phase: 'creation', remaining: 1 })
     const next = tickCreationTimer(state)
-    expect(next.phase).toBe('result')
+    expect(next.phase).toBe('creation-timeup')
     expect(next.remaining).toBe(0)
   })
 })

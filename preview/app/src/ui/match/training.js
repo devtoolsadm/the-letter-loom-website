@@ -40,6 +40,7 @@ import {
   TRAINING_DIFFICULTIES,
   TRAINING_DIFFICULTY_PRESETS,
   getActionCardDefsForLanguage,
+  CREATION_TIMEUP_AUTO_ACTION_MS,
 } from "../../core/constants.js";
 import { findHints } from "../../core/hintSolver.js";
 import { validateWord as validateWordLayered, LAYER_PRESETS } from "../../core/wordValidator.js";
@@ -300,6 +301,8 @@ const DOUBLE_TAP_MS = 400;
 // in ./actionToast.js (shared with future online match). Use the imported
 // getCurrentActionBubble()/clearActionBanner()/showActionToast()/etc.
 let trainingTimerInterval = null;
+let trainingTimerExpiresAt = 0;
+let trainingTimeupTimer = null;
 let trainingClockPhase = null;
 let debugMode = false;
 // Phase-flash module configured below; uses _shell-injected `t` and
@@ -597,7 +600,8 @@ function renderTrainingMatch() {
   _shell.setI18nById("trainingRoundLabel", "trainingRoundLabel", {
     vars: { round: state.round, total: state.roundsTarget },
   });
-  _shell.setI18nById("trainingPhaseLabel", `trainingPhase${capitalizeStr(state.phase)}`);
+  const phaseLabelKey = state.phase === "creation-timeup" ? "trainingPhaseCreation" : `trainingPhase${capitalizeStr(state.phase)}`;
+  _shell.setI18nById("trainingPhaseLabel", phaseLabelKey);
   const _debugBadge = document.getElementById("trainingDebugBadge");
   if (_debugBadge) _debugBadge.classList.toggle("hidden", !debugMode);
   renderTrainingPrompt(state);
@@ -611,8 +615,9 @@ function renderTrainingMatch() {
   renderTrainingActions(state);
   renderTrainingTimer(state);
   renderTrainingResult(state);
-  const isResultOrDone = state.phase === "result" || state.phase === "done";
-  // During result/done: hide the game content sections so the result panel can expand.
+  renderTrainingCreationTimeup(state);
+  const isResultOrDone = state.phase === "result" || state.phase === "done" || state.phase === "creation-timeup";
+  // During result/done/creation-timeup: hide the game content sections.
   [".training-section.is-board", ".training-section:not(.is-board)"].forEach((sel) => {
     const el = document.querySelector(sel);
     if (el) el.classList.toggle("hidden", isResultOrDone);
@@ -641,7 +646,7 @@ function renderTrainingMatch() {
   maybeShowPhaseFlash(state);
   if (state.phase === "strategy" || state.phase === "creation") {
     ensureTrainingTimer();
-  } else {
+  } else if (state.phase !== "creation-timeup") {
     stopTrainingTimer();
   }
   const userId = state.players[0].id;
@@ -1813,6 +1818,26 @@ function renderTrainingTimer(state) {
   }
 }
 
+function renderTrainingCreationTimeup(state) {
+  const panel = document.getElementById("trainingResultPanel");
+  if (!panel) return;
+  if (state.phase !== "creation-timeup") {
+    return;
+  }
+  openModal("training-result", { closable: false });
+  panel.innerHTML = "";
+  const wrap = document.createElement("div");
+  wrap.className = "training-timeup-panel";
+  const icon = document.createElement("div");
+  icon.className = "training-timeup-icon";
+  icon.textContent = "⏱";
+  const msg = document.createElement("div");
+  msg.className = "training-timeup-msg";
+  msg.textContent = t("matchTimeUp") || "¡Tiempo!";
+  wrap.append(icon, msg);
+  panel.appendChild(wrap);
+}
+
 function renderTrainingResult(state) {
   const panel = document.getElementById("trainingResultPanel");
   if (!panel) return;
@@ -2174,8 +2199,13 @@ function finishTrainingTimer() {
   if (state.phase === "creation") {
     stopTrainingTimer();
     trainingClockPhase = null;
-    _shell.stopClockLoop(false);
-    void submitTrainingWord(state);
+    const timerEl = document.getElementById("trainingTimerValue");
+    if (timerEl) timerEl.textContent = "00:00";
+    _shell.triggerTimeUpEffects("training");
+    const timeupState = { ...state, phase: "creation-timeup", remaining: 0 };
+    saveTrainingMatch(timeupState);
+    renderTrainingMatch();
+    scheduleCreationTimeupAutoAdvance(state);
     return;
   }
 }
@@ -2220,6 +2250,8 @@ async function submitTrainingWord(state) {
     toValidate = setDictWords(finalized, dictWordOverride.wordForDict, dictWordOverride.word2ForDict);
   }
 
+  saveTrainingMatch(toValidate);
+  cancelTrainingTimeupTimer();
   renderTrainingMatch();
   if (r?.valid) validateAndUpdateUserWord(toValidate);
 }
@@ -3518,6 +3550,24 @@ function stopTrainingTimer() {
     clearInterval(trainingTimerInterval);
     trainingTimerInterval = null;
   }
+  trainingTimerExpiresAt = 0;
+}
+
+function cancelTrainingTimeupTimer() {
+  if (trainingTimeupTimer) {
+    clearTimeout(trainingTimeupTimer);
+    trainingTimeupTimer = null;
+  }
+}
+
+function scheduleCreationTimeupAutoAdvance(stateAtTimeup) {
+  cancelTrainingTimeupTimer();
+  trainingTimeupTimer = setTimeout(() => {
+    trainingTimeupTimer = null;
+    const cur = getTrainingMatch();
+    if (!cur || cur.phase !== "creation-timeup") return;
+    void submitTrainingWord(stateAtTimeup);
+  }, CREATION_TIMEUP_AUTO_ACTION_MS);
 }
 
 function ensureTrainingTimer() {
@@ -3535,45 +3585,47 @@ function ensureTrainingTimer() {
     trainingClockPhase = phase;
     _shell.playClockLoop();
   }
+  trainingTimerExpiresAt = Date.now() + (state.remaining || 0) * 1000;
   trainingTimerInterval = setInterval(() => {
     const current = getTrainingMatch();
     if (!current || (current.phase !== "strategy" && current.phase !== "creation")) {
       stopTrainingTimer();
       return;
     }
+    const wallRemaining = Math.max(0, Math.ceil((trainingTimerExpiresAt - Date.now()) / 1000));
+    const currentWithWall = { ...current, remaining: wallRemaining };
     let next;
     if (current.phase === "strategy") {
-      next = tickStrategyTimer(current);
+      next = tickStrategyTimer(currentWithWall);
       // If strategy just ended and the user had a card focused, treat the
       // focus as a preselection — the focused card becomes the default play.
-      if (current.phase === "strategy" && next.phase === "actions" && focusedActionIndex != null) {
+      if (next.phase === "actions" && focusedActionIndex != null) {
         const userId = current.players[0].id;
         const card = current.hands?.[userId]?.actions?.[focusedActionIndex];
-        next = selectActionInStrategy(current, focusedActionIndex);
+        next = selectActionInStrategy(currentWithWall, focusedActionIndex);
         if (card) debugLogPushPreselect(next, card.actionId);
         focusedActionIndex = null;
       }
     } else {
-      // Creation phase: tick; if timer ran out, delegate entirely to
-      // submitTrainingWord so the philologist picker and async validation
-      // are handled in the same way as a manual finish.
-      next = tickCreationTimer(current);
-      if (current.phase === "creation" && next.phase === "result") {
+      // Creation phase: tick via wall-clock; if timer ran out, enter
+      // creation-timeup so the timeup screen shows before submit.
+      next = tickCreationTimer(currentWithWall);
+      if (next.phase === "creation-timeup") {
         stopTrainingTimer();
         trainingClockPhase = null;
         const timerEl = document.getElementById("trainingTimerValue");
         if (timerEl) timerEl.textContent = "00:00";
-        _shell.stopClockLoop(false);
         _shell.triggerTimeUpEffects("training");
-        void submitTrainingWord(current);
+        saveTrainingMatch(next);
+        renderTrainingMatch();
+        scheduleCreationTimeupAutoAdvance(current);
         return;
       }
     }
     if (next.phase !== current.phase) {
       trainingClockPhase = null;
       // Force the timer label to "00:00" before any re-render so the user
-      // actually sees the counter reach zero (otherwise the last frame
-      // visible is the previous tick value, e.g. "00:01").
+      // actually sees the counter reach zero.
       const timerEl = document.getElementById("trainingTimerValue");
       if (timerEl) timerEl.textContent = "00:00";
       saveTrainingMatch(next);
@@ -3582,9 +3634,10 @@ function ensureTrainingTimer() {
       renderTrainingMatch();
       return;
     }
-    saveTrainingMatch(next);
-    renderTrainingTimer(next);
-    if (next.remaining <= LOW_TIME_THRESHOLD && next.remaining > 0) {
+    const nextWithWall = { ...next, remaining: wallRemaining };
+    saveTrainingMatch(nextWithWall);
+    renderTrainingTimer(nextWithWall);
+    if (wallRemaining <= LOW_TIME_THRESHOLD && wallRemaining > 0) {
       _shell.playLowTimeTick();
     }
   }, 1000);
@@ -3593,6 +3646,7 @@ function ensureTrainingTimer() {
 // Called by main.js showScreen() when navigating away from training
 export function cleanupTraining(stopClock) {
   stopTrainingTimer();
+  cancelTrainingTimeupTimer();
   stopDriver();
   stopUserTurnTimer();
   if (trainingClockPhase !== null) {
