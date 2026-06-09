@@ -277,6 +277,9 @@ function consumeMovesAndUpdateAttackBanner(state, log) {
 let creationTimeupTimer = null;
 let creationTimeupCancelled = false;
 let dealerFocusTimer = null;
+// Resolved hints for the current baza result panel. null = still loading, [] = none found.
+let _resultHints = null;
+let _resultHintsWord = null; // word they were computed for, to detect stale data
 // actionsDriverTimeout / actionsDriverBusy now live in ./actionsController.js.
 // Use scheduleDriverTick/stopDriver/markDriverBusy/clearDriverBusy/isDriverBusy.
 let focusedActionIndex = null;
@@ -1720,7 +1723,9 @@ function renderTrainingTimer(state) {
   const card = document.getElementById("trainingMatchTimerCard");
   if (!el) return;
   if (card) card.classList.toggle("hidden", !!state.untimedCreation);
-  const isTimeup = state.phase === "creation-timeup";
+
+  // Show "Tiempo!" when creation hasn't started yet (actions phase) or after it expired.
+  const isTimeup = state.phase === "creation-timeup" || state.phase === "actions";
   if (isTimeup) {
     el.textContent = t("matchTimeUp") || "Tiempo!";
     if (card) {
@@ -1738,7 +1743,7 @@ function renderTrainingTimer(state) {
     const timerEffectsActive = running && !isTrainingTimerGated() && trainingPhaseTimer.running;
     card.classList.toggle("time-pressure", timerEffectsActive && s <= LOW_TIME_THRESHOLD && s > 5);
     card.classList.toggle("time-pressure-urgent", timerEffectsActive && s <= 5 && s > 0);
-    card.classList.toggle("timeup", timerEffectsActive && s === 0);
+    card.classList.toggle("timeup", false);
   }
 }
 
@@ -1776,19 +1781,27 @@ function renderTrainingResult(state) {
 
   // ── Baza result ──────────────────────────────────────────────
   const result = state.userWordResult;
+  const wordKey = result?.word ?? "";
+  const needsHints = state.difficulty !== "words";
+  const hintsReady = !needsHints || (_resultHintsWord === wordKey && _resultHints !== null);
+  const isLoading = result?.checking || !hintsReady;
+
+  if (isLoading) {
+    const spinner = document.createElement("div");
+    spinner.className = "training-result-spinner";
+    spinner.textContent = t("trainingResultChecking") || "⏳ Validando…";
+    panel.appendChild(spinner);
+    return;
+  }
+
   if (result) {
     const validityRow = document.createElement("div");
     validityRow.className = "training-result-validity";
     const badge = document.createElement("div");
-    if (result.checking) {
-      badge.className = "training-result-badge is-checking";
-      badge.textContent = t("trainingResultChecking") || "⏳ Validando…";
-    } else {
-      badge.className = "training-result-badge " + (result.valid ? "is-valid" : "is-invalid");
-      badge.textContent = result.valid
-        ? (t("trainingResultValidWord") || "✓ Válida")
-        : (t("trainingResultInvalidWord") || "✗ No válida");
-    }
+    badge.className = "training-result-badge " + (result.valid ? "is-valid" : "is-invalid");
+    badge.textContent = result.valid
+      ? (t("trainingResultValidWord") || "✓ Válida")
+      : (t("trainingResultInvalidWord") || "✗ No válida");
     validityRow.appendChild(badge);
     if (shouldShowTrainingResultLanguageBadge(state, result)) {
       const langBadge = document.createElement("span");
@@ -1799,11 +1812,10 @@ function renderTrainingResult(state) {
     panel.appendChild(validityRow);
 
     const hasP2 = !!result.word2;
-    // Use the dict variant (with virtual tilde from philologist picker) for display.
     const displayWord  = result.wordForDict  ?? result.word  ?? "—";
     const displayWord2 = result.word2ForDict ?? result.word2 ?? null;
     const wordEl = document.createElement("div");
-    wordEl.className = "training-result-word" + (!result.checking && !result.valid ? " is-invalid" : "");
+    wordEl.className = "training-result-word" + (!result.valid ? " is-invalid" : "");
     if (hasP2) {
       const p1span = document.createElement("span");
       p1span.textContent = displayWord;
@@ -1818,28 +1830,23 @@ function renderTrainingResult(state) {
     }
     panel.appendChild(wordEl);
 
-    if (!result.checking && !result.valid && result.reason) {
+    if (!result.valid && result.reason) {
       const reasonEl = document.createElement("div");
       reasonEl.className = "training-result-reason";
       const whichWord = result.invalidWord === "p2" ? ` (P2: ${displayWord2 || ""})` : "";
       const reasonKey = {
-        too_short:          "trainingResultReasonTooShort",
-        missing_source:     "trainingResultReasonSource",
-        forced_rule:        "trainingResultReasonForcedRule",
-        not_in_dictionary:  "trainingResultReasonNotInDictionary",
+        too_short:         "trainingResultReasonTooShort",
+        missing_source:    "trainingResultReasonSource",
+        forced_rule:       "trainingResultReasonForcedRule",
+        not_in_dictionary: "trainingResultReasonNotInDictionary",
       }[result.reason];
-      const fallback = result.reason === "not_in_dictionary"
-        ? "No existe en el diccionario"
-        : result.reason;
+      const fallback = result.reason === "not_in_dictionary" ? "No existe en el diccionario" : result.reason;
       reasonEl.textContent = ((reasonKey ? t(reasonKey) : fallback) || fallback) + whichWord;
       panel.appendChild(reasonEl);
     }
 
-    // Score breakdown: render each contributing part (letter values,
-    // wildcard bonuses, action-card modifiers, x2 if applicable).
-    if (!result.checking && result.valid) {
+    if (result.valid) {
       if (hasP2) {
-        // Two breakdowns + sum.
         const breakdownWrap = document.createElement("div");
         breakdownWrap.className = "training-result-breakdowns";
         if (Array.isArray(result.breakdown) && result.breakdown.length > 0) {
@@ -1862,7 +1869,7 @@ function renderTrainingResult(state) {
     }
   }
 
-  // Scores table (this baza)
+  // Scores table
   const table = document.createElement("table");
   table.className = "training-result-table";
   const thead = document.createElement("thead");
@@ -1895,15 +1902,23 @@ function renderTrainingResult(state) {
   table.appendChild(tbody);
   panel.appendChild(table);
 
-  // Educational suggestions: top 3 words the user could have played with
-  // their hand + the board snapshot at validation time. Skipped in Practicar
-  // (which already exposes the in-creation hint button).
-  if (state.difficulty !== "words") {
+  // Hints (already computed, inject synchronously)
+  if (needsHints && _resultHints?.length > 0) {
+    const top3 = _resultHints;
+    const userScore = result?.score ?? 0;
+    const userValid = result?.valid;
     const suggBox = document.createElement("div");
     suggBox.className = "training-result-suggestions";
-    suggBox.innerHTML = `<div class="hints-meta">…</div>`;
+    if (userValid && userScore >= top3[0].score) {
+      suggBox.innerHTML = `<div class="training-result-suggestions-header">🎯 ¡Has sacado la mejor palabra posible!</div>`;
+    } else {
+      const rows = top3.map(renderHintItem).join("");
+      suggBox.innerHTML = `
+        <div class="training-result-suggestions-header">${t("trainingAlsoCould") || "También podías"}</div>
+        <ol class="hints-list">${rows}</ol>
+      `;
+    }
     panel.appendChild(suggBox);
-    void renderRoundEndHints(suggBox, state);
   }
 
   const actionsDiv = document.createElement("div");
@@ -1917,54 +1932,6 @@ function renderTrainingResult(state) {
   panel.appendChild(actionsDiv);
 }
 
-async function renderRoundEndHints(box, state) {
-  const uiDiff = state.difficulty || "normal";
-  const solverDiff = uiDiff === "hard" ? "hard" : uiDiff === "normal" ? "normal" : "easy";
-  let hints = [];
-  try {
-    // Request a few extra so we have buffer after filtering out the user's
-    // own word.
-    hints = await findHints(state, { count: 6, difficulty: solverDiff, language: getTrainingEffectiveWordLanguage(state) });
-  } catch (err) {
-    logger.warn("[round-end hints] solver failed", err);
-  }
-  // Avoid overwriting if the modal was closed before the solver returned.
-  if (!box.isConnected) return;
-
-  const userScore = state.userWordResult?.score ?? 0;
-  const userValid = state.userWordResult?.valid;
-  const userWord = state.userWordResult?.word ?? "";
-  const norm = (w) => (w || "")
-    .toUpperCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "");
-  const userKey = norm(userWord);
-  // Drop suggestions that match the user's word with equal-or-worse score.
-  // Keep them when the score is higher — that's the educational case
-  // ("same word but built smarter": wildcard +6, matching colors, etc.).
-  const filtered = userValid && userKey
-    ? hints.filter((h) => !(norm(h.word) === userKey && h.score <= userScore))
-    : hints;
-  const top3 = filtered.slice(0, 3);
-
-  const top = top3[0];
-  if (!top) {
-    // No suggestions to show — drop the section entirely.
-    box.remove();
-    return;
-  }
-  if (userValid && userScore >= top.score) {
-    box.innerHTML = `<div class="training-result-suggestions-header">🎯 ¡Has sacado la mejor palabra posible!</div>`;
-    return;
-  }
-  // Use the same per-letter rendering as the hints modal so wildcards mark
-  // exactly which letter they're standing in for (★ underneath that letter).
-  const rows = top3.map(renderHintItem).join("");
-  box.innerHTML = `
-    <div class="training-result-suggestions-header">${t("trainingAlsoCould") || "También podías"}</div>
-    <ol class="hints-list">${rows}</ol>
-  `;
-}
 
 function saveTrainingStats(state) {
   const prev = loadState().training?.stats?.[state.difficulty] ?? {};
@@ -2066,10 +2033,12 @@ function handleNextBaza() {
   const state = getTrainingMatch();
   if (!state || state.phase !== "result") return;
   debugLogPushBazaEnd(state);
+  _resultHints = null;
+  _resultHintsWord = null;
   advanceToNextBaza(state);
   const next = getTrainingMatch();
   if (next && next.phase !== "done") debugLogPushBazaStart(next);
-  resetPhaseFlash(); // allow phase flash for new baza
+  resetPhaseFlash();
   renderTrainingMatch();
 }
 
@@ -2118,8 +2087,8 @@ function finishTrainingTimer() {
 // Central submit entry point for the creation phase.
 // 1. If philologist is active and no word has a tilde yet → show picker first.
 // 2. finalizeUserWord (local rules, score, phase → result).
-// 3. renderTrainingMatch (shows spinner because checking=true).
-// 4. If locally valid → validateAndUpdateUserWord (async dictionary check).
+// 3. Show spinner immediately (checking=true, hints loading).
+// 4. Run dict validation + hints in parallel; render result only when both finish.
 async function submitTrainingWord(state) {
   const lang = trainingWordLangOverride ?? state.language ?? "es";
   const userId = state.players[0].id;
@@ -2127,13 +2096,9 @@ async function submitTrainingWord(state) {
   const hasPhilologist = forcedEffects.some((e) => e.actionId === "philologist");
 
   // ── Philologist picker (before finalize) ────────────────────
-  // If philologist is active and no word has a physical tilde, ask the player
-  // which vowel to accent. The virtual-tilde word is passed to finalizeUserWord
-  // so the philologist rule passes, and to the dictionary for lookup.
-  let philoOpts = {};   // { philoWord, philoWord2 } for finalizeUserWord
-  let dictWordOverride = null;  // { wordForDict, word2ForDict } for setDictWords
+  let philoOpts = {};
+  let dictWordOverride = null;
   if (hasPhilologist) {
-    // Build a quick preview of the words to know if picker is needed.
     const preview = finalizeUserWord(state, lang, { skipForcedRules: true });
     const pw1 = preview.userWordResult?.word ?? "";
     const pw2 = preview.userWordResult?.word2 ?? null;
@@ -2155,10 +2120,34 @@ async function submitTrainingWord(state) {
     toValidate = setDictWords(finalized, dictWordOverride.wordForDict, dictWordOverride.word2ForDict);
   }
 
+  // Mark hints as loading for this word.
+  const wordKey = r?.word ?? "";
+  _resultHints = null;
+  _resultHintsWord = wordKey;
+
   saveTrainingMatch(toValidate);
   cancelTrainingTimeupTimer();
+  // Show spinner immediately — panel renders with checking=true and hints pending.
   renderTrainingMatch();
-  if (r?.valid) validateAndUpdateUserWord(toValidate);
+
+  // Run dict validation and hints in parallel; render once both resolve.
+  const dictPromise = r?.valid
+    ? resolveAndUpdateUserWord(toValidate)
+    : Promise.resolve();
+
+  const hintsPromise = (toValidate.difficulty !== "words")
+    ? fetchRoundEndHints(toValidate)
+    : Promise.resolve([]);
+
+  const [, hints] = await Promise.all([dictPromise, hintsPromise]);
+
+  // Store hints only if this baza hasn't changed.
+  const cur = getTrainingMatch();
+  if (cur && cur.userWordResult?.word === wordKey) {
+    _resultHints = hints ?? [];
+    _resultHintsWord = wordKey;
+    renderTrainingMatch();
+  }
 }
 
 // Philologist tilde picker modal. Returns { wordForDict, word2ForDict } with
@@ -2300,7 +2289,9 @@ function openPhiloPickerModal(word, word2) {
 // Runs AFTER finalizeUserWord. Uses wordForDict / word2ForDict which may
 // have tilde overrides from the philologist picker.
 // If any word fails → revert score + mark invalid.
-async function validateAndUpdateUserWord(state) {
+// Runs dict validation, updates the match state (checking → false / invalid).
+// Does NOT call renderTrainingMatch — the caller coordinates the final render.
+async function resolveAndUpdateUserWord(state) {
   const result = state.userWordResult;
   if (!result?.valid) return;
   const word = result.wordForDict ?? result.word;
@@ -2308,7 +2299,6 @@ async function validateAndUpdateUserWord(state) {
   if (!word) return;
   const language = getTrainingEffectiveWordLanguage(state);
 
-  // Validate P1 and P2 in parallel.
   let r1, r2;
   try {
     const p1 = validateWordLayered(word, { language, layers: LAYER_PRESETS.training });
@@ -2321,7 +2311,6 @@ async function validateAndUpdateUserWord(state) {
     const current = getTrainingMatch();
     if (!current?.userWordResult) return;
     saveTrainingMatch({ ...current, userWordResult: { ...current.userWordResult, checking: false } });
-    renderTrainingMatch();
     return;
   }
 
@@ -2329,30 +2318,21 @@ async function validateAndUpdateUserWord(state) {
   if (!current?.userWordResult) return;
   if (current.userWordResult.word !== result.word) return; // baza changed
 
-  const dictValid = r1.valid && r2.valid;
-  if (dictValid) {
+  if (r1.valid && r2.valid) {
     saveTrainingMatch({
       ...current,
-      userWordResult: {
-        ...current.userWordResult,
-        checking: false,
-        validationSource: r1.source,
-      },
+      userWordResult: { ...current.userWordResult, checking: false, validationSource: r1.source },
     });
-    renderTrainingMatch();
     return;
   }
 
   // At least one word not in dictionary → revert score.
-  const failedWord = !r1.valid ? result.word : result.word2;
   const userId = current.players[0].id;
   const previousScore = current.userWordResult.score ?? 0;
   const newPlayers = current.players.map((p) => {
     if (p.id !== userId) return p;
     const rounds = (p.rounds ?? []).slice();
-    if (rounds.length > 0) {
-      rounds[rounds.length - 1] = { ...rounds[rounds.length - 1], points: 0 };
-    }
+    if (rounds.length > 0) rounds[rounds.length - 1] = { ...rounds[rounds.length - 1], points: 0 };
     return { ...p, rounds, score: Math.max(0, (p.score ?? 0) - previousScore) };
   });
   saveTrainingMatch({
@@ -2363,14 +2343,32 @@ async function validateAndUpdateUserWord(state) {
       valid: false,
       reason: "not_in_dictionary",
       invalidWord: !r1.valid ? "p1" : "p2",
-      score: 0,
-      score1: 0,
-      score2: 0,
+      score: 0, score1: 0, score2: 0,
       checking: false,
       validationSource: !r1.valid ? r1.source : r2.source,
     },
   });
-  renderTrainingMatch();
+}
+
+// Returns the top-3 filtered hints for the round-end panel (does not touch DOM).
+async function fetchRoundEndHints(state) {
+  const uiDiff = state.difficulty || "normal";
+  const solverDiff = uiDiff === "hard" ? "hard" : uiDiff === "normal" ? "normal" : "easy";
+  let hints = [];
+  try {
+    hints = await findHints(state, { count: 6, difficulty: solverDiff, language: getTrainingEffectiveWordLanguage(state) });
+  } catch (err) {
+    logger.warn("[round-end hints] solver failed", err);
+  }
+  const userScore = state.userWordResult?.score ?? 0;
+  const userValid = state.userWordResult?.valid;
+  const userWord = state.userWordResult?.word ?? "";
+  const norm = (w) => (w || "").toUpperCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  const userKey = norm(userWord);
+  const filtered = userValid && userKey
+    ? hints.filter((h) => !(norm(h.word) === userKey && h.score <= userScore))
+    : hints;
+  return filtered.slice(0, 3);
 }
 
 // ── Actions phase driver ───────────────────────────────────
@@ -3544,6 +3542,8 @@ export function cleanupTraining(stopClock) {
   cancelTrainingTimeupTimer();
   stopDriver();
   stopUserTurnTimer();
+  _resultHints = null;
+  _resultHintsWord = null;
   if (trainingClockPhase !== null) {
     trainingClockPhase = null;
     _shell.stopClockLoop(stopClock);
