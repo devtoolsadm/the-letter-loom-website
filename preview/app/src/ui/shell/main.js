@@ -83,6 +83,7 @@ import {
   handleDealRandomBoard,
   handleDealRandomHand,
 } from "../match/training.js";
+import { getTrainingMatch } from "../../core/trainingMatch.js";
 import {
   initScoreboard,
   validateScores,
@@ -849,6 +850,7 @@ function setupNavigation() {
     ["trainingMatchBackBtn",     () => confirmExitTrainingMatch()],
     ["trainingMatchExitBtn",     () => confirmExitTrainingMatch()],
     ["trainingMatchSettingsBtn", () => openSettingsModal()],
+    ["trainingMatchHelpBtn",     () => openQuickGuide(getQuickGuideSectionForPhase(getTrainingMatch()?.phase))],
     ["trainingTimerDoneBtn",     () => finishTrainingTimer()],
     ["trainingValidateBtn",      () => finishTrainingTimer()],
     ["trainingHintBtn",          () => requestTrainingHints()],

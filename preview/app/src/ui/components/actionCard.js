@@ -103,7 +103,7 @@ export function renderActionCardGrid({ language = "es" } = {}) {
   const grid = document.createElement("div");
   grid.className = "quick-guide-action-grid";
   const groupOrder = { self: 0, all: 1, one: 2 };
-  const sorted = getActionCardDefsForLanguage(language)
+  const sorted = getActionCardDefsForLanguage(language, { mvpOnly: true })
     .slice()
     .sort((a, b) => (groupOrder[a.target] ?? 9) - (groupOrder[b.target] ?? 9));
   sorted.forEach((def) => {

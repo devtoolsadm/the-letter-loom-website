@@ -202,9 +202,10 @@ export const ACTION_CARDS = [
   { id: "palabra_extra", kind: "self_bonus", target: "self", count: 3, inMVP: true },
 ];
 
-export function getActionCardDefsForLanguage(language = "es") {
+export function getActionCardDefsForLanguage(language = "es", { mvpOnly = false } = {}) {
   const lang = normalizeGameLanguage(language);
   return ACTION_CARDS.filter((card) => {
+    if (mvpOnly && !card.inMVP) return false;
     if (lang === "en" && card.id === "philologist") return false;
     if (card.id === "in_english") return lang === "es";
     if (card.id === "in_spanish") return lang === "en";

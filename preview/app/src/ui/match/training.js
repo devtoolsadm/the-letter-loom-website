@@ -800,6 +800,7 @@ function renderTrainingBoard(state) {
     : Array.from({ length: 5 }, () => null);
   const isDealing = state.phase === "dealing";
   const isCreation = state.phase === "creation";
+  const isCreationTimeup = state.phase === "creation-timeup";
   const activeWordIndex = trainingActiveWordIndex;
   const p1WordIds = new Set((state.userWord ?? []).map((s) => s.cardId));
   const p2WordIds = new Set((state.userWord2 ?? []).map((s) => s.cardId));
@@ -839,15 +840,19 @@ function renderTrainingBoard(state) {
       el.classList.add("is-forced-pulse");
       el.addEventListener("animationend", () => el.classList.remove("is-forced-pulse"), { once: true });
     }
-    if (card && isCreation) {
+    if (card && (isCreation || isCreationTimeup)) {
       const inActiveWord = wordIds.has(card.id);
-      // In P2 mode, cards already in P1 but not yet in P2 get a dim hint
-      // unless they are the shared card (already committed to P2).
-      if (activeWordIndex === 1 && p1WordIds.has(card.id) && !p2WordIds.has(card.id)) {
-        el.classList.add("is-in-p1");
-        if (state.sharedCardId === null) el.classList.add("is-shareable");
+      if (isCreation) {
+        // In P2 mode, cards already in P1 but not yet in P2 get a dim hint
+        // unless they are the shared card (already committed to P2).
+        if (activeWordIndex === 1 && p1WordIds.has(card.id) && !p2WordIds.has(card.id)) {
+          el.classList.add("is-in-p1");
+          if (state.sharedCardId === null) el.classList.add("is-shareable");
+        }
+        attachCardSelectableBehavior(el, card, "board", inActiveWord);
+      } else if (inActiveWord) {
+        el.classList.add("is-in-word");
       }
-      attachCardSelectableBehavior(el, card, "board", inActiveWord);
     }
     root.appendChild(el);
   });
@@ -969,6 +974,7 @@ function renderTrainingHand(state) {
   // user sees the V/C backs land, before the cascade flips them face-up.
   const isDealing = state.phase === "dealing" || pendingDealCascade;
   const isCreation = state.phase === "creation";
+  const isCreationTimeup = state.phase === "creation-timeup";
   const isStrategy = state.phase === "strategy";
   const isUserTurn = state.phase === "actions"
     && (state.actionsQueue?.[0] === userId)
@@ -1001,13 +1007,17 @@ function renderTrainingHand(state) {
         el.classList.add("is-fade-in");
         el.addEventListener("animationend", () => el.classList.remove("is-fade-in"), { once: true });
       }
-      if (card && isCreation) {
+      if (card && (isCreation || isCreationTimeup)) {
         const inActiveWord = wordIdsHand.has(card.id);
-        if (activeWordIdx === 1 && p1WordIdsHand.has(card.id) && !p2WordIdsHand.has(card.id)) {
-          el.classList.add("is-in-p1");
-          if (state.sharedCardId === null) el.classList.add("is-shareable");
+        if (isCreation) {
+          if (activeWordIdx === 1 && p1WordIdsHand.has(card.id) && !p2WordIdsHand.has(card.id)) {
+            el.classList.add("is-in-p1");
+            if (state.sharedCardId === null) el.classList.add("is-shareable");
+          }
+          attachCardSelectableBehavior(el, card, "hand", inActiveWord);
+        } else if (inActiveWord) {
+          el.classList.add("is-in-word");
         }
-        attachCardSelectableBehavior(el, card, "hand", inActiveWord);
       }
       root.appendChild(el);
     }
