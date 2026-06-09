@@ -1726,10 +1726,15 @@ function renderTrainingTimer(state) {
   const card = document.getElementById("trainingMatchTimerCard");
   if (!el) return;
 
-  // Hide the timer pill during actions phase (and later) or when creation is untimed.
-  const hideTimer = !!state.untimedCreation || state.phase === "actions" || state.phase === "result" || state.phase === "end";
-  if (card) card.classList.toggle("hidden", hideTimer);
-  if (hideTimer) return;
+  // During actions/result/end the timer pill stays in the layout (no reflow)
+  // but becomes invisible. During untimedCreation it is fully hidden.
+  const fullyHide = !!state.untimedCreation;
+  const invisible = !fullyHide && (state.phase === "actions" || state.phase === "result" || state.phase === "end");
+  if (card) {
+    card.classList.toggle("hidden", fullyHide);
+    card.classList.toggle("is-invisible", invisible);
+  }
+  if (fullyHide || invisible) return;
 
   // Show "Tiempo!" when: strategy just expired (2s display window) or creation-timeup.
   const strategyJustExpired = state.phase === "strategy" && (state.remaining || 0) === 0 && Date.now() < _strategyTimeupUntil;
@@ -3464,6 +3469,13 @@ function stopTrainingTimer() {
   trainingPhaseTimer.stop();
 }
 
+// Close any picker overlays and system modals that may be open mid-phase,
+// so they don't linger when the timer expires and the phase advances.
+function closeAllTrainingOverlays() {
+  document.querySelectorAll(".training-picker-overlay").forEach((el) => el.remove());
+  closeAllModals();
+}
+
 function cancelTrainingTimeupTimer() {
   if (trainingTimeupTimer) {
     clearTimeout(trainingTimeupTimer);
@@ -3524,6 +3536,7 @@ function ensureTrainingTimer() {
       if (!current) return;
       if (current.phase === "strategy") {
         trainingClockPhase = null;
+        closeAllTrainingOverlays();
         // Show "Tiempo!" in the timer for STRATEGY_TIMEUP_DISPLAY_MS before entering actions.
         _strategyTimeupUntil = Date.now() + STRATEGY_TIMEUP_DISPLAY_MS;
         _shell.triggerTimeUpEffects("training");
@@ -3544,6 +3557,7 @@ function ensureTrainingTimer() {
         }, STRATEGY_TIMEUP_DISPLAY_MS);
       } else if (current.phase === "creation") {
         trainingClockPhase = null;
+        closeAllTrainingOverlays();
         _shell.triggerTimeUpEffects("training");
         const timeupState = { ...current, phase: "creation-timeup", remaining: 0 };
         saveTrainingMatch(timeupState);

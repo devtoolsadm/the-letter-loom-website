@@ -2781,6 +2781,9 @@ body.splash-ready #splashLoadingBlock {
 }
 
 .training-prompt {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   text-align: center;
   font-family: var(--font-heading);
   font-weight: 900;
@@ -4421,6 +4424,10 @@ body.splash-ready #splashLoadingBlock {
   min-width: 110px;
   padding: 2px 18px;
   gap: 0;
+}
+.training-timer .match-timer.is-invisible {
+  visibility: hidden;
+  pointer-events: none;
 }
 .training-timer .match-timer.timeup {
   background-color: #ffe8e8;
@@ -9469,7 +9476,7 @@ body.splash-ready #splashLoadingBlock {
   padding: 0 16px;
   font-family: "Fredoka", sans-serif;
   font-size: 15px;
-  color: #b8c0d8;
+  color: #6060c0;
   /* Fixed height matching approximate result panel size so the modal doesn't jump */
   height: 260px;
 }
