@@ -3043,6 +3043,7 @@ body.splash-ready #splashLoadingBlock {
   display: inline-flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 1px;
   padding: 4px 8px 5px;
   border-radius: 12px;
@@ -4422,13 +4423,22 @@ body.splash-ready #splashLoadingBlock {
   gap: 0;
 }
 .training-timer .match-timer.timeup {
-  background-color: #ffd5d5;
+  background-color: #ffe8e8;
+  border-color: #ef4444;
+  box-shadow:
+    0 0 0 3px rgba(239, 68, 68, 0.25),
+    inset 0 0 12px rgba(239, 68, 68, 0.22),
+    0 12px 18px rgba(0, 0, 0, 0.18);
 }
 .training-timer .match-timer-value {
   font-size: 30px;
   letter-spacing: 1px;
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum";
+}
+.training-timer .match-timer.timeup .match-timer-value {
+  color: #b3342a;
+  text-shadow: 0 2px 0 rgba(255, 255, 255, 0.5), 0 4px 10px rgba(0, 0, 0, 0.15);
 }
 .training-timer-done {
   grid-column: 3;
@@ -9394,7 +9404,11 @@ body.splash-ready #splashLoadingBlock {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  width: 100%;
   animation: resultPanelIn 0.3s ease-out;
+}
+.training-result-panel.is-loading {
+  animation: none;
 }
 
 /* Bigger ribbon title for the training-result modal */
@@ -9448,21 +9462,23 @@ body.splash-ready #splashLoadingBlock {
 
 .training-result-spinner {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  padding: 32px 16px;
+  gap: 14px;
+  padding: 0 16px;
   font-family: "Fredoka", sans-serif;
-  font-size: 16px;
+  font-size: 15px;
   color: #b8c0d8;
-  min-height: 120px;
+  /* Fixed height matching approximate result panel size so the modal doesn't jump */
+  height: 260px;
 }
 
 .training-result-spinner::before {
   content: "";
-  width: 22px;
-  height: 22px;
-  border: 3px solid #4a4a8a;
+  width: 28px;
+  height: 28px;
+  border: 3px solid rgba(152, 152, 232, 0.25);
   border-top-color: #9898e8;
   border-radius: 50%;
   animation: result-spin 0.8s linear infinite;

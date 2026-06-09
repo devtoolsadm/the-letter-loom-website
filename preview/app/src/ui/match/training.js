@@ -292,6 +292,9 @@ const DOUBLE_TAP_MS = 400;
 const trainingPhaseTimer = new PhaseTimer();
 let trainingTimeupTimer = null;
 let trainingClockPhase = null;
+// Timestamp until which the strategy "Tiempo!" overlay is shown before actions start.
+let _strategyTimeupUntil = 0;
+const STRATEGY_TIMEUP_DISPLAY_MS = 2000;
 let debugMode = false;
 // Phase-flash module configured below; uses _shell-injected `t` and
 // `renderTrainingMatch` to handle i18n and the post-banner re-render.
@@ -1722,10 +1725,15 @@ function renderTrainingTimer(state) {
   const el = document.getElementById("trainingTimerValue");
   const card = document.getElementById("trainingMatchTimerCard");
   if (!el) return;
-  if (card) card.classList.toggle("hidden", !!state.untimedCreation);
 
-  // Show "Tiempo!" when creation hasn't started yet (actions phase) or after it expired.
-  const isTimeup = state.phase === "creation-timeup" || state.phase === "actions";
+  // Hide the timer pill during actions phase (and later) or when creation is untimed.
+  const hideTimer = !!state.untimedCreation || state.phase === "actions" || state.phase === "result" || state.phase === "end";
+  if (card) card.classList.toggle("hidden", hideTimer);
+  if (hideTimer) return;
+
+  // Show "Tiempo!" when: strategy just expired (2s display window) or creation-timeup.
+  const strategyJustExpired = state.phase === "strategy" && (state.remaining || 0) === 0 && Date.now() < _strategyTimeupUntil;
+  const isTimeup = state.phase === "creation-timeup" || strategyJustExpired;
   if (isTimeup) {
     el.textContent = t("matchTimeUp") || "Tiempo!";
     if (card) {
@@ -1775,6 +1783,7 @@ function renderTrainingResult(state) {
   panel.innerHTML = "";
 
   if (isDone) {
+    panel.classList.remove("is-loading");
     renderTrainingDonePanel(panel, state);
     return;
   }
@@ -1787,12 +1796,15 @@ function renderTrainingResult(state) {
   const isLoading = result?.checking || !hintsReady;
 
   if (isLoading) {
+    panel.classList.add("is-loading");
     const spinner = document.createElement("div");
     spinner.className = "training-result-spinner";
-    spinner.textContent = t("trainingResultChecking") || "⏳ Validando…";
+    spinner.textContent = t("trainingResultChecking") || "Validando…";
     panel.appendChild(spinner);
     return;
   }
+
+  panel.classList.remove("is-loading");
 
   if (result) {
     const validityRow = document.createElement("div");
@@ -3512,18 +3524,24 @@ function ensureTrainingTimer() {
       if (!current) return;
       if (current.phase === "strategy") {
         trainingClockPhase = null;
-        const timerEl = document.getElementById("trainingTimerValue");
-        if (timerEl) timerEl.textContent = "00:00";
-        let next = enterActionsPhase(current);
-        if (focusedActionIndex != null) {
-          const card = current.hands?.[current.players[0].id]?.actions?.[focusedActionIndex];
-          next = selectActionInStrategy(current, focusedActionIndex);
-          if (card) debugLogPushPreselect(next, card.actionId);
-          focusedActionIndex = null;
-        }
-        saveTrainingMatch(next);
+        // Show "Tiempo!" in the timer for STRATEGY_TIMEUP_DISPLAY_MS before entering actions.
+        _strategyTimeupUntil = Date.now() + STRATEGY_TIMEUP_DISPLAY_MS;
         _shell.triggerTimeUpEffects("training");
-        renderTrainingMatch();
+        renderTrainingTimer({ ...current, phase: "strategy", remaining: 0 });
+        setTimeout(() => {
+          _strategyTimeupUntil = 0;
+          const cur = getTrainingMatch();
+          if (!cur || cur.phase !== "strategy") return;
+          let next = enterActionsPhase(cur);
+          if (focusedActionIndex != null) {
+            const card = cur.hands?.[cur.players[0].id]?.actions?.[focusedActionIndex];
+            next = selectActionInStrategy(cur, focusedActionIndex);
+            if (card) debugLogPushPreselect(next, card.actionId);
+            focusedActionIndex = null;
+          }
+          saveTrainingMatch(next);
+          renderTrainingMatch();
+        }, STRATEGY_TIMEUP_DISPLAY_MS);
       } else if (current.phase === "creation") {
         trainingClockPhase = null;
         _shell.triggerTimeUpEffects("training");
@@ -3544,6 +3562,7 @@ export function cleanupTraining(stopClock) {
   stopUserTurnTimer();
   _resultHints = null;
   _resultHintsWord = null;
+  _strategyTimeupUntil = 0;
   if (trainingClockPhase !== null) {
     trainingClockPhase = null;
     _shell.stopClockLoop(stopClock);
