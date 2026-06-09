@@ -38,7 +38,7 @@ import { updateState, loadState } from "../../core/stateStore.js";
 import { logger } from "../../core/logger.js";
 import { TEXTS, getShellLanguage, getAvailableLanguages, BULLET_CHAR } from "../../i18n/texts.js";
 import { openModal, closeModal, closeTopModal, closeAllModals } from "../shell/modal.js";
-import { getDealerPalette, darkenHexColor } from "../utils.js";
+import { getDealerPalette, darkenHexColor, normalizeLanguage, renderLanguageBadge } from "../utils.js";
 import { capture, flush } from "../../lib/analytics.js";
 
 // Shell callbacks
@@ -98,11 +98,6 @@ function t(key, vars) {
   return str;
 }
 
-function normalizeLanguage(value) {
-  const lang = String(value || "").trim().toLowerCase().slice(0, 2);
-  return lang === "en" ? "en" : "es";
-}
-
 function textForLanguage(lang, key) {
   const texts = TEXTS[normalizeLanguage(lang)] || TEXTS.es;
   return texts[key] ?? t(key);
@@ -124,18 +119,6 @@ function getValidationBaseLanguage(key = "match") {
 
 function getValidationSelectedLanguage(section, key = "match") {
   return normalizeLanguage(section?.langOverride || getValidationBaseLanguage(key));
-}
-
-function renderLanguageBadge(titleEl, gameLanguage) {
-  if (!titleEl) return;
-  const layer = titleEl.closest(".screen-topbar") || titleEl.parentElement || titleEl;
-  layer.querySelectorAll(".match-language-badge").forEach((el) => el.remove());
-  const lang = normalizeLanguage(gameLanguage);
-  if (lang === normalizeLanguage(getShellLanguage())) return;
-  const badge = document.createElement("span");
-  badge.className = "match-language-badge";
-  badge.textContent = lang.toUpperCase();
-  layer.appendChild(badge);
 }
 
 // Module state — event setup
@@ -1539,7 +1522,7 @@ export function renderScoreboardScreen(matchState) {
   const note = document.getElementById("scoreboardNote");
   const actionButtons = document.getElementById("scoreboardActionButtons");
   const shareBtn = document.getElementById("scoreboardShareBtn");
-  renderLanguageBadge(document.getElementById("scoreboardTitle"), getMatchLanguage(matchState));
+  renderLanguageBadge(document.getElementById("scoreboardTitle"), getMatchLanguage(matchState), getShellLanguage());
   if (!table || !tableHeader || !tableLeft || !tableCorner || !tableShell) return;
   let emptyEl = document.getElementById("scoreboardEmpty");
   if (!emptyEl) {
@@ -5234,7 +5217,7 @@ function renderMatchFromStateInner(matchState) {
       }
     }
     if (matchState.phase !== "config") {
-      renderLanguageBadge(topbarTitle, getMatchLanguage(matchState));
+      renderLanguageBadge(topbarTitle, getMatchLanguage(matchState), getShellLanguage());
     }
   }
 

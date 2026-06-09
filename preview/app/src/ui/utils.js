@@ -56,3 +56,20 @@ export function darkenHexColor(color, factor = 0.75) {
     b: rgb.b * factor,
   });
 }
+
+export function normalizeLanguage(value) {
+  const lang = String(value || "").trim().toLowerCase().slice(0, 2);
+  return lang === "en" ? "en" : "es";
+}
+
+export function renderLanguageBadge(titleEl, gameLanguage, shellLanguage) {
+  if (!titleEl) return;
+  const layer = titleEl.closest(".screen-topbar") || titleEl.parentElement || titleEl;
+  layer.querySelectorAll(".match-language-badge").forEach((el) => el.remove());
+  const lang = normalizeLanguage(gameLanguage);
+  if (lang === normalizeLanguage(shellLanguage)) return;
+  const badge = document.createElement("span");
+  badge.className = "match-language-badge";
+  badge.textContent = lang.toUpperCase();
+  layer.appendChild(badge);
+}

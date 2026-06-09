@@ -17,6 +17,7 @@ import { loadState, updateState } from "./stateStore.js";
 import { logger } from "./logger.js";
 import { workerFetch } from "../lib/worker.js";
 import { validateWord as validateWordLayered, setAiValidator, LAYER_PRESETS } from "./wordValidator.js";
+import { PhaseTimer } from "./PhaseTimer.js";
 
 // Wire the AI layer of the multi-layer validator to use the existing remote
 // worker endpoint. Local dictionary is tried first (instant), then AI fallback.
@@ -91,7 +92,7 @@ function mergeKnownNames(nextNames = []) {
 class MatchController {
   constructor() {
     this._listeners = new Map();
-    this._timer = null;
+    this._timer = new PhaseTimer();
     this._state = null;
     this._validator = null;
     this._load();
@@ -337,8 +338,6 @@ class MatchController {
     if (this._state.phase.endsWith("-paused")) {
       const kind = this._state.phase.startsWith("strategy") ? "strategy" : "creation";
       this._state.phase = this._state.phase.replace("-paused", "-run");
-      // expiresAt is rebuilt from the remaining that was snapshotted at pause time.
-      this._state.expiresAt = Date.now() + this._state.remaining * 1000;
       this._persist();
       this._emit("statechange", {});
       this._runTimer(kind);
@@ -495,10 +494,7 @@ class MatchController {
   }
 
   stopTimer() {
-    if (this._timer) {
-      clearInterval(this._timer);
-      this._timer = null;
-    }
+    this._timer.stop();
   }
 
   _evaluateRoundOutcome() {
@@ -568,18 +564,18 @@ class MatchController {
   }
 
   _runTimer(kind) {
-    this.stopTimer();
-    this._state.expiresAt = Date.now() + this._state.remaining * 1000;
-    this._timer = setInterval(() => {
-      const remaining = Math.max(0, Math.ceil((this._state.expiresAt - Date.now()) / 1000));
-      this._state.remaining = remaining;
-      this._emit("tick", { phase: this._state.phase, remaining });
-      if (remaining <= 0) {
+    this._timer.start(this._state.remaining, {
+      onTick: (remaining) => {
+        this._state.remaining = remaining;
+        this._state.expiresAt = this._timer.expiresAt;
+        this._emit("tick", { phase: this._state.phase, remaining });
+        if (remaining > 0) this._persist();
+      },
+      onExpire: () => {
         this.finishPhase();
-      } else {
-        this._persist();
-      }
-    }, 1000);
+      },
+    });
+    this._state.expiresAt = this._timer.expiresAt;
   }
 }
 

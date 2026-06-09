@@ -94,11 +94,14 @@ import {
   debugLogPushBazaEnd,
   formatDebugLog,
 } from "./trainingDebugLog.js";
+import { PhaseTimer } from "../../core/PhaseTimer.js";
+import { normalizeLanguage, renderLanguageBadge } from "../utils.js";
 import { updateState, loadState } from "../../core/stateStore.js";
 import { logger } from "../../core/logger.js";
 import { TEXTS, getShellLanguage } from "../../i18n/texts.js";
 import { openModal, closeModal, closeTopModal, closeAllModals } from "../shell/modal.js";
 import { renderLetterCard } from "../components/letterCard.js";
+import { renderMatchPills } from "../components/matchPills.js";
 import {
   renderActionCard,
   actionLabel,
@@ -135,11 +138,6 @@ function t(key, vars) {
     });
   }
   return str;
-}
-
-function normalizeLanguage(value) {
-  const lang = String(value || "").trim().toLowerCase().slice(0, 2);
-  return lang === "en" ? "en" : "es";
 }
 
 function textForTrainingLanguage(lang) {
@@ -275,18 +273,6 @@ function consumeMovesAndUpdateAttackBanner(state, log) {
   return moves;
 }
 
-function renderLanguageBadge(titleEl, gameLanguage) {
-  if (!titleEl) return;
-  const layer = titleEl.closest(".screen-topbar") || titleEl.parentElement || titleEl;
-  layer.querySelectorAll(".match-language-badge").forEach((el) => el.remove());
-  const lang = normalizeLanguage(gameLanguage);
-  if (lang === normalizeLanguage(getShellLanguage())) return;
-  const badge = document.createElement("span");
-  badge.className = "match-language-badge";
-  badge.textContent = lang.toUpperCase();
-  layer.appendChild(badge);
-}
-
 // Module-level state
 let creationTimeupTimer = null;
 let creationTimeupCancelled = false;
@@ -300,8 +286,7 @@ const DOUBLE_TAP_MS = 400;
 // currentActionBubble / bubbleAutoHideTimeout / BUBBLE_AUTOHIDE_MS now live
 // in ./actionToast.js (shared with future online match). Use the imported
 // getCurrentActionBubble()/clearActionBanner()/showActionToast()/etc.
-let trainingTimerInterval = null;
-let trainingTimerExpiresAt = 0;
+const trainingPhaseTimer = new PhaseTimer();
 let trainingTimeupTimer = null;
 let trainingClockPhase = null;
 let debugMode = false;
@@ -593,7 +578,7 @@ function renderTrainingMatch() {
   }
 
   _shell.setI18nById("trainingMatchTitle", `trainingDifficulty${capitalizeStr(state.difficulty)}`);
-  renderLanguageBadge(document.getElementById("trainingMatchTitle"), state.language);
+  renderLanguageBadge(document.getElementById("trainingMatchTitle"), state.language, getShellLanguage());
   _shell.setI18nById("trainingBoardLabel", "trainingBoardLabel");
   _shell.setI18nById("trainingHandLabel", "trainingHandLabel");
   _shell.setI18nById("trainingHintBtnLabel", "trainingHintBtnLabel");
@@ -778,7 +763,6 @@ function renderTrainingPrompt(state) {
 function renderTrainingScoreboard(state) {
   const root = document.getElementById("trainingScoreboard");
   if (!root) return;
-  root.innerHTML = "";
 
   const currentActorId = state.phase === "actions" ? (state.actionsQueue?.[0] ?? null) : null;
   const userId = state.players?.[0]?.id ?? null;
@@ -791,85 +775,17 @@ function renderTrainingScoreboard(state) {
   const bubbleActorId = state.phase === "actions" && !waitingForUserAction
     ? (getCurrentActionBubble()?.playerId ?? null)
     : null;
+  const activeId = bubbleActorId ?? currentActorId;
 
-  for (const p of state.players) {
-    const hand = state.hands?.[p.id];
-    const letters = hand && hand !== "<hidden>" ? (hand.letters ?? []).filter(Boolean) : [];
-    // Pill is shown only when the player is actually shielded — i.e. the
-    // shield has been activated (reactive prompt accepted or proactively
-    // played on their turn). Preselection alone does NOT light it up.
-    const hasShield = (state.shieldedPlayers ?? []).includes(p.id);
-    const isDealer = p.id === state.dealerId;
-    const isActive = bubbleActorId ? p.id === bubbleActorId : p.id === currentActorId;
-
-    const pill = document.createElement("div");
-    let pillClass = "training-score-pill" + (p.isGhost ? "" : " is-user");
-    if (hasShield) pillClass += " has-shield";
-    if (isDealer) pillClass += " is-dealer";
-    if (isActive) pillClass += " is-active";
-    pill.className = pillClass;
-    pill.dataset.playerId = p.id;
-
-    const name = document.createElement("span");
-    name.className = "training-score-pill-name";
-    name.textContent = p.name;
-
-    const value = document.createElement("span");
-    value.className = "training-score-pill-value";
-    value.textContent = String(p.score);
-
-    // Card count: one dot per actual letter in hand (no fixed cap)
-    const dots = document.createElement("div");
-    dots.className = "training-score-pill-cards";
-    const dotCount = Math.max(letters.length, 1); // at least 1 slot so pill doesn't collapse
-    for (let i = 0; i < dotCount; i++) {
-      const dot = document.createElement("span");
-      if (i < letters.length) {
-        const card = letters[i];
-        dot.className = card.isActionWildcard
-          ? "is-action-wildcard"
-          : card.kind === "vowel"
-            ? "is-vowel"
-            : "is-consonant";
-      }
-      dots.appendChild(dot);
-    }
-
-    if (isActive) {
-      const turnIcon = document.createElement("img");
-      turnIcon.src = "assets/img/turn.svg";
-      turnIcon.alt = "";
-      turnIcon.className = "pill-badge pill-badge-turn";
-      pill.appendChild(turnIcon);
-    }
-    if (hasShield) {
-      const shieldIcon = document.createElement("img");
-      shieldIcon.src = "assets/img/shield.svg";
-      shieldIcon.alt = "";
-      shieldIcon.className = "pill-badge pill-badge-shield";
-      pill.appendChild(shieldIcon);
-    }
-    if (isDealer) {
-      const dealIcon = document.createElement("img");
-      dealIcon.src = "assets/img/actions/gallery.svg";
-      dealIcon.alt = "";
-      dealIcon.className = "pill-badge pill-badge-deal";
-      pill.appendChild(dealIcon);
-    }
-    // Accumulated score modifier this baza (boost_total, explosion, etc.).
-    // Persistent badge so the user always knows the
-    // running +/- attached to each player at scoring time.
-    const mod = state.scoreModifiers?.[p.id] ?? 0;
-    if (mod !== 0) {
-      const modBadge = document.createElement("span");
-      modBadge.className = "pill-badge pill-badge-mod " + (mod > 0 ? "is-positive" : "is-negative");
-      modBadge.textContent = (mod > 0 ? "+" : "") + mod;
-      pill.appendChild(modBadge);
-    }
-
-    pill.append(name, value, dots);
-    root.appendChild(pill);
-  }
+  renderMatchPills(root, {
+    players: state.players,
+    dealerId: state.dealerId,
+    activeId,
+    shielded: state.shieldedPlayers ?? [],
+    hands: state.hands ?? {},
+    scoreModifiers: state.scoreModifiers ?? {},
+    pillClass: "training-score-pill",
+  });
   attachActionBubble();
 }
 
@@ -1819,7 +1735,7 @@ function renderTrainingTimer(state) {
   el.textContent = `${mm}:${ss}`;
   if (card) {
     const running = state.phase === "strategy" || state.phase === "creation";
-    const timerEffectsActive = running && !isTrainingTimerGated() && trainingTimerInterval != null;
+    const timerEffectsActive = running && !isTrainingTimerGated() && trainingPhaseTimer.running;
     card.classList.toggle("time-pressure", timerEffectsActive && s <= LOW_TIME_THRESHOLD && s > 5);
     card.classList.toggle("time-pressure-urgent", timerEffectsActive && s <= 5 && s > 0);
     card.classList.toggle("timeup", timerEffectsActive && s === 0);
@@ -3535,11 +3451,7 @@ function confirmExitTrainingMatch() {
 }
 
 function stopTrainingTimer() {
-  if (trainingTimerInterval) {
-    clearInterval(trainingTimerInterval);
-    trainingTimerInterval = null;
-  }
-  trainingTimerExpiresAt = 0;
+  trainingPhaseTimer.stop();
 }
 
 function cancelTrainingTimeupTimer() {
@@ -3560,7 +3472,6 @@ function scheduleCreationTimeupAutoAdvance(stateAtTimeup) {
 }
 
 function ensureTrainingTimer() {
-  stopTrainingTimer();
   const state = getTrainingMatch();
   if (!state) return;
   const phase = state.phase;
@@ -3570,66 +3481,61 @@ function ensureTrainingTimer() {
   // visible — the banner hide handler re-renders, and on that re-render we
   // get a fresh ensureTrainingTimer call that actually starts the tick.
   if (isTrainingTimerGated()) return;
+  // Already running for this phase — do not restart (would reset expiresAt and cause jumps).
+  if (trainingPhaseTimer.running && trainingClockPhase === phase) return;
+  stopTrainingTimer();
   if (trainingClockPhase !== phase) {
     trainingClockPhase = phase;
     _shell.playClockLoop();
   }
-  trainingTimerExpiresAt = Date.now() + (state.remaining || 0) * 1000;
-  trainingTimerInterval = setInterval(() => {
-    const current = getTrainingMatch();
-    if (!current || (current.phase !== "strategy" && current.phase !== "creation")) {
-      stopTrainingTimer();
-      return;
-    }
-    const wallRemaining = Math.max(0, Math.ceil((trainingTimerExpiresAt - Date.now()) / 1000));
-    const currentWithWall = { ...current, remaining: wallRemaining };
-    let next;
-    if (current.phase === "strategy") {
-      if (wallRemaining <= 0) {
-        // Strategy expired — enter actions phase.
-        next = enterActionsPhase(current);
+
+  trainingPhaseTimer.start(state.remaining || 0, {
+    onTick: (wallRemaining) => {
+      const current = getTrainingMatch();
+      if (!current || (current.phase !== "strategy" && current.phase !== "creation")) {
+        stopTrainingTimer();
+        return;
+      }
+      let next;
+      if (current.phase === "strategy") {
+        next = { ...current, remaining: wallRemaining };
+      } else {
+        // Creation: wall-clock remaining is authoritative — do NOT subtract again.
+        next = { ...current, remaining: wallRemaining };
+      }
+      saveTrainingMatch(next);
+      renderTrainingTimer(next);
+      if (wallRemaining <= LOW_TIME_THRESHOLD && wallRemaining > 0) {
+        _shell.playLowTimeTick();
+      }
+    },
+    onExpire: () => {
+      const current = getTrainingMatch();
+      if (!current) return;
+      if (current.phase === "strategy") {
+        trainingClockPhase = null;
+        const timerEl = document.getElementById("trainingTimerValue");
+        if (timerEl) timerEl.textContent = "00:00";
+        let next = enterActionsPhase(current);
         if (focusedActionIndex != null) {
           const card = current.hands?.[current.players[0].id]?.actions?.[focusedActionIndex];
           next = selectActionInStrategy(current, focusedActionIndex);
           if (card) debugLogPushPreselect(next, card.actionId);
           focusedActionIndex = null;
         }
-      } else {
-        next = { ...current, remaining: wallRemaining };
-      }
-    } else {
-      // Creation phase: use wall-clock remaining directly — do NOT call
-      // tickCreationTimer (which subtracts 1 again, causing double-decrement).
-      if (wallRemaining <= 0) {
-        stopTrainingTimer();
+        saveTrainingMatch(next);
+        _shell.triggerTimeUpEffects("training");
+        renderTrainingMatch();
+      } else if (current.phase === "creation") {
         trainingClockPhase = null;
         _shell.triggerTimeUpEffects("training");
         const timeupState = { ...current, phase: "creation-timeup", remaining: 0 };
         saveTrainingMatch(timeupState);
         renderTrainingMatch();
         scheduleCreationTimeupAutoAdvance(current);
-        return;
       }
-      next = { ...current, remaining: wallRemaining };
-    }
-    if (next.phase !== current.phase) {
-      trainingClockPhase = null;
-      // Force the timer label to "00:00" before any re-render so the user
-      // actually sees the counter reach zero.
-      const timerEl = document.getElementById("trainingTimerValue");
-      if (timerEl) timerEl.textContent = "00:00";
-      saveTrainingMatch(next);
-      stopTrainingTimer();
-      _shell.triggerTimeUpEffects("training");
-      renderTrainingMatch();
-      return;
-    }
-    saveTrainingMatch(next);
-    renderTrainingTimer(next);
-    if (wallRemaining <= LOW_TIME_THRESHOLD && wallRemaining > 0) {
-      _shell.playLowTimeTick();
-    }
-  }, 1000);
+    },
+  });
 }
 
 // Called by main.js showScreen() when navigating away from training
