@@ -84,10 +84,12 @@ function getLanguageBonusForSelection(effects = [], selectedLanguage = "es") {
   return effect ? (ACTION_POINTS[effect.actionId] ?? 0) : 0;
 }
 
+const PLAYER_COLORS = ["#e05555", "#4a90d9", "#9b59b6", "#e67e22", "#27ae60", "#e91e8c"];
+
 function buildPlayers(opponents, userNickname) {
   // Player ids: p1 = user, p2..pN = ghosts. Names: configurable later.
   const players = [
-    { id: "p1", name: userNickname || "Tú", score: 0, rounds: [], isGhost: false },
+    { id: "p1", name: userNickname || "Tú", score: 0, rounds: [], isGhost: false, color: PLAYER_COLORS[0] },
   ];
   for (let i = 0; i < opponents; i += 1) {
     players.push({
@@ -96,6 +98,7 @@ function buildPlayers(opponents, userNickname) {
       score: 0,
       rounds: [],
       isGhost: true,
+      color: PLAYER_COLORS[(i + 1) % PLAYER_COLORS.length],
     });
   }
   return players;

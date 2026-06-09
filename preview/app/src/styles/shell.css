@@ -3041,6 +3041,8 @@ body.splash-ready #splashLoadingBlock {
   gap: 4px;
   justify-content: center;
   width: 100%;
+  padding-top: 22px;
+  margin-top: -18px;
 }
 .training-score-pill {
   display: inline-flex;
@@ -3050,22 +3052,18 @@ body.splash-ready #splashLoadingBlock {
   gap: 1px;
   padding: 4px 8px 5px;
   border-radius: 12px;
-  background: #fff5d6;
-  border: 2px solid #c5af7d;
+  background: var(--pill-bg, #e8e0ff);
+  border: 2px solid var(--pill-border, #9b8ec4);
   font-weight: 800;
-  color: #3e2723;
+  color: var(--pill-text, #2a1a4a);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.7),
-    0 1px 0 rgba(107, 74, 29, 0.2);
-  flex: 0 0 auto;
-  min-width: 44px;
+    0 1px 0 rgba(0, 0, 0, 0.18);
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 80px;
   position: relative;
   transition: border-color 0.2s, box-shadow 0.2s;
-}
-.training-score-pill.is-user {
-  background: linear-gradient(180deg, #ffe9a6 0%, #f7b500 100%);
-  border-color: #a36500;
-  color: #2f1b12;
 }
 /* Whose turn it is */
 .training-score-pill.is-active {
@@ -3145,15 +3143,20 @@ body.splash-ready #splashLoadingBlock {
   font-size: 10px;
   letter-spacing: 0.5px;
   text-transform: uppercase;
-  opacity: 0.75;
+  opacity: 0.85;
   font-weight: 900;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
   line-height: 1.2;
+  color: var(--pill-text, #2a1a4a);
 }
 .training-score-pill-value {
   font-size: 20px;
   font-weight: 900;
   line-height: 1;
+  color: var(--pill-text, #2a1a4a);
 }
 /* Card count dots: up to 3 squares */
 .training-score-pill-cards {
@@ -3166,7 +3169,7 @@ body.splash-ready #splashLoadingBlock {
   width: 6px;
   height: 6px;
   border-radius: 2px;
-  background: rgba(0,0,0,0.15);
+  background: rgba(0,0,0,0.2);
   display: block;
 }
 .training-score-pill-cards span.is-vowel {
@@ -3229,10 +3232,8 @@ body.splash-ready #splashLoadingBlock {
     0 2px 0 rgba(78, 110, 56, 0.3),
     0 4px 10px rgba(0, 0, 0, 0.1);
 }
-/* Pre-creation phases: add breathing room above the board so the user
-   reads "TU MANO" and "TABLERO CENTRAL" as clearly separate zones. */
 .training-match.is-pre-creation .training-section.is-board {
-  margin-top: 18px;
+  margin-top: 0;
 }
 .training-section-label {
   position: absolute;

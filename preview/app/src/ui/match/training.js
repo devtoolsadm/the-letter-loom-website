@@ -607,14 +607,11 @@ function renderTrainingMatch() {
   renderTrainingTimer(state);
   renderTrainingResult(state);
   const isResultOrDone = state.phase === "result" || state.phase === "done";
-  // During result/done: hide the game content sections so the result panel can expand.
+  // During result/done: hide game content so the result panel can expand.
   [".training-section.is-board", ".training-section:not(.is-board)"].forEach((sel) => {
     const el = document.querySelector(sel);
     if (el) el.classList.toggle("hidden", isResultOrDone);
   });
-  // While the user is dealing the central board, hide (but keep space for)
-  // the hand and word-strip sections so the layout doesn't jump when they
-  // appear later.
   const boardFilledForLayout = (state.centralBoard ?? []).length > 0
     && (state.centralBoard ?? []).every((c) => c != null);
   const handHoldActive = state.phase === "dealing"
@@ -626,7 +623,6 @@ function renderTrainingMatch() {
   if (matchRoot) matchRoot.classList.toggle("is-board-dealing", reserveHandSpace);
   const reserveWordSpace = ["dealing", "strategy", "actions"].includes(state.phase);
   if (matchRoot) matchRoot.classList.toggle("is-pre-creation", reserveWordSpace);
-  document.getElementById("trainingValidateWrap")?.classList.toggle("hidden", isResultOrDone || !(state.phase === "creation" && state.untimedCreation));
   updateHintButtonVisibility();
   // maybeShowPhaseFlash MUST run before ensureTrainingTimer — the flash
   // handler updates `phaseFlashEndsAt`, which the timer reads to decide if
@@ -1277,7 +1273,7 @@ function renderTrainingWordStrip(state) {
   const cardsRoot = document.getElementById("trainingWordStripCards");
   const label = document.getElementById("trainingWordStripLabel");
   if (!root || !cardsRoot || !label) return;
-  const visible = state.phase === "creation";
+  const visible = state.phase === "creation" || state.phase === "creation-timeup";
   root.classList.toggle("hidden", !visible);
   root.classList.remove("is-placeholder");
   if (!visible) {

@@ -1,16 +1,5 @@
-/**
- * Renders player score pills into a container element.
- *
- * @param {HTMLElement} root - Container to populate (cleared on each call)
- * @param {object} opts
- * @param {Array}  opts.players        - Array of player objects { id, name, score, isGhost }
- * @param {string} [opts.dealerId]     - Player id of the current dealer
- * @param {string} [opts.activeId]     - Player id to highlight as acting
- * @param {Array}  [opts.shielded]     - Array of player ids that are shielded
- * @param {object} [opts.hands]        - Map of playerId → hand { letters: [...] } or "<hidden>"
- * @param {object} [opts.scoreModifiers] - Map of playerId → numeric modifier
- * @param {string} [opts.pillClass]    - Base CSS class for the pill (default: "training-score-pill")
- */
+import { getDealerPalette, darkenHexColor } from "../utils.js";
+
 export function renderMatchPills(root, opts) {
   if (!root) return;
   const {
@@ -38,6 +27,14 @@ export function renderMatchPills(root, opts) {
     if (isDealer) cls += " is-dealer";
     if (isActive) cls += " is-active";
     pill.className = cls;
+
+    // Apply player color as CSS vars so the pill reflects identity
+    if (p.color) {
+      const palette = getDealerPalette(p.color);
+      pill.style.setProperty("--pill-bg", p.color);
+      pill.style.setProperty("--pill-border", darkenHexColor(p.color, 0.72));
+      pill.style.setProperty("--pill-text", palette.text);
+    }
     pill.dataset.playerId = p.id;
 
     const name = document.createElement("span");
