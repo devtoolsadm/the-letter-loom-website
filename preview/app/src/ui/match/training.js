@@ -348,21 +348,6 @@ function setupTrainingDebugToggle() {
     });
   }
 
-  // Long-press on the phase label (REPARTO/CREACIÓN/etc.) reveals the hint
-  // button in non-practice difficulties. In "words" (Practicar) the hint button
-  // is always visible.
-  let hintPressTimer = null;
-  const phaseEl = document.getElementById("trainingPhaseLabel");
-  if (phaseEl) {
-    phaseEl.addEventListener("pointerdown", () => {
-      hintPressTimer = setTimeout(() => {
-        hintRevealedByLongPress = !hintRevealedByLongPress;
-        updateHintButtonVisibility();
-      }, 800);
-    });
-    phaseEl.addEventListener("pointerup",     () => { if (hintPressTimer) { clearTimeout(hintPressTimer); hintPressTimer = null; } });
-    phaseEl.addEventListener("pointercancel", () => { if (hintPressTimer) { clearTimeout(hintPressTimer); hintPressTimer = null; } });
-  }
 }
 
 // Called when the user taps the "Listo" button during strategy OR when the
@@ -556,6 +541,24 @@ function startTrainingMatch(difficulty) {
 
 // ── Training match rendering (Block 1: skeleton + placeholders) ──
 
+function renderTrainingMatchRibbon(state) {
+  const el = document.getElementById("trainingMatchTitle");
+  if (el) {
+    el.textContent = t("trainingRoundLabel", { round: state.round, total: state.roundsTarget });
+  }
+  const sw = document.getElementById("trainingPhaseSwitch");
+  const stratBtn = document.getElementById("trainingPhaseStrategyBtn");
+  const creatBtn = document.getElementById("trainingPhaseCreationBtn");
+  if (!sw || !stratBtn || !creatBtn) return;
+  const isStrategy = state.phase === "strategy";
+  const isCreation = state.phase === "creation" || state.phase === "creation-timeup";
+  sw.classList.toggle("is-creation", isCreation);
+  stratBtn.textContent = t("matchPhaseStrategy");
+  creatBtn.textContent = t("matchPhaseCreation");
+  stratBtn.classList.toggle("active", isStrategy);
+  creatBtn.classList.toggle("active", isCreation);
+}
+
 function renderTrainingMatch() {
   let state = getTrainingMatch();
   if (!state) {
@@ -583,16 +586,11 @@ function renderTrainingMatch() {
     }
   }
 
-  _shell.setI18nById("trainingMatchTitle", `trainingDifficulty${capitalizeStr(state.difficulty)}`);
+  renderTrainingMatchRibbon(state);
   renderLanguageBadge(document.getElementById("trainingMatchTitle"), state.language, getShellLanguage());
   _shell.setI18nById("trainingBoardLabel", "trainingBoardLabel");
   _shell.setI18nById("trainingHandLabel", "trainingHandLabel");
   _shell.setI18nById("trainingHintBtnLabel", "trainingHintBtnLabel");
-  _shell.setI18nById("trainingRoundLabel", "trainingRoundLabel", {
-    vars: { round: state.round, total: state.roundsTarget },
-  });
-  const phaseLabelKey = state.phase === "creation-timeup" ? "trainingPhaseCreation" : `trainingPhase${capitalizeStr(state.phase)}`;
-  _shell.setI18nById("trainingPhaseLabel", phaseLabelKey);
   const _debugBadge = document.getElementById("trainingDebugBadge");
   if (_debugBadge) _debugBadge.classList.toggle("hidden", !debugMode);
   renderTrainingPrompt(state);
@@ -2620,6 +2618,9 @@ function promptDiscardOne(state, log) {
 // to draw 1 letter (vowel or consonant) before continuing. Returns true if
 // the prompt was shown (caller should pause its loop).
 function maybeOfferEmergencyDraw(onPicked) {
+  // If a picker is already open (e.g. a previous call already opened the
+  // emergency draw), do not stack another one on top.
+  if (isDriverBusy()) return false;
   let state = getTrainingMatch();
   if (!state) return false;
   // Auto-draw for any ghost with empty hand first

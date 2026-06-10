@@ -686,15 +686,11 @@
         </div>
 
         <div class="screen" id="screen-training">
-          <div class="screen-topbar match-top-row match-topbar-help">
+          <div class="screen-topbar match-top-row">
             <button class="icon-btn glossy btn-yellow" type="button" id="trainingMatchBackBtn" aria-label="Back">
               <span class="icon-btn-img icon-exit" aria-hidden="true"></span>
             </button>
-            <div class="modal-ribbon topbar-title title-primary" id="trainingMatchTitle">
-              <button class="icon-btn glossy btn-yellow topbar-help-btn" type="button" id="trainingMatchHelpBtn" aria-label="">
-                <span class="icon-btn-img icon-help" aria-hidden="true"></span>
-              </button>
-            </div>
+            <div class="modal-ribbon topbar-title title-primary" id="trainingMatchTitle"></div>
             <button class="icon-btn glossy btn-yellow" type="button" id="trainingMatchExitBtn" aria-label="Exit">
               <span class="icon-btn-img icon-exit" aria-hidden="true"></span>
             </button>
@@ -702,18 +698,22 @@
               <span class="icon-btn-img icon-settings" aria-hidden="true"></span>
             </button>
           </div>
+          <div class="match-phase-indicator" id="trainingPhaseIndicator">
+            <div class="match-phase-switch" id="trainingPhaseSwitch">
+              <button class="game-btn ghost match-phase-btn" type="button" id="trainingPhaseStrategyBtn"></button>
+              <button class="icon-btn glossy btn-yellow match-phase-help" type="button" id="trainingMatchHelpBtn" aria-label="">
+                <span class="icon-btn-img icon-help" aria-hidden="true"></span>
+              </button>
+              <button class="game-btn ghost match-phase-btn" type="button" id="trainingPhaseCreationBtn"></button>
+            </div>
+          </div>
 
           <div class="training-phase-flash hidden" id="trainingPhaseFlash"></div>
 
           <div class="training-attack-banner hidden" id="trainingAttackBanner"></div>
 
           <div class="training-match">
-            <div class="training-round-info">
-              <span id="trainingRoundLabel"></span>
-              <span class="training-round-sep">·</span>
-              <span class="training-phase-label" id="trainingPhaseLabel"></span>
-              <span class="training-debug-badge hidden" id="trainingDebugBadge">🐛 DEBUG</span>
-            </div>
+            <div class="training-debug-badge hidden" id="trainingDebugBadge">🐛 DEBUG</div>
 
             <div class="training-instruction" id="trainingInstruction"></div>
 

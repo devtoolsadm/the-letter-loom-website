@@ -14,18 +14,23 @@ export function renderMatchPills(root, opts) {
 
   root.innerHTML = "";
 
+  const maxScore = players.reduce((m, p) => Math.max(m, p.score ?? 0), 0);
+  const hasNonZeroScore = maxScore > 0;
+
   for (const p of players) {
     const hand = hands[p.id];
     const letters = hand && hand !== "<hidden>" ? (hand.letters ?? []).filter(Boolean) : [];
     const hasShield = shielded.includes(p.id);
     const isDealer = p.id === dealerId;
     const isActive = p.id === activeId;
+    const isLeader = hasNonZeroScore && (p.score ?? 0) === maxScore;
 
     const pill = document.createElement("div");
     let cls = pillClass + (p.isGhost ? "" : " is-user");
     if (hasShield) cls += " has-shield";
     if (isDealer) cls += " is-dealer";
     if (isActive) cls += " is-active";
+    if (isLeader) cls += " is-leader";
     pill.className = cls;
 
     // Apply player color as CSS vars so the pill reflects identity
@@ -61,6 +66,13 @@ export function renderMatchPills(root, opts) {
       dots.appendChild(dot);
     }
 
+    if (isLeader) {
+      const crownIcon = document.createElement("img");
+      crownIcon.src = "assets/img/leader.svg";
+      crownIcon.alt = "";
+      crownIcon.className = "pill-badge pill-badge-crown";
+      pill.appendChild(crownIcon);
+    }
     if (isActive) {
       const turnIcon = document.createElement("img");
       turnIcon.src = "assets/img/turn.svg";

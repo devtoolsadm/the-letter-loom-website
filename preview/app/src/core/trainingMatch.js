@@ -203,10 +203,11 @@ export function initializeRound(state) {
   if (userIsDealer) {
     board = Array.from({ length: TRAINING_CENTRAL_BOARD_SIZE }, () => null);
   } else {
+    const targetV = sampleBoardTargetVowels(state.language);
+    const kinds = planFillKinds(Array(TRAINING_CENTRAL_BOARD_SIZE).fill(null), targetV, 0);
     board = [];
     for (let i = 0; i < TRAINING_CENTRAL_BOARD_SIZE; i++) {
-      const kind = Math.random() < 0.35 ? "vowel" : "consonant";
-      const r = drawLetterOfKind(vDeck, cDeck, dDiscards, kind);
+      const r = drawLetterOfKind(vDeck, cDeck, dDiscards, kinds[i]);
       vDeck = r.vowelDeck;
       cDeck = r.consonantDeck;
       dDiscards = r.discards;
