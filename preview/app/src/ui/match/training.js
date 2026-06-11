@@ -23,6 +23,7 @@ import {
   isAttackOnUser,
   isUserShieldPreSelected,
   drawEmergencyLetter,
+  debugAddBoardLetter,
   userHandHasNoLetters,
   finalizeUserWord,
   addToWord,
@@ -338,6 +339,31 @@ function setupTrainingDebugToggle() {
     });
     el.addEventListener("pointerup",     () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } });
     el.addEventListener("pointercancel", () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } });
+    // Debug only: double-click on "Estrategia" adds a letter to the user's
+    // hand — for testing overflowing card layouts. The word strip is never
+    // touched.
+    el.addEventListener("dblclick", () => {
+      if (!debugMode) return;
+      const state = getTrainingMatch();
+      if (!state) return;
+      const newIdx = (state.hands[state.players[0].id]?.letters ?? []).length;
+      drawEmergencyLetter(state, Math.random() < 0.5 ? "vowel" : "consonant");
+      markRevealed("hand", newIdx);
+      renderTrainingMatch();
+    });
+  }
+  // Debug only: double-click on "Creación" adds a letter to the central board.
+  const creatEl = document.getElementById("trainingPhaseCreationBtn");
+  if (creatEl) {
+    creatEl.addEventListener("dblclick", () => {
+      if (!debugMode) return;
+      const state = getTrainingMatch();
+      if (!state) return;
+      const newIdx = (state.centralBoard ?? []).length;
+      debugAddBoardLetter(state);
+      markRevealed("board", newIdx);
+      renderTrainingMatch();
+    });
   }
 
   // Click on the 🐛 DEBUG badge → open the debug log modal.
@@ -879,7 +905,7 @@ function renderTrainingBoard(state) {
     }
     root.appendChild(el);
   });
-  applyTwoRowCardLayout(root, slots.length);
+  applyTwoRowCardLayout();
 }
 
 function getTrainingWordSources(state) {
@@ -952,13 +978,11 @@ function renderTrainingForcedRules(state) {
       messages.push(t("trainingForcedTilde") || "");
     } else if (e.actionId === "brain_squeeze") {
       messages.push(t("trainingForcedSyllables") || "");
-    } else if (e.actionId === "in_english") {
-      messages.push(t("trainingBonusInEnglish") || "EN +10");
-    } else if (e.actionId === "in_spanish") {
-      messages.push(t("trainingBonusInSpanish") || "ES +10");
     } else if (["use_vowel", "use_consonant", "use_letter"].includes(e.actionId)) {
       requiredLetters.push(e.payload?.letter || "?");
     }
+    // in_english / in_spanish are intentionally NOT listed here: they are an
+    // optional +10 bonus, not an obligation like philologist or use_letter.
   }
   if (requiredLetters.length === 1) {
     const tpl = t("trainingForcedUseLetter") || "Usa la letra {letter}";
@@ -1107,35 +1131,54 @@ function renderTrainingHand(state) {
       }
     });
   }
-  applyTwoRowCardLayout(root, root.children.length);
+  applyTwoRowCardLayout();
   renderActionFocusPanel(state);
 }
 
-function applyTwoRowCardLayout(root, cardCount) {
-  if (!root) return;
-  if (cardCount <= 10) {
-    root.style.setProperty("--training-section-card-size", `${TRAINING_SECTION_MAX_CARD_SIZE}px`);
+// Card sizing policy:
+// - Cards stay at FULL size (56px) always; a section with too many cards
+//   simply wraps to a second row at full size. One section wrapping fits
+//   the viewport fine.
+// - ONLY when BOTH sections (hand + central board) would wrap at the same
+//   time do we intervene: the section that can collapse to a single row
+//   with the LARGEST cards (i.e. the one with fewer cards) is shrunk to one
+//   row; the other keeps full-size cards on two rows. Everything stays as
+//   big as possible and the combined height stays bounded.
+function applyTwoRowCardLayout() {
+  const MAX = TRAINING_SECTION_MAX_CARD_SIZE;
+  const GAP = TRAINING_SECTION_CARD_GAP;
+  const roots = [
+    document.getElementById("trainingHand"),
+    document.getElementById("trainingBoard"),
+  ].filter(Boolean);
+  if (!roots.length) return;
+
+  const info = roots.map((root) => {
+    const count = root.children.length;
+    const width = root.clientWidth || root.getBoundingClientRect().width || 0;
+    return { root, count, width };
+  });
+  const fitsOneRowFull = ({ count, width }) =>
+    count === 0 || width === 0 || count * MAX + (count - 1) * GAP <= width;
+  const singleRowSize = ({ count, width }) =>
+    Math.floor((width - (count - 1) * GAP) / count);
+
+  const wrapping = info.filter((i) => !fitsOneRowFull(i));
+  if (wrapping.length <= 1) {
+    // Normal case (incl. one section on two full-size rows): full size everywhere.
+    info.forEach(({ root }) =>
+      root.style.setProperty("--training-section-card-size", `${MAX}px`));
     return;
   }
-  const columns = cardCount > 10 ? Math.ceil(cardCount / 2) : Math.min(cardCount, 5);
-  if (!columns) {
-    root.style.removeProperty("--training-section-card-size");
-    return;
-  }
-  const width = root.clientWidth || root.getBoundingClientRect().width || 0;
-  const gaps = Math.max(0, columns - 1) * TRAINING_SECTION_CARD_GAP;
-  if (width > 0) {
-    const size = Math.min(
-      TRAINING_SECTION_MAX_CARD_SIZE,
-      Math.floor((width - gaps) / columns),
-    );
-    root.style.setProperty("--training-section-card-size", `${Math.max(34, size)}px`);
-    return;
-  }
-  root.style.setProperty(
-    "--training-section-card-size",
-    `min(${TRAINING_SECTION_MAX_CARD_SIZE}px, calc((100% - ${gaps}px) / ${columns}))`,
-  );
+  // Both would wrap: shrink the one that stays biggest as a single row.
+  wrapping.sort((a, b) => singleRowSize(b) - singleRowSize(a));
+  const shrink = wrapping[0];
+  info.forEach(({ root }) => {
+    const size = root === shrink.root
+      ? Math.max(34, Math.min(MAX, singleRowSize(shrink)))
+      : MAX;
+    root.style.setProperty("--training-section-card-size", `${size}px`);
+  });
 }
 
 function renderActionFocusPanel(state) {

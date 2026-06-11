@@ -1000,6 +1000,32 @@ function dealGhostHands(state) {
   };
 }
 
+// Debug helper: append one random letter to the central board (beyond the
+// regular slots) so overflowing card layouts can be tested in-game.
+export function debugAddBoardLetter(state) {
+  const kind = Math.random() < 0.35 ? "vowel" : "consonant";
+  const result = drawLetterOfKind(
+    state.decks.vowelDeck,
+    state.decks.consonantDeck,
+    state.discards,
+    kind,
+  );
+  if (!result.card) return state;
+  const next = {
+    ...state,
+    decks: {
+      ...state.decks,
+      vowelDeck: result.vowelDeck,
+      consonantDeck: result.consonantDeck,
+    },
+    discards: result.discards,
+    centralBoard: [...(state.centralBoard ?? []), result.card],
+    updatedAt: Date.now(),
+  };
+  saveTrainingMatch(next);
+  return next;
+}
+
 export function revealLetterSlot(state, slotIndex, kind) {
   const userId = state.players[0].id;
   const hand = state.hands[userId];

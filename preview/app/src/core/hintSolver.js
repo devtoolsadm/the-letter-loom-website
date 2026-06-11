@@ -14,9 +14,9 @@
  * (so the UI can lay them out), and the score that finalizeUserWord would
  * compute for that exact composition.
  *
- * Dictionaries are loaded lazily from /assets/dict/<lang>.txt and cached in
- * module scope. Lines at the top of each file are the most frequent words —
- * the solver scans from the top so common words surface first.
+ * Dictionaries are loaded lazily from /assets/dict/<lang>.bin and cached in
+ * module scope. Decoded "#" metadata lines are ignored. Word lines are
+ * frequency-sorted, so the solver scans from the top to surface common words.
  */
 
 import {
@@ -64,7 +64,10 @@ async function loadDict(lang) {
     if (!res.ok) throw new Error(`Could not load dictionary for ${lang}: HTTP ${res.status}`);
     const buf = await res.arrayBuffer();
     const text = await decodeDict(buf);
-    entry.words = text.split("\n").filter(Boolean);
+    entry.words = text
+      .split("\n")
+      .map((w) => w.trim())
+      .filter((w) => w && !w.startsWith("#"));
     return entry.words;
   })();
   dictCache.set(lang, entry);

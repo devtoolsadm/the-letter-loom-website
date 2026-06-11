@@ -473,9 +473,8 @@ class MatchController {
     try {
       const rulesToUse = customRules !== undefined ? customRules : this._state.preferencesRef?.rules;
       const language = normalizeLanguage(options.language ?? this._state.language ?? "es");
-      // Multi-layer: local dictionary first (instant), AI fallback. The local
-      // dictionary covers common words without hitting the worker; rare words
-      // (proper nouns, neologisms, technical terms) still go to AI.
+      // Normal match validation uses the local encoded dictionary. Other
+      // layers remain available through LAYER_PRESETS for diagnostics/future modes.
       const out = await validateWordLayered(word, {
         language,
         layers: LAYER_PRESETS.match,

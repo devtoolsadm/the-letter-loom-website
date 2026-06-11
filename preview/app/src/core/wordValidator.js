@@ -32,9 +32,8 @@ const dictCache = new Map(); // lang -> { set: Set<string>, ready: Promise }
 
 // Centralised layer presets, picked by call-site context. Change them here to
 // adjust validator behaviour globally without touching every caller.
-// All app presets currently use only the local dictionary. Public/AI layers
-// remain implemented for diagnostics or future modes, but are not part of
-// normal validation presets.
+// Normal app validation currently uses only the local encoded dictionary.
+// Public/AI layers remain implemented for diagnostics or future modes.
 export const LAYER_PRESETS = Object.freeze({
   training: ["local"],
   match:    ["local"],
@@ -153,7 +152,10 @@ async function loadLocalDict(lang) {
     if (!res.ok) throw new Error(`HTTP ${res.status} loading ${lang} dict`);
     const buf = await res.arrayBuffer();
     const text = await decodeDict(buf);
-    const lines = text.split("\n").map((w) => w.trim().toLowerCase()).filter(Boolean);
+    const lines = text
+      .split("\n")
+      .map((w) => w.trim().toLowerCase())
+      .filter((w) => w && !w.startsWith("#"));
     entry.exact = new Set(lines);
     entry.normalized = new Set(lines.map(normalizeForLookup));
     return entry;

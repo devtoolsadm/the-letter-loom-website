@@ -83,6 +83,15 @@ describe("validateWord - local layer", () => {
     expect(r.valid).toBe(true);
   });
 
+  it("ignores decoded metadata lines", async () => {
+    const metadata = '# letterloom-dict {"source":"test"}';
+    setFetchImpl(makeFakeFetch({ dicts: { es: `${metadata}\ncasa\n` } }));
+    const header = await validateWord(metadata, { layers: ["local"] });
+    const word = await validateWord("casa", { layers: ["local"] });
+    expect(header.valid).toBe(false);
+    expect(word.valid).toBe(true);
+  });
+
   it("accepts an accent-less query against an accented dict entry", async () => {
     setFetchImpl(makeFakeFetch({ dicts: { es: "hálito\ncasa\n" } }));
     const r = await validateWord("halito", { layers: ["local"] });
