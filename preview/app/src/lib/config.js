@@ -1,18 +1,1 @@
-// Runtime config — values injected by CI via deploy-to-pages.yml.
-// For local development, create app/src/lib/config.local.js (gitignored)
-// with the same exports using real dev values.
-
-import { IS_LOCAL } from './env.js'
-
-let _local = {}
-if (IS_LOCAL) {
-  try {
-    const m = await import('./config.local.js')
-    _local = m
-  } catch {}
-}
-
-export const WORKER_BASE        = _local.WORKER_BASE        ?? 'https://the-letter-loom-dev.the-letter-loom.workers.dev'
-export const SUPABASE_URL       = _local.SUPABASE_URL       ?? 'https://lpcdbabpccihzszpfaoe.supabase.co'
-export const SUPABASE_ANON_KEY  = _local.SUPABASE_ANON_KEY  ?? 'sb_publishable_FMAJjgFS_NGsyEVNoBV0TQ_8L9ueLVc'
-export const TURNSTILE_SITE_KEY = _local.TURNSTILE_SITE_KEY ?? '0x4AAAAAADIVEizrkAj6-i31'
+import{IS_LOCAL as o}from"./env.js";let t={};if(o)try{t=await import("./config.local.js")}catch{}export const WORKER_BASE=t.WORKER_BASE??"https://the-letter-loom-dev.the-letter-loom.workers.dev",SUPABASE_URL=t.SUPABASE_URL??"https://lpcdbabpccihzszpfaoe.supabase.co",SUPABASE_ANON_KEY=t.SUPABASE_ANON_KEY??"sb_publishable_FMAJjgFS_NGsyEVNoBV0TQ_8L9ueLVc",TURNSTILE_SITE_KEY=t.TURNSTILE_SITE_KEY??"0x4AAAAAADIVEizrkAj6-i31";
