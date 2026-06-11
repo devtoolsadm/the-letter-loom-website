@@ -237,18 +237,24 @@ export function initializeRound(state) {
     },
   };
 
-  // Auto-deal letters to ghost players (~35% vowels, 65% consonants).
-  for (const p of state.players.filter((pl) => pl.isGhost)) {
-    const letters = [];
-    for (let i = 0; i < TRAINING_HAND_LETTERS; i++) {
-      const kind = Math.random() < 0.35 ? "vowel" : "consonant";
-      const r = drawLetterOfKind(vDeck, cDeck, dDiscards, kind);
-      vDeck = r.vowelDeck;
-      cDeck = r.consonantDeck;
-      dDiscards = r.discards;
-      if (r.card) letters.push(r.card);
+  // Auto-deal letters to ghost players only when the user is NOT the dealer
+  // (ghost dealer already filled the board above, so ghosts can be dealt now).
+  // When the user IS the dealer, ghost hands are deferred until the board is
+  // fully filled — see dealGhostHands() called from revealBoardSlot /
+  // fillRemainingBoardRandomly once boardJustFilled.
+  if (!userIsDealer) {
+    for (const p of state.players.filter((pl) => pl.isGhost)) {
+      const letters = [];
+      for (let i = 0; i < TRAINING_HAND_LETTERS; i++) {
+        const kind = Math.random() < 0.35 ? "vowel" : "consonant";
+        const r = drawLetterOfKind(vDeck, cDeck, dDiscards, kind);
+        vDeck = r.vowelDeck;
+        cDeck = r.consonantDeck;
+        dDiscards = r.discards;
+        if (r.card) letters.push(r.card);
+      }
+      newHands[p.id] = { letters, actions: [] };
     }
-    newHands[p.id] = { letters, actions: [] };
   }
 
   const next = {
@@ -965,6 +971,35 @@ export function finalizeUserWord(state, language = "es", opts = {}) {
 // deck ('vowel' or 'consonant'). Phase transitions to strategy/creation only
 // when BOTH the user's hand and the central board are fully filled — the
 // dealer picks both compositions during the dealing phase.
+// Deal letters to all ghost players. Called once the central board is fully
+// filled (when the user is the dealer) so ghosts only get their cards after
+// the board composition has been decided — matching real-game order.
+function dealGhostHands(state) {
+  let vDeck = state.decks.vowelDeck;
+  let cDeck = state.decks.consonantDeck;
+  let dDiscards = { ...state.discards };
+  const newHands = { ...state.hands };
+  for (const p of state.players.filter((pl) => pl.isGhost)) {
+    if (newHands[p.id] && (newHands[p.id].letters ?? []).some((c) => c != null)) continue;
+    const letters = [];
+    for (let i = 0; i < TRAINING_HAND_LETTERS; i++) {
+      const kind = Math.random() < 0.35 ? "vowel" : "consonant";
+      const r = drawLetterOfKind(vDeck, cDeck, dDiscards, kind);
+      vDeck = r.vowelDeck;
+      cDeck = r.consonantDeck;
+      dDiscards = r.discards;
+      if (r.card) letters.push(r.card);
+    }
+    newHands[p.id] = { letters, actions: [] };
+  }
+  return {
+    ...state,
+    decks: { ...state.decks, vowelDeck: vDeck, consonantDeck: cDeck },
+    discards: dDiscards,
+    hands: newHands,
+  };
+}
+
 export function revealLetterSlot(state, slotIndex, kind) {
   const userId = state.players[0].id;
   const hand = state.hands[userId];
@@ -1027,24 +1062,24 @@ export function revealBoardSlot(state, slotIndex, kind) {
   let nextDiscards = result.discards;
   let nextHands = state.hands;
 
-  // When the board becomes fully dealt, draw the user's action cards too —
-  // they were left as `?` placeholders during initializeRound so the user
-  // could pick the board composition first (matches real-game order).
+  // When the board becomes fully dealt, draw ghost hands + user action cards.
   const boardJustFilled = newBoard.every((c) => c != null);
-  if (boardJustFilled && !state.skipActions && userHand) {
-    const actionsAlreadyDealt = (userHand.actions ?? []).some((c) => c != null);
-    if (!actionsAlreadyDealt) {
-      const actionsResult = drawActions(
-        nextDecks.actionDeck,
-        nextDiscards.actions,
-        TRAINING_HAND_ACTIONS,
-      );
-      nextDecks = { ...nextDecks, actionDeck: actionsResult.deck };
-      nextDiscards = { ...nextDiscards, actions: actionsResult.discard };
-      nextHands = {
-        ...state.hands,
-        [userId]: { ...userHand, actions: actionsResult.drawn },
-      };
+  if (boardJustFilled) {
+    // Deal ghost hands now (deferred from initializeRound when user is dealer).
+    const withGhosts = dealGhostHands({ ...state, decks: nextDecks, discards: nextDiscards, hands: nextHands, centralBoard: newBoard });
+    nextDecks = withGhosts.decks;
+    nextDiscards = withGhosts.discards;
+    nextHands = withGhosts.hands;
+
+    // Draw user action cards.
+    if (!state.skipActions && userHand) {
+      const actionsAlreadyDealt = (nextHands[userId]?.actions ?? []).some((c) => c != null);
+      if (!actionsAlreadyDealt) {
+        const actionsResult = drawActions(nextDecks.actionDeck, nextDiscards.actions, TRAINING_HAND_ACTIONS);
+        nextDecks = { ...nextDecks, actionDeck: actionsResult.deck };
+        nextDiscards = { ...nextDiscards, actions: actionsResult.discard };
+        nextHands = { ...nextHands, [userId]: { ...nextHands[userId], actions: actionsResult.drawn } };
+      }
     }
   }
 
@@ -1095,16 +1130,22 @@ export function fillRemainingBoardRandomly(state) {
   let nextDiscards = d;
   let nextHands = state.hands;
 
-  // Draw the user's action cards once the board has just become fully dealt
-  // (same trigger as revealBoardSlot's last pick).
+  // When the board is fully dealt, deal ghost hands (deferred) + user actions.
   const boardJustFilled = next.every((c) => c != null);
-  if (boardJustFilled && !state.skipActions && userHand) {
-    const actionsAlreadyDealt = (userHand.actions ?? []).some((c) => c != null);
-    if (!actionsAlreadyDealt) {
-      const r = drawActions(nextDecks.actionDeck, nextDiscards.actions, TRAINING_HAND_ACTIONS);
-      nextDecks = { ...nextDecks, actionDeck: r.deck };
-      nextDiscards = { ...nextDiscards, actions: r.discard };
-      nextHands = { ...state.hands, [userId]: { ...userHand, actions: r.drawn } };
+  if (boardJustFilled) {
+    const withGhosts = dealGhostHands({ ...state, decks: nextDecks, discards: nextDiscards, hands: nextHands, centralBoard: next });
+    nextDecks = withGhosts.decks;
+    nextDiscards = withGhosts.discards;
+    nextHands = withGhosts.hands;
+
+    if (!state.skipActions && userHand) {
+      const actionsAlreadyDealt = (nextHands[userId]?.actions ?? []).some((c) => c != null);
+      if (!actionsAlreadyDealt) {
+        const r = drawActions(nextDecks.actionDeck, nextDiscards.actions, TRAINING_HAND_ACTIONS);
+        nextDecks = { ...nextDecks, actionDeck: r.deck };
+        nextDiscards = { ...nextDiscards, actions: r.discard };
+        nextHands = { ...nextHands, [userId]: { ...nextHands[userId], actions: r.drawn } };
+      }
     }
   }
 

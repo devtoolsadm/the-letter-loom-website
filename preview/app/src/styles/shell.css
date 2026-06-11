@@ -639,6 +639,12 @@ body.shell-ready #game-root {
   will-change: opacity, transform;
 }
 
+body.screen-transitions-disabled .screen.active {
+  animation: none;
+  transform: none;
+  will-change: auto;
+}
+
 .screen-topbar {
   position: relative;
   display: flex;
@@ -2673,7 +2679,7 @@ body.splash-ready #splashLoadingBlock {
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
   padding: 2px 10px 4px;
   flex: 1 1 auto;
   min-height: 0;
@@ -2691,8 +2697,22 @@ body.splash-ready #splashLoadingBlock {
 #screen-training #trainingPhaseIndicator {
   position: relative;
   z-index: 25;
-  margin-top: 18px;
+  margin-top: 12px;
   padding: 0 8px;
+}
+/* Compact phase switch on the training screen — same look, less height */
+#screen-training .match-phase-switch {
+  --phase-help-size: 46px;
+  min-height: 40px;
+}
+#screen-training .match-phase-switch .game-btn {
+  min-height: 36px;
+  padding: 6px 10px;
+  font-size: 15px;
+}
+/* No phase running (dealing/actions/result) — hide the sliding highlight */
+#screen-training .match-phase-switch.is-idle::before {
+  opacity: 0;
 }
 
 .training-round-info {
@@ -2841,27 +2861,30 @@ body.splash-ready #splashLoadingBlock {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  margin: 4px auto 6px;
-  padding: 6px 14px;
-  min-height: 34px;
+  align-self: center;
+  margin: 4px auto 0;
+  padding: 4px 12px;
+  min-height: 30px;
   border: 3px solid rgba(0, 0, 0, 0.18);
   border-radius: 14px;
   background: linear-gradient(180deg, #06b6d4 0%, #0e7490 100%);
   box-shadow: 0 4px 0 #0e7490, 0 6px 12px rgba(0, 0, 0, 0.18);
   color: #ffffff;
   font-family: var(--font-heading);
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 900;
   text-transform: uppercase;
   text-shadow: 0 2px 0 rgba(0, 0, 0, 0.28);
   cursor: pointer;
+  position: relative;
+  z-index: 5;
 }
 .training-deal-random:active {
   transform: translateY(2px);
   box-shadow: 0 1px 0 #0e7490, 0 2px 6px rgba(0, 0, 0, 0.16);
 }
 .training-deal-random-icon {
-  font-size: 20px;
+  font-size: 16px;
   line-height: 1;
 }
 .training-deal-random.hidden {
@@ -2893,8 +2916,8 @@ body.splash-ready #splashLoadingBlock {
   /* Action cards pulse-translate up by 3px and carry a drop-shadow that
      extends a few px beyond their box. Without this padding the top of
      the cards (and their glow) would be clipped by overflow: hidden. */
-  padding-top: 6px;
-  padding-bottom: 6px;
+  padding-top: 4px;
+  padding-bottom: 4px;
 }
 .training-match.is-board-dealing .training-section.is-hand {
   padding-top: 0 !important;
@@ -3036,16 +3059,16 @@ body.splash-ready #splashLoadingBlock {
   gap: 4px;
   justify-content: center;
   width: 100%;
-  padding-top: 18px;
-  margin-top: -14px;
+  padding-top: 22px;
+  margin-top: -18px;
 }
 .training-score-pill {
   display: inline-flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1px;
-  padding: 3px 6px 4px;
+  gap: 0;
+  padding: 4px 6px 5px;
   border-radius: 12px;
   background: var(--pill-bg, #e8e0ff);
   border: 2px solid var(--pill-border, #9b8ec4);
@@ -3053,8 +3076,8 @@ body.splash-ready #splashLoadingBlock {
   color: var(--pill-text, #2a1a4a);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.45),
-    0 5px 0 var(--pill-border, #9b8ec4),
-    0 7px 8px rgba(0, 0, 0, 0.25);
+    0 6px 0 var(--pill-border, #9b8ec4),
+    0 8px 10px rgba(0, 0, 0, 0.28);
   flex: 1 1 0;
   min-width: 0;
   max-width: 80px;
@@ -3066,29 +3089,58 @@ body.splash-ready #splashLoadingBlock {
   border-color: #f7b500;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.45),
-    0 5px 0 #c98b00,
-    0 7px 8px rgba(0, 0, 0, 0.25);
+    0 6px 0 #c98b00,
+    0 8px 10px rgba(0, 0, 0, 0.28);
+}
+.training-score-pill.is-leader .training-score-pill-value {
+  color: #6b3c1d;
+  background: linear-gradient(180deg, #ffe26f 0%, #ffc94f 100%);
+  border-color: #d6a357;
+  text-shadow: 0 1px 0 rgba(255,255,255,0.6);
 }
 .pill-badge-crown {
-  top: -18px;
+  position: absolute;
+  top: -28px;
   left: 50%;
   transform: translateX(-50%);
-  width: 22px;
-  height: 22px;
+  width: 40px;
+  height: 40px;
+  background: url("../../assets/img/leader.svg") center / 75% no-repeat;
+  filter:
+    drop-shadow(1px 0 0 #111)
+    drop-shadow(-1px 0 0 #111)
+    drop-shadow(0 1px 0 #111)
+    drop-shadow(0 -1px 0 #111);
+  pointer-events: none;
+  z-index: 12;
 }
-/* Whose turn it is */
+/* Dealer — same treatment as .match-score-item.is-dealer in scoreboard:
+   thicker border + white inner ring. Keeps the 3D bottom shadow. */
+.training-score-pill.is-dealer {
+  border-width: 3px;
+  box-shadow:
+    inset 0 0 0 3px rgba(255, 255, 255, 0.95),
+    inset 0 0 10px rgba(0, 0, 0, 0.12),
+    0 6px 0 var(--pill-border, #9b8ec4),
+    0 8px 10px rgba(0, 0, 0, 0.28);
+}
+/* Whose turn it is — keeps the 3D bottom relief */
 .training-score-pill.is-active {
   border-color: #e67e22;
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.7),
-    0 0 0 3px rgba(230, 126, 34, 0.5);
+    0 0 0 3px rgba(230, 126, 34, 0.5),
+    0 6px 0 var(--pill-border, #9b8ec4),
+    0 8px 10px rgba(0, 0, 0, 0.28);
 }
-/* Shield active */
+/* Shield active — keeps the 3D bottom relief */
 .training-score-pill.has-shield {
   border-color: #2980b9;
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.7),
-    0 0 0 3px rgba(52, 152, 219, 0.45);
+    0 0 0 3px rgba(52, 152, 219, 0.45),
+    0 6px 0 var(--pill-border, #9b8ec4),
+    0 8px 10px rgba(0, 0, 0, 0.28);
 }
 /* Turn / shield icon badges */
 .pill-badge {
@@ -3098,28 +3150,32 @@ body.splash-ready #splashLoadingBlock {
   object-fit: contain;
   pointer-events: none;
 }
-.pill-badge-turn {
-  top: -22px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: #fff;
-  border-radius: 50%;
-  border: 1.5px solid #f7b500;
-  padding: 1px;
-  width: 22px;
-  height: 22px;
-}
 .pill-badge-shield {
   bottom: -10px;
   left: 50%;
   transform: translateX(-50%);
 }
-/* Dealer badge — top-right corner */
-.pill-badge-deal {
-  top: -9px;
-  right: -3px;
-  width: 20px;
-  height: 20px;
+/* Dealer chip — clone of .match-score-dealer (scoreboard): small "REPARTE"
+   pill centered on the top edge. */
+.pill-badge-dealer {
+  position: absolute;
+  /* Sits on the top border (like section labels) so it never covers the
+     player name inside the pill. */
+  top: -15px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 8px;
+  font-weight: 800;
+  background: var(--pill-bg, #d9c79f);
+  border: 2px solid var(--pill-border, #c5af7d);
+  color: var(--pill-text, #2f1b12);
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 13;
 }
 /* Persistent accumulated score-modifier badge ("+6", "-4", ...) attached
    to the left side of the pill. Updates each render so the user can see
@@ -3151,10 +3207,9 @@ body.splash-ready #splashLoadingBlock {
   box-shadow: 0 2px 0 #7b1c10;
 }
 .training-score-pill-name {
-  font-size: 10px;
-  letter-spacing: 0.5px;
+  font-size: 11px;
+  letter-spacing: 0.4px;
   text-transform: uppercase;
-  opacity: 0.85;
   font-weight: 900;
   white-space: nowrap;
   overflow: hidden;
@@ -3162,59 +3217,77 @@ body.splash-ready #splashLoadingBlock {
   max-width: 100%;
   line-height: 1.2;
   color: var(--pill-text, #2a1a4a);
+  text-shadow:
+    1px 0 0 rgba(0,0,0,0.6),
+    -1px 0 0 rgba(0,0,0,0.6),
+    0 1px 0 rgba(0,0,0,0.6),
+    0 -1px 0 rgba(0,0,0,0.6);
 }
 .training-score-pill-value {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 900;
-  line-height: 1;
-  color: var(--pill-text, #2a1a4a);
+  line-height: 1.1;
+  color: #ffffff;
+  background: var(--pill-border, rgba(0,0,0,0.18));
+  border: 2px solid rgba(0,0,0,0.2);
+  border-radius: 7px;
+  padding: 0 6px;
+  margin-top: 1px;
+  text-shadow:
+    1px 0 0 rgba(0,0,0,0.85),
+    -1px 0 0 rgba(0,0,0,0.85),
+    0 1px 0 rgba(0,0,0,0.85),
+    0 -1px 0 rgba(0,0,0,0.85);
 }
-/* Card count dots: up to 3 squares */
+/* Card count dots — wraps to 2 rows when >5 dots */
 .training-score-pill-cards {
   display: flex;
+  align-items: center;
+  flex-wrap: wrap;
   gap: 3px;
-  margin-top: 2px;
+  margin-top: 3px;
   justify-content: center;
+  max-width: 44px;
+  min-height: 8px;
 }
 .training-score-pill-cards span {
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
   border-radius: 2px;
-  background: rgba(255,255,255,0.55);
-  border: 1px solid rgba(0,0,0,0.25);
+  background: rgba(255,255,255,0.4);
+  border: 1.5px solid rgba(0,0,0,0.2);
   display: block;
+  flex-shrink: 0;
 }
 .training-score-pill-cards span.is-vowel {
-  background: #fff;
-  border-color: #5a9e1a;
-  box-shadow: 0 0 0 1px rgba(90,158,26,0.4);
+  background: #99CA3C;
+  border-color: #6e9a28;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.5);
 }
 .training-score-pill-cards span.is-consonant {
-  background: #fff;
-  border-color: #1a7e8a;
-  box-shadow: 0 0 0 1px rgba(26,126,138,0.4);
+  background: #6ECACF;
+  border-color: #3d9aa0;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.5);
 }
 .training-score-pill-cards span.is-action-wildcard {
-  position: relative;
-  width: 9px;
-  height: 9px;
-  margin-top: -2px;
+  width: 8px;
+  height: 8px;
   border-radius: 0;
   background: transparent;
   border: none;
   box-shadow: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 900;
+  color: #f7c948;
+  text-shadow: 0 1px 0 #7a4a00;
+  line-height: 1;
 }
 .training-score-pill-cards span.is-action-wildcard::before {
   content: "★";
-  position: absolute;
-  inset: -5px -3px auto;
-  color: #f7c948;
-  text-shadow: 0 0 2px rgba(0,0,0,0.6);
-  font-family: var(--font-ui);
-  font-size: 13px;
-  font-weight: 900;
-  line-height: 1;
-  text-shadow: 0 1px 0 #7a4a00, 0 0 2px rgba(255, 255, 255, 0.8);
 }
 .training-debug-badge {
   font-size: 10px;
@@ -3235,16 +3308,18 @@ body.splash-ready #splashLoadingBlock {
   background: linear-gradient(180deg, #fff8e0 0%, #f5e7be 100%);
   border: 2px solid #c5af7d;
   border-radius: 16px;
-  padding: 8px 8px 6px;
+  padding: 8px 5px 6px;
   position: relative;
+  overflow: visible;
+  margin-top: 18px;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.6),
     0 2px 0 rgba(107, 74, 29, 0.2),
     0 4px 10px rgba(0, 0, 0, 0.1);
 }
 .training-section.is-board {
-  margin-top: 8px;
-  padding: 8px 8px 6px;
+  margin-top: 18px;
+  padding: 8px 5px 6px;
   background: linear-gradient(180deg, #e3f2d8 0%, #b9dcaa 100%);
   border-color: #6e9c52;
   box-shadow:
@@ -3252,8 +3327,10 @@ body.splash-ready #splashLoadingBlock {
     0 2px 0 rgba(78, 110, 56, 0.3),
     0 4px 10px rgba(0, 0, 0, 0.1);
 }
+/* When the word strip is hidden (pre-creation phases) the board follows the
+   hand section directly — keep a small but visible separation. */
 .training-match.is-pre-creation .training-section.is-board {
-  margin-top: 0;
+  margin-top: 10px;
 }
 .training-section-label {
   position: absolute;
@@ -3705,13 +3782,14 @@ body.splash-ready #splashLoadingBlock {
 /* Word strip — selected letters in order. Fixed total height so layout
    doesn't jump when adding cards. Horizontal scroll for many letters. */
 .training-word-strip {
-  margin-top: 4px;
+  margin-top: 18px;
   background: linear-gradient(180deg, #fff8e0 0%, #f5e7be 100%);
   border: 2px dashed #c5af7d;
   border-radius: 14px;
   padding: 6px 8px;
   display: flex;
   flex-direction: column;
+  justify-content: center;
   gap: 4px;
   width: 100%;
   height: 92px;
@@ -3720,22 +3798,23 @@ body.splash-ready #splashLoadingBlock {
 .training-word-strip {
   position: relative;
 }
+/* Header is just a grouping wrapper — label and toggles are each absolutely
+   anchored against the strip. display:contents removes the header's own box
+   so it doesn't take part in the strip's column flex layout. */
 .training-word-strip-header {
+  display: contents;
+}
+/* Container for P1/P2 + lang toggles — anchored to the top-right corner,
+   independent of the centered label. */
+.training-word-strip-toggles {
   position: absolute;
   top: -11px;
-  left: 14px;
   right: 10px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-/* Container for P1/P2 + lang toggles — pushed to the right of the label. */
-.training-word-strip-toggles {
-  margin-left: auto;
   display: flex;
   align-items: center;
   gap: 5px;
   flex-shrink: 0;
+  z-index: 6;
 }
 /* P1/P2 toggle pill — same visual as validation-lang-toggle. */
 .training-p1p2-toggle {
@@ -3816,8 +3895,13 @@ body.splash-ready #splashLoadingBlock {
   text-align: center;
   margin-top: 4px;
 }
+/* Exact clone of .training-section-label positioning so all section titles
+   sit identically centered on their top border. */
 .training-word-strip-label {
-  position: static;
+  position: absolute;
+  top: -9px;
+  left: 50%;
+  transform: translateX(-50%);
   font-family: var(--font-heading);
   font-weight: 800;
   font-size: 10px;
@@ -3829,6 +3913,7 @@ body.splash-ready #splashLoadingBlock {
   letter-spacing: 0.6px;
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.15);
   z-index: 5;
+  white-space: nowrap;
 }
 .training-word-strip-cards {
   display: flex;
@@ -4432,7 +4517,8 @@ body.splash-ready #splashLoadingBlock {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  margin-top: 0;
+  /* Clear the pills' 3D bottom shadow + shield badge hanging below them */
+  margin-top: 10px;
   width: 100%;
   max-width: 360px;
   margin-left: auto;
@@ -4443,6 +4529,9 @@ body.splash-ready #splashLoadingBlock {
   justify-self: center;
   width: fit-content;
   min-width: 96px;
+  height: 40px;
+  box-sizing: border-box;
+  align-content: center;
   padding: 1px 14px;
   gap: 0;
 }
@@ -4472,11 +4561,17 @@ body.splash-ready #splashLoadingBlock {
   grid-column: 3;
   justify-self: start;
   margin-left: 10px;
-  width: 44px;
-  height: 44px;
-  min-width: 44px;
-  min-height: 44px;
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  min-height: 40px;
   text-indent: 0;
+}
+/* Needs .icon-btn.glossy specificity (0,2,0) to actually override its
+   8px relief — a single class always lost the cascade. */
+.training-timer .icon-btn.training-timer-done {
+  border-width: 2px;
+  box-shadow: 0 3px 0 var(--icon-btn-dark), 0 5px 8px rgba(0, 0, 0, 0.15);
 }
 .training-timer-done .icon-btn-img {
   position: absolute;
@@ -4508,10 +4603,13 @@ body.splash-ready #splashLoadingBlock {
   color: #2f1b12;
   text-transform: uppercase;
   letter-spacing: 0.3px;
-  white-space: nowrap;
-  max-width: 160px;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  /* No overflow:hidden here — it would clip the ::before/::after tail that
+     points up at the player's pill. Long text wraps instead of truncating. */
+  white-space: normal;
+  text-align: center;
+  line-height: 1.25;
+  width: max-content;
+  max-width: 170px;
   z-index: 50;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.7),

@@ -146,6 +146,7 @@ const BASE_GAME_WIDTH =
 const BASE_GAME_HEIGHT =
   parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--game-height")) || 640;
 const AUTO_CONTINUE_ROUND_END = true;
+const DISABLE_SCREEN_TRANSITIONS_IN_LOCAL = true;
 
 let shellLanguage = getShellLanguage();
 let shellTexts = TEXTS[shellLanguage];
@@ -253,6 +254,13 @@ let preserveMatchConfigOnExit = false;
 tempValidationRules = cloneValidationRules(validationRules);
 
 const WORD_CANDIDATES_KEY = "letterloom_word_candidates";
+
+function applyScreenTransitionMode() {
+  document.body?.classList.toggle(
+    "screen-transitions-disabled",
+    DISABLE_SCREEN_TRANSITIONS_IN_LOCAL && IS_LOCAL
+  );
+}
 
 
   function initValidationSections() {
@@ -1055,6 +1063,7 @@ function getQuickGuideSections() {
 
 function getQuickGuideSectionForPhase(phase) {
   if (!phase) return "intro";
+  if (phase === "dealing") return "round-setup";
   if (phase.startsWith("strategy")) return "strategy";
   if (phase.startsWith("creation") || phase === "done") {
     if (phase === "creation-timeup" || phase === "done") return "scoring";
@@ -1424,6 +1433,7 @@ function handleConfirmCancel() {
 
 
 function showScreen(name) {
+  applyScreenTransitionMode();
   if (name !== "training") {
     cleanupTraining(name !== "match");
   }

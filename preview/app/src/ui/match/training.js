@@ -313,19 +313,32 @@ const TRAINING_SECTION_MAX_CARD_SIZE = 56;
 const TRAINING_SECTION_CARD_GAP = 5;
 
 function setupTrainingDebugToggle() {
+  // Long-press (800ms) on the "BAZA X/N" ribbon toggles debug mode.
+  // (Previously anchored to trainingRoundLabel, which was removed when the
+  // round/phase info moved into the topbar ribbon.)
   let pressTimer = null;
-  const el = document.getElementById("trainingRoundLabel");
-  if (!el) return;
-  el.addEventListener("pointerdown", () => {
-    pressTimer = setTimeout(() => {
-      debugMode = !debugMode;
-      const badge = document.getElementById("trainingDebugBadge");
-      if (badge) badge.classList.toggle("hidden", !debugMode);
-      renderTrainingMatch();
-    }, 800);
-  });
-  el.addEventListener("pointerup",     () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } });
-  el.addEventListener("pointercancel", () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } });
+  const toggleDebug = () => {
+    debugMode = !debugMode;
+    const badge = document.getElementById("trainingDebugBadge");
+    if (badge) badge.classList.toggle("hidden", !debugMode);
+    renderTrainingMatch();
+  };
+  // Anchored to the "Estrategia" button of the phase switch — a real <button>
+  // with reliable pointer/click events on both mouse and touch.
+  const el = document.getElementById("trainingPhaseStrategyBtn");
+  if (el) {
+    // Without these, a touch long-press triggers text selection / context
+    // menu and the browser fires pointercancel before our 800ms timer.
+    el.style.touchAction = "none";
+    el.style.userSelect = "none";
+    el.style.webkitUserSelect = "none";
+    el.addEventListener("contextmenu", (e) => e.preventDefault());
+    el.addEventListener("pointerdown", () => {
+      pressTimer = setTimeout(toggleDebug, 800);
+    });
+    el.addEventListener("pointerup",     () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } });
+    el.addEventListener("pointercancel", () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } });
+  }
 
   // Click on the 🐛 DEBUG badge → open the debug log modal.
   const badgeEl = document.getElementById("trainingDebugBadge");
@@ -553,6 +566,9 @@ function renderTrainingMatchRibbon(state) {
   const isStrategy = state.phase === "strategy";
   const isCreation = state.phase === "creation" || state.phase === "creation-timeup";
   sw.classList.toggle("is-creation", isCreation);
+  // During dealing/actions/result neither phase is running — hide the white
+  // sliding highlight so "Estrategia" doesn't look active prematurely.
+  sw.classList.toggle("is-idle", !isStrategy && !isCreation);
   stratBtn.textContent = t("matchPhaseStrategy");
   creatBtn.textContent = t("matchPhaseCreation");
   stratBtn.classList.toggle("active", isStrategy);
@@ -724,14 +740,22 @@ function renderTrainingPrompt(state) {
     if (boardPrompt) boardPrompt.classList.add("hidden");
   }
   if (state.phase === "strategy") {
-    key = "trainingInstrStrategy";
-    showDone = true;
-    promptKind = "is-action-required";
-  } else if (state.phase === "creation") {
+    if (isTrainingTimerGated()) {
+      // Phase-flash banner still on screen — keep prompt and button hidden;
+      // the flash's end re-render will bring them in.
+      timerPrompt.classList.add("is-collapsed");
+    } else {
+      key = "trainingInstrStrategy";
+      // Hide the finish button once the timer already expired ("Tiempo!").
+      showDone = (state.remaining || 0) > 0;
+      promptKind = "is-action-required";
+    }
+  } else if (state.phase === "creation" || state.phase === "creation-timeup") {
     // Strip label "TU PALABRA" is enough — collapse the timer prompt to
-    // free vertical space, but keep the Listo button visible.
+    // free vertical space (also during timeup, so nothing shifts down when
+    // the timer flips to "Tiempo!"). Listo button only while creating.
     timerPrompt.classList.add("is-collapsed");
-    showDone = !state.untimedCreation;
+    showDone = state.phase === "creation" && !state.untimedCreation && !isTrainingTimerGated();
   } else if (state.phase === "actions"
       && state.actionsQueue?.[0] === userId
       && !state.userActionResolved
@@ -785,6 +809,7 @@ function renderTrainingScoreboard(state) {
     hands: state.hands ?? {},
     scoreModifiers: state.scoreModifiers ?? {},
     pillClass: "training-score-pill",
+    dealerLabel: (t("matchDealerLabel") || "Reparte").replace(":", "").trim(),
   });
   attachActionBubble();
 }
@@ -1733,7 +1758,12 @@ function renderTrainingTimer(state) {
   // During actions/result/end the timer pill stays in the layout (no reflow)
   // but becomes invisible. During untimedCreation it is fully hidden.
   const fullyHide = !!state.untimedCreation;
-  const invisible = !fullyHide && (state.phase === "actions" || state.phase === "result" || state.phase === "end");
+  // Invisible (but space reserved) during phases where no countdown applies:
+  // dealing (timer hasn't started yet), actions, result and end — and while
+  // the phase-flash banner ("ESTRATEGIA"/"CREACIÓN") is still on screen.
+  const gatedByFlash = (state.phase === "strategy" || state.phase === "creation") && isTrainingTimerGated();
+  const invisible = !fullyHide
+    && (gatedByFlash || state.phase === "dealing" || state.phase === "actions" || state.phase === "result" || state.phase === "end");
   if (card) {
     card.classList.toggle("hidden", fullyHide);
     card.classList.toggle("is-invisible", invisible);
@@ -3547,7 +3577,11 @@ function ensureTrainingTimer() {
         // Show "Tiempo!" in the timer for STRATEGY_TIMEUP_DISPLAY_MS before entering actions.
         _strategyTimeupUntil = Date.now() + STRATEGY_TIMEUP_DISPLAY_MS;
         _shell.triggerTimeUpEffects("training");
-        renderTrainingTimer({ ...current, phase: "strategy", remaining: 0 });
+        const timeupState = { ...current, phase: "strategy", remaining: 0 };
+        saveTrainingMatch(timeupState);
+        renderTrainingTimer(timeupState);
+        // Re-render the prompt too so the finish button hides with "Tiempo!".
+        renderTrainingPrompt(timeupState);
         setTimeout(() => {
           _strategyTimeupUntil = 0;
           const cur = getTrainingMatch();

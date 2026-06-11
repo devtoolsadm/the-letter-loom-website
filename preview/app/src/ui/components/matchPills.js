@@ -10,6 +10,7 @@ export function renderMatchPills(root, opts) {
     hands = {},
     scoreModifiers = {},
     pillClass = "training-score-pill",
+    dealerLabel = "Reparte",
   } = opts;
 
   root.innerHTML = "";
@@ -67,18 +68,10 @@ export function renderMatchPills(root, opts) {
     }
 
     if (isLeader) {
-      const crownIcon = document.createElement("img");
-      crownIcon.src = "assets/img/leader.svg";
-      crownIcon.alt = "";
-      crownIcon.className = "pill-badge pill-badge-crown";
+      const crownIcon = document.createElement("span");
+      crownIcon.setAttribute("aria-hidden", "true");
+      crownIcon.className = "pill-badge-crown";
       pill.appendChild(crownIcon);
-    }
-    if (isActive) {
-      const turnIcon = document.createElement("img");
-      turnIcon.src = "assets/img/turn.svg";
-      turnIcon.alt = "";
-      turnIcon.className = "pill-badge pill-badge-turn";
-      pill.appendChild(turnIcon);
     }
     if (hasShield) {
       const shieldIcon = document.createElement("img");
@@ -88,11 +81,10 @@ export function renderMatchPills(root, opts) {
       pill.appendChild(shieldIcon);
     }
     if (isDealer) {
-      const dealIcon = document.createElement("img");
-      dealIcon.src = "assets/img/actions/gallery.svg";
-      dealIcon.alt = "";
-      dealIcon.className = "pill-badge pill-badge-deal";
-      pill.appendChild(dealIcon);
+      const dealerChip = document.createElement("span");
+      dealerChip.className = "pill-badge-dealer";
+      dealerChip.textContent = dealerLabel;
+      pill.appendChild(dealerChip);
     }
 
     const mod = scoreModifiers[p.id] ?? 0;
