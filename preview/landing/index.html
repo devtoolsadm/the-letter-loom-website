@@ -443,6 +443,185 @@
       </div>
     </section>
 
+    <section class="event-modal" id="eventModal" hidden aria-hidden="true">
+      <div class="event-modal-backdrop" data-event-close></div>
+      <div
+        class="event-modal-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="eventModalTitle"
+      >
+        <button class="event-modal-close" type="button" data-event-close aria-label="Cerrar">×</button>
+
+        <div class="event-modal-hero">
+          <canvas class="event-confetti" id="eventConfetti" aria-hidden="true"></canvas>
+          <img src="./assets/logo-the-letter-loom.png" alt="The Letter Loom" class="event-modal-logo" />
+          <h2 class="event-modal-title" id="eventModalTitle" data-event-title></h2>
+          <img src="./assets/game-box.png" alt="" class="event-modal-box" aria-hidden="true" />
+          <p class="event-modal-subtitle" data-event-subtitle></p>
+          <p class="event-modal-enddate" data-event-enddate></p>
+          <div class="event-countdown" id="eventCountdown" aria-live="polite">
+            <div class="event-countdown-unit">
+              <span class="event-countdown-num" id="eventCdDays">--</span>
+              <span class="event-countdown-label" data-event-cd-days></span>
+            </div>
+            <span class="event-countdown-sep">:</span>
+            <div class="event-countdown-unit">
+              <span class="event-countdown-num" id="eventCdHours">--</span>
+              <span class="event-countdown-label" data-event-cd-hours></span>
+            </div>
+            <span class="event-countdown-sep">:</span>
+            <div class="event-countdown-unit">
+              <span class="event-countdown-num" id="eventCdMins">--</span>
+              <span class="event-countdown-label" data-event-cd-mins></span>
+            </div>
+            <span class="event-countdown-sep">:</span>
+            <div class="event-countdown-unit">
+              <span class="event-countdown-num" id="eventCdSecs">--</span>
+              <span class="event-countdown-label" data-event-cd-secs></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="event-modal-hint" data-event-hint></div>
+
+        <div class="event-modal-networks">
+
+          <div class="event-net" data-net="instagram">
+            <button class="event-net-btn" type="button" data-event-net-toggle="instagram" aria-expanded="false">
+              <img src="./assets/icon-instagram.svg" alt="" class="event-net-icon" aria-hidden="true" />
+              <span class="event-net-label" data-event-net-label-instagram></span>
+              <span class="event-net-chevron" aria-hidden="true"></span>
+            </button>
+            <div class="event-net-steps" id="eventStepsInstagram" hidden>
+              <ol class="event-steps">
+                <li class="event-step">
+                  <span class="event-step-num">1</span>
+                  <span class="event-step-body">
+                    <span class="event-step-label" data-event-step1-label></span>
+                    <a class="event-step-cta" href="https://www.instagram.com/The.Letter.Loom" target="_blank" rel="noopener" data-event-follow-instagram>@The.Letter.Loom</a>
+                  </span>
+                </li>
+                <li class="event-step">
+                  <span class="event-step-num">2</span>
+                  <span class="event-step-body">
+                    <span class="event-step-label" data-event-step2-label></span>
+                    <a class="event-step-cta" href="" target="_blank" rel="noopener" data-event-post2-instagram></a>
+                  </span>
+                </li>
+                <li class="event-step">
+                  <span class="event-step-num">3</span>
+                  <span class="event-step-body">
+                    <span class="event-step-label" data-event-step3-label></span>
+                    <span class="event-step-note" data-event-step3-note></span>
+                  </span>
+                </li>
+                <li class="event-step">
+                  <span class="event-step-num">4</span>
+                  <span class="event-step-body">
+                    <span class="event-step-label" data-event-step4-label></span>
+                    <a class="event-step-cta" href="" target="_blank" rel="noopener" data-event-post4-instagram></a>
+                  </span>
+                </li>
+              </ol>
+            </div>
+          </div>
+
+          <div class="event-net" data-net="tiktok">
+            <button class="event-net-btn" type="button" data-event-net-toggle="tiktok" aria-expanded="false">
+              <img src="./assets/icon-tiktok.svg" alt="" class="event-net-icon" aria-hidden="true" />
+              <span class="event-net-label" data-event-net-label-tiktok></span>
+              <span class="event-net-chevron" aria-hidden="true"></span>
+            </button>
+            <div class="event-net-steps" id="eventStepsTiktok" hidden>
+              <ol class="event-steps">
+                <li class="event-step">
+                  <span class="event-step-num">1</span>
+                  <span class="event-step-body">
+                    <span class="event-step-label" data-event-step1-label></span>
+                    <a class="event-step-cta" href="https://www.tiktok.com/@TheLetterLoom" target="_blank" rel="noopener" data-event-follow-tiktok>@TheLetterLoom</a>
+                  </span>
+                </li>
+                <li class="event-step">
+                  <span class="event-step-num">2</span>
+                  <span class="event-step-body">
+                    <span class="event-step-label" data-event-step2-label></span>
+                    <a class="event-step-cta" href="" target="_blank" rel="noopener" data-event-post2-tiktok></a>
+                  </span>
+                </li>
+                <li class="event-step">
+                  <span class="event-step-num">3</span>
+                  <span class="event-step-body">
+                    <span class="event-step-label" data-event-step3-label></span>
+                    <span class="event-step-note" data-event-step3-note></span>
+                  </span>
+                </li>
+                <li class="event-step">
+                  <span class="event-step-num">4</span>
+                  <span class="event-step-body">
+                    <span class="event-step-label" data-event-step4-label></span>
+                    <a class="event-step-cta" href="" target="_blank" rel="noopener" data-event-post4-tiktok></a>
+                  </span>
+                </li>
+              </ol>
+            </div>
+          </div>
+
+          <div class="event-net" data-net="x">
+            <button class="event-net-btn" type="button" data-event-net-toggle="x" aria-expanded="false">
+              <img src="./assets/icon-x.svg" alt="" class="event-net-icon" aria-hidden="true" />
+              <span class="event-net-label" data-event-net-label-x></span>
+              <span class="event-net-chevron" aria-hidden="true"></span>
+            </button>
+            <div class="event-net-steps" id="eventStepsX" hidden>
+              <ol class="event-steps">
+                <li class="event-step">
+                  <span class="event-step-num">1</span>
+                  <span class="event-step-body">
+                    <span class="event-step-label" data-event-step1-label></span>
+                    <a class="event-step-cta" href="https://x.com/TheLetterLoom" target="_blank" rel="noopener" data-event-follow-x>@TheLetterLoom</a>
+                  </span>
+                </li>
+                <li class="event-step">
+                  <span class="event-step-num">2</span>
+                  <span class="event-step-body">
+                    <span class="event-step-label" data-event-step2-label></span>
+                    <a class="event-step-cta" href="" target="_blank" rel="noopener" data-event-post2-x></a>
+                  </span>
+                </li>
+                <li class="event-step">
+                  <span class="event-step-num">3</span>
+                  <span class="event-step-body">
+                    <span class="event-step-label" data-event-step3-label></span>
+                    <span class="event-step-note" data-event-step3-note></span>
+                  </span>
+                </li>
+                <li class="event-step">
+                  <span class="event-step-num">4</span>
+                  <span class="event-step-body">
+                    <span class="event-step-label" data-event-step4-label></span>
+                    <a class="event-step-cta" href="" target="_blank" rel="noopener" data-event-post4-x></a>
+                  </span>
+                </li>
+              </ol>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="event-legal">
+          <button class="event-legal-toggle" type="button" aria-expanded="false" data-event-legal-toggle>
+            <span data-event-legal-label></span>
+            <span class="event-legal-chevron" aria-hidden="true"></span>
+          </button>
+          <div class="event-legal-body" id="eventLegalBody" hidden>
+            <p data-event-legal-body></p>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
     <script src="news-data.js"></script>
     <script type="module" src="landing.js"></script>
   </body>
