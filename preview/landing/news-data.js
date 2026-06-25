@@ -1,4 +1,7 @@
-const LETTER_LOOM_NEWS=[{title:"El telar llega a JuegaNess! 🚀 🧶",text:`Tras el exitazo en Fuenlabrada, desplegamos de nuevo #TheLetterLoom.
+const LETTER_LOOM_NEWS=[{title:"¡Nos vemos en Toledum! ⚔️🧶",text:`El domingo 28 de junio llevamos #TheLetterLoom al Palacio de Congresos El Greco de Toledo. ¡Ven a probar el juego de letras que te dejará sin palabras!
+📍 Palacio de Congresos El Greco, Toledo
+Espacio Zocodover · Planta -2
+📅 Domingo 28 de junio, de 10:00 - 14:00`,image:"assets/news/news-07.jpg",link:"https://www.instagram.com/the.letter.loom/p/DaAkj3CDe04/",date:"2026-06-25"},{title:"El telar llega a JuegaNess! 🚀 🧶",text:`Tras el exitazo en Fuenlabrada, desplegamos de nuevo #TheLetterLoom.
 No hace falta ser un diccionario andante ni un experto en letras para ganar; solo hace falta ingenio y ganas de pasarlo bien. Ven a descubrir por qué es tan adictivo y acepta el reto en un ambiente inmejorable. 🃏✨
 📍 Centro Cívico José Saramago
 📅 10 de mayo`,image:"assets/news/news-06.jpg",link:"https://jueganess.org/v-jornadas/",date:"2026-05-07"},{title:"¡Increíble debut en el LoboFest! 🚀🧶",text:`Gracias a la organización y a todos los jugones que nos acompañasteis. ¡Ha sido una jornada inolvidable de letras, estrategia, piques y mucha diversión! 🐺✨
