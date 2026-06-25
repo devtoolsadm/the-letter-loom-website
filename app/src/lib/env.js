@@ -1,11 +1,1 @@
-const host = window.location.hostname
-const href = window.location.href
-
-export const IS_LOCAL   = host === 'localhost' || host === '127.0.0.1' || host === '::1' ||
-                          host === '0.0.0.0'   || host.endsWith('.local') ||
-                          /^10\./.test(host)   || /^192\.168\./.test(host) ||
-                          (() => { const m = host.match(/^172\.(\d+)\./); return m && Number(m[1]) >= 16 && Number(m[1]) <= 31 })()
-
-export const IS_PREVIEW = !IS_LOCAL && (/preview/i.test(host) || /preview/i.test(href))
-
-export const IS_PROD    = !IS_LOCAL && !IS_PREVIEW
+const t=window.location.hostname,e=window.location.href;export const IS_LOCAL=t==="localhost"||t==="127.0.0.1"||t==="::1"||t==="0.0.0.0"||t.endsWith(".local")||/^10\./.test(t)||/^192\.168\./.test(t)||(()=>{const o=t.match(/^172\.(\d+)\./);return o&&Number(o[1])>=16&&Number(o[1])<=31})(),IS_PREVIEW=!IS_LOCAL&&(/preview/i.test(t)||/preview/i.test(e)),IS_PROD=!IS_LOCAL&&!IS_PREVIEW;
