@@ -22,6 +22,7 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="landing.css" />
+    <link rel="stylesheet" href="demo.css?v=51" />
   </head>
   <body>
     <div class="landing-shell">
@@ -429,17 +430,134 @@
                 dependa de nada externo.
               </p>
             </div>
-            <a
-              class="guide-manual-cta"
-              href="./assets/doc/manual.pdf"
-              target="_blank"
-              rel="noopener"
-              data-i18n="guideManualCta"
-            >
-              Abrir manual
-            </a>
+            <div class="guide-manual-actions">
+              <button type="button" class="guide-demo-cta guide-manual-cta" data-demo-open data-i18n="guideDemoCta">▶ Ver demo</button>
+              <a
+                class="guide-manual-cta"
+                href="./assets/doc/manual.pdf"
+                target="_blank"
+                rel="noopener"
+                data-i18n="guideManualCta"
+              >
+                Abrir manual
+              </a>
+            </div>
           </section>
         </div>
+
+        <!-- Demo overlay — vista de mesa -->
+        <div class="guide-demo-overlay" id="guideDemoOverlay" hidden aria-hidden="true">
+          <!-- Lienzo de proporción fija (16:9 / 9:16): contiene TODO y se
+               escala entero para llenar el panel — composición de vídeo -->
+          <div class="demo-canvas" id="demoCanvas">
+
+          <!-- Popup de anuncio de beat — aparece en centro, sube al narrador -->
+          <div class="demo-beat-popup" id="demoBeatPopup" aria-hidden="true">
+            <div class="demo-beat-popup-phase" id="demoBeatPopupPhase"></div>
+            <div class="demo-beat-popup-text" id="demoBeatPopupText"></div>
+          </div>
+
+          <!-- Narrador + fase (barra superior fija) -->
+          <div class="demo-narrator-wrap">
+            <img class="demo-logo" src="./assets/logo-the-letter-loom.png" alt="The Letter Loom" />
+            <div class="demo-narrator-texts">
+              <div class="demo-phase-tag" id="demoPhaseTag"></div>
+              <div class="demo-narrator" id="demoNarrator"></div>
+            </div>
+          </div>
+
+          <!-- Mesa -->
+          <div class="demo-stage-wrap">
+          <div class="demo-table" id="demoTable">
+
+            <!-- Fila superior: Rival 1 | Rival 2 -->
+            <div class="demo-rivals-row">
+
+              <div class="demo-seat" id="demoSeatRival1">
+                <div class="demo-seat-header">
+                  <span class="demo-avatar">😈</span>
+                  <span class="demo-seat-name" id="demoNameRival1"></span>
+                  <span class="demo-seat-score" id="demoScoreRival1">0 pts</span>
+                </div>
+                <div class="demo-seat-hand" id="demoHandRival1"></div>
+                <div class="demo-seat-play" id="demoPlayRival1">
+                  <div class="demo-seat-action" id="demoActionRival1"></div>
+                  <div class="demo-seat-word" id="demoWordRival1"></div>
+                </div>
+              </div>
+
+              <div class="demo-seat" id="demoSeatRival2">
+                <div class="demo-seat-header">
+                  <span class="demo-avatar">🙂</span>
+                  <span class="demo-seat-name" id="demoNameRival2"></span>
+                  <span class="demo-seat-score" id="demoScoreRival2">0 pts</span>
+                </div>
+                <div class="demo-seat-hand" id="demoHandRival2"></div>
+                <div class="demo-seat-play" id="demoPlayRival2">
+                  <div class="demo-seat-action" id="demoActionRival2"></div>
+                  <div class="demo-seat-word" id="demoWordRival2"></div>
+                </div>
+              </div>
+
+            </div><!-- /rivals-row -->
+
+            <!-- Zona central: mazos encima del tablero -->
+            <div class="demo-center-zone">
+              <!-- Tablero central: contiene los mazos y las 5 letras comunes -->
+              <div class="demo-center" id="demoSeatBoard">
+                <div class="demo-center-label" id="demoBoardLabel"></div>
+                <!-- Mazos en fila horizontal, dentro del tablero -->
+                <div class="demo-decks" id="demoDeckArea">
+                  <div class="demo-deck-wrap">
+                    <img class="demo-deck-img" id="demoDeckVowels" src="./assets/cards/reversio-vocales.png" alt="Vocales" />
+                    <span class="demo-deck-label">Vocales</span>
+                  </div>
+                  <div class="demo-deck-wrap">
+                    <img class="demo-deck-img" id="demoDeckConsonants" src="./assets/cards/reverso-consonantes.png" alt="Consonantes" />
+                    <span class="demo-deck-label">Consonantes</span>
+                  </div>
+                  <div class="demo-deck-wrap">
+                    <img class="demo-deck-img" id="demoDeckActions" src="./assets/cards/reverso-acciones.png" alt="Acciones" />
+                    <span class="demo-deck-label">Acciones</span>
+                  </div>
+                </div>
+                <div class="demo-board" id="demoBoardCards"></div>
+              </div>
+            </div>
+
+            <!-- Tú — abajo -->
+            <div class="demo-seat demo-seat-you" id="demoSeatYou">
+              <div class="demo-seat-header">
+                <span class="demo-avatar">😎</span>
+                <span class="demo-seat-name" id="demoNameYou"></span>
+                <span class="demo-seat-score" id="demoScoreYou">0 pts</span>
+              </div>
+              <div class="demo-seat-you-row">
+                <div class="demo-seat-hand" id="demoHandYou"></div>
+                <div class="demo-seat-play" id="demoPlayYou">
+                  <div class="demo-seat-action" id="demoActionYou"></div>
+                  <div class="demo-seat-word" id="demoWordYou"></div>
+                </div>
+              </div>
+            </div>
+
+          </div><!-- /demo-table -->
+          </div><!-- /demo-stage-wrap -->
+
+          <!-- Controles -->
+          <div class="demo-controls">
+            <button class="demo-ctrl-btn" type="button" id="demoBtnPrev" title="Anterior">&#8592;</button>
+            <button class="demo-ctrl-btn demo-ctrl-play" type="button" id="demoBtnPlay" title="Pausa">&#9646;&#9646;</button>
+            <div class="demo-timeline" id="demoTimeline">
+              <div class="demo-timeline-fill" id="demoTimelineFill"></div>
+            </div>
+            <button class="demo-ctrl-btn" type="button" id="demoBtnNext" title="Siguiente">&#8594;</button>
+            <button class="demo-ctrl-btn demo-ctrl-close" type="button" data-demo-close title="Cerrar">&#10005;</button>
+          </div>
+
+          </div><!-- /demo-canvas -->
+        </div><!-- /guide-demo-overlay -->
+
       </div>
     </section>
 
@@ -561,5 +679,6 @@
 
     <script src="news-data.js"></script>
     <script type="module" src="landing.js"></script>
+    <script type="module" src="demo.js?v=47"></script>
   </body>
 </html>
