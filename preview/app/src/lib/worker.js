@@ -1,1 +1,0 @@
-import{WORKER_BASE as a}from"./config.js";import{getAccessToken as s}from"./auth.js";export async function workerFetch(n,t={}){const e=s(),r={"Content-Type":"application/json",...t.headers??{}};e&&(r.Authorization=`Bearer ${e}`);const o=await fetch(`${a}${n}`,{...t,headers:r});if(o.status===401)throw new Error("unauthorized");return o}
