@@ -1,10 +1,22 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <meta http-equiv="Refresh" content="0; url=landing/" />
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Letter Loom</title>
+    <!-- Redirige a la landing CONSERVANDO la query (?...) y el hash (#...).
+         Con hosting estático, un <meta refresh> solo puede ir a una URL fija:
+         no ve la query ni el hash del usuario, así que los perdería. El JS sí
+         lee location.search/location.hash del navegador y los reenvía. Ej.:
+         theletterloom.com/#bases-sorteo → landing/#bases-sorteo. -->
+    <script>
+      location.replace("landing/" + window.location.search + window.location.hash);
+    </script>
+    <!-- Fallback sin JS (caso muy raro): va a la home de la landing. Sin JS es
+         imposible conservar query o hash en un sitio estático. -->
+    <noscript>
+      <meta http-equiv="Refresh" content="0; url=landing/" />
+    </noscript>
   </head>
   <body>
     <p>If you are not redirected automatically, <a href="landing/">click here</a>.</p>
