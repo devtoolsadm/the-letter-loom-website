@@ -1,0 +1,13 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'>
+  <!-- Reflejo superior (Efecto cristal/plástico pulido) -->
+  <path d='M5 8 Q50 2 95 8 L95 25 Q50 20 5 25 Z' fill='white' opacity='0.35'/>
+  
+  <!-- Punto de luz principal (Brillo especular) -->
+  <circle cx='15' cy='18' r='7' fill='white' opacity='0.25'/>
+  
+  <!-- Luz de rebote (Rim light inferior para dar volumen) -->
+  <path d='M10 92 Q50 96 90 92' fill='none' stroke='white' stroke-width='4' stroke-linecap='round' opacity='0.3'/>
+  
+  <!-- Biselado interior (Define el borde del botón) -->
+  <rect x='1' y='1' width='98' height='98' rx='15' fill='none' stroke='white' stroke-width='1.5' opacity='0.3'/>
+</svg>
