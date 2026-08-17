@@ -1,0 +1,1 @@
+export const WORKER_BASE="https://the-letter-loom-dev.the-letter-loom.workers.dev",SUPABASE_URL="https://lpcdbabpccihzszpfaoe.supabase.co",SUPABASE_ANON_KEY="sb_publishable_FMAJjgFS_NGsyEVNoBV0TQ_8L9ueLVc",TURNSTILE_SITE_KEY="0x4AAAAAADIVEizrkAj6-i31";
