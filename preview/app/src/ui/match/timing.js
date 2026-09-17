@@ -1,1 +1,0 @@
-export const TIMING={phaseFlash:{duration:2400,strategyBannerDelay:760},bubble:{autoHide:4500},banner:{visible:1e4,hideTransition:300},reveal:{flipDuration:720},dealCascade:{afterFlashBuffer:90},boardReveal:{pause:1400},ghostBoardDeal:{hold:800},actionRead:{delay:700},actionsDriver:{ghostGapMs:3e3},pillShake:700,userTurn:1e4,picker:7e3,lowTime:10,practiceHint:3e4};

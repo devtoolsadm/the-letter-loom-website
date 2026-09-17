@@ -1,1 +1,0 @@
-const t=window.location.hostname,e=window.location.href;export const IS_LOCAL=t==="localhost"||t==="127.0.0.1"||t==="::1"||t==="0.0.0.0"||t.endsWith(".local")||/^10\./.test(t)||/^192\.168\./.test(t)||(()=>{const o=t.match(/^172\.(\d+)\./);return o&&Number(o[1])>=16&&Number(o[1])<=31})(),IS_PREVIEW=!IS_LOCAL&&(/preview/i.test(t)||/preview/i.test(e)),IS_PROD=!IS_LOCAL&&!IS_PREVIEW;
