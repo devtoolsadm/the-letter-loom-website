@@ -1,0 +1,24 @@
+<svg width="1200" height="860" viewBox="0 0 1200 860" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="860" rx="72" fill="#17385F"/>
+  <rect x="42" y="42" width="1116" height="776" rx="56" fill="#224B79"/>
+  <ellipse cx="604" cy="438" rx="424" ry="250" fill="#10233E"/>
+  <ellipse cx="604" cy="438" rx="366" ry="210" fill="#2D5D94"/>
+  <rect x="292" y="250" width="150" height="220" rx="28" transform="rotate(-14 292 250)" fill="#F4D46A"/>
+  <rect x="304" y="264" width="126" height="196" rx="20" transform="rotate(-14 304 264)" fill="#FFF7D8"/>
+  <text x="350" y="372" transform="rotate(-14 350 372)" fill="#10233E" font-size="76" font-family="Arial" font-weight="700">L</text>
+  <rect x="462" y="218" width="150" height="220" rx="28" transform="rotate(8 462 218)" fill="#FF8B61"/>
+  <rect x="474" y="232" width="126" height="196" rx="20" transform="rotate(8 474 232)" fill="#FFF7D8"/>
+  <text x="520" y="350" transform="rotate(8 520 350)" fill="#10233E" font-size="76" font-family="Arial" font-weight="700">O</text>
+  <rect x="660" y="264" width="150" height="220" rx="28" transform="rotate(-5 660 264)" fill="#5EC0E6"/>
+  <rect x="672" y="278" width="126" height="196" rx="20" transform="rotate(-5 672 278)" fill="#FFF7D8"/>
+  <text x="726" y="396" transform="rotate(-5 726 396)" fill="#10233E" font-size="76" font-family="Arial" font-weight="700">O</text>
+  <rect x="826" y="300" width="150" height="220" rx="28" transform="rotate(15 826 300)" fill="#6FD06C"/>
+  <rect x="838" y="314" width="126" height="196" rx="20" transform="rotate(15 838 314)" fill="#FFF7D8"/>
+  <text x="884" y="426" transform="rotate(15 884 426)" fill="#10233E" font-size="76" font-family="Arial" font-weight="700">M</text>
+  <circle cx="344" cy="620" r="42" fill="#F26D5B"/>
+  <circle cx="432" cy="664" r="32" fill="#F7B733"/>
+  <circle cx="850" cy="634" r="38" fill="#5EC0E6"/>
+  <circle cx="930" cy="594" r="26" fill="#6FD06C"/>
+  <rect x="422" y="548" width="356" height="106" rx="28" fill="#F8E7A2"/>
+  <text x="504" y="612" fill="#10233E" font-size="58" font-family="Arial" font-weight="700">LETTER LOOM</text>
+</svg>
