@@ -90,6 +90,52 @@
     <div class="game-content">
       <header class="game-header" id="gameHeader"></header>
       <main class="game-main" id="gameMain">
+        <div class="screen auth-screen" id="screen-auth">
+          <div class="auth-wrap">
+            <div class="auth-logo-wrap">
+              <img class="auth-logo" src="assets/img/logo-letters.png" alt="The Letter Loom" draggable="false" />
+            </div>
+            <form class="auth-card" id="authForm" novalidate>
+              <div class="auth-panel" id="authEmailStep">
+                <div class="auth-badge hidden" id="authBadge"></div>
+                <p class="auth-subtitle" id="authSubtitle"></p>
+                <div class="auth-field">
+                  <input type="email" id="authEmailInput" autocomplete="email" inputmode="email" spellcheck="false" aria-label="Email" placeholder="tu@email.com" />
+                </div>
+                <button class="auth-not-you hidden" type="button" id="authNotYouBtn"></button>
+                <p class="auth-error hidden" id="authEmailError"></p>
+                <button class="game-btn primary" type="submit" id="authContinueBtn"></button>
+              </div>
+              <div class="auth-panel hidden" id="authCodeStep">
+                <p class="auth-code-hint" id="authCodeHint"></p>
+                <div class="auth-field auth-verify-code">
+                  <input type="text" id="authCodeInput" inputmode="numeric" maxlength="6" autocomplete="one-time-code" pattern="[0-9]*" aria-label="Código OTP" placeholder="000000" />
+                </div>
+                <p class="auth-error hidden" id="authCodeError"></p>
+                <button class="game-btn primary" type="submit" id="authVerifyBtn"></button>
+                <button class="game-btn auth-resend" id="authResendBtn"></button>
+                <button class="auth-change-email" type="button" id="authChangeEmailBtn" aria-label="Change email"></button>
+              </div>
+              <div class="auth-panel hidden" id="authProfileStep">
+                <p class="auth-subtitle" id="authProfileSubtitle"></p>
+                <div class="auth-field auth-profile-nickname">
+                  <input type="text" id="onboardingInput" maxlength="20" autocomplete="off" spellcheck="false" aria-label="Nombre" placeholder="..." />
+                </div>
+                <p class="auth-error hidden" id="onboardingError"></p>
+                <label class="onboarding-optin">
+                  <input type="checkbox" id="onboardingOptIn" />
+                  <span id="onboardingOptInLabel"></span>
+                </label>
+                <button class="game-btn primary" type="button" id="onboardingBtn" aria-label="Guardar perfil">...</button>
+                <button class="auth-change-email" type="button" id="onboardingSkipBtn" aria-label="Cancelar registro"></button>
+              </div>
+              <p class="auth-legal" id="authLegal"></p>
+              <div id="authLangToggle" class="install-lang-toggle auth-lang-toggle"></div>
+            </form>
+            <div id="authTurnstile"></div>
+          </div>
+        </div>
+
         <div class="screen splash-screen" id="screen-splash">
           <div class="splash-hero">
             <div class="splash-logo-wrap">
@@ -115,13 +161,14 @@
             <div class="install-required hidden" id="installRequired">
               <div class="install-required-title" id="installRequiredTitle"></div>
               <div class="install-required-desc" id="installRequiredDescription"></div>
+              <div id="installLangToggle" class="install-lang-toggle hidden"></div>
             </div>
             <div class="cta-stack">
               <button class="game-btn primary" id="splashContinueBtn"></button>
+              <button class="game-btn btn-cyan" id="splashTrainBtn"></button>
               <button class="game-btn ghost hidden" id="resumeMatchBtn"></button>
               <button class="game-btn btn-blue" id="installAppBtn"></button>
             </div>
-            <div id="installLangToggle" class="install-lang-toggle hidden"></div>
             <div class="splash-actions">
               <button class="icon-btn glossy btn-yellow" type="button" id="settingsBtn" aria-label="Settings"
                 data-modal-open="settings">
@@ -559,6 +606,183 @@
           <button class="game-btn primary" id="startGameBtn"></button>
         </div>
 
+        <div class="screen" id="screen-training-setup">
+          <div class="screen-topbar match-top-row">
+            <button class="icon-btn glossy btn-yellow" type="button" id="trainingBackBtn" aria-label="Back">
+              <span class="icon-btn-img icon-prev" aria-hidden="true"></span>
+            </button>
+            <div class="modal-ribbon topbar-title title-primary" id="trainingSetupTitle"></div>
+            <button class="icon-btn glossy btn-yellow" type="button" id="trainingSettingsBtn" aria-label="Settings">
+              <span class="icon-btn-img icon-settings" aria-hidden="true"></span>
+            </button>
+          </div>
+
+          <div class="training-picker">
+            <button class="training-card" type="button" id="trainingCardWords" data-difficulty="words">
+              <span class="training-card-badge" data-i18n="trainingDifficultyWords"></span>
+              <span class="training-card-summary">
+                <span id="trainingCardWordsPlayers"></span>
+                <span class="training-card-sep">·</span>
+                <span class="training-card-clock" aria-hidden="true">⏱</span>
+                <span id="trainingCardWordsTimers"></span>
+              </span>
+              <span class="training-card-stat" id="trainingCardWordsStat"></span>
+            </button>
+            <button class="training-card" type="button" id="trainingCardTimeTrial" data-difficulty="timeTrial">
+              <span class="training-card-badge" data-i18n="trainingDifficultyTimeTrial"></span>
+              <span class="training-card-summary">
+                <span id="trainingCardTimeTrialPlayers"></span>
+                <span class="training-card-sep">·</span>
+                <span class="training-card-clock" aria-hidden="true">⏱</span>
+                <span id="trainingCardTimeTrialTimers"></span>
+              </span>
+              <span class="training-card-stat" id="trainingCardTimeTrialStat"></span>
+            </button>
+            <button class="training-card" type="button" id="trainingCardEasy" data-difficulty="easy">
+              <span class="training-card-badge" data-i18n="trainingDifficultyEasy"></span>
+              <span class="training-card-summary">
+                <span id="trainingCardEasyPlayers"></span>
+                <span class="training-card-sep">·</span>
+                <span class="training-card-clock" aria-hidden="true">⏱</span>
+                <span id="trainingCardEasyTimers"></span>
+              </span>
+              <span class="training-card-stat" id="trainingCardEasyStat"></span>
+            </button>
+            <button class="training-card" type="button" id="trainingCardNormal" data-difficulty="normal">
+              <span class="training-card-badge" data-i18n="trainingDifficultyNormal"></span>
+              <span class="training-card-summary">
+                <span id="trainingCardNormalPlayers"></span>
+                <span class="training-card-sep">·</span>
+                <span class="training-card-clock" aria-hidden="true">⏱</span>
+                <span id="trainingCardNormalTimers"></span>
+              </span>
+              <span class="training-card-stat" id="trainingCardNormalStat"></span>
+            </button>
+            <button class="training-card" type="button" id="trainingCardHard" data-difficulty="hard">
+              <span class="training-card-badge" data-i18n="trainingDifficultyHard"></span>
+              <span class="training-card-summary">
+                <span id="trainingCardHardPlayers"></span>
+                <span class="training-card-sep">·</span>
+                <span class="training-card-clock" aria-hidden="true">⏱</span>
+                <span id="trainingCardHardTimers"></span>
+              </span>
+              <span class="training-card-stat" id="trainingCardHardStat"></span>
+            </button>
+          </div>
+
+          <div class="training-rules-row">
+            <button class="icon-btn glossy btn-yellow match-rules-btn" type="button" id="trainingRulesBtn">
+              <span class="icon-btn-img icon-rules" aria-hidden="true"></span>
+              <span class="match-rules-btn-text" id="trainingRulesBtnText"></span>
+            </button>
+            <div class="match-start-hint hidden" id="trainingStartHint"></div>
+          </div>
+          <div class="training-rules-row" id="trainingGalleryRow">
+            <button class="icon-btn glossy btn-yellow match-rules-btn" type="button" id="trainingGalleryBtn">
+              <img src="assets/img/actions/gallery.svg" alt="" aria-hidden="true" style="width:20px;height:20px;display:block;">
+              <span class="match-rules-btn-text">Ver cartas</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="screen" id="screen-training">
+          <div class="screen-topbar match-top-row">
+            <button class="icon-btn glossy btn-yellow" type="button" id="trainingMatchBackBtn" aria-label="Back">
+              <span class="icon-btn-img icon-exit" aria-hidden="true"></span>
+            </button>
+            <div class="modal-ribbon topbar-title title-primary" id="trainingMatchTitle"></div>
+            <button class="icon-btn glossy btn-yellow" type="button" id="trainingMatchExitBtn" aria-label="Exit">
+              <span class="icon-btn-img icon-exit" aria-hidden="true"></span>
+            </button>
+            <button class="icon-btn glossy btn-yellow" type="button" id="trainingMatchSettingsBtn" aria-label="Settings">
+              <span class="icon-btn-img icon-settings" aria-hidden="true"></span>
+            </button>
+          </div>
+          <div class="match-phase-indicator" id="trainingPhaseIndicator">
+            <div class="match-phase-switch" id="trainingPhaseSwitch">
+              <button class="game-btn ghost match-phase-btn" type="button" id="trainingPhaseStrategyBtn"></button>
+              <button class="icon-btn glossy btn-yellow match-phase-help" type="button" id="trainingMatchHelpBtn" aria-label="">
+                <span class="icon-btn-img icon-help" aria-hidden="true"></span>
+              </button>
+              <button class="game-btn ghost match-phase-btn" type="button" id="trainingPhaseCreationBtn"></button>
+            </div>
+          </div>
+
+          <div class="training-phase-flash hidden" id="trainingPhaseFlash"></div>
+
+          <div class="training-attack-banner hidden" id="trainingAttackBanner"></div>
+
+          <div class="training-match">
+            <div class="training-debug-badge hidden" id="trainingDebugBadge">🐛 DEBUG</div>
+
+            <div class="training-instruction" id="trainingInstruction"></div>
+
+            <div class="training-scoreboard" id="trainingScoreboard"></div>
+
+            <div class="training-timer">
+              <div class="match-timer training-match-timer" id="trainingMatchTimerCard">
+                <div class="match-timer-value" id="trainingTimerValue">--:--</div>
+              </div>
+              <button class="icon-btn glossy btn-red match-timer-btn match-timer-right training-timer-done hidden" type="button" id="trainingTimerDoneBtn" aria-label="">
+                <span class="icon-btn-img icon-finish" aria-hidden="true"></span>
+              </button>
+            </div>
+            <div class="training-prompt hidden" id="trainingTimerPrompt"></div>
+            <div class="training-action-bar-wrap hidden" id="trainingActionBarWrap">
+              <div class="training-action-bar" id="trainingActionBar"></div>
+            </div>
+
+            <div class="training-section is-hand">
+              <div class="training-section-label" id="trainingHandLabel"></div>
+              <div class="training-section-body">
+                <div class="training-hand" id="trainingHand"></div>
+                <div class="training-actions-hand" id="trainingActionsHand"></div>
+                <div class="training-action-focus-panel hidden" id="trainingActionFocusPanel">
+                  <div class="training-action-focus-name" id="trainingActionFocusName"></div>
+                  <div class="training-action-focus-desc" id="trainingActionFocusDesc"></div>
+                  <button class="training-action-focus-play" type="button" id="trainingActionFocusPlay"></button>
+                </div>
+              </div>
+              <button class="training-deal-random hidden" type="button" id="trainingDealRandomHandBtn"><span class="training-deal-random-icon" aria-hidden="true">🎲</span><span class="training-deal-random-label" id="trainingDealRandomHandLabel"></span></button>
+            </div>
+
+            <div class="training-word-strip hidden" id="trainingWordStrip">
+              <div class="training-word-strip-header">
+                <div class="training-word-strip-label" id="trainingWordStripLabel"></div>
+                <div class="training-word-strip-toggles">
+                  <div class="training-p1p2-toggle hidden" id="trainingWordP1P2Toggle" aria-label="Palabra">
+                    <button class="training-p1p2-btn is-active" data-word="0" type="button">P1</button>
+                    <button class="training-p1p2-btn" data-word="1" type="button">P2</button>
+                  </div>
+                  <div class="validation-lang-toggle hidden" id="trainingWordLangToggle" aria-label="Language">
+                    <button class="validation-lang-btn" data-lang="es" type="button">ES</button>
+                    <button class="validation-lang-btn" data-lang="en" type="button">EN</button>
+                  </div>
+                </div>
+              </div>
+              <div class="training-word-strip-cards" id="trainingWordStripCards"></div>
+            </div>
+
+            <div class="training-forced-rules hidden" id="trainingForcedRules"></div>
+
+            <div class="training-board-prompt hidden" id="trainingBoardPrompt"></div>
+            <div class="training-section is-board">
+              <div class="training-section-label" id="trainingBoardLabel"></div>
+              <div class="training-board" id="trainingBoard"></div>
+              <button class="training-deal-random hidden" type="button" id="trainingDealRandomBoardBtn"><span class="training-deal-random-icon" aria-hidden="true">🎲</span><span class="training-deal-random-label" id="trainingDealRandomBoardLabel"></span></button>
+            </div>
+
+            <div class="training-validate-wrap hidden" id="trainingValidateWrap">
+              <div class="training-validate-row">
+                <button class="game-btn btn-cyan training-hint-btn hidden" type="button" id="trainingHintBtn"><span class="training-hint-btn-icon" aria-hidden="true">💡</span><span class="training-hint-btn-label" id="trainingHintBtnLabel"></span></button>
+                <button class="training-validate-btn" type="button" id="trainingValidateBtn"></button>
+              </div>
+              <div class="training-validate-tip" id="trainingValidateTip"></div>
+            </div>
+
+          </div>
+        </div>
+
         <div class="screen" id="screen-live">
           <h2 id="liveTitle"></h2>
           <div class="card">
@@ -709,9 +933,19 @@
       <div class="frame-panel">
         <div class="modal-stitch"></div>
         <div class="modal-ribbon"><span class="title-primary" id="settingsTitle"></span></div>
-        <button class="modal-close" data-modal-close="settings" aria-label="Close"></button>
+        <button class="modal-close" id="settingsCloseBtn" aria-label="Close"></button>
         <div class="modal-canvas">
           <div class="modal-content settings-list">
+            <button class="settings-row settings-row-nav hidden" type="button" id="settingsAccountRow" aria-label="Account">
+              <div class="settings-label">
+                <span class="settings-icon account" aria-hidden="true"></span>
+                <div class="settings-account-label-wrap">
+                  <span id="settingsAccountLabel"></span>
+                  <span class="settings-account-email" id="settingsAccountEmail"></span>
+                </div>
+              </div>
+              <span class="settings-nav-chevron" aria-hidden="true">›</span>
+            </button>
             <div class="settings-row">
               <div class="settings-label">
                 <span class="settings-icon sound" id="settingsSoundIcon" aria-hidden="true"></span>
@@ -745,8 +979,79 @@
                 <div class="lang-dropdown settings-lang-dropdown" id="settingsLanguageDropdown"></div>
               </div>
             </div>
+            <div class="settings-save-feedback hidden" id="settingsSaveFeedback">
+              <p class="auth-error" id="settingsSaveError"></p>
+              <button class="account-discard-btn" type="button" id="settingsDiscardBtn"></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-overlay" data-modal="cuenta" data-closable="0">
+      <div class="frame-panel">
+        <div class="modal-stitch"></div>
+        <div class="modal-canvas">
+          <div class="modal-nav-header">
+            <button class="icon-btn glossy btn-yellow modal-nav-back-btn" type="button" id="accountBackBtn" aria-label="Volver">
+              <span class="icon-btn-img icon-prev" aria-hidden="true"></span>
+            </button>
+            <span class="modal-nav-title" id="accountTitle"></span>
+            <span aria-hidden="true"></span>
+          </div>
+          <p class="account-offline-msg hidden" id="accountOfflineMsg"></p>
+          <div class="account-save-feedback hidden" id="accountSaveFeedback">
+            <p class="auth-error" id="accountSaveError"></p>
+            <button class="account-discard-btn" type="button" id="accountDiscardBtn"></button>
+          </div>
+          <div class="modal-content account-content">
+            <div class="settings-row account-name-row">
+              <div class="settings-label" id="accountNicknameLabel"></div>
+              <input type="text" class="account-nickname-input" id="accountNicknameInput"
+                maxlength="20" autocomplete="off" spellcheck="false" placeholder="..." aria-label="Apodo" />
+              <p class="auth-error hidden" id="accountNicknameError"></p>
+            </div>
+            <label class="onboarding-optin account-optin">
+              <input type="checkbox" id="accountOptIn" aria-label="Email opt-in" />
+              <span id="accountOptInLabel"></span>
+            </label>
+            <div class="account-footer">
+              <button class="game-btn btn-red account-logout-btn" type="button" id="accountLogoutBtn" aria-label="Cerrar sesión">
+                <img src="assets/img/logout.svg" class="account-logout-icon" aria-hidden="true" />
+                <span id="accountLogoutLabel"></span>
+              </button>
+              <p class="account-footer-email" id="accountFooterEmail"></p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-overlay" data-modal="logout-confirm" data-closable="1">
+      <div class="frame-panel">
+        <div class="modal-stitch"></div>
+        <div class="modal-ribbon"><span class="title-primary" id="logoutConfirmTitle"></span></div>
+        <button class="modal-close" data-modal-close="logout-confirm" aria-label="Close"></button>
+        <div class="modal-canvas">
+          <div class="modal-content">
+            <p id="logoutConfirmBody"></p>
             <div class="settings-actions">
-              <button class="game-btn primary" type="button" id="settingsSaveBtn"></button>
+              <button class="game-btn ghost" type="button" id="logoutConfirmCancelBtn"></button>
+              <button class="game-btn btn-red" type="button" id="logoutConfirmOkBtn"></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-overlay" data-modal="optin-confirm" data-closable="1">
+      <div class="frame-panel">
+        <div class="modal-stitch"></div>
+        <div class="modal-ribbon"><span class="title-primary" id="optInConfirmTitle"></span></div>
+        <button class="modal-close" data-modal-close="optin-confirm" aria-label="Close"></button>
+        <div class="modal-canvas">
+          <div class="modal-content optin-confirm-content">
+            <p class="optin-confirm-body" id="optInConfirmBody"></p>
+            <div class="optin-confirm-btns">
+              <button class="game-btn ghost" type="button" id="optInConfirmSkipBtn"></button>
+              <button class="game-btn primary" type="button" id="optInConfirmActivateBtn"></button>
             </div>
           </div>
         </div>
@@ -783,10 +1088,83 @@
         </div>
       </div>
     </div>
+    <div class="modal-overlay" data-modal="hints" data-closable="1">
+      <div class="frame-panel">
+        <div class="modal-stitch"></div>
+        <div class="modal-ribbon"><span class="title-primary">SUGERENCIAS</span></div>
+        <button class="modal-close" data-modal-close="hints" aria-label="Close"></button>
+        <div class="modal-canvas">
+          <div class="modal-content">
+            <div id="hintsModalBody"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-overlay" data-modal="training-result" data-closable="0">
+      <div class="frame-panel">
+        <div class="modal-stitch"></div>
+        <div class="modal-ribbon"><span class="title-primary" id="trainingResultTitle">RESULTADO</span></div>
+        <div class="modal-canvas">
+          <div class="modal-content">
+            <div class="training-result-panel" id="trainingResultPanel"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-overlay" data-modal="training-scoreboard" data-closable="1">
+      <div class="frame-panel">
+        <div class="modal-stitch"></div>
+        <div class="modal-ribbon"><span class="title-primary" id="trainingScoreboardTitle">MARCADOR</span></div>
+        <button class="modal-close" data-modal-close="training-scoreboard" aria-label="Close"></button>
+        <div class="modal-canvas">
+          <div class="modal-content">
+            <div class="training-scoreboard-panel" id="trainingScoreboardPanel"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-overlay" data-modal="training-debug-log" data-closable="1">
+      <div class="frame-panel">
+        <div class="modal-stitch"></div>
+        <div class="modal-ribbon"><span class="title-primary">LOG DE DEPURACIÓN</span></div>
+        <button class="modal-close" data-modal-close="training-debug-log" aria-label="Close"></button>
+        <div class="modal-canvas">
+          <div class="modal-content">
+            <pre id="trainingDebugLogBody" class="training-debug-log-body"></pre>
+            <div class="training-debug-log-actions">
+              <button class="training-debug-log-btn" type="button" id="trainingDebugDecksBtn">📦 Mazos</button>
+              <button class="training-debug-log-btn" type="button" id="trainingDebugLogCopyBtn">📋 Copiar</button>
+              <button class="training-debug-log-btn is-primary" type="button" data-modal-close="training-debug-log">Cerrar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-overlay" data-modal="validator-debug" data-closable="1">
+      <div class="frame-panel">
+        <div class="modal-stitch"></div>
+        <div class="modal-ribbon"><span class="title-primary">DEPURAR VALIDACIÓN</span></div>
+        <button class="modal-close" data-modal-close="validator-debug" aria-label="Close"></button>
+        <div class="modal-canvas">
+          <div class="modal-content">
+            <div class="validator-debug-engines">
+              <label><input type="checkbox" id="validatorDebugLocal" /> Diccionario local</label>
+              <label><input type="checkbox" id="validatorDebugPublic" /> API pública (RAE / dictionaryapi)</label>
+              <label><input type="checkbox" id="validatorDebugAi" /> IA (worker)</label>
+            </div>
+            <div class="validator-debug-results" id="validatorDebugResults"></div>
+            <div class="settings-actions">
+              <button class="game-btn ghost" type="button" data-modal-close="validator-debug">Cerrar</button>
+              <button class="game-btn primary" type="button" id="validatorDebugRunBtn">Probar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
     <div class="modal-overlay" data-modal="validation-result" data-closable="1">
       <div class="frame-panel result-panel">
         <div class="modal-stitch"></div>
-        <div class="modal-ribbon result-ribbon"><span class="title-primary" id="validationResultTitle"></span></div>
+        <div class="modal-ribbon result-ribbon"><span class="title-primary" id="validationResultTitle"></span><span class="match-language-badge hidden" id="validationResultLangBadge"></span></div>
         <button class="modal-close" data-modal-close="validation-result" aria-label="Close"></button>
         <div class="modal-canvas">
           <div class="modal-content result-content">
@@ -863,6 +1241,10 @@
                 <button class="match-clear-btn validation-clear hidden" type="button" id="recordWordClearBtn"
                   aria-label="">X</button>
               </div>
+              <div class="validation-lang-toggle record-word-lang-toggle" id="recordWordLangToggle" aria-label="Language">
+                <button class="validation-lang-btn" data-lang="es" type="button">ES</button>
+                <button class="validation-lang-btn" data-lang="en" type="button">EN</button>
+              </div>
               <span class="record-word-spinner hidden" id="recordWordSpinner" aria-hidden="true"></span>
             </div>
             <div class="match-validation-status record-word-validation-status" id="recordWordValidationStatus"></div>
@@ -899,10 +1281,29 @@
         </div>
       </div>
     </div>
+    <div class="modal-overlay" data-modal="profile-cancel" data-closable="1">
+      <div class="frame-panel">
+        <div class="modal-stitch"></div>
+        <div class="modal-ribbon"><span class="title-primary" id="profileCancelTitle"></span></div>
+        <div class="modal-canvas">
+          <div class="modal-content">
+            <p class="auth-subtitle" id="profileCancelMsg"></p>
+            <div class="modal-btn-row">
+              <button class="game-btn ghost" type="button" id="profileCancelNoBtn" aria-label="Volver"></button>
+              <button class="game-btn danger" type="button" id="profileCancelYesBtn" aria-label="Salir"></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
     <template id="validation-template">
       <div class="match-validation validation-block">
         <div class="match-validation-header">
           <div class="match-validation-title validation-title"></div>
+          <div class="validation-lang-toggle hidden" aria-label="Language">
+            <button class="validation-lang-btn" data-lang="es" type="button">ES</button>
+            <button class="validation-lang-btn" data-lang="en" type="button">EN</button>
+          </div>
           <button class="validation-rules-btn" type="button" aria-label="">
             <span class="icon-mini icon-rules" aria-hidden="true"></span>
           </button>
