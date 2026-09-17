@@ -1,4 +1,11 @@
-const LETTER_LOOM_NEWS=[{title:"¡Nos vemos en Toledum! ⚔️🧶",text:`El domingo 28 de junio llevamos #TheLetterLoom al Palacio de Congresos El Greco de Toledo. ¡Ven a probar el juego de letras que te dejará sin palabras!
+const LETTER_LOOM_NEWS=[{title:"¡Salimos de casa! Jornadas Lúdico Solidarias 🧶🃏",text:`Llevamos el prototipo de #TheLetterLoom a las XV Jornadas Lúdico Solidarias de Madrid. Ven a echar una partida, darnos feedback y comprobar quién sobrevive al telar sin quedarse sin palabras. 🔤😈
+⚠️ Solo el viernes 18, de 17:00 a 20:00.
+📍 La Nave · Villaverde, Madrid (C/ Cifuentes, 5)
+🧪 Zona de Prototipos`,image:"assets/news/news-10.jpg",link:"https://www.instagram.com/the.letter.loom/reel/DdZy0OMNG-w/",date:"2026-09-17"},{title:"¡Este sábado nos vemos en Córdoba! 🌟",text:`Pásate por el CEFC y disfruta de #TheLetterLoom en la sección de prototipos. ¡A disfrutar! 🤩
+📍 CEFC, Córdoba
+🧪 Sección de prototipos`,image:"assets/news/news-09.jpg",link:"https://www.instagram.com/the.letter.loom/p/Dc0S1A-NbXe/",date:"2026-09-03"},{title:"Sorteamos un prototipo 🎁🧶",text:`Sorteamos un juego exclusivo de #TheLetterLoom: uno de los prototipos, de los que aún no existen en ninguna tienda.
+Llevamos meses puliendo cartas, cronometrando partidas y discutiendo si una palabra vale o no vale. Queremos que alguien de aquí lo tenga antes que nadie. 🃏✨
+⚠️ Solo contactamos desde nuestras cuentas oficiales: si alguien te escribe desde otro perfil, no le hagas caso.`,image:"assets/news/news-08.jpg",link:"https://www.instagram.com/the.letter.loom/p/DcI6i7vNh3P/",date:"2026-08-17"},{title:"¡Nos vemos en Toledum! ⚔️🧶",text:`El domingo 28 de junio llevamos #TheLetterLoom al Palacio de Congresos El Greco de Toledo. ¡Ven a probar el juego de letras que te dejará sin palabras!
 📍 Palacio de Congresos El Greco, Toledo
 Espacio Zocodover · Planta -2
 📅 Domingo 28 de junio, de 10:00 - 14:00`,image:"assets/news/news-07.jpg",link:"https://www.instagram.com/the.letter.loom/p/DaAkj3CDe04/",date:"2026-06-25"},{title:"El telar llega a JuegaNess! 🚀 🧶",text:`Tras el exitazo en Fuenlabrada, desplegamos de nuevo #TheLetterLoom.
