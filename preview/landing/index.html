@@ -22,7 +22,7 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="landing.css" />
-    <link rel="stylesheet" href="demo.css?v=51" />
+    <link rel="stylesheet" href="demo.css?v=73" />
   </head>
   <body>
     <div class="landing-shell">
@@ -501,27 +501,26 @@
 
             </div><!-- /rivals-row -->
 
-            <!-- Zona central: mazos encima del tablero -->
+            <!-- Central zone: the 5 shared letters in the middle, the decks
+                 below them, by the dealer (Andrea) -->
             <div class="demo-center-zone">
-              <!-- Tablero central: contiene los mazos y las 5 letras comunes -->
               <div class="demo-center" id="demoSeatBoard">
                 <div class="demo-center-label" id="demoBoardLabel"></div>
-                <!-- Mazos en fila horizontal, dentro del tablero -->
+                <div class="demo-board" id="demoBoardCards"></div>
                 <div class="demo-decks" id="demoDeckArea">
                   <div class="demo-deck-wrap">
-                    <img class="demo-deck-img" id="demoDeckVowels" src="./assets/cards/reversio-vocales.png" alt="Vocales" />
-                    <span class="demo-deck-label">Vocales</span>
+                    <img class="demo-deck-img" id="demoDeckVowels" src="./assets/cards/reversio-vocales.png" alt="" />
+                    <span class="demo-deck-label"></span>
                   </div>
                   <div class="demo-deck-wrap">
-                    <img class="demo-deck-img" id="demoDeckConsonants" src="./assets/cards/reverso-consonantes.png" alt="Consonantes" />
-                    <span class="demo-deck-label">Consonantes</span>
+                    <img class="demo-deck-img" id="demoDeckConsonants" src="./assets/cards/reverso-consonantes.png" alt="" />
+                    <span class="demo-deck-label"></span>
                   </div>
                   <div class="demo-deck-wrap">
-                    <img class="demo-deck-img" id="demoDeckActions" src="./assets/cards/reverso-acciones.png" alt="Acciones" />
-                    <span class="demo-deck-label">Acciones</span>
+                    <img class="demo-deck-img" id="demoDeckActions" src="./assets/cards/reverso-acciones.png" alt="" />
+                    <span class="demo-deck-label"></span>
                   </div>
                 </div>
-                <div class="demo-board" id="demoBoardCards"></div>
               </div>
             </div>
 
@@ -546,13 +545,13 @@
 
           <!-- Controles -->
           <div class="demo-controls">
-            <button class="demo-ctrl-btn" type="button" id="demoBtnPrev" title="Anterior">&#8592;</button>
-            <button class="demo-ctrl-btn demo-ctrl-play" type="button" id="demoBtnPlay" title="Pausa">&#9646;&#9646;</button>
+            <button class="demo-ctrl-btn" type="button" id="demoBtnPrev">&#8592;</button>
+            <button class="demo-ctrl-btn demo-ctrl-play" type="button" id="demoBtnPlay">&#9646;&#9646;</button>
             <div class="demo-timeline" id="demoTimeline">
               <div class="demo-timeline-fill" id="demoTimelineFill"></div>
             </div>
-            <button class="demo-ctrl-btn" type="button" id="demoBtnNext" title="Siguiente">&#8594;</button>
-            <button class="demo-ctrl-btn demo-ctrl-close" type="button" data-demo-close title="Cerrar">&#10005;</button>
+            <button class="demo-ctrl-btn" type="button" id="demoBtnNext">&#8594;</button>
+            <button class="demo-ctrl-btn demo-ctrl-close" type="button" data-demo-close>&#10005;</button>
           </div>
 
           </div><!-- /demo-canvas -->
@@ -563,6 +562,6 @@
 
     <script src="news-data.js"></script>
     <script type="module" src="landing.js"></script>
-    <script type="module" src="demo.js?v=47"></script>
+    <script type="module" src="demo.js?v=73"></script>
   </body>
 </html>
