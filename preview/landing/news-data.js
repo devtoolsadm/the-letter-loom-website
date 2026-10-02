@@ -1,4 +1,9 @@
-const LETTER_LOOM_NEWS=[{title:"¡Salimos de casa! Jornadas Lúdico Solidarias 🧶🃏",text:`Llevamos el prototipo de #TheLetterLoom a las XV Jornadas Lúdico Solidarias de Madrid. Ven a echar una partida, darnos feedback y comprobar quién sobrevive al telar sin quedarse sin palabras. 🔤😈
+const LETTER_LOOM_NEWS=[{title:"¡Nos vamos a SeseñaCon!",text:`Llevamos el prototipo de #TheLetterLoom al V Encuentro de Juegos de Mesa SeseñaCon. Ven a echar una partida, probar tus mejores palabras y descubrir hasta dónde llega tu estrategia cuando empiezan a volar las cartas. 🔤😈
+🧪 Nos encontrarás en la Zona de Prototipos.
+📅 Sábado 3 de octubre
+📍 Parque María Audena · El Quiñón, Seseña
+🕙 10:00–14:00 · 16:00–20:00
+🎁 Grandes sorteos a las 19:30`,image:"assets/news/news-11.jpg",link:"https://www.instagram.com/the.letter.loom/p/Dd687v8taS3/",date:"2026-10-02"},{title:"¡Salimos de casa! Jornadas Lúdico Solidarias 🧶🃏",text:`Llevamos el prototipo de #TheLetterLoom a las XV Jornadas Lúdico Solidarias de Madrid. Ven a echar una partida, darnos feedback y comprobar quién sobrevive al telar sin quedarse sin palabras. 🔤😈
 ⚠️ Solo el viernes 18, de 17:00 a 20:00.
 📍 La Nave · Villaverde, Madrid (C/ Cifuentes, 5)
 🧪 Zona de Prototipos`,image:"assets/news/news-10.jpg",link:"https://www.instagram.com/the.letter.loom/reel/DdZy0OMNG-w/",date:"2026-09-17"},{title:"¡Este sábado nos vemos en Córdoba! 🌟",text:`Pásate por el CEFC y disfruta de #TheLetterLoom en la sección de prototipos. ¡A disfrutar! 🤩
