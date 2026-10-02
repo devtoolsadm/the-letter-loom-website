@@ -21,8 +21,13 @@
       href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&display=swap"
       rel="stylesheet"
     />
+    <script>
+      // Addresses that go straight to the campaign (CAMPAIGN_HASHES in
+      // landing.js): the page is not shown while it sends the visit on
+      if (/^#(evento|event|newsletter)$/.test(location.hash)) document.documentElement.style.visibility = "hidden";
+    </script>
     <link rel="stylesheet" href="landing.css" />
-    <link rel="stylesheet" href="demo.css?v=73" />
+    <link rel="stylesheet" href="demo.css?v=75" />
   </head>
   <body>
     <div class="landing-shell">
@@ -49,7 +54,7 @@
           <button
             type="button"
             class="top-cta hero-btn hero-btn-secondary"
-            data-buy-open
+            data-buy-open="header"
           >
             <span data-i18n="buyCta">Comprar</span>
           </button>
@@ -202,6 +207,7 @@
             <a class="legal-link" href="#privacidad" data-legal-open="privacy">Privacidad</a>
             <a class="legal-link" href="#cookies" data-legal-open="cookies">Cookies</a>
             <a class="legal-link" href="#aviso-legal" data-legal-open="legal">Aviso legal</a>
+            <a class="legal-link" href="#" data-cookie-settings data-i18n="cookieSettings">Configurar cookies</a>
           </nav>
         </div>
       </footer>
@@ -237,35 +243,16 @@
           ×
         </button>
         <div class="buy-modal-icon" aria-hidden="true">
-          <img src="./assets/icon-brake-cart.svg" alt="" />
+          <img src="./assets/icon-gift.svg" alt="" />
         </div>
-        <h2 class="buy-modal-title" id="buyModalTitle" data-i18n="buyModalTitle">
-          Demasiado pronto para sacar la cartera.
-        </h2>
-        <p class="buy-modal-copy" data-i18n="buyModalLine1">
-          The Letter Loom aún está en fase prototipo.
-        </p>
-        <p class="buy-modal-copy buy-modal-copy-last" data-i18n="buyModalLine2">
-          Si quieres, te avisamos cuando haya novedades.
-        </p>
+        <!-- Texts, link and options come from campaign.js, by phase -->
+        <h2 class="buy-modal-title" id="buyModalTitle"></h2>
+        <div class="buy-modal-body" id="buyModalBody"></div>
         <div class="buy-modal-actions">
-          <button
-            type="button"
-            class="buy-modal-cta"
-            data-newsletter-open
-            data-i18n="buyModalCta"
-          >
-            Quiero enterarme
-          </button>
-          <button
-            class="buy-modal-secondary"
-            type="button"
-            data-buy-close
-            data-i18n="buyModalSecondary"
-          >
-            Seguir explorando
-          </button>
+          <a class="buy-modal-cta" id="buyModalPrimary" target="_blank" rel="noopener"></a>
+          <button class="buy-modal-secondary" type="button" id="buyModalSecondary" data-buy-close hidden></button>
         </div>
+        <button class="buy-modal-mailing" type="button" id="buyModalMailing" data-newsletter-open hidden></button>
       </div>
     </section>
 
@@ -297,24 +284,24 @@
             </p>
             <a
               class="app-device-cta"
-              href="../app/?fromInstall=1"
+              href="#"
               data-app-install-link
               data-i18n="appDeviceCta"
             >
               Instalar aquí
             </a>
             <div class="store-badges-modal-inline">
-              <a href="../app/?fromInstall=1" data-app-install-link class="store-badge-modal-link" aria-label="Get it on Google Play">
+              <a href="#" data-app-install-link class="store-badge-modal-link" aria-label="Get it on Google Play">
                 <img src="./assets/store-google.svg" alt="Get it on Google Play" class="store-badge-modal" />
               </a>
-              <a href="../app/?fromInstall=1" data-app-install-link class="store-badge-modal-link" aria-label="Download on the App Store">
+              <a href="#" data-app-install-link class="store-badge-modal-link" aria-label="Download on the App Store">
                 <img src="./assets/store-apple.svg" alt="Download on the App Store" class="store-badge-modal" />
               </a>
             </div>
           </div>
           <a
             class="app-qr-card"
-            href="../app/?fromInstall=1"
+            href="#"
             data-app-install-link
             aria-label="Abrir The Letter Loom en otro dispositivo"
           >
