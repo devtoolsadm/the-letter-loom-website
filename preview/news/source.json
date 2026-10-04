@@ -1,33 +1,6 @@
 {
   "items": [
     {
-      "id": "2026-10-04-the-only-video-from-the-account-that-i-h",
-      "lang": "en",
-      "audience": "all",
-      "status": "draft",
-      "publishAt": "2026-10-04T14:01:06.450Z",
-      "title": "the only video from the account that I hope doesn't go viral 🫰🏻#theletterloom #parati",
-      "text": "blah, blah....",
-      "media": {
-        "type": "video",
-        "url": "https://www.tiktok.com/@theletterloom/video/7691989168838167830",
-        "poster": "img/2026-10-04-the-only-video-from-the-account-that-i-h-mutw2jxn.jpg"
-      },
-      "action": {
-        "kind": "view",
-        "url": "https://www.tiktok.com/@theletterloom/video/7691989168838167830"
-      },
-      "featured": {
-        "repeat": "visit",
-        "until": "2026-10-10T21:59:00.000Z"
-      },
-      "createdAt": "2026-10-04T14:01:05.728Z",
-      "createdBy": "ochandiano@gmail.com",
-      "updatedAt": "2026-10-04T14:01:05.728Z",
-      "updatedBy": "ochandiano@gmail.com",
-      "pair": "2026-10-04-el-unico-video-de-la-cuenta-que-espero-q"
-    },
-    {
       "id": "2026-10-04-el-unico-video-de-la-cuenta-que-espero-q",
       "lang": "es",
       "audience": "all",
@@ -51,8 +24,7 @@
       "createdAt": "2026-10-04T11:02:25.002Z",
       "createdBy": "ochandiano@gmail.com",
       "updatedAt": "2026-10-04T13:59:59.979Z",
-      "updatedBy": "ochandiano@gmail.com",
-      "pair": "2026-10-04-the-only-video-from-the-account-that-i-h"
+      "updatedBy": "ochandiano@gmail.com"
     },
     {
       "id": "2026-10-02-nos-vamos-a-sesenacon",
@@ -287,6 +259,12 @@
     }
   ],
   "log": [
+    {
+      "at": "2026-10-04T14:03:55.428Z",
+      "by": "ochandiano@gmail.com",
+      "action": "delete",
+      "id": "2026-10-04-the-only-video-from-the-account-that-i-h"
+    },
     {
       "at": "2026-10-04T14:01:06.155Z",
       "by": "ochandiano@gmail.com",
