@@ -19,11 +19,12 @@
       },
       "featured": {
         "repeat": "visit",
-        "until": "2026-10-10T21:59:00.000Z"
+        "until": "2026-10-10T21:59:00.000Z",
+        "stopOnAction": true
       },
       "createdAt": "2026-10-04T11:02:25.002Z",
       "createdBy": "ochandiano@gmail.com",
-      "updatedAt": "2026-10-04T13:59:59.979Z",
+      "updatedAt": "2026-10-04T18:21:17.257Z",
       "updatedBy": "ochandiano@gmail.com"
     },
     {
@@ -262,6 +263,12 @@
     }
   ],
   "log": [
+    {
+      "at": "2026-10-04T18:21:17.257Z",
+      "by": "ochandiano@gmail.com",
+      "action": "update",
+      "id": "2026-10-04-el-unico-video-de-la-cuenta-que-espero-q"
+    },
     {
       "at": "2026-10-04T18:20:20.185Z",
       "by": "ochandiano@gmail.com",

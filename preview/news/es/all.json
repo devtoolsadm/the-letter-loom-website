@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-04T18:20:20.185Z",
+  "generatedAt": "2026-10-04T18:21:17.257Z",
   "items": [
     {
       "id": "2026-10-04-el-unico-video-de-la-cuenta-que-espero-q",
@@ -19,7 +19,8 @@
       },
       "featured": {
         "repeat": "visit",
-        "until": "2026-10-10T21:59:00.000Z"
+        "until": "2026-10-10T21:59:00.000Z",
+        "stopOnAction": true
       }
     },
     {
