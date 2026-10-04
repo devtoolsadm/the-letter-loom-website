@@ -1109,16 +1109,9 @@
               <span class="icon-btn-img icon-prev" aria-hidden="true"></span>
             </button>
             <div class="modal-ribbon topbar-title title-primary" id="recordsTitle"></div>
-            <div class="records-top-actions">
-              <!-- Everyone's records: pressed, the screen shows them; pressed again, the player's own -->
-              <button class="icon-btn glossy btn-yellow records-global-toggle" type="button" id="recordsGlobalToggle"
-                data-i18n-label="a11yGlobalRecords" aria-pressed="false">
-                <span class="icon-btn-img icon-global" aria-hidden="true"></span>
-              </button>
-              <button class="icon-btn glossy btn-yellow" type="button" id="recordsSettingsBtn" data-i18n-label="a11ySettings">
-                <span class="icon-btn-img icon-settings" aria-hidden="true"></span>
-              </button>
-            </div>
+            <button class="icon-btn glossy btn-yellow" type="button" id="recordsSettingsBtn" data-i18n-label="a11ySettings">
+              <span class="icon-btn-img icon-settings" aria-hidden="true"></span>
+            </button>
           </div>
           <div class="match-config records-config">
             <div class="scroll-hint-overlay" aria-hidden="true">
@@ -1126,6 +1119,15 @@
               <div class="scroll-hint-chevron scroll-hint-down"></div>
             </div>
             <div class="match-config-scroll records-scroll">
+              <div class="records-scope" id="recordsScope" role="tablist">
+                <span class="records-scope-thumb" aria-hidden="true"></span>
+                <button class="records-scope-btn is-active" type="button" role="tab" aria-selected="true" id="recordsScopeMineBtn">
+                  <span class="records-scope-icon is-mine" aria-hidden="true"></span><span data-i18n="recordsScopeMine"></span>
+                </button>
+                <button class="records-scope-btn" type="button" role="tab" aria-selected="false" id="recordsScopeGlobalBtn">
+                  <span class="records-scope-icon is-global" aria-hidden="true"></span><span data-i18n="recordsScopeGlobal"></span>
+                </button>
+              </div>
               <div class="match-controls match-mode-switch records-tabs" id="recordsTabs">
                 <button class="game-btn ghost active" type="button" id="recordsTabWordsBtn"></button>
                 <button class="game-btn ghost" type="button" id="recordsTabMatchesBtn"></button>
