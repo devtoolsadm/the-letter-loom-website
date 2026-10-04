@@ -169,12 +169,9 @@
         "kind": "view",
         "url": "https://www.instagram.com/the.letter.loom/p/DXTjWmCjSD2/"
       },
-      "featured": {
-        "repeat": "visit"
-      },
       "createdAt": "2026-04-19T07:00:00.000Z",
       "createdBy": "migration",
-      "updatedAt": "2026-10-04T18:20:20.185Z",
+      "updatedAt": "2026-10-04T18:27:55.940Z",
       "updatedBy": "ochandiano@gmail.com"
     },
     {
@@ -263,6 +260,12 @@
     }
   ],
   "log": [
+    {
+      "at": "2026-10-04T18:27:55.940Z",
+      "by": "ochandiano@gmail.com",
+      "action": "update",
+      "id": "2026-04-19-increible-debut-en-el-lobofest"
+    },
     {
       "at": "2026-10-04T18:21:17.257Z",
       "by": "ochandiano@gmail.com",
