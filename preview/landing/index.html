@@ -122,9 +122,10 @@
               <button class="hero-dot" type="button" data-slide-target="3" aria-label="Slide 4"></button>
             </div>
 
-            <aside class="hero-news">
+            <aside class="hero-news" hidden>
               <h2 class="hero-news-title" data-i18n="newsTitle">Últimas noticias</h2>
               <ul class="hero-news-list"></ul>
+              <button class="news-see-all" type="button" id="newsSeeAll" hidden></button>
             </aside>
 
             <div class="hero-bottom">
@@ -228,6 +229,16 @@
           </button>
         </div>
         <div class="legal-drawer-body" id="legalDrawerBody"></div>
+      </div>
+    </section>
+
+    <!-- News: every item, or one (featured, or opened from the panel or by #noticia-<id>) -->
+    <section class="news-modal" id="newsModal" hidden aria-hidden="true">
+      <div class="news-modal-backdrop" data-news-close></div>
+      <div class="news-modal-panel" role="dialog" aria-modal="true" aria-labelledby="newsModalTitle">
+        <button class="news-modal-close" type="button" data-news-close aria-label="Cerrar">×</button>
+        <h2 class="news-modal-title" id="newsModalTitle"></h2>
+        <ul class="news-modal-list" id="newsModalBody"></ul>
       </div>
     </section>
 
@@ -547,7 +558,6 @@
       </div>
     </section>
 
-    <script src="news-data.js"></script>
     <script type="module" src="landing.js"></script>
     <script type="module" src="demo.js?v=73"></script>
   </body>
