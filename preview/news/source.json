@@ -160,10 +160,6 @@
       "publishAt": "2026-04-19T07:00:00.000Z",
       "title": "¡Increíble debut en el LoboFest! 🚀🧶",
       "text": "Gracias a la organización y a todos los jugones que nos acompañasteis. ¡Ha sido una jornada inolvidable de letras, estrategia, piques y mucha diversión! 🐺✨\n¡Nos vemos en la próxima! 👋",
-      "createdAt": "2026-04-19T07:00:00.000Z",
-      "createdBy": "migration",
-      "updatedAt": "2026-10-03T22:43:23.873Z",
-      "updatedBy": "migration",
       "media": {
         "type": "image",
         "src": "img/2026-04-19-increible-debut-en-el-lobofest.jpg"
@@ -171,7 +167,14 @@
       "action": {
         "kind": "view",
         "url": "https://www.instagram.com/the.letter.loom/p/DXTjWmCjSD2/"
-      }
+      },
+      "featured": {
+        "repeat": "visit"
+      },
+      "createdAt": "2026-04-19T07:00:00.000Z",
+      "createdBy": "migration",
+      "updatedAt": "2026-10-04T18:20:20.185Z",
+      "updatedBy": "ochandiano@gmail.com"
     },
     {
       "id": "2026-04-18-de-las-pruebas-con-amigos-al-mundo-real",
@@ -259,6 +262,12 @@
     }
   ],
   "log": [
+    {
+      "at": "2026-10-04T18:20:20.185Z",
+      "by": "ochandiano@gmail.com",
+      "action": "update",
+      "id": "2026-04-19-increible-debut-en-el-lobofest"
+    },
     {
       "at": "2026-10-04T14:03:55.428Z",
       "by": "ochandiano@gmail.com",
