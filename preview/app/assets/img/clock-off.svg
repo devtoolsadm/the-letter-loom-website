@@ -1,0 +1,32 @@
+<?xml version="1.0" ?>
+<svg width="120px" height="120px" viewBox="0 0 120 120" version="1.1" xmlns="http://www.w3.org/2000/svg">
+<style type="text/css">
+	.c0{fill:#4A90D9;}
+	.c1{fill:#2F6DA8;}
+	.c2{fill:#FFF4D6;}
+	.c3{fill:#1F4C73;}
+	.c4{fill:#2F6DA8;}
+</style>
+<g transform="translate(60 62) scale(0.72) translate(-60 -62)" opacity="0.55">
+<!-- No clock on this one.
+     A no-entry sign rather than a line through the face: the ring encloses the
+     clock instead of covering it, so both symbols stay readable at 48px. The
+     clock is scaled down and faded to sit inside without crowding the ring. -->
+<circle class="c1" cx="60" cy="64" r="44"/>
+<circle class="c0" cx="60" cy="62" r="44"/>
+<circle class="c2" cx="60" cy="62" r="34"/>
+<rect class="c1" x="52" y="10" width="16" height="10" rx="3"/>
+<rect class="c0" x="50" y="6" width="20" height="8" rx="4"/>
+<rect class="c1" x="26" y="98" width="14" height="12" rx="4" transform="rotate(-20 33 104)"/>
+<rect class="c1" x="80" y="98" width="14" height="12" rx="4" transform="rotate(20 87 104)"/>
+<rect class="c3" x="57.5" y="36" width="5" height="28" rx="2.5"/>
+<rect class="c3" x="57.5" y="58" width="5" height="22" rx="2.5" transform="rotate(-60 60 62)"/>
+<circle class="c3" cx="60" cy="62" r="4.5"/>
+</g>
+<!-- No-entry sign around the clock: the ring encloses rather than covers, so
+     the clock is still legible underneath. -->
+<circle cx="60" cy="62" r="46" fill="none" stroke="#FFF4D6" stroke-width="16"/>
+<circle cx="60" cy="62" r="46" fill="none" stroke="#C0392B" stroke-width="10"/>
+<rect x="12" y="55" width="96" height="16" rx="8" fill="#FFF4D6" transform="rotate(-45 60 62)"/>
+<rect x="15" y="57" width="90" height="10" rx="5" fill="#C0392B" transform="rotate(-45 60 62)"/>
+</svg>
