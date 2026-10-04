@@ -4,7 +4,7 @@
       "id": "2026-10-04-el-unico-video-de-la-cuenta-que-espero-q",
       "lang": "es",
       "audience": "all",
-      "status": "draft",
+      "status": "published",
       "publishAt": "2026-10-04T11:02:25.332Z",
       "title": "el único vídeo de la cuenta que espero que no se haga viral 🫰🏻#theletterloom #parati",
       "text": "blah, blah....",
@@ -18,12 +18,12 @@
         "url": "https://www.tiktok.com/@theletterloom/video/7691989168838167830"
       },
       "featured": {
-        "until": "2026-10-10T21:59:00.000Z",
-        "repeat": "visit"
+        "repeat": "visit",
+        "until": "2026-10-10T21:59:00.000Z"
       },
       "createdAt": "2026-10-04T11:02:25.002Z",
       "createdBy": "ochandiano@gmail.com",
-      "updatedAt": "2026-10-04T11:02:25.002Z",
+      "updatedAt": "2026-10-04T13:59:59.979Z",
       "updatedBy": "ochandiano@gmail.com"
     },
     {
@@ -259,6 +259,12 @@
     }
   ],
   "log": [
+    {
+      "at": "2026-10-04T13:59:59.979Z",
+      "by": "ochandiano@gmail.com",
+      "action": "update",
+      "id": "2026-10-04-el-unico-video-de-la-cuenta-que-espero-q"
+    },
     {
       "at": "2026-10-04T11:12:04.409Z",
       "by": "restore",
