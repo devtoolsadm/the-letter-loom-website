@@ -1123,6 +1123,7 @@
                 <button class="game-btn ghost active" type="button" id="recordsTabWordsBtn"></button>
                 <button class="game-btn ghost" type="button" id="recordsTabMatchesBtn"></button>
               </div>
+              <button class="game-btn btn-blue records-global-btn" type="button" id="recordsGlobalBtn" data-i18n="leaderboardOpen"></button>
               <div class="match-section records-section">
                 <div class="records-block-pill" id="recordsWordPill"></div>
                 <div class="records-list" id="recordsWordList"></div>
@@ -1385,6 +1386,18 @@
           <div class="modal-content news-content">
             <div class="news-admin-bar hidden" id="newsAdminBar"></div>
             <div class="news-body" id="newsBody"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-overlay" data-modal="leaderboard" data-closable="1">
+      <div class="frame-panel">
+        <div class="modal-stitch"></div>
+        <div class="modal-ribbon"><span class="title-primary" id="leaderboardTitle"></span></div>
+        <button class="modal-close" data-modal-close="leaderboard" data-i18n-label="a11yClose"></button>
+        <div class="modal-canvas">
+          <div class="modal-content leaderboard-content">
+            <div class="leaderboard-body" id="leaderboardBody"></div>
           </div>
         </div>
       </div>
