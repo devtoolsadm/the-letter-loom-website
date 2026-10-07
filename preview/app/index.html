@@ -1040,43 +1040,27 @@
               <span class="icon-btn-img icon-settings" aria-hidden="true"></span>
             </button>
           </div>
-          <div class="match-config scoreboard-config">
-            <div class="match-config-scroll scoreboard-scroll">
-              <div class="match-section scoreboard-section">
-                <div class="scoreboard-meta-row" id="scoreboardMetaRow">
-                  <div class="scoreboard-edit-hint" id="scoreboardEditHint"></div>
-                  <button class="share-icon-btn scoreboard-share-btn hidden" type="button"
-                    id="scoreboardShareBtn" data-i18n-label="a11yShare">
-                    <img class="share-icon-img" alt="" />
-                  </button>
-                </div>
-                <div class="scoreboard-table-shell" id="scoreboardTableShell">
-                  <div class="scoreboard-table-corner" id="scoreboardTableCorner"></div>
-                  <div class="scoreboard-table-header" id="scoreboardTableHeader">
-                    <div class="scoreboard-table-header-row" id="scoreboardTableHeaderRow"></div>
-                  </div>
-                  <div class="scoreboard-table-left" id="scoreboardTableLeft">
-                    <div class="scoreboard-table-left-col" id="scoreboardTableLeftCol"></div>
-                  </div>
-                  <div class="scoreboard-table-wrap" id="scoreboardTableWrap">
-                    <div class="scoreboard-table" id="scoreboardTable"></div>
-                  </div>
-                </div>
+          <div class="match-config scoreboard-config" id="scoreboardFrame">
+            <div class="scoreboard-meta-row" id="scoreboardMetaRow">
+              <div class="scoreboard-edit-hint" id="scoreboardEditHint"></div>
+              <button class="share-icon-btn scoreboard-share-btn hidden" type="button"
+                id="scoreboardShareBtn" data-i18n-label="a11yShare">
+                <img class="share-icon-img" alt="" />
+              </button>
+            </div>
+            <!-- One column per player, as the training scoreboard: the heads
+                 stay put, the tricks and the standings scroll below them -->
+            <div class="tsb-grid scoreboard-heads" id="scoreboardHeads"></div>
+            <div class="scoreboard-scroll" id="scoreboardScroll">
+              <div class="scoreboard-body" id="scoreboardBody"></div>
+            </div>
+            <div class="match-actions scoreboard-actions" id="scoreboardActions">
+              <div class="scoreboard-note hidden" id="scoreboardNote"></div>
+              <div class="scoreboard-action-buttons hidden" id="scoreboardActionButtons">
+                <button class="game-btn ghost" type="button" id="scoreboardCancelBtn"></button>
+                <button class="game-btn primary" type="button" id="scoreboardSaveBtn"></button>
               </div>
             </div>
-            <div class="scroll-hint-overlay scoreboard-hints" id="scoreboardHints" aria-hidden="true">
-              <div class="scroll-hint-chevron scroll-hint-up"></div>
-              <div class="scroll-hint-chevron scroll-hint-down"></div>
-              <div class="scroll-hint-chevron scroll-hint-left"></div>
-              <div class="scroll-hint-chevron scroll-hint-right"></div>
-          </div>
-          <div class="match-actions scoreboard-actions" id="scoreboardActions">
-            <div class="scoreboard-note hidden" id="scoreboardNote"></div>
-            <div class="scoreboard-action-buttons hidden" id="scoreboardActionButtons">
-              <button class="game-btn ghost" type="button" id="scoreboardCancelBtn"></button>
-              <button class="game-btn primary" type="button" id="scoreboardSaveBtn"></button>
-            </div>
-          </div>
           </div>
           <div class="round-end-keypad hidden scoreboard-keypad" id="scoreboardKeypad" aria-hidden="true">
             <div class="round-end-keypad-panel">
